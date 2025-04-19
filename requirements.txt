@@ -42,10 +42,10 @@ user-agents # Uncomment if using user-agents library for parsing
 # numpy
 
 # Optional: For specific RAG tasks discussed
-# beautifulsoup4 # If scraping corpus for Markov
+beautifulsoup4 # If scraping corpus for Markov
 # nltk # If using word lists
-# transformers # If using Hugging Face models locally
-# datasets # If loading Hugging Face datasets
+transformers # If using Hugging Face models locally
+datasets # If loading Hugging Face datasets
 # tensorflow # If using TensorFlow-based models
-# dnspython # For MX record lookups
+dnspython # For MX record lookups
 # slack_sdk # If implementing Slack alerts
