@@ -56,7 +56,7 @@ METRIC_WEBHOOK_ERRORS = "webhook_errors_request" # Or more specific errors
 METRIC_LLM_ERRORS = "local_llm_errors_unexpected" # Or more specific errors
 
 # Tarpit Metrics
-METRIC_TAR PIT_HITS = "tarpit_hits"
+METRIC_TARPIT_HITS = "tarpit_hits"
 METRIC_IP_FLAGGED = "tarpit_ips_flagged"
 
 # Other potential metrics
