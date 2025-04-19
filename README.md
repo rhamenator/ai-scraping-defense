@@ -17,6 +17,8 @@ This system combats scraping by unauthorized AI bots targeting FOSS or documenta
 
 ## Getting Started
 
+### See [`docs/getting_started.md`](docs/getting_started.md) for detailed instructions.
+
 ### Prerequisites
 
 - Docker
@@ -26,7 +28,7 @@ This system combats scraping by unauthorized AI bots targeting FOSS or documenta
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/yourusername/ai-scraping-defense.git](https://github.com/yourusername/ai-scraping-defense.git)
+    git clone [https://github.com/rhamenator/ai-scraping-defense.git](https://github.com/rhamenator/ai-scraping-defense.git)
     cd ai-scraping-defense
     ```
 2.  **Configure Environment (Optional):**
