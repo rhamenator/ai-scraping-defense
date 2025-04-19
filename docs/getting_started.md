@@ -15,7 +15,7 @@ Ensure you have the following installed on your system:
 ## **2\. Setup & Configuration**
 
 1. **Clone the Repository:**  
-   git clone <https://github.com/yourusername/ai-scraping-defense.git> \# Replace with your actual repo URL  
+   git clone <https://github.com/rhamenator/ai-scraping-defense.git>
    cd ai-scraping-defense
 
 2. Create Configuration Directories:  
