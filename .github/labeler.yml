@@ -1,0 +1,41 @@
+# .github/labeler.yml
+
+# Add 'documentation' label to any PR modifying files in the 'docs/' directory
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: ['docs/**']
+
+# Add 'tarpit' label for changes in the tarpit service
+tarpit:
+  - changed-files:
+      - any-glob-to-any-file: ['tarpit/**']
+
+# Add 'escalation' label for changes in the escalation engine
+escalation:
+  - changed-files:
+      - any-glob-to-any-file: ['escalation/**']
+
+# Add 'ui' label for changes in the admin UI
+ui:
+  - changed-files:
+      - any-glob-to-any-file: ['admin_ui/**']
+
+# Add 'ai/rag' label for changes related to AI/LLM components
+ai/rag:
+  - changed-files:
+      - any-glob-to-any-file: ['rag/**', 'ai_service/**']
+
+# Add 'nginx' label for changes to NGINX or Lua configs
+nginx:
+  - changed-files:
+      - any-glob-to-any-file: ['nginx/**']
+
+# Add 'configuration' label for changes to core configs like Dockerfiles or docker-compose
+configuration:
+  - changed-files:
+      - any-glob-to-any-file: ['Dockerfile', 'docker-compose.yml', '*.txt', '*.sh']
+
+# Add 'github_actions' label for changes to workflows or templates
+github_actions:
+  - changed-files:
+      - any-glob-to-any-file: ['.github/**']

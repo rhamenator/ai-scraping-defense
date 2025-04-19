@@ -1,0 +1,79 @@
+# mkdocs.yml (Place in project root)
+
+site_name: AI Scraping Defense Stack
+# Optional: Replace with your GitHub Pages URL if using a custom domain or project page
+# site_url: https://yourusername.github.io/ai-scraping-defense/
+
+theme:
+  name: material # Using the popular Material for MkDocs theme
+  features:
+    # - navigation.tabs # Uncomment for tabs navigation
+    - navigation.sections # Group pages into sections in the sidebar
+    - navigation.expand # Automatically expand sections
+    - toc.integrate # Show page table of contents in sidebar
+    - search.suggest # Enable search suggestions
+    - search.highlight
+    - content.code.annotate # Allow code annotations
+    - content.code.copy # Add copy button to code blocks
+  palette: # Example theme colors (customizable)
+    # Palette toggle for light/dark mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font: # Optional: Customize fonts
+    text: Roboto
+    code: Roboto Mono
+
+# Navigation Structure (relative paths from project root)
+# Ensure these markdown files exist at the specified paths
+nav:
+  - Home: index.md # This should point to your main README.md
+  - User Guide:
+    - Overview: docs/index.md # The landing page specifically for docs
+    - Architecture: docs/architecture.md
+    - API Reference: docs/api_reference.md
+  - Microservices:
+    - Tarpit Service: tarpit/README.md
+    # Add READMEs for other services (escalation, admin_ui) here if they exist
+  - Contributing:
+    - How to Contribute: CONTRIBUTING.md
+    - Code of Conduct: docs/code_of_conduct.md # We'll create this next
+    - Changelog: CHANGELOG.md
+  - Legal & Compliance:
+    - License: LICENSE # Link to the raw license file
+    - License Summary: LICENSE.md
+    # - Third-Party Licenses: third_party_licenses.md # Uncomment if using this file
+    - Security Policy: SECURITY.md
+    - Privacy Policy: docs/privacy_policy.md
+    - Compliance Checklist: docs/legal_compliance.md
+
+# Optional MkDocs Plugins (Install separately: pip install mkdocs-...)
+# plugins:
+#   - search # Built-in search
+
+# Optional: Add extra CSS or JS
+# extra_css:
+#   - stylesheets/extra.css
+# extra_javascript:
+#   - javascripts/extra.js
+
+# Copyright notice in footer
+copyright: Copyright &copy; 2024 Your Name / Project Name Here - Licensed under GPL-3.0
+
+# Repository link shown in header
+repo_url: https://github.com/yourusername/ai-scraping-defense/ # Replace with your repo URL
+repo_name: ai-scraping-defense
+
+# Edit link (points users to GitHub source for the current page)
+edit_uri: edit/main/

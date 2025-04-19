@@ -1,0 +1,243 @@
+# docker-compose.yml
+version: "3.8"
+
+services:
+  # NGINX Reverse Proxy + Lua Detection + Lua Blocklist Check
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nginx_proxy
+    ports:
+      - "80:80"
+      # - "443:443" # For HTTPS
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/lua:/etc/nginx/lua:ro
+      - ./docs:/var/www/html/docs:ro
+      - ./archives:/var/www/html/docs/archives:ro # Read-only for NGINX
+      - ./logs/nginx:/var/log/nginx
+      # - ./certs:/etc/nginx/certs:ro # For HTTPS certs
+    depends_on:
+      - tarpit_api
+      - escalation_engine
+      - admin_ui
+      - redis
+      - archive_rotator
+    networks:
+      - defense_network
+    deploy: # Added resource limits
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: '256M'
+    restart: unless-stopped
+
+  # Tarpit API (FastAPI)
+  tarpit_api:
+    build:
+      context: . # Assumes root Dockerfile installs Python & base reqs
+      # Optional: Add './tarpit/Dockerfile' if specific build steps needed
+    image: defense_stack_py_base # Use a common base or name the image from root build
+    container_name: tarpit_api
+    working_dir: /app # Set working directory
+    expose:
+      - "8001"
+    volumes:
+      - ./tarpit:/app/tarpit
+      - ./shared:/app/shared
+      - ./logs:/app/logs
+      - ./archives:/app/fake_archives # Needs write access if generator runs here? Revisit based on final generator logic.
+    depends_on:
+      - escalation_engine
+      - redis
+    environment:
+      - PYTHONPATH=/app # Helps find shared module
+      - ESCALATION_ENDPOINT=http://escalation_engine:8003/escalate
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB_TAR PIT=1 # DB for tarpit flags
+      - TAR PIT_FLAG_TTL=300
+    networks:
+      - defense_network
+    deploy: # Added resource limits
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: '512M'
+    restart: unless-stopped
+    command: ["uvicorn", "tarpit.tarpit_api:app", "--host", "0.0.0.0", "--port", "8001"]
+
+  # Archive Rotator Service
+  archive_rotator:
+    build:
+      context: . # Reuse root build context
+    image: defense_stack_py_base # Use the same base image
+    container_name: archive_rotator
+    working_dir: /app # Set working directory
+    volumes:
+      - ./tarpit:/app/tarpit # Mount tarpit code (where scripts live)
+      - ./shared:/app/shared # If needed
+      - ./archives:/app/fake_archives # Needs WRITE access
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      - redis # In case generator/rotator uses it
+    networks:
+      - defense_network
+    deploy: # Added resource limits
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: '128M'
+    restart: unless-stopped
+    command: ["python", "tarpit/rotating_archive.py"]
+
+  # Escalation Engine (FastAPI)
+  escalation_engine:
+    build:
+      context: . # Reuse root build context
+    image: defense_stack_py_base
+    container_name: escalation_engine
+    working_dir: /app
+    expose:
+      - "8003"
+    volumes:
+      - ./escalation:/app/escalation
+      - ./shared:/app/shared
+      - ./metrics.py:/app/metrics.py:ro # Mount directly
+      - ./logs:/app/logs
+      - ./models:/app/models:ro # Mount trained RF model
+      - ./config:/app/config:ro # Mount robots.txt etc.
+    environment:
+      - PYTHONPATH=/app
+      # --- Required Config ---
+      - ESCALATION_WEBHOOK_URL=http://ai_service:8000/analyze
+      # --- Optional LLM/API Config (from .env) ---
+      - LOCAL_LLM_API_URL=${LOCAL_LLM_API_URL:-} # Provide default empty or example
+      - LOCAL_LLM_MODEL=${LOCAL_LLM_MODEL:-}
+      - LOCAL_LLM_TIMEOUT=${LOCAL_LLM_TIMEOUT:-45.0}
+      - EXTERNAL_CLASSIFICATION_API_URL=${EXTERNAL_CLASSIFICATION_API_URL:-}
+      - EXTERNAL_CLASSIFICATION_API_KEY=${EXTERNAL_CLASSIFICATION_API_KEY:-} # Use secrets
+      - EXTERNAL_API_TIMEOUT=${EXTERNAL_API_TIMEOUT:-15.0}
+      # --- Redis Config ---
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB_FREQUENCY=3
+      # --- File Path Config ---
+      - TRAINING_ROBOTS_TXT_PATH=/app/config/robots.txt # Path inside container
+      - TRAINING_MODEL_SAVE_PATH=/app/models/bot_detection_rf_model.joblib # Path inside container
+    depends_on:
+      - ai_service
+      - redis
+    networks:
+      - defense_network
+    deploy: # Added resource limits
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: '1G' # May need more if loading large models/data
+    restart: unless-stopped
+    command: ["uvicorn", "escalation.escalation_engine:app", "--host", "0.0.0.0", "--port", "8003"]
+
+  # Admin UI (Flask)
+  admin_ui:
+    build:
+      context: . # Reuse root build context
+    image: defense_stack_py_base
+    container_name: admin_ui
+    working_dir: /app
+    expose:
+      - "5002"
+    volumes:
+      - ./admin_ui:/app/admin_ui
+      - ./shared:/app/shared
+      - ./metrics.py:/app/metrics.py:ro # Mount directly
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+    networks:
+      - defense_network
+    deploy: # Added resource limits
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: '256M'
+    restart: unless-stopped
+    command: ["python", "admin_ui/admin_ui.py"]
+
+  # AI Service (FastAPI) - Webhook Receiver
+  ai_service:
+    build:
+      context: . # Reuse root build context
+    image: defense_stack_py_base
+    container_name: ai_service
+    working_dir: /app
+    expose:
+      - "8000" # Internal port for webhook
+    environment:
+      - PYTHONPATH=/app
+      # Redis Blocklist Config
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB_BLOCKLIST=2
+      # Alerting Config (from .env)
+      - ALERT_METHOD=${ALERT_METHOD:-none}
+      - ALERT_GENERIC_WEBHOOK_URL=${ALERT_GENERIC_WEBHOOK_URL:-}
+      - ALERT_SLACK_WEBHOOK_URL=${ALERT_SLACK_WEBHOOK_URL:-}
+      - ALERT_SMTP_HOST=${ALERT_SMTP_HOST:-}
+      - ALERT_SMTP_PORT=${ALERT_SMTP_PORT:-587}
+      - ALERT_SMTP_USE_TLS=${ALERT_SMTP_USE_TLS:-true}
+      - ALERT_EMAIL_FROM=${ALERT_EMAIL_FROM:-}
+      - ALERT_EMAIL_TO=${ALERT_EMAIL_TO:-}
+      - ALERT_SMTP_USER=${ALERT_SMTP_USER:-}
+      - ALERT_SMTP_PASSWORD_FILE=${ALERT_SMTP_PASSWORD_FILE:-/run/secrets/smtp_password} # Path to secret file
+      - ALERT_MIN_REASON_SEVERITY=${ALERT_MIN_REASON_SEVERITY:-Local LLM}
+    volumes:
+      - ./ai_service:/app/ai_service
+      - ./shared:/app/shared
+      - ./logs:/app/logs # For block/alert/error logs
+    secrets: # Grant access to the secret if defined below
+      - smtp_password
+    depends_on:
+      - redis # Needed for blocklisting
+    networks:
+      - defense_network
+    deploy: # Added resource limits
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: '512M'
+    restart: unless-stopped
+    command: ["uvicorn", "ai_service.ai_webhook:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  # Redis Service
+  redis:
+    image: redis:7-alpine
+    container_name: redis_store
+    volumes:
+      - redis_data:/data
+    networks:
+      - defense_network
+    deploy: # Added resource limits
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: '512M' # Adjust based on expected data size
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning # Example args
+
+# Define the network
+networks:
+  defense_network:
+    driver: bridge
+
+# Define persistent volumes
+volumes:
+ redis_data:
+
+# Define secrets (read from host file)
+secrets:
+  smtp_password: # Name used by services
+    file: ./secrets/smtp_password.txt # Path to file on HOST containing the password

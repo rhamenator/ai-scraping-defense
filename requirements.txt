@@ -1,0 +1,51 @@
+
+# Flask and FastAPI for web frameworks
+
+asyncio # For async support in FastAPI
+
+# Core web frameworks
+flask
+fastapi
+uvicorn
+
+# HTTP requests
+requests
+httpx # For FastAPI async requests
+
+# Data processing & utilities
+pydantic # For FastAPI data validation
+pandas # Added for data handling in training script
+joblib # Added for saving ML models
+
+# Text generation / NLP (optional, used by Markov generator)
+markovify
+
+# Template engine for Flask admin UI
+jinja2
+
+# Scheduling library (for archive rotator)
+schedule
+
+# Redis client (for IP flagging/blocklisting)
+redis
+
+# Machine Learning (for training script)
+scikit-learn # Added for ML model training/evaluation
+
+# Optional: User-Agent Parsing
+user-agents # Uncomment if using user-agents library for parsing
+
+# Optional: For local LLM testing (if integrating directly)
+# llama-cpp-python
+# sentence-transformers
+# torch
+# numpy
+
+# Optional: For specific RAG tasks discussed
+# beautifulsoup4 # If scraping corpus for Markov
+# nltk # If using word lists
+# transformers # If using Hugging Face models locally
+# datasets # If loading Hugging Face datasets
+# tensorflow # If using TensorFlow-based models
+# dnspython # For MX record lookups
+# slack_sdk # If implementing Slack alerts
