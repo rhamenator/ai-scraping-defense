@@ -31,11 +31,11 @@ This document provides a high-level overview of how the components in the AI Scr
    +---------------------------------+     | - Calls Escalation Eng.    |---+ [POST Metadata]
                                            | - Logs Honeypot Hit        |   |
                                            | - Flags IP in Redis DB(1)  |   |
-                                           +-----------+----------------+   |
+                                           +-------+--------------------+   |
                                                    |                        |
                                                 [Log Hit]                   |
                                                    v                        v
-+--------------------------------+   +-----------+-------------+   +--------------------+
++--------------------------------+   +-------------+-----------+   +--------------------+
 | AI Service (FastAPI)           |   | Escalation Engine       |   | Log Files          |
 | - Receives Webhook (/analyze)  |<--| (FastAPI)               |   | ./logs/            |
 | - Adds IP to Redis Blocklist(2)|   | - Heuristics + RF Model |-->| - honeypot_hits    |
