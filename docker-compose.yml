@@ -1,4 +1,5 @@
 # docker-compose.yml
+# AI Scraping Defense Stack Orchestration
 version: "3.8"
 
 services:
@@ -6,18 +7,25 @@ services:
   nginx:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile # Assumes a Dockerfile in the root context
     container_name: nginx_proxy
     ports:
       - "80:80"
-      # - "443:443" # For HTTPS
+      - "443:443" # IMPORTANT: Map port 443 for HTTPS
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/lua:/etc/nginx/lua:ro
       - ./docs:/var/www/html/docs:ro
-      - ./archives:/var/www/html/docs/archives:ro # Read-only for NGINX
+      - ./archives:/var/www/html/docs/archives:ro
       - ./logs/nginx:/var/log/nginx
-      # - ./certs:/etc/nginx/certs:ro # For HTTPS certs
+      # Mount custom error pages directory
+      - ./nginx/errors:/var/www/html/errors:ro
+      # Mount certificates for HTTPS (IMPORTANT FOR PRODUCTION)
+      # Create this directory and place your certs here (e.g., using Certbot)
+      - ./certs:/etc/nginx/certs:ro
+      # Mount Diffie-Hellman parameters (IMPORTANT FOR PRODUCTION)
+      # Create using: openssl dhparam -out ./certs/dhparam.pem 4096
+      - ./certs/dhparam.pem:/etc/nginx/dhparam.pem:ro
     depends_on:
       - tarpit_api
       - escalation_engine
@@ -26,70 +34,76 @@ services:
       - archive_rotator
     networks:
       - defense_network
-    deploy: # Added resource limits
+    # Resource limits (adjust based on monitoring)
+    deploy:
       resources:
         limits:
           cpus: '0.50'
           memory: '256M'
     restart: unless-stopped
+    # Healthcheck (Optional - checks if Nginx process is running)
+    healthcheck:
+        test: ["CMD-SHELL", "service nginx status || exit 1"]
+        interval: 30s
+        timeout: 10s
+        retries: 3
 
   # Tarpit API (FastAPI)
   tarpit_api:
     build:
-      context: . # Assumes root Dockerfile installs Python & base reqs
-      # Optional: Add './tarpit/Dockerfile' if specific build steps needed
-    image: defense_stack_py_base # Use a common base or name the image from root build
+      context: .
+    image: defense_stack_py_base # Define a common base image in your root Dockerfile
     container_name: tarpit_api
-    working_dir: /app # Set working directory
+    working_dir: /app
     expose:
       - "8001"
     volumes:
       - ./tarpit:/app/tarpit
       - ./shared:/app/shared
       - ./logs:/app/logs
-      - ./archives:/app/fake_archives # Needs write access if generator runs here? Revisit based on final generator logic.
+      - ./archives:/app/fake_archives # Tarpit generator might write here? Ensure permissions.
     depends_on:
       - escalation_engine
       - redis
     environment:
-      - PYTHONPATH=/app # Helps find shared module
+      - PYTHONPATH=/app
       - ESCALATION_ENDPOINT=http://escalation_engine:8003/escalate
+      # Redis config for ip_flagger
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB_TAR PIT=1 # DB for tarpit flags
-      - TAR PIT_FLAG_TTL=300
+      - TAR PIT_FLAG_TTL=300 # 5 minutes TTL for tarpit flag
     networks:
       - defense_network
-    deploy: # Added resource limits
+    deploy:
       resources:
         limits:
           cpus: '0.75'
           memory: '512M'
     restart: unless-stopped
-    command: ["uvicorn", "tarpit.tarpit_api:app", "--host", "0.0.0.0", "--port", "8001"]
+    command: ["uvicorn", "tarpit.tarpit_api:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "2"] # Example: Use 2 workers
 
   # Archive Rotator Service
   archive_rotator:
     build:
-      context: . # Reuse root build context
-    image: defense_stack_py_base # Use the same base image
+      context: .
+    image: defense_stack_py_base
     container_name: archive_rotator
-    working_dir: /app # Set working directory
+    working_dir: /app
     volumes:
       - ./tarpit:/app/tarpit # Mount tarpit code (where scripts live)
-      - ./shared:/app/shared # If needed
-      - ./archives:/app/fake_archives # Needs WRITE access
+      - ./shared:/app/shared
+      - ./archives:/app/fake_archives # Needs WRITE access to generate/delete archives
       - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
-    depends_on:
-      - redis # In case generator/rotator uses it
+    # depends_on: # No direct dependency needed unless it uses Redis/DB
     networks:
       - defense_network
-    deploy: # Added resource limits
+    deploy:
       resources:
         limits:
-          cpus: '0.25'
+          cpus: '0.25' # Low resource needs
           memory: '128M'
     restart: unless-stopped
     command: ["python", "tarpit/rotating_archive.py"]
@@ -97,7 +111,7 @@ services:
   # Escalation Engine (FastAPI)
   escalation_engine:
     build:
-      context: . # Reuse root build context
+      context: .
     image: defense_stack_py_base
     container_name: escalation_engine
     working_dir: /app
@@ -106,45 +120,49 @@ services:
     volumes:
       - ./escalation:/app/escalation
       - ./shared:/app/shared
-      - ./metrics.py:/app/metrics.py:ro # Mount directly
+      - ./metrics.py:/app/metrics.py:ro
       - ./logs:/app/logs
-      - ./models:/app/models:ro # Mount trained RF model
-      - ./config:/app/config:ro # Mount robots.txt etc.
+      - ./models:/app/models:ro # Mount trained RF model (read-only)
+      - ./config:/app/config:ro # Mount robots.txt etc. (read-only)
     environment:
       - PYTHONPATH=/app
       # --- Required Config ---
       - ESCALATION_WEBHOOK_URL=http://ai_service:8000/analyze
-      # --- Optional LLM/API Config (from .env) ---
-      - LOCAL_LLM_API_URL=${LOCAL_LLM_API_URL:-} # Provide default empty or example
+      # --- Optional LLM/API Config (read from .env file in root context) ---
+      # Defaults are empty strings if not set in .env
+      - LOCAL_LLM_API_URL=${LOCAL_LLM_API_URL:-}
       - LOCAL_LLM_MODEL=${LOCAL_LLM_MODEL:-}
       - LOCAL_LLM_TIMEOUT=${LOCAL_LLM_TIMEOUT:-45.0}
       - EXTERNAL_CLASSIFICATION_API_URL=${EXTERNAL_CLASSIFICATION_API_URL:-}
-      - EXTERNAL_CLASSIFICATION_API_KEY=${EXTERNAL_CLASSIFICATION_API_KEY:-} # Use secrets
       - EXTERNAL_API_TIMEOUT=${EXTERNAL_API_TIMEOUT:-15.0}
+      # --- IMPORTANT: Use Docker secrets for API keys in production ---
+      - EXTERNAL_CLASSIFICATION_API_KEY_FILE=${EXTERNAL_CLASSIFICATION_API_KEY_FILE:-/run/secrets/external_api_key}
       # --- Redis Config ---
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB_FREQUENCY=3
-      # --- File Path Config ---
-      - TRAINING_ROBOTS_TXT_PATH=/app/config/robots.txt # Path inside container
-      - TRAINING_MODEL_SAVE_PATH=/app/models/bot_detection_rf_model.joblib # Path inside container
+      # --- File Path Config (Paths inside container) ---
+      - TRAINING_ROBOTS_TXT_PATH=/app/config/robots.txt
+      - TRAINING_MODEL_SAVE_PATH=/app/models/bot_detection_rf_model.joblib
+    secrets: # Grant access to secrets if defined below
+      - external_api_key
     depends_on:
       - ai_service
       - redis
     networks:
       - defense_network
-    deploy: # Added resource limits
+    deploy:
       resources:
         limits:
           cpus: '1.0'
-          memory: '1G' # May need more if loading large models/data
+          memory: '1G' # May need more if loading large models/data in memory
     restart: unless-stopped
-    command: ["uvicorn", "escalation.escalation_engine:app", "--host", "0.0.0.0", "--port", "8003"]
+    command: ["uvicorn", "escalation.escalation_engine:app", "--host", "0.0.0.0", "--port", "8003", "--workers", "2"] # Example: Use 2 workers
 
   # Admin UI (Flask)
   admin_ui:
     build:
-      context: . # Reuse root build context
+      context: .
     image: defense_stack_py_base
     container_name: admin_ui
     working_dir: /app
@@ -153,13 +171,15 @@ services:
     volumes:
       - ./admin_ui:/app/admin_ui
       - ./shared:/app/shared
-      - ./metrics.py:/app/metrics.py:ro # Mount directly
+      - ./metrics.py:/app/metrics.py:ro
       - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
+      # Optional: Set FLASK_ENV=production for Flask production mode
+      - FLASK_ENV=${FLASK_ENV:-development}
     networks:
       - defense_network
-    deploy: # Added resource limits
+    deploy:
       resources:
         limits:
           cpus: '0.25'
@@ -167,10 +187,10 @@ services:
     restart: unless-stopped
     command: ["python", "admin_ui/admin_ui.py"]
 
-  # AI Service (FastAPI) - Webhook Receiver
+  # AI Service (FastAPI) - Webhook Receiver / Blocklist Manager / Alerter
   ai_service:
     build:
-      context: . # Reuse root build context
+      context: .
     image: defense_stack_py_base
     container_name: ai_service
     working_dir: /app
@@ -182,7 +202,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB_BLOCKLIST=2
-      # Alerting Config (from .env)
+      # Alerting Config (read from .env file in root context)
       - ALERT_METHOD=${ALERT_METHOD:-none}
       - ALERT_GENERIC_WEBHOOK_URL=${ALERT_GENERIC_WEBHOOK_URL:-}
       - ALERT_SLACK_WEBHOOK_URL=${ALERT_SLACK_WEBHOOK_URL:-}
@@ -192,25 +212,26 @@ services:
       - ALERT_EMAIL_FROM=${ALERT_EMAIL_FROM:-}
       - ALERT_EMAIL_TO=${ALERT_EMAIL_TO:-}
       - ALERT_SMTP_USER=${ALERT_SMTP_USER:-}
-      - ALERT_SMTP_PASSWORD_FILE=${ALERT_SMTP_PASSWORD_FILE:-/run/secrets/smtp_password} # Path to secret file
+      # --- IMPORTANT: Use Docker secrets for passwords in production ---
+      - ALERT_SMTP_PASSWORD_FILE=${ALERT_SMTP_PASSWORD_FILE:-/run/secrets/smtp_password} # Path to secret file inside container
       - ALERT_MIN_REASON_SEVERITY=${ALERT_MIN_REASON_SEVERITY:-Local LLM}
     volumes:
       - ./ai_service:/app/ai_service
       - ./shared:/app/shared
       - ./logs:/app/logs # For block/alert/error logs
-    secrets: # Grant access to the secret if defined below
+    secrets: # Grant access to secrets defined below
       - smtp_password
     depends_on:
       - redis # Needed for blocklisting
     networks:
       - defense_network
-    deploy: # Added resource limits
+    deploy:
       resources:
         limits:
           cpus: '0.50'
           memory: '512M'
     restart: unless-stopped
-    command: ["uvicorn", "ai_service.ai_webhook:app", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["uvicorn", "ai_service.ai_webhook:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"] # Example: Use 2 workers
 
   # Redis Service
   redis:
@@ -220,13 +241,13 @@ services:
       - redis_data:/data
     networks:
       - defense_network
-    deploy: # Added resource limits
+    deploy:
       resources:
         limits:
           cpus: '0.50'
-          memory: '512M' # Adjust based on expected data size
+          memory: '512M' # Adjust based on expected blocklist/frequency data size
     restart: unless-stopped
-    command: redis-server --save 60 1 --loglevel warning # Example args
+    command: redis-server --save 60 1 --loglevel warning # Persist data periodically
 
 # Define the network
 networks:
@@ -235,9 +256,24 @@ networks:
 
 # Define persistent volumes
 volumes:
- redis_data:
+ redis_data: # Stores Redis data across container restarts
 
-# Define secrets (read from host file)
+# Define secrets (read from host files)
+# Create these files in ./secrets/ directory BEFORE running 'docker-compose up'
+# Example: echo "your_smtp_password" > ./secrets/smtp_password.txt
+#          echo "your_external_api_key" > ./secrets/external_api_key.txt
+# IMPORTANT: Add the 'secrets/' directory to your .gitignore file!
 secrets:
-  smtp_password: # Name used by services
-    file: ./secrets/smtp_password.txt # Path to file on HOST containing the password
+  smtp_password:
+    file: ./secrets/smtp_password.txt # Path on HOST
+  external_api_key:
+    file: ./secrets/external_api_key.txt # Path on HOST
+
+# --- Best Practice Notes ---
+# 1. Security: Use Docker secrets for ALL sensitive data (API keys, passwords).
+# 2. HTTPS: Configure Nginx for HTTPS in production using valid certificates.
+# 3. Resource Limits: Monitor actual resource usage and adjust limits accordingly.
+# 4. Logging: Configure proper log rotation for Nginx and application logs.
+# 5. Healthchecks: Add healthchecks to more services (e.g., check API endpoints).
+# 6. Base Image: Use a minimal, secure base image for Python services. Keep it updated.
+# 7. Dependencies: Regularly update application dependencies (requirements.txt) and OS packages.

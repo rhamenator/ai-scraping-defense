@@ -23,6 +23,7 @@ var/
 .installed.cfg
 *.egg
 MANIFEST
+./secrets/
 
 # PyInstaller
 # Usually these files are written by a python script from a template
