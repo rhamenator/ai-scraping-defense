@@ -57,6 +57,15 @@ user-agents >=0.4.0
 # Other Utilities
 # beautifulsoup4 >=4.11.0 # If scraping web pages for Markov corpus
 
+# IP Reputation Services (Optional - Current implementation uses generic httpx)
+# Consider specific client libraries if needed for advanced features of services like:
+# abuseipdb-client
+# greynoise
+
+# CAPTCHA Integration (Optional - Current implementation only has hooks)
+# Libraries would depend on the chosen CAPTCHA provider, e.g.:
+# recaptcha-client (for Google reCAPTCHA)
+# hcaptcha
 
 # --- Security & Best Practices ---
 # Consider using `pip-tools` (`pip-compile`) to pin dependencies for reproducible builds:
@@ -65,3 +74,4 @@ user-agents >=0.4.0
 # `pip list --outdated`
 # `pip install -U <package_name>` or `pip-compile --upgrade`
 # Consider using security scanning tools like `pip-audit` or GitHub Dependabot.
+

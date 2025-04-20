@@ -1,16 +1,3 @@
-# System Architecture
-
-This document provides a high-level overview of how the components in the AI Scraping Defense Stack interact.
-
----
-
-## 🧱 Component Overview & Data Flow
-
-### Note
-
-The following diagram uses Mermaid syntax and requires a compatible renderer, such as GitHub's Markdown viewer or MkDocs with appropriate plugins.
-
-```mermaid
 flowchart TD
     subgraph "User Interaction & Edge"
         A["Web Clients or Bots"] -- HTTP/S Request --> B(NGINX Port 80/443);

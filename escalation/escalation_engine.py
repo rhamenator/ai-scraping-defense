@@ -1,10 +1,10 @@
 # escalation/escalation_engine.py
-# Handles incoming suspicious request metadata, analyzes (using rules, RF model, Redis frequency),
-# classifies via API calls (local LLM, external), and escalates via webhook.
+# Handles incoming suspicious request metadata, analyzes (using rules, RF model, IP Rep, Redis frequency),
+# classifies via API calls (local LLM, external), potentially triggers CAPTCHA, and escalates via webhook.
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Response # Added Response
 from pydantic import BaseModel, Field, ValidationError
-from typing import Dict, Any
+from typing import Dict, Any, Optional # Added Optional
 import httpx
 import os
 import datetime
@@ -27,7 +27,6 @@ try:
     from metrics import increment_metric, get_metrics; METRICS_AVAILABLE = True
 except ImportError:
     logger.warning("Could not import metrics module.")
-    # Define dummy functions if metrics unavailable
     def increment_metric(key: str, value: int = 1): pass
     def get_metrics(): return {}
     METRICS_AVAILABLE = False
@@ -41,13 +40,27 @@ except ImportError:
 
 # --- Configuration ---
 # Service URLs & Keys (Use ENV Variables/Secrets)
-WEBHOOK_URL = os.getenv("ESCALATION_WEBHOOK_URL")
-LOCAL_LLM_API_URL = os.getenv("LOCAL_LLM_API_URL", "http://localhost:11434/v1/chat/completions") # Default Ollama URL
-LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "llama3:latest") # Model served by local server
-LOCAL_LLM_TIMEOUT = float(os.getenv("LOCAL_LLM_TIMEOUT", 45.0)) # Increased timeout
-EXTERNAL_API_URL = os.getenv("EXTERNAL_CLASSIFICATION_API_URL") # e.g., https://api.somebotdetector.com/v1/check
-EXTERNAL_API_KEY = os.getenv("EXTERNAL_CLASSIFICATION_API_KEY") # Use Docker secrets for production!
+WEBHOOK_URL = os.getenv("ESCALATION_WEBHOOK_URL") # To AI Service
+LOCAL_LLM_API_URL = os.getenv("LOCAL_LLM_API_URL")
+LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL")
+LOCAL_LLM_TIMEOUT = float(os.getenv("LOCAL_LLM_TIMEOUT", 45.0))
+EXTERNAL_API_URL = os.getenv("EXTERNAL_CLASSIFICATION_API_URL")
+EXTERNAL_API_KEY_FILE = os.getenv("EXTERNAL_CLASSIFICATION_API_KEY_FILE", "/run/secrets/external_api_key")
 EXTERNAL_API_TIMEOUT = float(os.getenv("EXTERNAL_API_TIMEOUT", 15.0))
+
+# IP Reputation Config (NEW)
+ENABLE_IP_REPUTATION = os.getenv("ENABLE_IP_REPUTATION", "false").lower() == "true"
+IP_REPUTATION_API_URL = os.getenv("IP_REPUTATION_API_URL")
+IP_REPUTATION_API_KEY_FILE = os.getenv("IP_REPUTATION_API_KEY_FILE", "/run/secrets/ip_reputation_api_key")
+IP_REPUTATION_TIMEOUT = float(os.getenv("IP_REPUTATION_TIMEOUT", 10.0))
+IP_REPUTATION_MALICIOUS_SCORE_BONUS = float(os.getenv("IP_REPUTATION_MALICIOUS_SCORE_BONUS", 0.3))
+IP_REPUTATION_MIN_MALICIOUS_THRESHOLD = float(os.getenv("IP_REPUTATION_MIN_MALICIOUS_THRESHOLD", 50)) # Example threshold
+
+# CAPTCHA Trigger Config (NEW - Hooks only)
+ENABLE_CAPTCHA_TRIGGER = os.getenv("ENABLE_CAPTCHA_TRIGGER", "false").lower() == "true"
+CAPTCHA_SCORE_THRESHOLD_LOW = float(os.getenv("CAPTCHA_SCORE_THRESHOLD_LOW", 0.2))
+CAPTCHA_SCORE_THRESHOLD_HIGH = float(os.getenv("CAPTCHA_SCORE_THRESHOLD_HIGH", 0.5))
+CAPTCHA_VERIFICATION_URL = os.getenv("CAPTCHA_VERIFICATION_URL") # URL to redirect user for CAPTCHA
 
 # File Paths
 RF_MODEL_PATH = "/app/models/bot_detection_rf_model.joblib"
@@ -69,12 +82,25 @@ HEURISTIC_THRESHOLD_HIGH = 0.8
 KNOWN_BAD_UAS = ['python-requests', 'curl', 'wget', 'scrapy', 'java/', 'ahrefsbot', 'semrushbot', 'mj12bot', 'dotbot', 'petalbot', 'bytespider', 'gptbot', 'ccbot', 'claude-web', 'google-extended', 'dataprovider', 'purebot', 'scan', 'masscan', 'zgrab', 'nmap']
 KNOWN_BENIGN_CRAWLERS_UAS = ['googlebot', 'bingbot', 'slurp', 'duckduckbot', 'baiduspider', 'yandexbot', 'googlebot-image']
 
+# --- Load Secrets ---
+def load_secret(file_path: Optional[str]) -> Optional[str]:
+    """Loads a secret from a file."""
+    if file_path and os.path.exists(file_path):
+        try:
+            with open(file_path, 'r') as f:
+                return f.read().strip()
+        except Exception as e:
+            logger.error(f"Failed to read secret from {file_path}: {e}")
+    return None
+
+EXTERNAL_API_KEY = load_secret(EXTERNAL_API_KEY_FILE)
+IP_REPUTATION_API_KEY = load_secret(IP_REPUTATION_API_KEY_FILE)
+
 # --- Setup Clients & Load Resources ---
 
 # Redis Client for Frequency
 FREQUENCY_TRACKING_ENABLED = False; redis_client_freq = None
 try:
-    # Use connection pooling
     redis_pool_freq = redis.ConnectionPool(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB_FREQUENCY, decode_responses=True)
     redis_client_freq = redis.Redis(connection_pool=redis_pool_freq)
     redis_client_freq.ping()
@@ -112,8 +138,6 @@ def is_path_disallowed(path):
 load_robots_txt(ROBOTS_TXT_PATH)
 
 # Load Trained Random Forest Model
-# NOTE: Consider implementing a mechanism to reload the model without restarting the service,
-#       e.g., using a file watcher or a scheduled task that checks for a newer model file.
 model_pipeline = None; MODEL_LOADED = False
 try:
     if os.path.exists(RF_MODEL_PATH):
@@ -126,7 +150,7 @@ except Exception as e:
     logger.error(f"Failed to load RF model from {RF_MODEL_PATH}: {e}")
 
 # --- Feature Extraction Logic ---
-# Ensure this function remains IDENTICAL to the one used in training.py
+# (Ensure this remains identical to the one used in training.py)
 def extract_features(log_entry_dict, freq_features):
     features = {};
     if not isinstance(log_entry_dict, dict): return {};
@@ -150,8 +174,10 @@ def extract_features(log_entry_dict, freq_features):
     features['hour_of_day'] = hour; features['day_of_week'] = dow
     features[f'req_freq_{FREQUENCY_WINDOW_SECONDS}s'] = freq_features.get('count', 0)
     features['time_since_last_sec'] = freq_features.get('time_since', -1.0)
+    # Placeholder for potential future features
+    # features['ip_rep_score'] = ip_rep_result.get('score', -1)
+    # features['anomaly_score'] = anomaly_result.get('score', 0)
     return features
-
 
 # --- Real-time Frequency Calculation using Redis ---
 def get_realtime_frequency_features(ip: str) -> dict:
@@ -160,29 +186,62 @@ def get_realtime_frequency_features(ip: str) -> dict:
     if not FREQUENCY_TRACKING_ENABLED or not ip or not redis_client_freq: return features;
     try:
         now_unix = time.time(); window_start_unix = now_unix - FREQUENCY_WINDOW_SECONDS; now_ms_str = f"{now_unix:.6f}"; redis_key = f"{FREQUENCY_KEY_PREFIX}{ip}";
-        # Use pipeline for atomic operations
         pipe = redis_client_freq.pipeline();
-        pipe.zremrangebyscore(redis_key, '-inf', f'({window_start_unix}'); # Remove old entries (exclusive start)
-        pipe.zadd(redis_key, {now_ms_str: now_unix}); # Add current entry
-        pipe.zcount(redis_key, window_start_unix, now_unix); # Count entries in window (inclusive)
-        pipe.zrange(redis_key, -2, -1, withscores=True); # Get last two entries
-        pipe.expire(redis_key, FREQUENCY_WINDOW_SECONDS + 60); # Extend expiry
+        pipe.zremrangebyscore(redis_key, '-inf', f'({window_start_unix}');
+        pipe.zadd(redis_key, {now_ms_str: now_unix});
+        pipe.zcount(redis_key, window_start_unix, now_unix);
+        pipe.zrange(redis_key, -2, -1, withscores=True);
+        pipe.expire(redis_key, FREQUENCY_WINDOW_SECONDS + 60);
         results = pipe.execute();
-
-        # result[2] = count including current request
         current_count = results[2] if len(results) > 2 and isinstance(results[2], int) else 0;
-        features['count'] = max(0, current_count - 1); # Count *before* current request
-
-        # result[3] = last two timestamps if available
+        features['count'] = max(0, current_count - 1);
         recent_entries = results[3] if len(results) > 3 and isinstance(results[3], list) else [];
         if len(recent_entries) > 1:
-            # Last entry is recent_entries[1], previous is recent_entries[0]
-            last_ts = recent_entries[0][1]; # Score (timestamp) of the second to last entry
-            time_diff = now_unix - last_ts;
+            last_ts = recent_entries[0][1]; time_diff = now_unix - last_ts;
             features['time_since'] = round(time_diff, 3);
     except redis.exceptions.RedisError as e: logger.warning(f"Redis error frequency check IP {ip}: {e}"); increment_metric("redis_errors_frequency")
     except Exception as e: logger.warning(f"Unexpected error frequency check IP {ip}: {e}");
     return features
+
+# --- IP Reputation Check (NEW) ---
+async def check_ip_reputation(ip: str) -> Optional[Dict[str, Any]]:
+    """Checks IP reputation using a configured external service."""
+    if not ENABLE_IP_REPUTATION or not IP_REPUTATION_API_URL or not ip:
+        return None
+    increment_metric("ip_reputation_checks_run")
+    logger.info(f"Checking IP reputation for {ip} using {IP_REPUTATION_API_URL}")
+
+    # --- Adapt this section based on the specific API you use ---
+    # Example using a generic placeholder API structure
+    headers = {'Accept': 'application/json'}
+    params = {'ipAddress': ip}
+    if IP_REPUTATION_API_KEY:
+        headers['Authorization'] = f"Bearer {IP_REPUTATION_API_KEY}" # Or other auth method
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(IP_REPUTATION_API_URL, params=params, headers=headers, timeout=IP_REPUTATION_TIMEOUT)
+            response.raise_for_status()
+            result = response.json()
+            logger.debug(f"IP Reputation API response for {ip}: {result}")
+
+            # --- Parse the specific API response ---
+            # Example parsing (adjust based on actual API response):
+            is_malicious = False
+            score = result.get("abuseConfidenceScore", 0) # Example field from AbuseIPDB
+            # Check if score exceeds threshold
+            if score >= IP_REPUTATION_MIN_MALICIOUS_THRESHOLD:
+                is_malicious = True
+            # You might also check other fields like 'isTor', 'isProxy', 'threats', etc.
+
+            increment_metric("ip_reputation_success")
+            if is_malicious: increment_metric("ip_reputation_malicious")
+            return {"is_malicious": is_malicious, "score": score, "raw_response": result} # Return useful info
+
+    except httpx.TimeoutException: logger.error(f"Timeout checking IP reputation for {ip}"); increment_metric("ip_reputation_errors_timeout"); return None
+    except httpx.RequestError as exc: logger.error(f"Request error checking IP reputation for {ip}: {exc}"); increment_metric("ip_reputation_errors_request"); return None
+    except json.JSONDecodeError as exc: logger.error(f"JSON decode error processing IP reputation response for {ip}: {exc} - Response: {response.text[:500]}"); increment_metric("ip_reputation_errors_response_decode"); return None
+    except Exception as e: logger.error(f"Unexpected error checking IP reputation for {ip}: {e}", exc_info=True); increment_metric("ip_reputation_errors_unexpected"); return None
 
 
 # --- Pydantic Models ---
@@ -196,15 +255,17 @@ class RequestMetadata(BaseModel):
     source: str
 
 # --- FastAPI App ---
-app = FastAPI()
+app = FastAPI(title="Escalation Engine", description="Analyzes suspicious requests and escalates if necessary.")
 
 # --- Analysis & Classification Functions ---
-def run_heuristic_and_model_analysis(metadata: RequestMetadata) -> float:
-    """Analyzes metadata using rules, RF model, and Redis frequency."""
+def run_heuristic_and_model_analysis(metadata: RequestMetadata, ip_rep_result: Optional[Dict] = None) -> float:
+    """Analyzes metadata using rules, RF model, Redis frequency, and optional IP reputation."""
     increment_metric("heuristic_checks_run"); rule_score = 0.0; model_score = 0.5; model_used = False; final_score = 0.5;
     frequency_features = get_realtime_frequency_features(metadata.ip); increment_metric(f"req_freq_{FREQUENCY_WINDOW_SECONDS}s", frequency_features['count']);
     log_entry_dict = metadata.model_dump();
     if isinstance(log_entry_dict.get('timestamp'), datetime.datetime): log_entry_dict['timestamp'] = log_entry_dict['timestamp'].isoformat();
+
+    # --- Apply Heuristics ---
     ua = metadata.user_agent.lower() if metadata.user_agent else ""; path = metadata.path or ''; is_known_benign = any(good in ua for good in KNOWN_BENIGN_CRAWLERS_UAS);
     if any(bad in ua for bad in KNOWN_BAD_UAS) and not is_known_benign: rule_score += 0.7;
     if not metadata.user_agent: rule_score += 0.5;
@@ -214,8 +275,12 @@ def run_heuristic_and_model_analysis(metadata: RequestMetadata) -> float:
     if frequency_features['time_since'] != -1.0 and frequency_features['time_since'] < 0.3: rule_score += 0.2;
     if is_known_benign: rule_score -= 0.5; # Significantly reduce score for known good bots
     rule_score = max(0.0, min(1.0, rule_score));
+
+    # --- Apply RF Model ---
     if MODEL_LOADED and model_pipeline:
         try:
+            # Extract features, including frequency
+            # Placeholder: Add ip_rep_score feature if model is retrained with it
             features_dict = extract_features(log_entry_dict, frequency_features);
             if features_dict:
                 probabilities = model_pipeline.predict_proba([features_dict])[0];
@@ -224,22 +289,31 @@ def run_heuristic_and_model_analysis(metadata: RequestMetadata) -> float:
                 increment_metric("rf_model_predictions");
             else: logger.warning(f"Could not extract features for RF model (IP: {metadata.ip})")
         except Exception as e: logger.error(f"RF model prediction failed for IP {metadata.ip}: {e}"); increment_metric("rf_model_errors");
+
+    # --- Combine Scores ---
     if model_used: final_score = (0.3 * rule_score) + (0.7 * model_score) # Weight model higher
     else: final_score = rule_score # Fallback to rules only
-    final_score = max(0.0, min(1.0, final_score))
+
+    # --- Factor in IP Reputation (NEW) ---
+    if ip_rep_result and ip_rep_result.get("is_malicious"):
+        logger.info(f"Adjusting score for malicious IP reputation for {metadata.ip}")
+        final_score += IP_REPUTATION_MALICIOUS_SCORE_BONUS
+        increment_metric("score_adjusted_ip_reputation")
+
+    # --- Placeholder for Unsupervised Learning ---
+    # anomaly_score = get_anomaly_score(features_dict) # Hypothetical function
+    # final_score = (final_score + anomaly_score) / 2 # Example blending
+
+    final_score = max(0.0, min(1.0, final_score)) # Ensure score stays within bounds
     return final_score
 
 
 async def classify_with_local_llm_api(metadata: RequestMetadata) -> bool | None:
-    """
-    Classifies metadata using a configured local LLM via REST API.
-    Returns True (Bot), False (Human/Benign), or None (Error/Not configured).
-    """
-    if not LOCAL_LLM_API_URL or not LOCAL_LLM_MODEL: return None # Skip if not configured
+    """ Classifies using configured local LLM API. """
+    # (Implementation remains the same as previous version)
+    if not LOCAL_LLM_API_URL or not LOCAL_LLM_MODEL: return None
     increment_metric("local_llm_checks_run")
     logger.info(f"Attempting classification for IP {metadata.ip} using local LLM API ({LOCAL_LLM_MODEL})...")
-
-    # Refined prompt with more structure
     prompt = f"""Analyze the following request metadata to classify the origin as MALICIOUS_BOT, BENIGN_CRAWLER, or HUMAN. Focus on detecting automated threats, not just any automation.
 
     **Request Details:**
@@ -248,12 +322,11 @@ async def classify_with_local_llm_api(metadata: RequestMetadata) -> bool | None:
     * **Requested Path:** {metadata.path or 'N/A'}
     * **Referer:** {metadata.referer or 'N/A'}
     * **Timestamp:** {metadata.timestamp}
-    * **Selected Headers:** {json.dumps({k: v for k, v in metadata.headers.items() if k.lower() in ['accept', 'accept-language', 'connection', 'host', 'sec-ch-ua', 'sec-fetch-site', 'sec-fetch-mode', 'sec-fetch-user', 'sec-fetch-dest']})}
+    * **Selected Headers:** {json.dumps({k: v for k, v in (metadata.headers or {}).items() if k.lower() in ['accept', 'accept-language', 'connection', 'host', 'sec-ch-ua', 'sec-fetch-site', 'sec-fetch-mode', 'sec-fetch-user', 'sec-fetch-dest']})}
 
     **Instructions:** Respond ONLY with 'MALICIOUS_BOT', 'BENIGN_CRAWLER', or 'HUMAN'.
     """
     api_payload = { "model": LOCAL_LLM_MODEL, "messages": [{"role": "system", "content": "You are a security analysis assistant specializing in bot detection. Respond ONLY with 'MALICIOUS_BOT', 'BENIGN_CRAWLER', or 'HUMAN'."},{"role": "user", "content": prompt}], "temperature": 0.1, "stream": False }
-
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(LOCAL_LLM_API_URL, json=api_payload, timeout=LOCAL_LLM_TIMEOUT)
@@ -271,41 +344,23 @@ async def classify_with_local_llm_api(metadata: RequestMetadata) -> bool | None:
 
 
 async def classify_with_external_api(metadata: RequestMetadata) -> bool | None:
-    """
-    Classifies metadata using configured external API.
-    Returns True (Bot), False (Human), or None (Error/Not configured).
-    """
+    """ Classifies using configured external API. """
+    # (Implementation remains the same as previous version)
     if not EXTERNAL_API_URL: return None
     increment_metric("external_api_checks_run")
     logger.info(f"Attempting classification for IP {metadata.ip} using External API...")
-
-    external_payload = { # --- ADAPT PAYLOAD TO YOUR SPECIFIC EXTERNAL API ---
-        "ipAddress": metadata.ip,
-        "userAgent": metadata.user_agent,
-        "referer": metadata.referer,
-        "requestPath": metadata.path,
-        "headers": metadata.headers,
-        # Add other required fields by the API
-    }
+    external_payload = {"ipAddress": metadata.ip, "userAgent": metadata.user_agent, "referer": metadata.referer, "requestPath": metadata.path, "headers": metadata.headers}
     headers = { 'Content-Type': 'application/json' }
-    if EXTERNAL_API_KEY: headers['Authorization'] = f"Bearer {EXTERNAL_API_KEY}" # Example Auth
-
+    if EXTERNAL_API_KEY: headers['Authorization'] = f"Bearer {EXTERNAL_API_KEY}"
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(EXTERNAL_API_URL, headers=headers, json=external_payload, timeout=EXTERNAL_API_TIMEOUT)
             response.raise_for_status()
             result = response.json()
-            # --- PARSE RESPONSE FROM YOUR SPECIFIC EXTERNAL API ---
-            # Example: is_bot = result.get("classification", {}).get("is_bot", False)
             is_bot = result.get("is_bot", None) # Needs to be adapted!
             logger.info(f"External API response for {metadata.ip}: IsBot={is_bot}")
-            if isinstance(is_bot, bool):
-                increment_metric("external_api_success")
-                return is_bot
-            else:
-                 logger.warning(f"Unexpected response format from external API for {metadata.ip}. Response: {result}")
-                 increment_metric("external_api_errors_unexpected_response")
-                 return None
+            if isinstance(is_bot, bool): increment_metric("external_api_success"); return is_bot
+            else: logger.warning(f"Unexpected response format from external API for {metadata.ip}. Response: {result}"); increment_metric("external_api_errors_unexpected_response"); return None
     except httpx.TimeoutException: logger.error(f"Timeout calling external API ({EXTERNAL_API_URL}) for IP {metadata.ip}"); increment_metric("external_api_errors_timeout"); return None
     except httpx.RequestError as exc: logger.error(f"Request error calling external API ({EXTERNAL_API_URL}) for IP {metadata.ip}: {exc}"); increment_metric("external_api_errors_request"); return None
     except json.JSONDecodeError as exc: logger.error(f"JSON decode error processing external API response for IP {metadata.ip}: {exc} - Response: {response.text[:500]}"); increment_metric("external_api_errors_response_decode"); return None
@@ -315,17 +370,12 @@ async def classify_with_external_api(metadata: RequestMetadata) -> bool | None:
 # --- Webhook Forwarding ---
 async def forward_to_webhook(payload: Dict[str, Any], reason: str):
     """Sends data to the configured webhook URL."""
+    # (Implementation remains the same as previous version)
     if not WEBHOOK_URL: return
     increment_metric("webhooks_sent")
-    # Ensure payload is JSON serializable (convert datetime etc.)
     serializable_payload = {}
-    try:
-        serializable_payload = json.loads(json.dumps(payload, default=str))
-    except Exception as e:
-        logger.error(f"Failed to serialize payload for webhook (IP: {payload.get('ip')}): {e}")
-        # Fallback: send limited data
-        serializable_payload = {"ip": payload.get("ip", "unknown"), "error": "Payload serialization failed"}
-
+    try: serializable_payload = json.loads(json.dumps(payload, default=str))
+    except Exception as e: logger.error(f"Failed to serialize payload for webhook (IP: {payload.get('ip')}): {e}"); serializable_payload = {"ip": payload.get("ip", "unknown"), "error": "Payload serialization failed"}
     webhook_payload = { "event_type": "suspicious_activity_detected", "reason": reason, "timestamp_utc": datetime.datetime.utcnow().isoformat()+"Z", "details": serializable_payload }
     headers = {'Content-Type': 'application/json'}
     try:
@@ -337,61 +387,106 @@ async def forward_to_webhook(payload: Dict[str, Any], reason: str):
     except Exception as e: logger.error(f"Unexpected error during webhook forwarding for IP {payload.get('ip')}: {e}", exc_info=True); increment_metric("webhook_errors_unexpected")
 
 
+# --- CAPTCHA Trigger Placeholder (NEW) ---
+async def trigger_captcha_challenge(metadata: RequestMetadata) -> bool:
+    """Placeholder function for triggering a CAPTCHA challenge."""
+    # In a real implementation, this might:
+    # 1. Log the attempt.
+    # 2. Set a short-lived flag in Redis for the IP/session.
+    # 3. Return a specific status or payload that the caller (or Nginx via Lua) can use
+    #    to redirect the user to the CAPTCHA_VERIFICATION_URL.
+    # 4. The application at CAPTCHA_VERIFICATION_URL would handle showing and verifying the CAPTCHA,
+    #    then potentially clearing the flag or notifying this service upon success.
+    logger.info(f"CAPTCHA Triggered (Placeholder) for IP {metadata.ip}. Score between {CAPTCHA_SCORE_THRESHOLD_LOW} and {CAPTCHA_SCORE_THRESHOLD_HIGH}. Would redirect to {CAPTCHA_VERIFICATION_URL}")
+    increment_metric("captcha_challenges_triggered")
+    # For now, just return True indicating the trigger happened.
+    return True
+
+
 # --- API Endpoint (/escalate) ---
 @app.post("/escalate")
 async def handle_escalation(metadata_req: RequestMetadata, request: Request):
     """Receives request metadata, performs analysis, and triggers actions."""
     client_ip = request.client.host if request.client else "unknown"; increment_metric("escalation_requests_received");
     ip_under_test = metadata_req.ip
-    action_taken = "analysis_complete"; is_bot_decision = None;
+    action_taken = "analysis_complete"; is_bot_decision = None; final_score = -1.0 # Default score
 
     try:
-        # Validate input data (though Pydantic does this, extra checks can be useful)
-        # metadata = metadata_req.model_dump() # Convert to dict
+        # --- Step 1: IP Reputation Check (Optional) ---
+        ip_rep_result = None
+        if ENABLE_IP_REPUTATION:
+            ip_rep_result = await check_ip_reputation(ip_under_test)
+            # Optional: Immediately escalate if reputation is definitively malicious?
+            # if ip_rep_result and ip_rep_result.get("is_malicious"):
+            #     logger.info(f"IP {ip_under_test} flagged by IP Reputation. Escalating.")
+            #     is_bot_decision = True; action_taken = "webhook_triggered_ip_reputation"; increment_metric("bots_detected_ip_reputation");
+            #     await forward_to_webhook(metadata_req.model_dump(mode='json'), f"IP Reputation Malicious (Score: {ip_rep_result.get('score', 'N/A')})")
+            #     # Skip further checks if we block based on reputation alone
+            #     # (Return statement moved to after final logging)
 
-        # Run combined heuristic and model analysis
-        combined_score = run_heuristic_and_model_analysis(metadata_req)
+        # --- Step 2: Heuristic and Model Analysis ---
+        # Only proceed if not already flagged by IP reputation (if that logic is added above)
+        if is_bot_decision is None:
+            final_score = run_heuristic_and_model_analysis(metadata_req, ip_rep_result)
 
-        # Decision logic based on score
-        if combined_score >= HEURISTIC_THRESHOLD_HIGH:
-            is_bot_decision = True; action_taken = "webhook_triggered_high_score"; increment_metric("bots_detected_high_score")
-            await forward_to_webhook(metadata_req.model_dump(mode='json'), f"High Combined Score ({combined_score:.3f})")
-        elif HEURISTIC_THRESHOLD_LOW <= combined_score < HEURISTIC_THRESHOLD_HIGH:
-            # Score is medium, try LLM or external API
-            local_llm_result = await classify_with_local_llm_api(metadata_req)
-            if local_llm_result is True:
-                is_bot_decision = True; action_taken = "webhook_triggered_local_llm"; increment_metric("bots_detected_local_llm");
-                await forward_to_webhook(metadata_req.model_dump(mode='json'), "Local LLM Classification")
-            elif local_llm_result is False:
-                is_bot_decision = False; action_taken = "classified_human_local_llm"; increment_metric("humans_detected_local_llm")
-            else: # LLM failed or inconclusive
-                action_taken = "local_llm_inconclusive"
-                if EXTERNAL_API_URL: # Optional External API fallback
-                    external_api_result = await classify_with_external_api(metadata_req)
-                    if external_api_result is True:
-                        is_bot_decision = True; action_taken = "webhook_triggered_external_api"; increment_metric("bots_detected_external_api");
-                        await forward_to_webhook(metadata_req.model_dump(mode='json'), "External API Classification")
-                    elif external_api_result is False:
-                        is_bot_decision = False; action_taken = "classified_human_external_api"; increment_metric("humans_detected_external_api")
-                    else: action_taken = "external_api_inconclusive"
-        else: # Score < LOW threshold
-            is_bot_decision = False; action_taken = "classified_human_low_score"; increment_metric("humans_detected_low_score")
+            # --- Step 3: Decision Logic ---
+            if final_score >= HEURISTIC_THRESHOLD_HIGH:
+                is_bot_decision = True; action_taken = "webhook_triggered_high_score"; increment_metric("bots_detected_high_score");
+                await forward_to_webhook(metadata_req.model_dump(mode='json'), f"High Combined Score ({final_score:.3f})")
+
+            elif final_score < CAPTCHA_SCORE_THRESHOLD_LOW: # Clearly low score
+                 is_bot_decision = False; action_taken = "classified_human_low_score"; increment_metric("humans_detected_low_score")
+
+            elif ENABLE_CAPTCHA_TRIGGER and CAPTCHA_SCORE_THRESHOLD_LOW <= final_score < CAPTCHA_SCORE_THRESHOLD_HIGH:
+                 # --- Step 3a: CAPTCHA Trigger (Borderline Score) ---
+                 logger.info(f"IP {ip_under_test} has borderline score ({final_score:.3f}). Checking CAPTCHA trigger.")
+                 captcha_needed = await trigger_captcha_challenge(metadata_req)
+                 # Currently, this just logs. A real system needs a mechanism
+                 # for the client/Nginx to receive this outcome and act.
+                 # We'll set the action but won't block/allow yet.
+                 action_taken = "captcha_triggered"
+                 is_bot_decision = None # Remain uncertain until CAPTCHA result (if implemented)
+
+            else: # Score is medium/high but below threshold, or CAPTCHA disabled/failed
+                 # --- Step 3b: Deeper Analysis (LLM / External API) ---
+                 logger.info(f"IP {ip_under_test} requires deeper check (Score: {final_score:.3f}).")
+                 local_llm_result = await classify_with_local_llm_api(metadata_req)
+                 if local_llm_result is True:
+                     is_bot_decision = True; action_taken = "webhook_triggered_local_llm"; increment_metric("bots_detected_local_llm");
+                     await forward_to_webhook(metadata_req.model_dump(mode='json'), "Local LLM Classification")
+                 elif local_llm_result is False:
+                     is_bot_decision = False; action_taken = "classified_human_local_llm"; increment_metric("humans_detected_local_llm")
+                 else: # LLM failed or inconclusive
+                     action_taken = "local_llm_inconclusive"
+                     if EXTERNAL_API_URL: # Optional External API fallback
+                         external_api_result = await classify_with_external_api(metadata_req)
+                         if external_api_result is True:
+                             is_bot_decision = True; action_taken = "webhook_triggered_external_api"; increment_metric("bots_detected_external_api");
+                             await forward_to_webhook(metadata_req.model_dump(mode='json'), "External API Classification")
+                         elif external_api_result is False:
+                             is_bot_decision = False; action_taken = "classified_human_external_api"; increment_metric("humans_detected_external_api")
+                         else: action_taken = "external_api_inconclusive"
+                     # If no external API, decision remains None (uncertain)
 
     except ValidationError as e:
-        logger.error(f"Invalid request payload received: {e}")
+        logger.error(f"Invalid request payload received from {client_ip}: {e}")
         raise HTTPException(status_code=422, detail=f"Invalid payload: {e}")
     except Exception as e:
         logger.error(f"Unexpected error during escalation processing for IP {ip_under_test}: {e}", exc_info=True)
-        # Avoid sending webhook on internal error, just log and return error status
         action_taken = "internal_server_error"
         is_bot_decision = None
-        combined_score = -1.0 # Indicate error state
-        # Return 500 but don't raise HTTPException here to allow final logging/return
-        # raise HTTPException(status_code=500, detail="Internal server error during escalation processing")
+        final_score = -1.0 # Indicate error state
+        # Return 500 status code in the response directly
+        return Response(status_code=500, content=json.dumps({"status": "error", "detail": "Internal server error"}), media_type="application/json")
 
-    log_msg = f"IP={ip_under_test}, Source={metadata_req.source}, Score={combined_score:.3f}, Decision={is_bot_decision}, Action={action_taken}"
+
+    # --- Final Logging & Response ---
+    log_msg = f"IP={ip_under_test}, Source={metadata_req.source}, Score={final_score:.3f}, Decision={is_bot_decision}, Action={action_taken}"
+    if ip_rep_result: log_msg += f", IPRepMalicious={ip_rep_result.get('is_malicious')}, IPRepScore={ip_rep_result.get('score')}"
     logger.info(f"Escalation Complete: {log_msg}")
-    return {"status": "processed", "action": action_taken, "is_bot_decision": is_bot_decision, "score": round(combined_score, 3)}
+
+    # Return standard response
+    return {"status": "processed", "action": action_taken, "is_bot_decision": is_bot_decision, "score": round(final_score, 3)}
 
 
 # --- Metrics Endpoint ---
@@ -404,6 +499,17 @@ async def get_metrics_endpoint():
         logger.error(f"Error retrieving metrics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve metrics")
 
+# --- Health Check Endpoint ---
+@app.get("/health")
+async def health_check():
+    """ Basic health check endpoint """
+    redis_ok = False
+    if redis_client_freq:
+        try: redis_ok = redis_client_freq.ping()
+        except Exception: redis_ok = False
+    # Add checks for model loading, etc. if needed
+    return {"status": "ok", "redis_frequency_connected": redis_ok, "model_loaded": MODEL_LOADED}
+
 
 # --- Main ---
 if __name__ == "__main__":
@@ -415,7 +521,13 @@ if __name__ == "__main__":
     else: logger.warning(f"Redis Frequency Tracking DISABLED.")
     if not disallowed_paths: logger.warning(f"No robots.txt rules loaded from {ROBOTS_TXT_PATH}.")
     logger.info(f"Local LLM API configured: {'Yes (' + LOCAL_LLM_API_URL + ')' if LOCAL_LLM_API_URL else 'No'}")
-    logger.info(f"External API URL configured: {'Yes (' + EXTERNAL_API_URL + ')' if EXTERNAL_API_URL else 'No'}")
+    logger.info(f"External Classification API configured: {'Yes' if EXTERNAL_API_URL else 'No'}")
+    logger.info(f"IP Reputation Check Enabled: {ENABLE_IP_REPUTATION} ({'URL Set' if IP_REPUTATION_API_URL else 'URL Not Set'})")
+    logger.info(f"CAPTCHA Trigger Enabled: {ENABLE_CAPTCHA_TRIGGER} (Low: {CAPTCHA_SCORE_THRESHOLD_LOW}, High: {CAPTCHA_SCORE_THRESHOLD_HIGH})")
     logger.info(f"Webhook URL configured: {'Yes (' + WEBHOOK_URL + ')' if WEBHOOK_URL else 'No'}")
     logger.info("---------------------------------")
-    uvicorn.run(app, host="0.0.0.0", port=8003)
+    uvicorn.run("escalation_engine:app", host="0.0.0.0", port=8003, workers=2, reload=False) # Use reload=True only for dev
+
+    # Note: In production, consider using a WSGI server like Gunicorn with Uvicorn workers for better performance.
+    # Example: gunicorn -k uvicorn.workers.UvicornWorker escalation_engine:app --bind
+    
