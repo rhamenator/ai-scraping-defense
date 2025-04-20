@@ -21,9 +21,9 @@ This system combats scraping by unauthorized AI bots targeting FOSS or documenta
 
 ## Getting Started
 
-### See `docs/getting_started.md` for detailed instructions using Docker Compose
+### See [docs/getting_started.md](docs/getting_started.md) for detailed instructions using Docker Compose
 
-### For Kubernetes deployments, see `docs/kubernetes_deployment.md`
+### For Kubernetes deployments, see [docs/kubernetes_deployment.md](docs/kubernetes_deployment.md)
 
 ### Accessing Services (Default Ports)
 
