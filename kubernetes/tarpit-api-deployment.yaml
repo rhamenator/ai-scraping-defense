@@ -1,0 +1,115 @@
+# kubernetes/tarpit-api-deployment.yaml
+# Defines the Deployment and Service for the Tarpit API (FastAPI application).
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: tarpit-api # Service name used by Nginx internal location
+  # Consider adding namespace: ai-defense
+  labels:
+    app: tarpit-api
+spec:
+  selector:
+    app: tarpit-api # Selects pods with this label
+  ports:
+    - protocol: TCP
+      port: 8001 # Port the service listens on within the cluster
+      targetPort: http-tarpit # Matches the container port name
+      name: http
+  type: ClusterIP # Only reachable internally
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tarpit-api
+  # Consider adding namespace: ai-defense
+  labels:
+    app: tarpit-api
+spec:
+  replicas: 2 # Start with 2 replicas for potential load, adjust as needed
+  selector:
+    matchLabels:
+      app: tarpit-api
+  template:
+    metadata:
+      labels:
+        app: tarpit-api
+    spec:
+      containers:
+      - name: tarpit-api
+        # IMPORTANT: Use the same base image as other Python services
+        image: defense_stack_py_base:latest
+        imagePullPolicy: IfNotPresent
+        workingDir: /app
+        # Command matches docker-compose, using 2 workers
+        command: ["uvicorn", "tarpit.tarpit_api:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "2"]
+        ports:
+        - containerPort: 8001
+          name: http-tarpit # Name for the container port
+        envFrom: # Inject all variables from the ConfigMap
+          - configMapRef:
+              name: app-config # Reference the ConfigMap created earlier
+        resources:
+          # Values from docker-compose
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+          limits:
+            cpu: "750m"
+            memory: "512Mi"
+        volumeMounts:
+          # Assume tarpit and shared code are built into the image
+          # - name: app-code
+          #   mountPath: /app/tarpit
+          #   subPath: tarpit
+          #   readOnly: true
+          # - name: app-code
+          #   mountPath: /app/shared
+          #   subPath: shared
+          #   readOnly: true
+
+          # Mount the shared volume for archives (ReadOnly for Tarpit API)
+          # Assumes the API might need to list/read archives for link generation.
+          # If not needed, remove this mount.
+          - name: archives-volume
+            mountPath: /app/fake_archives # DEFAULT_ARCHIVE_DIR in js_zip_generator.py
+            readOnly: true # Tarpit API should not write here
+
+          # Mount a volume for logs (ephemeral)
+          - name: log-volume
+            mountPath: /app/logs
+        # Liveness probe: Check if the container is running
+        livenessProbe:
+          httpGet:
+            path: /health # Assuming a /health endpoint exists in tarpit_api.py
+            port: http-tarpit
+          initialDelaySeconds: 20 # Wait longer for Uvicorn workers to start
+          periodSeconds: 30
+          failureThreshold: 3
+        # Readiness probe: Check if the container is ready to serve traffic
+        readinessProbe:
+          httpGet:
+            path: /health # Assuming a /health endpoint exists
+            port: http-tarpit
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          successThreshold: 1
+          failureThreshold: 2
+
+      volumes:
+        # Define the log volume (ephemeral)
+        - name: log-volume
+          emptyDir: {}
+
+        # Define the archives volume using the same PVC as the rotator
+        # Ensure the PVC 'archives-pvc' is created separately.
+        - name: archives-volume
+          persistentVolumeClaim:
+            claimName: archives-pvc # Use the same PVC name
+            # readOnly: true # Mount the PVC itself as R/O if supported by storage provisioner & needed
+
+        # If using a shared volume for code:
+        # - name: app-code
+        #   persistentVolumeClaim:
+        #     claimName: app-code-pvc

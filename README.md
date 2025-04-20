@@ -21,45 +21,17 @@ This system combats scraping by unauthorized AI bots targeting FOSS or documenta
 
 ## Getting Started
 
-### See [`docs/getting_started.md`](docs/getting_started.md) for detailed instructions
+### See `docs/getting_started.md` for detailed instructions using Docker Compose
 
-### Prerequisites
-
-* Docker
-* Docker Compose
-
-### Installation & Launch
-
-1. **Clone the repository:**
-
-    ```bash
-    git clone [https://github.com/rhamenator/ai-scraping-defense.git](https://github.com/rhamenator/ai-scraping-defense.git)
-    cd ai-scraping-defense
-    ```
-
-2. **Configure Environment:**
-    * Copy `sample.env` to `.env` and customize settings (Alert details, LLM endpoints, **IP Reputation API**, **Community Reporting API**, **CAPTCHA settings**, etc.).
-
-        ```bash
-        cp sample.env .env
-        # Edit .env with your settings
-        ```
-
-    * Create `./secrets/` directory and place files containing sensitive values (e.g., `./secrets/smtp_password.txt`, `./secrets/ip_reputation_api_key.txt`). **Add `secrets/` to `.gitignore`!**
-3. **Build and Run:**
-
-    ```bash
-    docker-compose build
-    docker-compose up -d
-    ```
+### For Kubernetes deployments, see `docs/kubernetes_deployment.md`
 
 ### Accessing Services (Default Ports)
+
+*(Note: Ports might differ in Kubernetes depending on Service type and Ingress configuration)*
 
 * **Main Website / Docs:** `http://localhost/` (or `https://localhost/` if HTTPS configured)
 * **Tarpit Endpoint (Internal):** Accessed via Nginx redirect (`/api/tarpit`)
 * **Admin UI:** `http://localhost/admin/` (or `https://localhost/admin/`)
-* **Metrics API:** `http://localhost/admin/metrics` (used by Admin UI frontend)
-* **GoAccess Dashboard (if enabled):** `http://localhost:7890`
 
 ## Architecture
 

@@ -1,0 +1,85 @@
+# kubernetes/redis-statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis # Matches the service name used in other configs
+  # Consider adding namespace: ai-defense
+spec:
+  serviceName: redis-headless # Headless service for discovery within the StatefulSet
+  replicas: 1 # Start with one replica; clustering is more complex
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: redis
+        image: redis:7-alpine # Match image from docker-compose
+        # Command matches docker-compose, adjust loglevel/save as needed
+        command: ["redis-server", "--save", "60 1", "--loglevel", "warning"]
+        ports:
+        - containerPort: 6379
+          name: redis-port
+        resources:
+          # Adjust requests and limits based on expected load
+          requests:
+            cpu: "250m" # 0.25 CPU core
+            memory: "256Mi"
+          limits:
+            cpu: "500m" # Max 0.5 CPU core
+            memory: "512Mi"
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+      # Optional: Security context if needed
+      # securityContext:
+      #   runAsUser: 1000
+      #   fsGroup: 1000
+  volumeClaimTemplates: # Request persistent storage
+  - metadata:
+      name: redis-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ] # Standard for single-node stateful sets
+      resources:
+        requests:
+          storage: 1Gi # Request 1 GB of storage - Adjust as needed
+      # Optional: specify a storageClassName if default is not suitable/available
+      # storageClassName: your-storage-class
+
+---
+# kubernetes/redis-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis # Service name used by other pods to connect
+  # Consider adding namespace: ai-defense
+  labels:
+    app: redis
+spec:
+  ports:
+  - port: 6379
+    targetPort: redis-port
+    name: redis-client
+  selector:
+    app: redis # Selects pods managed by the StatefulSet
+  # type: ClusterIP # Default type, only reachable within the cluster
+
+---
+# Optional Headless Service for StatefulSet DNS discovery (if needed by clients)
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-headless
+  # Consider adding namespace: ai-defense
+spec:
+  ports:
+  - port: 6379
+    name: redis-port
+  clusterIP: None # Makes it headless
+  selector:
+    app: redis
+

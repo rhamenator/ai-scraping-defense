@@ -56,13 +56,15 @@ We welcome pull requests, discussion, and suggestions from the security, web per
 
 ## 📦 Deployment
 
-To get started:
+### Using Docker Compose (Recommended for Development/Testing)
 
-```bash
-git clone https://github.com/yourusername/ai-scraping-defense.git
-cd ai-scraping-defense
-docker-compose up --build
-```
+See the [Getting Started Guide](getting_started.md).
+
+### Using Kubernetes (Recommended for Production)
+
+See the [Kubernetes Deployment Guide](kubernetes_deployment.md).
+
+---
 
 ## 🔗 System Components
 

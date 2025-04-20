@@ -1,0 +1,565 @@
+# kubernetes/nginx-deployment.yaml
+# Defines ConfigMaps, Deployment, and Service for the Nginx frontend.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  # Consider adding namespace: ai-defense
+data:
+  # Content of ./nginx/nginx.conf
+  nginx.conf: |
+    user www-data;
+    worker_processes auto;
+    pid /run/nginx.pid;
+    include /etc/nginx/modules-enabled/*.conf;
+
+    events {
+        worker_connections 1024; # Adjust based on expected concurrent connections & ulimit
+    }
+
+    http {
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+        server_tokens off; # Good practice: Hide Nginx version
+
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        # SSL Settings (Ensure certs/key are mounted from tls-secret)
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_prefer_server_ciphers on;
+        ssl_dhparam /etc/nginx/ssl/dhparam.pem; # Mounted from dhparam-config
+        # Modern cipher suite list (from Mozilla Intermediate compatibility)
+        ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+        ssl_session_cache shared:SSL:10m; # Cache SSL sessions for performance
+        ssl_session_timeout 1d;
+        ssl_session_tickets off; # More secure to disable session tickets
+
+        # HSTS (Recommended: Enable after confirming HTTPS works reliably)
+        # add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+
+        # OCSP Stapling (Recommended: Improves TLS handshake performance and privacy)
+        # Requires the full certificate chain (including intermediates) in tls.crt
+        # ssl_stapling on;
+        # ssl_stapling_verify on;
+        # ssl_trusted_certificate /etc/nginx/ssl/tls.crt; # Path to cert with full chain
+
+        # Define a detailed log format
+        log_format detailed '$remote_addr - $remote_user [$time_local] "$request" '
+                           '$status $body_bytes_sent "$http_referer" '
+                           '"$http_user_agent" "$http_x_forwarded_for" '
+                           'rt=$request_time'; # Include request time
+
+        access_log /var/log/nginx/access.log detailed; # Use the detailed format
+        error_log /var/log/nginx/error.log warn; # Log warnings and above
+
+        # Gzip Compression Settings
+        gzip on;
+        gzip_vary on;
+        gzip_proxied any;
+        gzip_comp_level 6;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript image/svg+xml;
+        gzip_disable "msie6"; # Disable for old IE6
+
+        # Rate Limiting Zones
+        limit_req_zone $binary_remote_addr zone=sitelimit:10m rate=10r/s;  # General site limit
+        limit_req_zone $binary_remote_addr zone=actionlimit:10m rate=10r/m; # Limit for specific actions (e.g., /admin)
+        limit_req_zone $binary_remote_addr zone=botslowdown:10m rate=5r/m;  # Limit for suspected bots/tarpit targets
+
+        # Lua Configuration
+        # NOTE: Ensure Lua libraries (like lua-resty-redis) are included in the Nginx image.
+        lua_package_path "/etc/nginx/lua/?.lua;;"; # Path for Lua modules
+        lua_shared_dict blocklist_cache 1m; # Shared memory for potential Lua caching (not used by current scripts)
+        lua_code_cache on; # Cache compiled Lua code for performance
+
+        server {
+            listen 80;
+            listen [::]:80;
+            listen 443 ssl http2;
+            listen [::]:443 ssl http2;
+
+            # IMPORTANT: Replace '_' with your actual domain name(s)
+            # Example: server_name example.com www.example.com;
+            server_name _;
+
+            # SSL Certificate Paths (Mounted from tls-secret)
+            ssl_certificate /etc/nginx/ssl/tls.crt;
+            ssl_certificate_key /etc/nginx/ssl/tls.key;
+
+            # Optional: Redirect all HTTP traffic to HTTPS (Enable after testing)
+            # if ($scheme = http) {
+            #     return 301 https://$host$request_uri;
+            # }
+
+            # Default root for static files (if any served directly by Nginx)
+            root /var/www/html;
+            index index.html index.htm;
+
+            # Use the detailed access log format for this server block
+            access_log /var/log/nginx/access.log detailed;
+
+            # Security Headers
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+            add_header Permissions-Policy "interest-cohort=()" always; # Disable FLoC
+            # add_header Content-Security-Policy "default-src 'self'; ..."; # Define a strong CSP
+
+            # --- Lua Request Processing ---
+            # These run for every request within this server block before proxying/serving
+            access_by_lua_file /etc/nginx/lua/check_blocklist.lua;
+            access_by_lua_file /etc/nginx/lua/detect_bot.lua;
+
+            # --- Main Application Routes ---
+            location /docs/ {
+                limit_req zone=sitelimit burst=20 nodelay; # Apply general rate limit
+                try_files $uri $uri/ =404;
+                # Assumes docs are built into image or mounted via PVC at /var/www/html/docs
+            }
+
+            # Location for serving rotated archives
+            location /docs/archives/ {
+                alias /usr/share/nginx/html/archives/; # Alias to the mounted PVC path
+                limit_req zone=botslowdown burst=5; # Apply stricter rate limit
+                add_header X-Robots-Tag "noindex, nofollow"; # Discourage indexing
+                # try_files $uri =404; # Alias handles file serving/404s
+            }
+
+            # --- Proxy Backend Services ---
+            # Proxy requests to the Admin UI service
+            location /admin/ {
+                limit_req zone=actionlimit burst=10 nodelay; # Apply action rate limit
+                proxy_pass http://admin-ui:5002/; # Use K8s Service name and port
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade; # For WebSocket support if needed
+                proxy_set_header Connection "upgrade";
+                proxy_read_timeout 90s; # Adjust timeout as needed
+            }
+
+            # Internal location for the Tarpit API, called by Lua script
+            location /api/tarpit {
+                internal; # Only accessible via internal redirects (e.g., ngx.exec)
+                limit_req zone=botslowdown burst=2; # Very strict limit for tarpit itself
+                proxy_pass http://tarpit-api:8001/tarpit; # Use K8s Service name and port
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_http_version 1.1;
+                proxy_set_header Connection ""; # Reset connection header for backend
+                proxy_read_timeout 300s; # Long timeout for tarpit responses
+            }
+
+            # --- Deny Access & Error Pages ---
+            location ~ /\. { deny all; } # Deny access to hidden files/dirs
+            location = /robots.txt { log_not_found off; access_log off; } # Don't log robots.txt access
+            location = /favicon.ico { log_not_found off; access_log off; } # Don't log favicon access
+
+            # Define custom error pages (files served from /usr/share/nginx/html/errors)
+            error_page 403 /403_forbidden.html;
+            error_page 404 /404_not_found.html;
+            error_page 500 502 503 504 /50x_error.html;
+
+            # Location to serve the actual error page files (mounted from error-pages-config)
+            location = /403_forbidden.html { root /usr/share/nginx/html/errors; internal; }
+            location = /404_not_found.html { root /usr/share/nginx/html/errors; internal; }
+            location = /50x_error.html { root /usr/share/nginx/html/errors; internal; }
+
+            # Default location: Serve static files or proxy to a main application
+            location / {
+                try_files $uri $uri/ /index.html; # Example for SPA or static site in /var/www/html
+                # Or: proxy_pass http://your_main_app_service:port; # If proxying to another backend
+            }
+        }
+    }
+
+  # Content of ./nginx/lua/check_blocklist.lua
+  check_blocklist.lua: |
+    -- nginx/lua/check_blocklist.lua
+    -- Checks the connecting IP against a Redis blocklist set.
+    local redis_host = os.getenv("REDIS_HOST") or "redis" -- Use K8s service name
+    local redis_port = tonumber(os.getenv("REDIS_PORT")) or 6379
+    local redis_db_blocklist = tonumber(os.getenv("REDIS_DB_BLOCKLIST")) or 2
+    local redis_blocklist_key = "blocklist:ip"
+    local redis_timeout_ms = 200 -- Short timeout for Redis check
+
+    local remote_addr = ngx.var.remote_addr
+    if not remote_addr then
+      ngx.log(ngx.WARN, "check_blocklist: Could not get remote_addr")
+      return -- Proceed without check if IP is missing
+    end
+
+    -- Lazily load the redis library
+    local redis = require "resty.redis"
+    local red = redis:new()
+    red:set_timeout(redis_timeout_ms)
+
+    -- Connect to Redis
+    local ok, err = red:connect(redis_host, redis_port)
+    if not ok then
+      ngx.log(ngx.ERR, "check_blocklist: Failed to connect to Redis at ", redis_host, ":", redis_port, ": ", err)
+      -- Fail open: Allow request if Redis is unavailable
+      return
+    end
+
+    -- Select the blocklist database
+    local select_ok, select_err = red:select(redis_db_blocklist)
+    if not select_ok then
+        ngx.log(ngx.ERR, "check_blocklist: Failed to select Redis DB ", redis_db_blocklist, ": ", select_err)
+        red:close()
+        -- Fail open
+        return
+    end
+
+    -- Check if the IP is in the blocklist set
+    local is_member, err = red:sismember(redis_blocklist_key, remote_addr)
+    if err then
+      ngx.log(ngx.ERR, "check_blocklist: Failed to query Redis (SISMEMBER ", redis_blocklist_key, ") for IP ", remote_addr, ": ", err)
+      red:close()
+      -- Fail open
+      return
+    end
+
+    -- Close connection gracefully (or set keepalive)
+    local close_ok, close_err = red:set_keepalive(0, 100) -- Reuse connection briefly
+    if not close_ok then
+        ngx.log(ngx.WARN,"check_blocklist: Failed to set Redis keepalive: ", close_err)
+        red:close() -- Ensure closed if keepalive fails
+    end
+
+    -- If IP is in the blocklist, deny access
+    if is_member == 1 then
+      ngx.log(ngx.WARN, "check_blocklist: Blocking IP ", remote_addr, " found in Redis set '", redis_blocklist_key, "'")
+      return ngx.exit(ngx.HTTP_FORBIDDEN) -- Return 403 Forbidden
+    end
+
+    -- IP not found in blocklist, allow request to proceed
+    return
+
+  # Content of ./nginx/lua/detect_bot.lua
+  detect_bot.lua: |
+    -- nginx/lua/detect_bot.lua
+    -- Basic bot detection script for NGINX - Enhanced Heuristics
+
+    -- Lists of known bad and benign bot User-Agent substrings (case-insensitive)
+    local bad_bots = { "GPTBot", "CCBot", "ClaudeBot", "Google-Extended", "Bytespider", "PetalBot", "Scrapy", "python-requests", "curl", "wget", "AhrefsBot", "SemrushBot", "MJ12bot", "DotBot", "masscan", "zgrab", "nmap", "sqlmap", "nikto" }
+    local benign_bots = { "googlebot", "adsbot-google", "apis-google", "mediapartners-google", "googlebot-image", "googlebot-news", "googlebot-video", "bingbot", "adidxbot", "bingpreview", "msnbot", "duckduckbot", "baiduspider", "yandexbot", "yandeximages", "slurp", "facebookexternalhit", "facebot", "linkedinbot", "twitterbot", "applebot" }
+
+    -- Helper function for case-insensitive substring search in a list
+    local function contains_string(str, list)
+        if not str then return false end
+        local str_lower = string.lower(str)
+        for _, pattern in ipairs(list) do
+            if string.find(str_lower, string.lower(pattern), 1, true) then
+                return true, pattern -- Return true and the matched pattern
+            end
+        end
+        return false
+    end
+
+    -- Get request details
+    local headers = ngx.req.get_headers()
+    local user_agent = headers["User-Agent"]
+    local remote_addr = ngx.var.remote_addr
+    local request_method = ngx.req.get_method()
+    local request_uri = ngx.var.request_uri
+
+    -- Immediately allow known benign bots
+    local is_benign, benign_pattern = contains_string(user_agent, benign_bots)
+    if is_benign then
+        ngx.log(ngx.INFO, "[BENIGN BOT ALLOWED] IP: ", remote_addr, ", UA: ", user_agent, " (Matched: ", benign_pattern, ")")
+        return -- Allow request
+    end
+
+    -- Initialize suspicion score and reasons list
+    local suspicion_score = 0
+    local reasons = {}
+
+    -- Check for known bad User-Agents
+    local is_bad_ua, bad_pattern = contains_string(user_agent, bad_bots)
+    if is_bad_ua then
+        suspicion_score = suspicion_score + 0.8
+        table.insert(reasons, "KnownBadUA("..bad_pattern..")")
+    end
+
+    -- Get other relevant headers
+    local accept_lang = headers["Accept-Language"]
+    local sec_fetch_site = headers["Sec-Fetch-Site"]
+    -- local sec_fetch_user = headers["Sec-Fetch-User"] -- Less useful for bot detection
+    local accept_header = headers["Accept"]
+    local referer_header = headers["Referer"]
+
+    -- Apply heuristic rules
+    if not user_agent or user_agent == "" then
+        suspicion_score = suspicion_score + 0.4
+        table.insert(reasons, "MissingUA")
+    end
+    if not accept_lang then
+        suspicion_score = suspicion_score + 0.2
+        table.insert(reasons, "MissingAcceptLang")
+    end
+    -- Missing Sec-Fetch-Site is common for direct access/bookmarks, less suspicious unless UA is already bad
+    if not sec_fetch_site and not is_bad_ua then
+        suspicion_score = suspicion_score + 0.15
+        table.insert(reasons, "MissingSecFetchSite")
+    end
+    -- Generic Accept header is common for APIs/scripts
+    if accept_header == "*/*" then
+        suspicion_score = suspicion_score + 0.1
+        table.insert(reasons, "AcceptWildcard")
+    end
+    -- Missing Referer for non-root, non-asset requests can be slightly suspicious
+    if not referer_header and request_uri ~= "/" and not string.match(request_uri, "%.(css|js|png|jpg|jpeg|gif|woff|woff2|ico)$") then
+        suspicion_score = suspicion_score + 0.05
+        table.insert(reasons, "MissingRefererNonAsset")
+    end
+    -- Uncommon HTTP methods
+    if request_method ~= "GET" and request_method ~= "POST" and request_method ~= "HEAD" and request_method ~= "OPTIONS" then
+        suspicion_score = suspicion_score + 0.2
+        table.insert(reasons, "UncommonMethod("..request_method..")")
+    end
+
+    -- Check if suspicion score exceeds threshold
+    if suspicion_score >= 0.7 then
+        local reason_str = table.concat(reasons, ", ")
+        ngx.log(ngx.WARN, "[BOT DETECTED: High Heuristic Score] Score: ", string.format("%.2f", suspicion_score), ", IP: ", remote_addr, ", UA: ", user_agent, ", Reasons: ", reason_str)
+        -- Internally redirect the request to the tarpit API
+        return ngx.exec("/api/tarpit")
+    end
+
+    -- Request passed bot checks
+    ngx.log(ngx.DEBUG, "[BOT CHECK PASSED] Score: ", string.format("%.2f", suspicion_score), ", IP: ", remote_addr, ", UA: ", user_agent)
+    return -- Allow request
+
+---
+# ConfigMap for DH parameters
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dhparam-config
+  # Consider adding namespace: ai-defense
+data:
+  # CRITICAL SECURITY WARNING: Replace the placeholder content below with your own
+  # unique, securely generated 4096-bit DH parameters.
+  # Generate using: openssl dhparam -out dhparam.pem 4096
+  # Then copy the *entire* content of the generated dhparam.pem file here.
+  dhparam.pem: |
+    -----BEGIN DH PARAMETERS-----
+    MIIBCAKCAQEA//////////+t+FRYortKmq/cViAnPTzx2LnFg84tNpWp4TZBFGQz
+    +8yTnc4kmz75fS/jY2MMddj2gbICrsRhetPfHtXV/WVhJDP1H18GbtCFY2VVPe0a
+    87VXEWT0PU8VLfjrVQMeQaSbPkMCyHWrwZxN/gia/vaMs0ZtXELGduP67AGJTShr
+    DWGCZn1J0Yp7qHyxvyYdkJkzaLpAb/+VWdHhDWJgMWBjlHuHYdhMhPymg2mN1fX/
+    f+M/TLzVOYSnMA+E4Shc/7ISU/Tt/hEXnvuYRaL+GjN2lsHDerzLxa7+PFHBdXkM
+    h+1nCaTWsTuMIKBPfv0QD3aFV4LdLoPGtEpNrtQ9Y+o+pa829A==
+    -----END DH PARAMETERS-----
+
+---
+# ConfigMap for custom Nginx error pages (Fix for Issue #5)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-error-pages
+  # Consider adding namespace: ai-defense
+data:
+  403_forbidden.html: |
+    <!DOCTYPE html>
+    <html>
+    <head><title>403 Forbidden</title></head>
+    <body><h1>403 Forbidden</h1><p>Access denied.</p></body>
+    </html>
+  404_not_found.html: |
+    <!DOCTYPE html>
+    <html>
+    <head><title>404 Not Found</title></head>
+    <body><h1>404 Not Found</h1><p>The requested resource was not found.</p></body>
+    </html>
+  50x_error.html: |
+    <!DOCTYPE html>
+    <html>
+    <head><title>Server Error</title></head>
+    <body><h1>Server Error</h1><p>An internal server error occurred.</p></body>
+    </html>
+
+---
+# Nginx Service Definition
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx # Service name for internal access and external exposure
+  # Consider adding namespace: ai-defense
+  labels:
+    app: nginx
+spec:
+  selector:
+    app: nginx # Selects pods managed by the Deployment
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: http # Matches container port name
+      name: http
+    - protocol: TCP
+      port: 443
+      targetPort: https # Matches container port name
+      name: https
+  # Type LoadBalancer requests an external IP from cloud providers.
+  # Alternatives:
+  # - NodePort: Exposes on each node's IP (less common for HTTP).
+  # - ClusterIP (default): Exposes internally only. Use with an Ingress controller for external access.
+  # Consider using an Ingress controller for more flexible routing and TLS management.
+  type: LoadBalancer
+  # Optional: Specify externalTrafficPolicy if needed (e.g., Local to preserve source IP)
+  # externalTrafficPolicy: Local
+
+---
+# Nginx Deployment Definition
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  # Consider adding namespace: ai-defense
+  labels:
+    app: nginx
+spec:
+  replicas: 2 # Start with 2 replicas for availability
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        # CRITICAL: Replace with your actual Nginx image name and a specific tag.
+        # Using ':latest' is discouraged in production.
+        # Example: image: your-registry/your-repo/ai-defense-stack-nginx:v1.0.1
+        image: your-registry/your-repo/ai-defense-stack-nginx:v1.0.0-placeholder # <-- UPDATE THIS IMAGE NAME AND TAG
+        # Use 'Always' if you rebuild the *same* tag often during dev, otherwise 'IfNotPresent' is fine.
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: http
+        - containerPort: 443
+          name: https
+        envFrom: # Inject common variables from the main ConfigMap (e.g., for Lua scripts)
+          - configMapRef:
+              name: app-config
+        resources:
+          # Adjust requests/limits based on observed performance and load
+          requests:
+            cpu: "150m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+        volumeMounts:
+          # Mount main nginx config file and Lua scripts from nginx-config ConfigMap
+          - name: nginx-config-volume
+            mountPath: /etc/nginx/nginx.conf
+            subPath: nginx.conf
+            readOnly: true
+          - name: nginx-config-volume
+            mountPath: /etc/nginx/lua/check_blocklist.lua
+            subPath: check_blocklist.lua
+            readOnly: true
+          - name: nginx-config-volume
+            mountPath: /etc/nginx/lua/detect_bot.lua
+            subPath: detect_bot.lua
+            readOnly: true
+          # Mount DH parameters from dhparam-config ConfigMap
+          - name: dhparam-volume
+            mountPath: /etc/nginx/ssl/dhparam.pem
+            subPath: dhparam.pem
+            readOnly: true
+          # Mount TLS certificate and key from tls-secret Secret
+          - name: tls-secret-volume
+            mountPath: /etc/nginx/ssl # Mount directory containing tls.crt and tls.key
+            readOnly: true
+          # Mount shared archives volume (ReadOnly for Nginx) from archives-pvc PVC
+          - name: archives-volume
+            mountPath: /usr/share/nginx/html/archives/ # Path used in nginx.conf alias
+            readOnly: true
+          # Mount logs volume (ReadWrite) using emptyDir
+          - name: log-volume
+            mountPath: /var/log/nginx
+          # Mount custom error pages from nginx-error-pages ConfigMap (Fix for Issue #5)
+          - name: error-pages-volume
+            mountPath: /usr/share/nginx/html/errors # Path used in nginx.conf error_page root
+            readOnly: true
+          # Mount static docs (if not built into image and needed)
+          # - name: docs-volume
+          #   mountPath: /var/www/html/docs
+          #   readOnly: true
+
+        # Liveness probe: Check if Nginx process is listening
+        livenessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          timeoutSeconds: 2
+          failureThreshold: 3
+        # Readiness probe: Check if Nginx is ready to accept connections and serve root
+        readinessProbe:
+          httpGet:
+            path: / # Check root path (or a dedicated health check endpoint if available)
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 3 # Allow for temporary glitches
+
+      volumes:
+        # Define volume for main nginx config and lua scripts from ConfigMap
+        - name: nginx-config-volume
+          configMap:
+            name: nginx-config # Name of the ConfigMap defined above
+
+        # Define volume for DH parameters from ConfigMap
+        - name: dhparam-volume
+          configMap:
+            name: dhparam-config
+
+        # Define volume for custom error pages from ConfigMap (Fix for Issue #5)
+        - name: error-pages-volume
+          configMap:
+            name: nginx-error-pages
+
+        # Define volume for TLS certs/key from Secret
+        # IMPORTANT: You must create a Secret named 'tls-secret' separately
+        # containing tls.crt and tls.key. Use:
+        # kubectl create secret tls tls-secret --cert=path/to/fullchain.pem --key=path/to/privkey.pem
+        - name: tls-secret-volume
+          secret:
+            secretName: tls-secret # Name of the TLS Secret
+
+        # Define the shared archives volume using the PVC
+        # IMPORTANT: You must create a PersistentVolumeClaim named 'archives-pvc' separately.
+        # This PVC must also be mounted by the 'archive-rotator' deployment.
+        - name: archives-volume
+          persistentVolumeClaim:
+            claimName: archives-pvc # Must match PVC used by archive-rotator
+
+        # Define the log volume (ephemeral, lost if pod restarts)
+        - name: log-volume
+          emptyDir: {}
+
+        # Define optional volume for static docs if mounting from PVC
+        # - name: docs-volume
+        #   persistentVolumeClaim:
+        #     claimName: docs-pvc
+        #   # Ensure this PVC is created and mounted correctly in the archive-rotator deployment
+        #   # This is optional and can be removed if docs are built into the image.
+        #   # Note: If using a PVC for docs, ensure the PVC is created and bound before deploying Nginx.
+        #   # Example PVC creation command: kubectl create -f docs-pvc.yaml

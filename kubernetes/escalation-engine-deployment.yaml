@@ -1,0 +1,184 @@
+# kubernetes/escalation-engine-deployment.yaml
+# Defines ConfigMap for robots.txt, Service, and Deployment for the Escalation Engine.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: robots-txt-config
+  # Consider adding namespace: ai-defense
+data:
+  # IMPORTANT: Paste the content of your ./config/robots.txt file here
+  robots.txt: |
+    User-agent: *
+    Disallow: /admin/
+    Disallow: /api/
+    Disallow: /tarpit/
+    Disallow: /config/
+    Disallow: /models/
+    Disallow: /secrets/
+    Disallow: /data/
+    Disallow: /cgi-bin/
+
+    User-agent: GPTBot
+    Disallow: /
+
+    User-agent: CCBot
+    Disallow: /
+
+    # Add other specific bot disallows here
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: escalation-engine # Service name used by Tarpit API
+  # Consider adding namespace: ai-defense
+  labels:
+    app: escalation-engine
+spec:
+  selector:
+    app: escalation-engine # Selects pods with this label
+  ports:
+    - protocol: TCP
+      port: 8003 # Port the service listens on within the cluster
+      targetPort: http-escalation # Matches the container port name
+      name: http
+  type: ClusterIP # Only reachable internally
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: escalation-engine
+  # Consider adding namespace: ai-defense
+  labels:
+    app: escalation-engine
+spec:
+  replicas: 2 # Start with 2 replicas, adjust based on load/CPU usage
+  selector:
+    matchLabels:
+      app: escalation-engine
+  template:
+    metadata:
+      labels:
+        app: escalation-engine
+    spec:
+      containers:
+      - name: escalation-engine
+        # IMPORTANT: Use the same base image as other Python services
+        image: defense_stack_py_base:latest
+        imagePullPolicy: IfNotPresent
+        workingDir: /app
+        # Command matches docker-compose, using 2 workers
+        command: ["uvicorn", "escalation.escalation_engine:app", "--host", "0.0.0.0", "--port", "8003", "--workers", "2"]
+        ports:
+        - containerPort: 8003
+          name: http-escalation # Name for the container port
+        envFrom: # Inject all variables from the main ConfigMap
+          - configMapRef:
+              name: app-config
+        env: # Define secret file paths explicitly
+          - name: EXTERNAL_CLASSIFICATION_API_KEY_FILE
+            value: /run/secrets/external-api/external_api_key
+          - name: IP_REPUTATION_API_KEY_FILE
+            value: /run/secrets/ip-reputation/ip_reputation_api_key
+        resources:
+          # Values from docker-compose (potentially higher CPU needs)
+          requests:
+            cpu: "500m"  # Request 0.5 CPU core
+            memory: "512Mi"
+          limits:
+            cpu: "1000m" # Max 1 CPU core
+            memory: "1Gi"
+        volumeMounts:
+          # Assume escalation and shared code are built into the image
+          # - name: app-code
+          #   mountPath: /app/escalation
+          #   subPath: escalation
+          #   readOnly: true
+          # - name: app-code
+          #   mountPath: /app/shared
+          #   subPath: shared
+          #   readOnly: true
+
+          # Mount the ML model(s) volume (ReadOnly)
+          # Assumes model file(s) are at the root of the PVC.
+          - name: models-volume
+            mountPath: /app/models # Corresponds to RF_MODEL_PATH parent dir
+            readOnly: true
+
+          # Mount the config file(s) volume (ReadOnly)
+          # Mounts the robots.txt from the ConfigMap defined above
+          - name: config-files-volume
+            mountPath: /app/config # Corresponds to ROBOTS_TXT_PATH parent dir
+            readOnly: true
+
+          # Mount a volume for logs (ephemeral)
+          - name: log-volume
+            mountPath: /app/logs
+
+          # Mount secrets
+          - name: external-api-secret-volume
+            mountPath: /run/secrets/external-api # Directory where the secret file will appear
+            readOnly: true
+          - name: ip-reputation-secret-volume
+            mountPath: /run/secrets/ip-reputation # Directory where the secret file will appear
+            readOnly: true
+
+        # Liveness probe: Check if the container is running
+        livenessProbe:
+          httpGet:
+            path: /health # Use the health endpoint
+            port: http-escalation
+          initialDelaySeconds: 30 # Wait longer for model loading etc.
+          periodSeconds: 30
+          failureThreshold: 3
+        # Readiness probe: Check if the container is ready to serve traffic
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http-escalation
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          successThreshold: 1
+          failureThreshold: 3
+
+      volumes:
+        # Define the log volume (ephemeral)
+        - name: log-volume
+          emptyDir: {}
+
+        # Define the models volume using a PersistentVolumeClaim
+        # IMPORTANT: You must create a PVC named 'models-pvc' separately
+        # and ensure the model file(s) are present on the underlying volume.
+        - name: models-volume
+          persistentVolumeClaim:
+            claimName: models-pvc # Name of the PVC to use
+            # readOnly: true # Mount PVC read-only if possible/needed
+
+        # Define the config files volume using the ConfigMap
+        - name: config-files-volume
+          configMap:
+            name: robots-txt-config # Name of the ConfigMap defined above
+            items:
+              - key: robots.txt # Key in the ConfigMap data
+                path: robots.txt # Filename inside the mountPath (/app/config)
+
+        # Define volumes for secrets
+        - name: external-api-secret-volume
+          secret:
+            secretName: external-api-credentials # Name of the Secret object
+            items:
+            - key: external_api_key # Key within the Secret data
+              path: external_api_key # Filename inside the mountPath (/run/secrets/external-api)
+        - name: ip-reputation-secret-volume
+          secret:
+            secretName: ip-reputation-credentials
+            items:
+            - key: ip_reputation_api_key
+              path: ip_reputation_api_key
+
+        # If using a shared volume for code:
+        # - name: app-code
+        #   persistentVolumeClaim:
+        #     claimName: app-code-pvc

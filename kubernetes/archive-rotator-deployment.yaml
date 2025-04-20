@@ -1,0 +1,78 @@
+# kubernetes/archive-rotator-deployment.yaml
+# Defines the Deployment for the background Archive Rotator task.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archive-rotator
+  # Consider adding namespace: ai-defense
+  labels:
+    app: archive-rotator
+spec:
+  replicas: 1 # Usually only need one instance of this background task
+  selector:
+    matchLabels:
+      app: archive-rotator
+  template:
+    metadata:
+      labels:
+        app: archive-rotator
+    spec:
+      containers:
+      - name: archive-rotator
+        # IMPORTANT: Use the same base image as other Python services
+        image: defense_stack_py_base:latest
+        imagePullPolicy: IfNotPresent
+        workingDir: /app
+        command: ["python", "tarpit/rotating_archive.py"]
+        envFrom: # Inject all variables from the ConfigMap
+          - configMapRef:
+              name: app-config # Reference the ConfigMap created earlier
+        resources:
+          # Values from docker-compose (low resource needs)
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "250m"
+            memory: "128Mi"
+        volumeMounts:
+          # Assume tarpit and shared code are built into the image
+          # - name: app-code
+          #   mountPath: /app/tarpit
+          #   subPath: tarpit # Mount only the tarpit subdir if app-code volume exists
+          #   readOnly: true
+          # - name: app-code
+          #   mountPath: /app/shared
+          #   subPath: shared # Mount only the shared subdir if app-code volume exists
+          #   readOnly: true
+
+          # Mount the shared volume for generated archives (Requires PVC)
+          # This volume needs ReadWrite access for this pod.
+          # Nginx pods will also need to mount this volume (likely ReadOnly).
+          - name: archives-volume
+            mountPath: /app/fake_archives # Matches DEFAULT_ARCHIVE_DIR in js_zip_generator.py
+
+          # Mount a volume for logs (ephemeral)
+          - name: log-volume
+            mountPath: /app/logs
+
+      volumes:
+        # Define the log volume (ephemeral)
+        - name: log-volume
+          emptyDir: {}
+
+        # Define the archives volume using a PersistentVolumeClaim
+        # IMPORTANT: You must create a PersistentVolumeClaim named 'archives-pvc'
+        # separately using 'kubectl apply -f your-pvc-definition.yaml'.
+        # The PVC needs a StorageClass that supports the required accessMode
+        # (e.g., ReadWriteMany if Nginx replicas also need write access, though
+        # typically ReadOnlyMany or ReadWriteOnce might suffice if only rotator writes).
+        - name: archives-volume
+          persistentVolumeClaim:
+            claimName: archives-pvc # Name of the PVC to use
+
+        # If using a shared volume for code (Option 2 in admin-ui):
+        # - name: app-code
+        #   persistentVolumeClaim:
+        #     claimName: app-code-pvc

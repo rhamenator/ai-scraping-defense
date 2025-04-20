@@ -1,6 +1,8 @@
 # Getting Started with the AI Scraping Defense Stack
 
-This guide provides the steps needed to set up, configure, run, and perform basic tests on the AI Scraping Defense Stack using Docker Compose.
+This guide provides the steps needed to set up, configure, run, and perform basic tests on the AI Scraping Defense Stack using **Docker Compose**.
+
+For deployment using Kubernetes (recommended for production environments), please refer to the [Kubernetes Deployment Guide](kubernetes_deployment.md).
 
 ## 1. Prerequisites
 

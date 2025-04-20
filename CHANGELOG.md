@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added in 0.1.0
+### Added in 0.0.2 - 2025-04-20
+
+* Kubernetes manifests (`/kubernetes`) for deploying services, including ConfigMaps, Secrets structure, Deployments, StatefulSet (Redis), and Services.
+* Initial structure for NGINX reverse proxy with Lua support.
+* FastAPI service skeleton for tarpit (`/tarpit`).
+
+### Added in 0.0.1 - 2025-04-19
 
 * Initial structure for NGINX reverse proxy with Lua support.
 * FastAPI service skeleton for tarpit (`/tarpit`).
@@ -63,9 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Ensured consistent timestamp handling (UTC ISO format) across services.
 * Improved robustness of Redis connections and operations.
 
-## [0.1.0] - 2025-MM-DD
-
-### This would be your first tagged release
+## [0.0.0] - 2025-04-18
 
 ### Added
 

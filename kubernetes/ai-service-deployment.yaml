@@ -1,0 +1,143 @@
+# kubernetes/ai-service-deployment.yaml
+# Defines the Deployment and Service for the AI Service (FastAPI application).
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-service # Service name used by Escalation Engine webhook URL
+  # Consider adding namespace: ai-defense
+  labels:
+    app: ai-service
+spec:
+  selector:
+    app: ai-service # Selects pods with this label
+  ports:
+    - protocol: TCP
+      port: 8000 # Port the service listens on within the cluster
+      targetPort: http-aiservice # Matches the container port name
+      name: http
+  type: ClusterIP # Only reachable internally
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-service
+  # Consider adding namespace: ai-defense
+  labels:
+    app: ai-service
+spec:
+  replicas: 2 # Start with 2 replicas for availability, adjust as needed
+  selector:
+    matchLabels:
+      app: ai-service
+  template:
+    metadata:
+      labels:
+        app: ai-service
+    spec:
+      containers:
+      - name: ai-service
+        # IMPORTANT: Use the same base image as other Python services
+        image: defense_stack_py_base:latest
+        imagePullPolicy: IfNotPresent
+        workingDir: /app
+        # Command matches docker-compose, using 2 workers
+        command: ["uvicorn", "ai_service.ai_webhook:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+        ports:
+        - containerPort: 8000
+          name: http-aiservice # Name for the container port
+        envFrom: # Inject common variables from the main ConfigMap
+          - configMapRef:
+              name: app-config
+        env: # Define secret file paths and potentially sensitive/deployment-specific vars
+          # Secret file paths
+          - name: ALERT_SMTP_PASSWORD_FILE
+            value: /run/secrets/smtp/smtp_password
+          - name: COMMUNITY_BLOCKLIST_API_KEY_FILE
+            value: /run/secrets/community-blocklist/community_blocklist_api_key
+          # Alerting details (could also come from a separate ConfigMap/Secret if preferred)
+          - name: ALERT_GENERIC_WEBHOOK_URL
+            value: "" # Set actual value via Kustomize/Helm/Patch or another ConfigMap/Secret
+          - name: ALERT_SLACK_WEBHOOK_URL
+            value: "" # Set actual value
+          - name: ALERT_EMAIL_FROM
+            value: "" # Set actual value
+          - name: ALERT_EMAIL_TO
+            value: "" # Set actual value
+          - name: ALERT_SMTP_HOST
+            value: "" # Set actual value
+          - name: ALERT_SMTP_USER
+            value: "" # Set actual value
+        resources:
+          # Values from docker-compose
+          requests:
+            cpu: "150m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        volumeMounts:
+          # Assume ai_service and shared code are built into the image
+          # - name: app-code
+          #   mountPath: /app/ai_service
+          #   subPath: ai_service
+          #   readOnly: true
+          # - name: app-code
+          #   mountPath: /app/shared
+          #   subPath: shared
+          #   readOnly: true
+
+          # Mount a volume for logs (ephemeral)
+          - name: log-volume
+            mountPath: /app/logs
+
+          # Mount secrets
+          - name: smtp-secret-volume
+            mountPath: /run/secrets/smtp # Directory for SMTP secret file
+            readOnly: true
+          - name: community-blocklist-secret-volume
+            mountPath: /run/secrets/community-blocklist # Directory for community secret file
+            readOnly: true
+
+        # Liveness probe: Check if the container is running
+        livenessProbe:
+          httpGet:
+            path: /health # Use the health endpoint
+            port: http-aiservice
+          initialDelaySeconds: 20
+          periodSeconds: 30
+          failureThreshold: 3
+        # Readiness probe: Check if the container is ready to serve traffic
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http-aiservice
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          successThreshold: 1
+          failureThreshold: 2
+
+      volumes:
+        # Define the log volume (ephemeral)
+        - name: log-volume
+          emptyDir: {}
+
+        # Define volumes for secrets
+        - name: smtp-secret-volume
+          secret:
+            secretName: smtp-credentials # Name of the Secret object
+            items:
+            - key: smtp_password # Key within the Secret data
+              path: smtp_password # Filename inside the mountPath (/run/secrets/smtp)
+        - name: community-blocklist-secret-volume
+          secret:
+            secretName: community-blocklist-credentials
+            items:
+            - key: community_blocklist_api_key
+              path: community_blocklist_api_key
+
+        # If using a shared volume for code:
+        # - name: app-code
+        #   persistentVolumeClaim:
+        #     claimName: app-code-pvc

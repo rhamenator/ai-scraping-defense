@@ -1,0 +1,77 @@
+# kubernetes/configmap.yaml
+# Defines non-sensitive configuration shared across services.
+# These values will be injected as environment variables into the pods.
+# Values can be overridden during deployment if necessary (e.g., via Kustomize).
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config # Name referenced by deployments
+  # Consider adding namespace: ai-defense
+data:
+  # --- Redis Configuration ---
+  REDIS_HOST: "redis" # K8s Service name for Redis
+  REDIS_PORT: "6379"
+  REDIS_DB_BLOCKLIST: "2"
+  REDIS_DB_FREQUENCY: "3"
+  REDIS_DB_TAR PIT: "1" # Used by tarpit ip_flagger
+
+  # --- Service Endpoints (using K8s service names/ports) ---
+  ESCALATION_ENDPOINT: "http://escalation-engine:8003/escalate" # Tarpit calls this
+  # AI_SERVICE_ENDPOINT: "http://ai-service:8000/analyze" # Escalation Engine calls this (ESCALATION_WEBHOOK_URL)
+  ESCALATION_WEBHOOK_URL: "http://ai-service:8000/analyze" # Explicitly match env var name
+
+  # --- Alerting Configuration (Non-Sensitive) ---
+  ALERT_METHOD: "none" # Default, override via .env or K8s patch if needed
+  ALERT_MIN_REASON_SEVERITY: "Local LLM"
+  ALERT_SMTP_PORT: "587"
+  ALERT_SMTP_USE_TLS: "true"
+  # Sensitive alert settings (URLs, emails, user) should be set directly in Deployment env vars or via patching, potentially reading from another ConfigMap/Secret if complex.
+  # ALERT_GENERIC_WEBHOOK_URL: ""
+  # ALERT_SLACK_WEBHOOK_URL: ""
+  # ALERT_EMAIL_FROM: ""
+  # ALERT_EMAIL_TO: ""
+  # ALERT_SMTP_HOST: ""
+  # ALERT_SMTP_USER: ""
+
+  # --- Escalation Engine: LLM/External API Config (Non-Sensitive) ---
+  LOCAL_LLM_API_URL: "" # Default empty, override if used
+  LOCAL_LLM_MODEL: "" # Default empty
+  LOCAL_LLM_TIMEOUT: "45.0"
+  EXTERNAL_CLASSIFICATION_API_URL: "" # Default empty
+  EXTERNAL_API_TIMEOUT: "15.0"
+
+  # --- Escalation Engine: IP Reputation Config (Non-Sensitive) ---
+  ENABLE_IP_REPUTATION: "false" # Default disabled
+  IP_REPUTATION_API_URL: "" # Default empty
+  IP_REPUTATION_TIMEOUT: "10.0"
+  IP_REPUTATION_MALICIOUS_SCORE_BONUS: "0.3"
+  IP_REPUTATION_MIN_MALICIOUS_THRESHOLD: "50"
+
+  # --- Escalation Engine: CAPTCHA Trigger Config (Non-Sensitive) ---
+  ENABLE_CAPTCHA_TRIGGER: "false" # Default disabled
+  CAPTCHA_SCORE_THRESHOLD_LOW: "0.2"
+  CAPTCHA_SCORE_THRESHOLD_HIGH: "0.5"
+  CAPTCHA_VERIFICATION_URL: "" # Default empty
+
+  # --- AI Service: Community Reporting Config (Non-Sensitive) ---
+  ENABLE_COMMUNITY_REPORTING: "false" # Default disabled
+  COMMUNITY_BLOCKLIST_REPORT_URL: "" # Default empty
+  COMMUNITY_BLOCKLIST_REPORT_TIMEOUT: "10.0"
+
+  # --- File Path Configuration (In-Container Paths) ---
+  # Used by Escalation Engine (and potentially Training if run as K8s Job)
+  TRAINING_ROBOTS_TXT_PATH: "/app/config/robots.txt"
+  TRAINING_MODEL_SAVE_PATH: "/app/models/bot_detection_rf_model.joblib"
+  # Used by Training Script (if run as K8s Job)
+  # TRAINING_LOG_FILE_PATH: "/app/data/apache_access.log" # Often mounted directly
+  # TRAINING_DB_PATH: "/app/data/log_analysis.db"
+  # TRAINING_FINETUNE_DATA_DIR: "/app/data/finetuning_data"
+  # TRAINING_HONEYPOT_LOG: "/app/logs/honeypot_hits.log"
+  # TRAINING_CAPTCHA_LOG: "/app/logs/captcha_success.log"
+
+  # --- Other Config ---
+  FLASK_ENV: "production" # Default to production for K8s deployments
+  PYTHONPATH: "/app" # Ensure modules are found
+  TAR PIT_FLAG_TTL: "300" # TTL for Tarpit IP flags in Redis DB 1
+  TAR PIT_FLAG_MAX_COUNT: "5" # Max Tarpit flags before escalation
