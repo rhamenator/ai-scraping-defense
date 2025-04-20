@@ -18,6 +18,7 @@ For simpler setups or development environments, please refer to the [Docker Comp
 
 The Kubernetes manifests are located in the `/kubernetes` directory:
 
+```
 kubernetes/
 ├── redis-statefulset.yaml
 ├── secrets.yaml           # Structure definition ONLY
@@ -28,6 +29,7 @@ kubernetes/
 ├── escalation-engine-deployment.yaml
 ├── ai-service-deployment.yaml
 └── nginx-deployment.yaml    # Includes Nginx config, Lua, DHParam configmaps  
+```
 
 You will also need to create `PersistentVolumeClaim` definitions separately if required by your storage setup.
 
