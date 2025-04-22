@@ -1,0 +1,126 @@
+# anti_scrape/kubernetes/postgres-statefulset.yaml
+# Example Kubernetes manifest for deploying PostgreSQL for the Markov DB.
+# --- YOU MUST ADJUST storageClassName, resource limits, and potentially other ---
+# --- parameters (like replica count, backup strategy) for production use. ---
+
+# Headless Service for StatefulSet DNS Discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres # Service name used by other pods (e.g., Tarpit API)
+  # namespace: ai-defense # Uncomment if using namespace
+  labels:
+    app: postgres-markov # Label for selecting pods
+spec:
+  ports:
+  - port: 5432
+    name: postgres
+  clusterIP: None # Makes the service headless
+  selector:
+    app: postgres-markov # Selects pods managed by the StatefulSet
+
+---
+# StatefulSet for PostgreSQL Pods
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres # Name of the StatefulSet
+  # namespace: ai-defense # Uncomment if using namespace
+spec:
+  serviceName: "postgres" # Must match the headless Service name
+  replicas: 1 # Start with one replica for simplicity. Consider HA solutions for production.
+  selector:
+    matchLabels:
+      app: postgres-markov # Must match the template labels
+  template: # Pod template
+    metadata:
+      labels:
+        app: postgres-markov # Label for selection by Service and StatefulSet
+    spec:
+      terminationGracePeriodSeconds: 30 # Time to wait before killing pod on delete
+      containers:
+      - name: postgres
+        image: postgres:15-alpine # Use a specific, vetted version
+        ports:
+        - containerPort: 5432
+          name: postgres # Port name referenced by Service
+        env:
+        # Use environment variables from ConfigMap or set directly
+        # These names MUST match those expected by the postgres image
+        - name: POSTGRES_DB # Database name
+          valueFrom:
+            configMapKeyRef:
+              name: app-config # Reference the main app ConfigMap
+              key: PG_DBNAME   # Key defined in app-config ConfigMap
+        - name: POSTGRES_USER # Database username
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: PG_USER
+        # Password comes from a secret mounted file
+        - name: PGDATA # Define the data directory path
+          value: /var/lib/postgresql/data/pgdata
+        - name: POSTGRES_PASSWORD_FILE # Tell postgres image to read password from this file
+          value: /run/secrets/postgres/pg_password.txt # Path inside container where secret is mounted
+        # Mount point for data volume
+        volumeMounts:
+        - name: postgres-persistent-storage # Matches volumeClaimTemplates name
+          mountPath: /var/lib/postgresql/data # Standard PG data directory
+        # Mount secret containing the password file
+        - name: postgres-secret-volume # Matches volume name below
+          mountPath: /run/secrets/postgres # Directory where secret file appears
+          readOnly: true
+        # Optional: Mount init scripts (if schema created via initdb)
+        # - name: postgres-init-scripts
+        #   mountPath: /docker-entrypoint-initdb.d
+        #   readOnly: true
+        resources:
+          # IMPORTANT: Adjust these based on expected load and corpus size
+          requests: # Minimum required resources
+            cpu: "500m"
+            memory: "512Mi"
+          limits: # Maximum allowed resources
+            cpu: "1500m" # Allow bursting up to 1.5 cores
+            memory: "1.5Gi" # Adjust based on corpus size/usage
+        # Liveness and Readiness Probes
+        livenessProbe:
+          exec:
+            # Use pg_isready to check if the server is accepting connections
+            command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)", "-q"]
+          initialDelaySeconds: 45 # Give PG time to start and initialize
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)", "-q"]
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+      volumes:
+        # Define volume for the secret from K8s Secret object
+        - name: postgres-secret-volume
+          secret:
+            secretName: postgres-credentials # Name of the K8s Secret object (defined below)
+            items:
+              - key: pg_password.txt # Key within the Secret data
+                path: pg_password.txt # Filename inside the mountPath (/run/secrets/postgres)
+        # Optional: Define volume for init scripts from a ConfigMap
+        # - name: postgres-init-scripts
+        #   configMap:
+        #     name: postgres-init-config # Name of the ConfigMap containing init scripts
+        #     defaultMode: 0755 # Make scripts executable
+
+  # Define the Persistent Volume Claim Template for stable storage
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-persistent-storage # Name used in volumeMounts
+    spec:
+      accessModes: [ "ReadWriteOnce" ] # Standard for single-node databases
+      # IMPORTANT: Specify a StorageClass appropriate for your cluster (e.g., SSD, network storage)
+      # storageClassName: your-database-storage-class
+      resources:
+        requests:
+          storage: 10Gi # Adjust storage size based on expected corpus + DB overhead

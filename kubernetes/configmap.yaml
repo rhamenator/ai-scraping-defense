@@ -1,80 +1,91 @@
-# kubernetes/configmap.yaml
+# anti_scrape/kubernetes/configmap.yaml
 # Defines non-sensitive configuration shared across services.
-# These values will be injected as environment variables into the pods.
-# Values can be overridden during deployment if necessary (e.g., via Kustomize).
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: app-config # Name referenced by deployments
-  # Consider adding namespace: ai-defense
+  name: app-config
+  # namespace: ai-defense # Uncomment if using namespace
 data:
+  # --- System Seed ---
+  SYSTEM_SEED: "default_kubernetes_seed_replace_me" # IMPORTANT: Override with a secure random value
+
+  # --- JSON Metrics Logging ---
+  LOG_METRICS_TO_JSON: "false" # Default disabled
+  METRICS_JSON_FILE: "/app/logs/metrics_dump.json"
+  METRICS_DUMP_INTERVAL_MIN: "60"
+
   # --- Redis Configuration ---
   REDIS_HOST: "redis" # K8s Service name for Redis
   REDIS_PORT: "6379"
-  REDIS_DB_BLOCKLIST: "2"
-  REDIS_DB_FREQUENCY: "3"
-  REDIS_DB_TAR PIT: "1" # Used by tarpit ip_flagger
+  REDIS_DB_BLOCKLIST: "2"  # For IP blocking (Nginx, AI Service, Tarpit)
+  REDIS_DB_FREQUENCY: "3"  # For Escalation Engine frequency tracking
+  REDIS_DB_TAR_PIT: "1"     # For Tarpit IP flagging (visits)
+  REDIS_DB_TAR_PIT_HOPS: "4" # For Tarpit hop counting (NEW)
+  # REDIS_PASSWORD_FILE path set directly in deployments needing it via secret mount
 
-  # --- Blocklist TTL --- <-- ADDED
-  BLOCKLIST_TTL_SECONDS: "86400" # Block duration in seconds (e.g., 1 day) <-- ADDED
+  # --- Blocklist TTL ---
+  BLOCKLIST_TTL_SECONDS: "86400" # Block duration (1 day)
 
-  # --- Service Endpoints (using K8s service names/ports) ---
-  ESCALATION_ENDPOINT: "http://escalation-engine:8003/escalate" # Tarpit calls this
-  # AI_SERVICE_ENDPOINT: "http://ai-service:8000/analyze" # Escalation Engine calls this (ESCALATION_WEBHOOK_URL)
-  ESCALATION_WEBHOOK_URL: "http://ai-service:8000/analyze" # Explicitly match env var name
+  # --- Tarpit Config ---
+  TAR_PIT_FLAG_TTL: "300" # How long basic visit flag lasts
+  TAR_PIT_MIN_DELAY_SEC: "0.6"
+  TAR_PIT_MAX_DELAY_SEC: "1.2"
+  TAR_PIT_MAX_HOPS: "250" # Max requests per IP in window, 0 or -1 disables (NEW)
+  TAR_PIT_HOP_WINDOW_SECONDS: "86400" # Window for hop count (24 hours) (NEW)
+
+  # --- Service Endpoints (K8s service names/ports) ---
+  ESCALATION_ENDPOINT: "http://escalation-engine:8003/escalate"
+  ESCALATION_WEBHOOK_URL: "http://ai-service:8000/analyze"
+
+  # --- PostgreSQL Markov DB Config ---
+  PG_HOST: "postgres" # K8s Service name for Postgres
+  PG_PORT: "5432"
+  PG_DBNAME: "markovdb" # Needs to match PG setup
+  PG_USER: "markovuser" # Needs to match PG setup
+  # PG_PASSWORD_FILE path set directly in deployments needing it via secret mount
 
   # --- Alerting Configuration (Non-Sensitive) ---
-  ALERT_METHOD: "none" # Default, override via .env or K8s patch if needed
+  ALERT_METHOD: "none"
   ALERT_MIN_REASON_SEVERITY: "Local LLM"
   ALERT_SMTP_PORT: "587"
   ALERT_SMTP_USE_TLS: "true"
-  # Sensitive alert settings (URLs, emails, user) should be set directly in Deployment env vars or via patching, potentially reading from another ConfigMap/Secret if complex.
-  # ALERT_GENERIC_WEBHOOK_URL: ""
-  # ALERT_SLACK_WEBHOOK_URL: ""
-  # ALERT_EMAIL_FROM: ""
-  # ALERT_EMAIL_TO: ""
-  # ALERT_SMTP_HOST: ""
-  # ALERT_SMTP_USER: ""
+  # Sensitive alert settings (URLs, emails, user, host) should be set via K8s secrets/patching
 
   # --- Escalation Engine: LLM/External API Config (Non-Sensitive) ---
-  LOCAL_LLM_API_URL: "" # Default empty, override if used
-  LOCAL_LLM_MODEL: "" # Default empty
+  LOCAL_LLM_API_URL: ""
+  LOCAL_LLM_MODEL: ""
   LOCAL_LLM_TIMEOUT: "45.0"
-  EXTERNAL_CLASSIFICATION_API_URL: "" # Default empty
+  EXTERNAL_CLASSIFICATION_API_URL: ""
   EXTERNAL_API_TIMEOUT: "15.0"
+  # EXTERNAL_CLASSIFICATION_API_KEY_FILE path set directly in deployment
 
   # --- Escalation Engine: IP Reputation Config (Non-Sensitive) ---
-  ENABLE_IP_REPUTATION: "false" # Default disabled
-  IP_REPUTATION_API_URL: "" # Default empty
+  ENABLE_IP_REPUTATION: "false"
+  IP_REPUTATION_API_URL: ""
   IP_REPUTATION_TIMEOUT: "10.0"
   IP_REPUTATION_MALICIOUS_SCORE_BONUS: "0.3"
   IP_REPUTATION_MIN_MALICIOUS_THRESHOLD: "50"
+  # IP_REPUTATION_API_KEY_FILE path set directly in deployment
 
   # --- Escalation Engine: CAPTCHA Trigger Config (Non-Sensitive) ---
-  ENABLE_CAPTCHA_TRIGGER: "false" # Default disabled
+  ENABLE_CAPTCHA_TRIGGER: "false"
   CAPTCHA_SCORE_THRESHOLD_LOW: "0.2"
   CAPTCHA_SCORE_THRESHOLD_HIGH: "0.5"
-  CAPTCHA_VERIFICATION_URL: "" # Default empty
+  CAPTCHA_VERIFICATION_URL: ""
 
   # --- AI Service: Community Reporting Config (Non-Sensitive) ---
-  ENABLE_COMMUNITY_REPORTING: "false" # Default disabled
-  COMMUNITY_BLOCKLIST_REPORT_URL: "" # Default empty
+  ENABLE_COMMUNITY_REPORTING: "false"
+  COMMUNITY_BLOCKLIST_REPORT_URL: ""
   COMMUNITY_BLOCKLIST_REPORT_TIMEOUT: "10.0"
+  # COMMUNITY_BLOCKLIST_API_KEY_FILE path set directly in deployment
 
   # --- File Path Configuration (In-Container Paths) ---
-  # Used by Escalation Engine (and potentially Training if run as K8s Job)
   TRAINING_ROBOTS_TXT_PATH: "/app/config/robots.txt"
   TRAINING_MODEL_SAVE_PATH: "/app/models/bot_detection_rf_model.joblib"
-  # Used by Training Script (if run as K8s Job)
-  # TRAINING_LOG_FILE_PATH: "/app/data/apache_access.log" # Often mounted directly
-  # TRAINING_DB_PATH: "/app/data/log_analysis.db"
-  # TRAINING_FINETUNE_DATA_DIR: "/app/data/finetuning_data"
-  # TRAINING_HONEYPOT_LOG: "/app/logs/honeypot_hits.log"
-  # TRAINING_CAPTCHA_LOG: "/app/logs/captcha_success.log"
+  # Other training paths if needed
 
   # --- Other Config ---
-  FLASK_ENV: "production" # Default to production for K8s deployments
-  PYTHONPATH: "/app" # Ensure modules are found
-  TAR PIT_FLAG_TTL: "300" # TTL for Tarpit IP flags in Redis DB 1
-  TAR PIT_FLAG_MAX_COUNT: "5" # Max Tarpit flags before escalation
+  FLASK_ENV: "production"
+  PYTHONPATH: "/app"
+  UVICORN_WORKERS: "2" # Default worker count for Uvicorn services
+  REAL_BACKEND_HOST: "http://your-real-app-k8s-service:8080" # IMPORTANT: K8s specific backend target for Nginx

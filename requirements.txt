@@ -1,4 +1,4 @@
-# requirements.txt
+# anti_scrape/requirements.txt
 # Dependencies for the AI Scraping Defense Stack
 # Run `pip install -r requirements.txt`
 
@@ -21,7 +21,7 @@ pandas >=1.5.0         # Data manipulation in training script (can be heavy)
 # numpy is usually a dependency of sklearn/pandas
 
 # Text Generation (for Tarpit Markov Generator)
-markovify >=0.9.0
+# markovify >=0.9.0 # Removed - Using PostgreSQL Markov instead
 
 # Template engine (for Flask Admin UI)
 jinja2 >=3.1.0
@@ -31,6 +31,9 @@ schedule >=1.1.0
 
 # Redis client (for Blocklisting, IP Flagging, Frequency Tracking)
 redis >=4.5.0
+
+# PostgreSQL client (for Markov DB)
+psycopg2-binary >= 2.9.0 # Or asyncpg if using async DB access
 
 # User-Agent Parsing (Optional but recommended for better features)
 user-agents >=0.4.0
@@ -74,4 +77,3 @@ user-agents >=0.4.0
 # `pip list --outdated`
 # `pip install -U <package_name>` or `pip-compile --upgrade`
 # Consider using security scanning tools like `pip-audit` or GitHub Dependabot.
-
