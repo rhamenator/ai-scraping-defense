@@ -220,6 +220,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB_BLOCKLIST=2
+      # Blocklist TTL <-- ADDED
+      - BLOCKLIST_TTL_SECONDS=${BLOCKLIST_TTL_SECONDS:-86400} # <-- ADDED (Default 1 day)
       # Alerting Config (read from .env file in root context)
       - ALERT_METHOD=${ALERT_METHOD:-none}
       - ALERT_GENERIC_WEBHOOK_URL=${ALERT_GENERIC_WEBHOOK_URL:-}
@@ -244,6 +246,7 @@ services:
     volumes:
       - ./ai_service:/app/ai_service
       - ./shared:/app/shared
+      - ./metrics.py:/app/metrics.py:ro # <-- ADDED mount for metrics
       - ./logs:/app/logs # For block/alert/error logs
     secrets: # Grant access to secrets defined below
       - smtp_password
@@ -310,4 +313,3 @@ secrets:
 # 5. Healthchecks: Add healthchecks to more services (e.g., check API endpoints).
 # 6. Base Image: Use a minimal, secure base image for Python services. Keep it updated.
 # 7. Dependencies: Regularly update application dependencies (requirements.txt) and OS packages.
-

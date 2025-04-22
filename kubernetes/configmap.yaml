@@ -16,6 +16,9 @@ data:
   REDIS_DB_FREQUENCY: "3"
   REDIS_DB_TAR PIT: "1" # Used by tarpit ip_flagger
 
+  # --- Blocklist TTL --- <-- ADDED
+  BLOCKLIST_TTL_SECONDS: "86400" # Block duration in seconds (e.g., 1 day) <-- ADDED
+
   # --- Service Endpoints (using K8s service names/ports) ---
   ESCALATION_ENDPOINT: "http://escalation-engine:8003/escalate" # Tarpit calls this
   # AI_SERVICE_ENDPOINT: "http://ai-service:8000/analyze" # Escalation Engine calls this (ESCALATION_WEBHOOK_URL)

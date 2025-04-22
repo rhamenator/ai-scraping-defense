@@ -1,5 +1,5 @@
 # ai_service/ai_webhook.py
-# Receives webhook events, logs, blocklists via Redis, optionally reports to community lists, and sends alerts.
+# Receives webhook events, logs, blocklists via Redis (with TTL), optionally reports to community lists, and sends alerts.
 
 from fastapi import FastAPI, Request, HTTPException
 from pydantic import BaseModel, Field, ValidationError
@@ -29,7 +29,9 @@ logger = logging.getLogger(__name__)
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_DB_BLOCKLIST = int(os.getenv("REDIS_DB_BLOCKLIST", 2)) # Use separate DB for blocklist
-BLOCKLIST_KEY = "blocklist:ip" # Redis set key for storing blocked IPs
+# BLOCKLIST_KEY = "blocklist:ip" # <-- REMOVED: No longer using a single set key
+BLOCKLIST_KEY_PREFIX = "blocklist:ip:" # <-- ADDED: Prefix for individual IP keys
+BLOCKLIST_TTL_SECONDS = int(os.getenv("BLOCKLIST_TTL_SECONDS", 86400)) # <-- ADDED: Default to 1 day
 
 # Alerting Method & Config
 ALERT_METHOD = os.getenv("ALERT_METHOD", "none").lower() # Options: "webhook", "slack", "smtp", "none"
@@ -111,7 +113,7 @@ class WebhookEvent(BaseModel):
 # --- FastAPI App ---
 app = FastAPI(
     title="AI Defense Webhook Service",
-    description="Receives analysis results, manages blocklists, reports IPs, and sends alerts."
+    description="Receives analysis results, manages blocklists (with TTL), reports IPs, and sends alerts."
 )
 
 # --- Helper Functions ---
@@ -138,21 +140,44 @@ def log_event(log_file: str, event_type: str, data: dict):
 
 # --- Action Functions ---
 
+# --- MODIFIED BLOCKLIST FUNCTION ---
 def add_ip_to_blocklist(ip_address: str, reason: str, event_details: dict = None) -> bool:
-    """Adds an IP address to the Redis blocklist set."""
-    # (Implementation remains the same as previous version)
+    """Adds an IP address as a key in Redis with a TTL."""
     if not BLOCKLISTING_ENABLED or not ip_address or ip_address == "unknown":
-        if ip_address == "unknown": logger.warning(f"Attempted to blocklist 'unknown' IP. Reason: {reason}. Details: {event_details}")
+        if ip_address == "unknown":
+            logger.warning(f"Attempted to blocklist 'unknown' IP. Reason: {reason}. Details: {event_details}")
         return False
+
     try:
-        added_count = redis_client_blocklist.sadd(BLOCKLIST_KEY, ip_address)
-        if added_count > 0:
-            logger.info(f"Added IP {ip_address} to Redis blocklist set '{BLOCKLIST_KEY}'. Reason: {reason}")
-            log_event(BLOCK_LOG_FILE, "BLOCKLIST_ADD", {"ip_address": ip_address, "reason": reason, "details": event_details})
-            return True
-        else: return True # Already present is considered success
-    except redis.exceptions.RedisError as e: log_error(f"Redis error adding IP {ip_address} to blocklist", e); return False
-    except Exception as e: log_error(f"Unexpected error adding IP {ip_address} to blocklist", e); return False
+        # Create a unique key for the IP using the prefix
+        block_key = f"{BLOCKLIST_KEY_PREFIX}{ip_address}"
+
+        # Store relevant info as the value (e.g., reason and timestamp)
+        block_metadata = json.dumps({
+            "reason": reason,
+            "timestamp_utc": datetime.datetime.utcnow().isoformat() + "Z",
+            "user_agent": event_details.get('user_agent', 'N/A') if event_details else 'N/A'
+        })
+
+        # Use SETEX to set the key with the TTL
+        redis_client_blocklist.setex(block_key, BLOCKLIST_TTL_SECONDS, block_metadata)
+
+        logger.info(f"Added/Refreshed IP {ip_address} to Redis blocklist (Key: {block_key}) with TTL {BLOCKLIST_TTL_SECONDS}s. Reason: {reason}")
+        log_event(BLOCK_LOG_FILE, "BLOCKLIST_ADD_TTL", {
+            "ip_address": ip_address,
+            "reason": reason,
+            "ttl_seconds": BLOCKLIST_TTL_SECONDS,
+            "details": event_details
+        })
+        return True # Consider success if setex command succeeds
+
+    except redis.exceptions.RedisError as e:
+        log_error(f"Redis error setting blocklist key for IP {ip_address}", e)
+        return False
+    except Exception as e:
+        log_error(f"Unexpected error setting blocklist key for IP {ip_address}", e)
+        return False
+# --- END MODIFIED BLOCKLIST FUNCTION ---
 
 # --- Community Reporting Function (NEW) ---
 async def report_ip_to_community(ip: str, reason: str, details: dict) -> bool:
@@ -204,7 +229,6 @@ async def report_ip_to_community(ip: str, reason: str, details: dict) -> bool:
 # --- Alerting Functions ---
 async def send_generic_webhook_alert(event_data: WebhookEvent):
     """Sends alert to a generic webhook URL using httpx."""
-    # (Implementation remains the same as previous version)
     if not ALERT_GENERIC_WEBHOOK_URL: return
     ip = event_data.details.get('ip', 'N/A')
     logger.info(f"Sending generic webhook alert for IP: {ip}")
@@ -224,7 +248,6 @@ async def send_generic_webhook_alert(event_data: WebhookEvent):
 
 async def send_slack_alert(event_data: WebhookEvent):
     """Sends alert to Slack via Incoming Webhook using requests (sync in thread pool)."""
-    # (Implementation remains the same as previous version)
     if not ALERT_SLACK_WEBHOOK_URL: return
     ip = event_data.details.get('ip', 'N/A'); ua = event_data.details.get('user_agent', 'N/A'); reason = event_data.reason
     logger.info(f"Sending Slack alert for IP: {ip}")
@@ -242,7 +265,6 @@ async def send_slack_alert(event_data: WebhookEvent):
 
 async def send_smtp_alert(event_data: WebhookEvent):
     """Sends alert via SMTP email using smtplib (sync in thread pool)."""
-    # (Implementation remains the same as previous version)
     if not ALERT_EMAIL_TO or not ALERT_SMTP_HOST or not ALERT_EMAIL_FROM: log_error("SMTP alert configured but missing To, Host, or From address."); return
     ip = event_data.details.get('ip', 'N/A'); ua = event_data.details.get('user_agent', 'N/A'); reason = event_data.reason
     logger.info(f"Sending SMTP alert for IP: {ip} to {ALERT_EMAIL_TO}")
@@ -258,9 +280,9 @@ Full Details:
 {pprint.pformat(event_data.details)}
 
 ---
-IP added to local blocklist. Consider integrating with Fail2ban or firewall rules.
+IP added to local blocklist with TTL: {BLOCKLIST_TTL_SECONDS} seconds.
 Check logs in {LOG_DIR} for more context.
-"""
+""" # Modified body slightly
     msg = MIMEText(body, 'plain', 'utf-8'); msg['Subject'] = subject; msg['From'] = ALERT_EMAIL_FROM; msg['To'] = ALERT_EMAIL_TO
     def smtp_send_sync():
         smtp_conn = None
@@ -285,8 +307,7 @@ Check logs in {LOG_DIR} for more context.
 
 async def send_alert(event_data: WebhookEvent):
     """Dispatches alert based on configured ALERT_METHOD and severity."""
-    # (Implementation remains the same as previous version)
-    severity_map = {"High Heuristic": 1, "Local LLM": 2, "External API": 3, "High Combined": 1, "Honeypot_Hit": 2, "IP Reputation": 1} # Added IP Reputation
+    severity_map = {"High Heuristic": 1, "Local LLM": 2, "External API": 3, "High Combined": 1, "Honeypot_Hit": 2, "IP Reputation": 1}
     reason_key = event_data.reason.split("(")[0].strip(); event_severity = severity_map.get(reason_key, 0);
     min_severity_reason = ALERT_MIN_REASON_SEVERITY.split(" ")[0].strip(); min_severity = severity_map.get(min_severity_reason, 1);
     if event_severity < min_severity: logger.debug(f"Skipping alert for IP {event_data.details.get('ip')}. Severity {event_severity} ('{reason_key}') < Min Severity {min_severity} ('{min_severity_reason}')"); return
@@ -302,7 +323,7 @@ async def send_alert(event_data: WebhookEvent):
 @app.post("/analyze", status_code=202) # Use 202 Accepted as processing happens async
 async def receive_webhook(event: WebhookEvent, request: Request):
     """
-    Receives webhook events, logs, blocklists, optionally reports to community lists, and triggers alerts.
+    Receives webhook events, logs, blocklists (with TTL), optionally reports to community lists, and triggers alerts.
     """
     client_ip = request.client.host if request.client else "unknown" # IP sending webhook
     flagged_ip = event.details.get("ip", "unknown")
@@ -318,12 +339,13 @@ async def receive_webhook(event: WebhookEvent, request: Request):
     action_taken = "logged"; blocklist_success = False
 
     # Auto-Blocklist Criteria (Adjust terms as needed based on Escalation Engine reasons)
-    auto_block_reasons = ["High Combined Score", "Local LLM Classification", "External API Classification", "High Heuristic Score", "Honeypot_Hit", "IP Reputation Malicious"] # Added IP Reputation
+    auto_block_reasons = ["High Combined Score", "Local LLM Classification", "External API Classification", "High Heuristic Score", "Honeypot_Hit", "IP Reputation Malicious"]
 
     if flagged_ip != "unknown" and any(term in reason for term in auto_block_reasons):
+        # Use the modified blocklist function
         blocklist_success = add_ip_to_blocklist(flagged_ip, reason, event.details)
-        action_taken = "ip_blocklisted" if blocklist_success else "blocklist_failed"
-        # --- Report to Community Blocklist (NEW) ---
+        action_taken = "ip_blocklisted_ttl" if blocklist_success else "blocklist_failed" # Updated action name
+        # --- Report to Community Blocklist ---
         if blocklist_success:
              await report_ip_to_community(flagged_ip, reason, event.details)
              action_taken += "_community_report_attempted"
@@ -361,6 +383,10 @@ if __name__ == "__main__":
     import uvicorn
     logger.info("--- AI Service / Webhook Receiver Starting ---")
     logger.info(f"Blocklisting via Redis: {'Enabled' if BLOCKLISTING_ENABLED else 'Disabled'} (Host: {REDIS_HOST}:{REDIS_PORT} DB:{REDIS_DB_BLOCKLIST})")
+    # --- ADDED TTL INFO ---
+    if BLOCKLISTING_ENABLED:
+        logger.info(f"Blocklist Entry TTL: {BLOCKLIST_TTL_SECONDS} seconds ({datetime.timedelta(seconds=BLOCKLIST_TTL_SECONDS)})")
+    # --- END ADDED TTL INFO ---
     logger.info(f"Community Reporting Enabled: {ENABLE_COMMUNITY_REPORTING} ({'URL Set' if COMMUNITY_BLOCKLIST_REPORT_URL else 'URL Not Set'})")
     logger.info(f"Alert Method: {ALERT_METHOD}")
     if ALERT_METHOD == "webhook": logger.info(f" -> Generic URL: {'Set' if ALERT_GENERIC_WEBHOOK_URL else 'Not Set'}")
@@ -373,7 +399,4 @@ if __name__ == "__main__":
     logger.info(f"Logging errors to: {ERROR_LOG_FILE}")
     logger.info("Recommendation: Integrate block events with Fail2ban/CrowdSec or firewall rules for automated blocking.")
     logger.info("-------------------------------------------")
-    uvicorn.run("ai_webhook:app", host="0.0.0.0", port=8000, workers=2, reload=False) # Use reload=True only for dev
-
-    # Note: In production, consider using a process manager like Gunicorn or systemd for better process management.
-    # Gunicorn example: gunicorn -w 2 -k uvicorn.workers.UvicornWorker ai_webhook:app --bind
+    uvicorn.run("ai_webhook:app", host="0.0.0.0", port=8000, workers=2, reload=False)
