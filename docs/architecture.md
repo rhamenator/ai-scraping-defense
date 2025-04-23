@@ -48,26 +48,26 @@ flowchart TD
         A["Web Clients or Bots"] -- HTTP/S Request --> B(NGINX Port 80/443);
         B -- Checks --> C{"Blocklist Check (Lua + Redis DB 2)"};
         C -- Blocked --> D[Return 403];
-        C -- Not Blocked --> E{"Heuristic & robots.txt Check (Lua)"}; %% Updated Check
+        C -- Not Blocked --> E{"Heuristic & robots.txt Check (Lua)"};
         E -- Passed --> G["Proxy Pass"];
-        E -- Suspicious/Violating --> F["Internal Redirect /api/tarpit"]; %% Updated Trigger
+        E -- Suspicious/Violating --> F["Internal Redirect /api/tarpit"];
     end
 
     subgraph "Real Application"
-        G -- Proxied To --> I[Your Web Application (REAL_BACKEND_HOST)]; %% Updated Target
+        G -- Proxied To --> I["Your Web Application (REAL_BACKEND_HOST)"];
     end
 
     subgraph "Tarpit & Escalation Pipeline"
         F --> H(Tarpit API - FastAPI);
         H -- Logs Hit --> R["logs/honeypot_hits.log"];
         H -- Flags IP --> RedisDB1[(Redis DB 1 Tarpit Flags)];
-        H -- Reads/Updates Hop Count --> RedisDB4[(Redis DB 4 Hop Counts)]; %% New DB Interaction
+        H -- Reads/Updates Hop Count --> RedisDB4[(Redis DB 4 Hop Counts)];
         H -- Updates --> MetricsStore[(Metrics Store)];
-        H -- Hop Limit Exceeded --> BLOCK[Add IP to Redis DB 2]; %% New Action
-        BLOCK --> D; %% Hop limit block returns 403
+        H -- Hop Limit Exceeded --> BLOCK[Add IP to Redis DB 2];
+        BLOCK --> D;
         H -- Hop Limit OK --> POSTMETA[POST Metadata];
         POSTMETA --> L(Escalation Engine - FastAPI);
-        H -- Reads Markov Chain --> PGDB[(PostgreSQL Markov DB)]; %% New DB Interaction
+        H -- Reads Markov Chain --> PGDB[(PostgreSQL Markov DB)];
 
         L -- Uses/Updates --> RedisDB3[(Redis DB 3 Freq Tracking)];
         L -- Updates --> MetricsStore;
@@ -92,8 +92,8 @@ flowchart TD
         S -- Trains --> T[Random Forest Model];
         T -- Saves --> U["./models/*.joblib"];
 
-        Corpus["Text Corpus File"] -- Read By --> MarkovTrain(Markov Training Script rag/train_markov_postgres.py); %% New Training
-        MarkovTrain -- Populates --> PGDB; %% New Training Flow
+        Corpus["Text Corpus File"] -- Read By --> MarkovTrain(Markov Training Script rag/train_markov_postgres.py);
+        MarkovTrain -- Populates --> PGDB;
 
         V(Archive Rotator - Scheduled) -- Manages --> W["./archives ZIPs"];
     end
@@ -102,15 +102,15 @@ flowchart TD
     classDef nginx fill:#f9f,stroke:#333,stroke-width:2px;
     classDef api fill:#ccf,stroke:#333,stroke-width:1px;
     classDef redis fill:#ff9,stroke:#333,stroke-width:1px;
-    classDef postgres fill:#e6f0ff,stroke:#333,stroke-width:1px; %% New Style
+    classDef postgres fill:#e6f0ff,stroke:#333,stroke-width:1px;
     classDef storage fill:#eee,stroke:#333,stroke-width:1px;
     classDef task fill:#cfc,stroke:#333,stroke-width:1px;
     classDef external fill:#fcc,stroke:#333,stroke-width:1px;
 
     class B nginx;
     class H,L,M,Y api;
-    class RedisDB1,RedisDB2,RedisDB3,RedisDB4 redis; %% Added DB4
-    class PGDB postgres; %% Added Postgres
+    class RedisDB1,RedisDB2,RedisDB3,RedisDB4 redis;
+    class PGDB postgres;
     class R,U,W,Corpus storage;
-    class S,V,MarkovTrain task; %% Added Markov Train
+    class S,V,MarkovTrain task;
     class Q external;
