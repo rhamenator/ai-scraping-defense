@@ -40,7 +40,7 @@ The system employs a layered approach:
 
 ---
 
-### Updated Mermaid Diagram
+### Mermaid Diagram
 
 ```mermaid
 flowchart TD
