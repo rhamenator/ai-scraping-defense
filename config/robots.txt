@@ -1,0 +1,57 @@
+# robots.txt for AI Scraping Defense Stack (Nginx/Docker Version)
+
+#This file should ideally be placed where Nginx can serve it from the root of the domain (e.g., /usr/share/nginx/html/robots.txt or mapped via a volume in Docker).
+
+# Default rules for all user agents
+User-agent: *
+
+# Disallow access to the admin interface
+Disallow: /admin/
+
+# Disallow access to the internal API service endpoints
+# (Adjust paths based on actual Nginx location blocks if different)
+Disallow: /api/tarpit/
+Disallow: /api/escalate/
+Disallow: /api/analyze/
+Disallow: /api/metrics # If metrics were exposed via API
+
+# Disallow access to health check endpoints (if exposed)
+Disallow: /health
+Disallow: /api/health
+
+# Disallow access to generated honeypot archives
+Disallow: /archives/
+
+# Disallow access to potential data/model/config paths if exposed
+Disallow: /data/
+Disallow: /models/
+Disallow: /config/
+Disallow: /secrets/
+Disallow: /static/ # If static files for admin UI were separate
+
+# Disallow common paths often probed by bots (adjust as needed)
+Disallow: /wp-admin/
+Disallow: /wp-login.php
+Disallow: /xmlrpc.php
+Disallow: /admin.php
+Disallow: /user/login
+Disallow: /administrator/
+
+# Allow access to the root and potentially other main content paths
+# If this stack protects a specific application, ensure its main paths are allowed.
+# Example: Allow all by default unless specifically disallowed above.
+# Allow: /
+
+# Specific rules for known good crawlers (Optional)
+# User-agent: Googlebot
+# Allow: /
+# Disallow: /admin/
+# Disallow: /api/
+
+# User-agent: Bingbot
+# Allow: /
+# Disallow: /admin/
+# Disallow: /api/
+
+# Add sitemap location if applicable
+# Sitemap: https://your-original-site.com/sitemap.xml
