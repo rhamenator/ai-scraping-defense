@@ -1,0 +1,26 @@
+openapi: 3.0.0
+info:
+  title: IP Reputation API Mock
+  version: 1.0.0
+paths:
+  /check:
+    get:
+      summary: Check IP reputation
+      parameters:
+        - name: ip
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reputation:
+                    type: string
+                  score:
+                    type: number

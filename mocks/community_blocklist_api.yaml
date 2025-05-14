@@ -1,0 +1,31 @@
+openapi: 3.0.0
+info:
+  title: Community Blocklist API Mock
+  version: 1.0.0
+paths:
+  /report:
+    post:
+      summary: Report to blocklist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ip:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string

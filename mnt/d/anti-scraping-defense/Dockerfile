@@ -77,10 +77,3 @@ ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Base CMD (can be overridden by docker-compose)
 CMD ["nginx", "-g", "daemon off;"]
-# CMD ["python", "/app/tarpit/tarpit.py"]
-# CMD ["python", "/app/escalation/escalation.py"]
-# CMD ["python", "/app/admin_ui/admin_ui.py"]
-# CMD ["python", "/app/rag/rag.py"]
-# CMD ["python", "/app/ai_service/ai_service.py"]
-# CMD ["python", "/app/shared/shared.py"]
-# CMD ["python", "/app/metrics.py"]

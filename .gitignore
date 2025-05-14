@@ -23,7 +23,11 @@ var/
 .installed.cfg
 *.egg
 MANIFEST
+
+# This is a good place to put your secrets, but don't upload them!
+.secrets/
 ./secrets/
+secrets/
 
 # PyInstaller
 # Usually these files are written by a python script from a template
@@ -119,6 +123,10 @@ archives/
 *.db
 *.sqlite3
 
+# Miscellaneous
+*.DS_Store
+chats/
+
 # Temporary files
 *~
 *.bak
@@ -128,3 +136,5 @@ archives/
 *.swn
 *.swo
 *.swp
+
+.fake

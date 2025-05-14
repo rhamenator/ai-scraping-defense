@@ -1,0 +1,29 @@
+openapi: 3.0.0
+info:
+  title: External API Mock
+  version: 1.0.0
+paths:
+  /analyze:
+    post:
+      summary: Analyze data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                input:
+                  type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: string
+                  confidence:
+                    type: number

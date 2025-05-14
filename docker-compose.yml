@@ -1,399 +1,104 @@
-# anti_scrape/docker-compose.yml
-# AI Scraping Defense Stack Orchestration
-version: "3.8"
-
 services:
-  # NGINX Reverse Proxy + Lua Detection + Lua Blocklist Check
-  nginx:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: nginx_proxy
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog
     ports:
-      - "${NGINX_HTTP_PORT:-80}:80"  # Allow overriding host port via .env
-      - "${NGINX_HTTPS_PORT:-443}:443" # Allow overriding host port via .env
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/lua:/etc/nginx/lua:ro
-      # Mount robots.txt for Lua script (optional - alternative is build arg or env var)
-      - ./config/robots.txt:/etc/nginx/robots.txt:ro
-      - ./docs:/var/www/html/docs:ro # Example: if serving docs directly
-      - ./archives:/var/www/html/docs/archives:ro # Path for rotated archives
-      - ./logs/nginx:/var/log/nginx
-      - ./nginx/errors:/var/www/html/errors:ro # Custom error pages
-      - ./certs:/etc/nginx/certs:ro # Volume for SSL certs
-      - ./certs/dhparam.pem:/etc/nginx/dhparam.pem:ro # Volume for DH params
-    depends_on:
-      - tarpit_api
-      - escalation_engine
-      - admin_ui
-      - redis
-      - archive_rotator
-      - postgres # Explicit dependency for ordering
+      - "1025:1025"  # SMTP port
+      - "8025:8025"  # Web UI
     networks:
       - defense_network
-    environment:
-      # Pass Redis details needed by check_blocklist.lua
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_DB_BLOCKLIST=2
-      # Pass real web application backend target
-      - REAL_BACKEND_HOST=${REAL_BACKEND_HOST:-http://your-real-app-service:8080} # Configure in .env
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: '256M'
     restart: unless-stopped
-    healthcheck:
-        test: ["CMD-SHELL", "service nginx status || exit 1"]
-        interval: 30s
-        timeout: 10s
-        retries: 3
 
-  # Tarpit API (FastAPI)
-  tarpit_api:
-    build:
-      context: .
-    image: defense_stack_py_base
-    container_name: tarpit_api
-    working_dir: /app
-    expose:
-      - "8001"
+  mock_external_api:
+    image: stoplight/prism:4
+    container_name: mock_external_api
+    command: mock -h 0.0.0.0 /mocks/external_api.yaml
     volumes:
-      - ./tarpit:/app/tarpit
-      - ./shared:/app/shared
-      - ./metrics.py:/app/metrics.py:ro # Mount metrics module
-      - ./logs:/app/logs
-      # Secrets needed for DB and Redis password if configured
-      - ./secrets:/run/secrets:ro
-    depends_on:
-      - escalation_engine
-      - redis
-      - postgres # Depends on the Markov DB
-    environment:
-      - PYTHONPATH=/app
-      - ESCALATION_ENDPOINT=http://escalation_engine:8003/escalate
-      # Redis config for ip_flagger (DB 1)
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD_FILE=/run/secrets/redis_password.txt # Optional Redis Auth
-      - REDIS_DB_TAR_PIT=1 # DB for IP flags (visits)
-      - TAR_PIT_FLAG_TTL=${TAR_PIT_FLAG_TTL:-300}
-      # Redis config for Hop Limit (DB 4 - NEW)
-      - REDIS_DB_TAR_PIT_HOPS=${REDIS_DB_TAR_PIT_HOPS:-4} # DB for hop counts
-      - TAR_PIT_MAX_HOPS=${TAR_PIT_MAX_HOPS:-250} # Max requests per IP in window, 0 disables
-      - TAR_PIT_HOP_WINDOW_SECONDS=${TAR_PIT_HOP_WINDOW_SECONDS:-86400} # 24 hours
-      # Redis config for triggering blocks (DB 2 - same as Nginx/AI Service)
-      - REDIS_DB_BLOCKLIST=${REDIS_DB_BLOCKLIST:-2} # DB for main blocklist
-      - BLOCKLIST_TTL_SECONDS=${BLOCKLIST_TTL_SECONDS:-86400} # Default block duration
-      # PostgreSQL Markov DB Config
-      - PG_HOST=postgres
-      - PG_PORT=5432
-      - PG_DBNAME=${PG_DBNAME:-markovdb}
-      - PG_USER=${PG_USER:-markovuser}
-      - PG_PASSWORD_FILE=/run/secrets/pg_password.txt
-      # System Seed for Deterministic Generation
-      - SYSTEM_SEED=${SYSTEM_SEED:-default_system_seed_value_change_me}
-      # Tarpit stream delays
-      - TAR_PIT_MIN_DELAY_SEC=${TAR_PIT_MIN_DELAY_SEC:-0.6}
-      - TAR_PIT_MAX_DELAY_SEC=${TAR_PIT_MAX_DELAY_SEC:-1.2}
-      # JSON metrics logging config
-      - LOG_METRICS_TO_JSON=${LOG_METRICS_TO_JSON:-false}
-      - METRICS_JSON_FILE=/app/logs/metrics_dump.json
-      - UVICORN_WORKERS=${UVICORN_WORKERS:-2}
-    secrets:
-      - pg_password
-      - redis_password # Optional: Add redis password secret if needed
+      - ./mocks/external_api.yaml:/mocks/external_api.yaml:ro
+    ports:
+      - "8000:8000"
     networks:
       - defense_network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.75'
-          memory: '512M' # May need more depending on PG load
     restart: unless-stopped
-    command: ["uvicorn", "tarpit.tarpit_api:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "${UVICORN_WORKERS:-2}"]
-    healthcheck:
-        test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
-        interval: 30s
-        timeout: 5s
-        retries: 3
-        start_period: 15s
 
-  # Archive Rotator Service (Kept for JS honeypots if still desired)
-  archive_rotator:
-    build:
-      context: .
-    image: defense_stack_py_base
-    container_name: archive_rotator
-    working_dir: /app
+  mock_ip_reputation_api:
+    image: stoplight/prism:4
+    container_name: mock_ip_reputation_api
+    command: mock -h 0.0.0.0 /mocks/ip_reputation_api.yaml
     volumes:
-      - ./tarpit:/app/tarpit # Mount tarpit code (where scripts live)
-      - ./shared:/app/shared
-      - ./archives:/app/fake_archives # Needs WRITE access
-      - ./logs:/app/logs
-    environment:
-      - PYTHONPATH=/app
+      - ./mocks/ip_reputation_api.yaml:/mocks/ip_reputation_api.yaml:ro
+    ports:
+      - "8001:8000"
     networks:
       - defense_network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.25'
-          memory: '128M'
     restart: unless-stopped
-    command: ["python", "tarpit/rotating_archive.py"]
 
-  # Escalation Engine (FastAPI)
-  escalation_engine:
-    build:
-      context: .
-    image: defense_stack_py_base
-    container_name: escalation_engine
-    working_dir: /app
-    expose:
-      - "8003"
+  mock_community_blocklist_api:
+    image: stoplight/prism:4
+    container_name: mock_community_blocklist_api
+    command: mock -h 0.0.0.0 /mocks/community_blocklist_api.yaml
     volumes:
-      - ./escalation:/app/escalation
-      - ./shared:/app/shared
-      - ./metrics.py:/app/metrics.py:ro
-      - ./logs:/app/logs
-      - ./models:/app/models:ro
-      - ./config:/app/config:ro
-      - ./secrets:/run/secrets:ro # Mount secrets dir
-    environment:
-      - PYTHONPATH=/app
-      - ESCALATION_WEBHOOK_URL=http://ai_service:8000/analyze
-      - LOCAL_LLM_API_URL=${LOCAL_LLM_API_URL:-}
-      - LOCAL_LLM_MODEL=${LOCAL_LLM_MODEL:-}
-      - LOCAL_LLM_TIMEOUT=${LOCAL_LLM_TIMEOUT:-45.0}
-      - EXTERNAL_CLASSIFICATION_API_URL=${EXTERNAL_CLASSIFICATION_API_URL:-}
-      - EXTERNAL_API_TIMEOUT=${EXTERNAL_API_TIMEOUT:-15.0}
-      - EXTERNAL_CLASSIFICATION_API_KEY_FILE=/run/secrets/external_api_key.txt
-      - ENABLE_IP_REPUTATION=${ENABLE_IP_REPUTATION:-false}
-      - IP_REPUTATION_API_URL=${IP_REPUTATION_API_URL:-}
-      - IP_REPUTATION_TIMEOUT=${IP_REPUTATION_TIMEOUT:-10.0}
-      - IP_REPUTATION_MALICIOUS_SCORE_BONUS=${IP_REPUTATION_MALICIOUS_SCORE_BONUS:-0.3}
-      - IP_REPUTATION_MIN_MALICIOUS_THRESHOLD=${IP_REPUTATION_MIN_MALICIOUS_THRESHOLD:-50}
-      - IP_REPUTATION_API_KEY_FILE=/run/secrets/ip_reputation_api_key.txt
-      - ENABLE_CAPTCHA_TRIGGER=${ENABLE_CAPTCHA_TRIGGER:-false}
-      - CAPTCHA_SCORE_THRESHOLD_LOW=${CAPTCHA_SCORE_THRESHOLD_LOW:-0.2}
-      - CAPTCHA_SCORE_THRESHOLD_HIGH=${CAPTCHA_SCORE_THRESHOLD_HIGH:-0.5}
-      - CAPTCHA_VERIFICATION_URL=${CAPTCHA_VERIFICATION_URL:-}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD_FILE=/run/secrets/redis_password.txt # Optional Redis Auth
-      - REDIS_DB_FREQUENCY=${REDIS_DB_FREQUENCY:-3}
-      - TRAINING_ROBOTS_TXT_PATH=/app/config/robots.txt # Path inside container
-      - TRAINING_MODEL_SAVE_PATH=/app/models/bot_detection_rf_model.joblib # Path inside container
-      # JSON metrics logging config
-      - LOG_METRICS_TO_JSON=${LOG_METRICS_TO_JSON:-false}
-      - METRICS_JSON_FILE=/app/logs/metrics_dump.json
-      - UVICORN_WORKERS=${UVICORN_WORKERS:-2}
-    secrets:
-      - external_api_key
-      - ip_reputation_api_key
-      - redis_password # Optional
-    depends_on:
-      - ai_service
-      - redis
+      - ./mocks/community_blocklist_api.yaml:/mocks/community_blocklist_api.yaml:ro
+    ports:
+      - "8002:8000"
     networks:
       - defense_network
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: '1G'
     restart: unless-stopped
-    command: ["uvicorn", "escalation.escalation_engine:app", "--host", "0.0.0.0", "--port", "8003", "--workers", "${UVICORN_WORKERS:-2}"]
-    healthcheck:
-        test: ["CMD-SHELL", "curl -f http://localhost:8003/health || exit 1"]
-        interval: 30s
-        timeout: 5s
-        retries: 3
-        start_period: 20s # Give model time to load
 
-  # Admin UI (Flask)
-  admin_ui:
-    build:
-      context: .
-    image: defense_stack_py_base
-    container_name: admin_ui
-    working_dir: /app
-    expose:
-      - "5002"
-    volumes:
-      - ./admin_ui:/app/admin_ui
-      - ./shared:/app/shared
-      - ./metrics.py:/app/metrics.py:ro
-      - ./logs:/app/logs
-    environment:
-      - PYTHONPATH=/app
-      - FLASK_ENV=${FLASK_ENV:-production} # Default to production
-      # JSON metrics logging config
-      - LOG_METRICS_TO_JSON=${LOG_METRICS_TO_JSON:-false}
-      - METRICS_JSON_FILE=/app/logs/metrics_dump.json
-      - METRICS_DUMP_INTERVAL_MIN=${METRICS_DUMP_INTERVAL_MIN:-60}
-    networks:
-      - defense_network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.25'
-          memory: '256M'
-    restart: unless-stopped
-    # Start metrics scheduler here if JSON logging enabled
-    command: >
-      sh -c "python -c 'import metrics; metrics.start_metrics_scheduler()' &
-             python admin_ui/admin_ui.py"
-
-  # AI Service (FastAPI)
   ai_service:
     build:
       context: .
-    image: defense_stack_py_base
-    container_name: ai_service
-    working_dir: /app
-    expose:
-      - "8000"
+      dockerfile: Dockerfile
     environment:
-      - PYTHONPATH=/app
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD_FILE=/run/secrets/redis_password.txt # Optional Redis Auth
-      - REDIS_DB_BLOCKLIST=${REDIS_DB_BLOCKLIST:-2}
-      - BLOCKLIST_TTL_SECONDS=${BLOCKLIST_TTL_SECONDS:-86400}
-      - ALERT_METHOD=${ALERT_METHOD:-none}
-      - ALERT_GENERIC_WEBHOOK_URL=${ALERT_GENERIC_WEBHOOK_URL:-}
-      - ALERT_SLACK_WEBHOOK_URL=${ALERT_SLACK_WEBHOOK_URL:-}
-      - ALERT_SMTP_HOST=${ALERT_SMTP_HOST:-}
-      - ALERT_SMTP_PORT=${ALERT_SMTP_PORT:-587}
-      - ALERT_SMTP_USE_TLS=${ALERT_SMTP_USE_TLS:-true}
-      - ALERT_EMAIL_FROM=${ALERT_EMAIL_FROM:-}
-      - ALERT_EMAIL_TO=${ALERT_EMAIL_TO:-}
-      - ALERT_SMTP_USER=${ALERT_SMTP_USER:-}
+      - ALERT_SMTP_HOST=mailhog
+      - ALERT_SMTP_PORT=1025
+      - ALERT_SMTP_USE_TLS=false
+      - ALERT_SMTP_USER=
       - ALERT_SMTP_PASSWORD_FILE=/run/secrets/smtp_password.txt
-      - ALERT_MIN_REASON_SEVERITY=${ALERT_MIN_REASON_SEVERITY:-Local LLM}
-      - ENABLE_COMMUNITY_REPORTING=${ENABLE_COMMUNITY_REPORTING:-false}
-      - COMMUNITY_BLOCKLIST_REPORT_URL=${COMMUNITY_BLOCKLIST_REPORT_URL:-}
-      - COMMUNITY_BLOCKLIST_REPORT_TIMEOUT=${COMMUNITY_BLOCKLIST_REPORT_TIMEOUT:-10.0}
-      - COMMUNITY_BLOCKLIST_API_KEY_FILE=/run/secrets/community_blocklist_api_key.txt
-      # JSON metrics logging config
-      - LOG_METRICS_TO_JSON=${LOG_METRICS_TO_JSON:-false}
-      - METRICS_JSON_FILE=/app/logs/metrics_dump.json
-      - UVICORN_WORKERS=${UVICORN_WORKERS:-2}
-    volumes:
-      - ./ai_service:/app/ai_service
-      - ./shared:/app/shared
-      - ./metrics.py:/app/metrics.py:ro
-      - ./logs:/app/logs
-      - ./secrets:/run/secrets:ro # Mount secrets dir
-    secrets:
-      - smtp_password
-      - community_blocklist_api_key
-      - redis_password # Optional
-    depends_on:
-      - redis
+      - USE_MOCK_EXTERNAL_API=true
+      - EXTERNAL_API_URL=http://mock_external_api:8000
+      - IP_REPUTATION_API_URL=http://mock_ip_reputation_api:8000
+      - COMMUNITY_BLOCKLIST_API_URL=http://mock_community_blocklist_api:8000
     networks:
       - defense_network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: '512M'
     restart: unless-stopped
-    command: ["uvicorn", "ai_service.ai_webhook:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "${UVICORN_WORKERS:-2}"]
-    healthcheck:
-        test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-        interval: 30s
-        timeout: 5s
-        retries: 3
-        start_period: 10s
 
-  # Redis Service
-  redis:
-    image: redis:7-alpine
-    container_name: redis_store
-    volumes:
-      - redis_data:/data
-      # Optional: Mount redis config if needed
-      # - ./config/redis.conf:/usr/local/etc/redis/redis.conf
-      # Optional: Mount secrets dir if password needed by redis-server itself
-      # - ./secrets:/run/secrets:ro
-    networks:
-      - defense_network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: '512M'
-    restart: unless-stopped
-    command: >
-      sh -c "redis-server --save 60 1 --loglevel warning $([ -f /run/secrets/redis_password.txt ] && echo '--requirepass $(cat /run/secrets/redis_password.txt)')"
-    healthcheck:
-        # Check needs to handle password if set
-        test: >
-          sh -c "PASSWORD_ARG=$([ -f /run/secrets/redis_password.txt ] && echo '-a $(cat /run/secrets/redis_password.txt)'); redis-cli $$PASSWORD_ARG ping | grep -q PONG"
-        interval: 10s
-        timeout: 5s
-        retries: 5
-
-  # PostgreSQL Service (for Markov DB)
-  postgres:
-    image: postgres:15-alpine
-    container_name: postgres_markov_db
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      # Mount secrets dir for password file
-      - ./secrets:/run/secrets:ro
-      # Optional: Mount init script for schema creation
-      # - ./db/init_markov.sql:/docker-entrypoint-initdb.d/init.sql
+  escalation_engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
-      - POSTGRES_DB=${PG_DBNAME:-markovdb}
-      - POSTGRES_USER=${PG_USER:-markovuser}
-      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password.txt # Read password from secret file
-    secrets:
-      - pg_password # Make the secret available to the container
+      - ALERT_SMTP_HOST=mailhog
+      - ALERT_SMTP_PORT=1025
+      - ALERT_SMTP_USE_TLS=false
+      - ALERT_SMTP_USER=
+      - ALERT_SMTP_PASSWORD_FILE=/run/secrets/smtp_password.txt
+      - USE_MOCK_EXTERNAL_API=true
+      - EXTERNAL_API_URL=http://mock_external_api:8000
+      - IP_REPUTATION_API_URL=http://mock_ip_reputation_api:8000
+      - COMMUNITY_BLOCKLIST_API_URL=http://mock_community_blocklist_api:8000
     networks:
       - defense_network
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0' # Allow more CPU for DB operations
-          memory: '1G' # Adjust based on corpus size/usage
     restart: unless-stopped
-    healthcheck:
-        # Use pg_isready with the configured user and db
-        test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost"]
-        interval: 10s
-        timeout: 5s
-        retries: 5
-        start_period: 10s # Give Postgres time to initialize
 
-# Define the network
+  tarpit_api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - ALERT_SMTP_HOST=mailhog
+      - ALERT_SMTP_PORT=1025
+      - ALERT_SMTP_USE_TLS=false
+      - ALERT_SMTP_USER=
+      - ALERT_SMTP_PASSWORD_FILE=/run/secrets/smtp_password.txt
+      - USE_MOCK_EXTERNAL_API=true
+      - EXTERNAL_API_URL=http://mock_external_api:8000
+      - IP_REPUTATION_API_URL=http://mock_ip_reputation_api:8000
+      - COMMUNITY_BLOCKLIST_API_URL=http://mock_community_blocklist_api:8000
+    networks:
+      - defense_network
+    restart: unless-stopped
+
 networks:
   defense_network:
     driver: bridge
-
-# Define persistent volumes
-volumes:
- redis_data:
- postgres_data:
-
-# Define secrets (read from host files in ./secrets/)
-secrets:
-  smtp_password:
-    file: ./secrets/smtp_password.txt
-  external_api_key:
-    file: ./secrets/external_api_key.txt
-  ip_reputation_api_key:
-    file: ./secrets/ip_reputation_api_key.txt
-  community_blocklist_api_key:
-    file: ./secrets/community_blocklist_api_key.txt
-  # PostgreSQL password secret
-  pg_password:
-    file: ./secrets/pg_password.txt
-  # Optional: Redis password secret (create ./secrets/redis_password.txt if needed)
-  redis_password:
-    file: ./secrets/redis_password.txt

@@ -20,5 +20,3 @@ fi
 
 # Execute the command passed to the container (e.g., the CMD from Dockerfile or docker-compose)
 exec "$@"
-# Note: The script uses 'exec' to replace the shell with the command passed to the container.
-# This allows the command to receive signals directly, which is important for proper shutdown.
