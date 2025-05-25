@@ -39,7 +39,8 @@ spec:
         # fsGroup: 1001 # If app writes to shared volumes and needs group access
       containers:
       - name: tarpit-api
-        image: defense_stack_py_base:v0.1.0
+        # IMPORTANT: Replace with your actual image and tag
+        image: your-registry/ai-defense-python-base:latest
         imagePullPolicy: IfNotPresent
         securityContext: # Container-level security context
           allowPrivilegeEscalation: false
@@ -53,7 +54,7 @@ spec:
         ports:
         - containerPort: 8001
           name: http-tarpit
-        envFrom:
+        envFrom: # For other non-sensitive config from app-config
           - configMapRef:
               name: app-config
         env:
@@ -61,6 +62,11 @@ spec:
             value: /run/secrets/postgres/pg_password.txt
           - name: REDIS_PASSWORD_FILE
             value: /run/secrets/redis/redis_password.txt
+          - name: SYSTEM_SEED # Sourced from the new Secret
+            valueFrom:
+              secretKeyRef:
+                name: system-seed-secret # Name of the Secret object
+                key: SYSTEM_SEED        # Key within the Secret's data
         resources:
           requests: { cpu: "250m", memory: "256Mi" }
           limits: { cpu: "750m", memory: "512Mi" }
@@ -99,7 +105,7 @@ spec:
         - name: redis-secret-volume
           secret:
             secretName: redis-credentials
-            optional: true
+            optional: true # Make this optional if Redis password is not always used
             items:
               - key: redis_password.txt
                 path: redis_password.txt

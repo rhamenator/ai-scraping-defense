@@ -1,4 +1,4 @@
-# anti_scrape/kubernetes/postgres-statefulset.yaml
+# kubernetes/postgres-statefulset.yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -10,7 +10,7 @@ spec:
   ports:
   - port: 5432
     name: postgres
-  clusterIP: None
+  clusterIP: None # Headless service for StatefulSet
   selector:
     app: postgres-markov
 
@@ -21,7 +21,7 @@ metadata:
   name: postgres
   namespace: ai-defense
 spec:
-  serviceName: "postgres"
+  serviceName: "postgres" # Must match the headless Service name
   replicas: 1
   selector:
     matchLabels:
@@ -41,16 +41,13 @@ spec:
         image: postgres:15-alpine
         securityContext: # Container-level security context
           allowPrivilegeEscalation: false
-          # runAsNonRoot: true # Effectively true due to Pod's runAsUser
           capabilities:
-            drop:
-              - "ALL"
-          # readOnlyRootFilesystem: true # Postgres needs to write to its data dir
+            drop: ["ALL"]
         ports:
         - containerPort: 5432
           name: postgres
         env:
-        - name: POSTGRES_DB
+        - name: POSTGRES_DB # These are used by the postgres entrypoint script on first run if no data dir
           valueFrom:
             configMapKeyRef: { name: app-config, key: PG_DBNAME }
         - name: POSTGRES_USER
@@ -58,7 +55,7 @@ spec:
             configMapKeyRef: { name: app-config, key: PG_USER }
         - name: PGDATA # Official image uses this to set its data directory
           value: /var/lib/postgresql/data/pgdata
-        - name: POSTGRES_PASSWORD_FILE
+        - name: POSTGRES_PASSWORD_FILE # Used by postgres entrypoint for setting password
           value: /run/secrets/postgres/pg_password.txt
         volumeMounts:
         - name: postgres-persistent-storage # This is the data directory
@@ -66,13 +63,16 @@ spec:
         - name: postgres-secret-volume
           mountPath: /run/secrets/postgres
           readOnly: true
+        - name: postgres-init-script-volume # Mount the init script here
+          mountPath: /docker-entrypoint-initdb.d # Standard PG init directory
+          readOnly: true
         resources:
           requests: { cpu: "500m", memory: "512Mi" }
           limits: { cpu: "1500m", memory: "1.5Gi" }
         livenessProbe:
           exec:
             command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)", "-q"]
-          initialDelaySeconds: 45
+          initialDelaySeconds: 45 # Increased slightly to allow init script to run on first boot
           periodSeconds: 15
           timeoutSeconds: 5
           failureThreshold: 3
@@ -90,10 +90,16 @@ spec:
             items:
               - key: pg_password.txt
                 path: pg_password.txt
+        - name: postgres-init-script-volume # Define the volume for the init script ConfigMap
+          configMap:
+            name: postgres-init-script-cm # Name of the ConfigMap created
+            items: # Specify which key from ConfigMap to mount and its path
+              - key: init_markov.sql
+                path: init_markov.sql # This will be /docker-entrypoint-initdb.d/init_markov.sql
   volumeClaimTemplates:
   - metadata:
       name: postgres-persistent-storage
     spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
-        requests: { storage: "10Gi" }
+        requests: { storage: "10Gi" } # Adjust storage as needed

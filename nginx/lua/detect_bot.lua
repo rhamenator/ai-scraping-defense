@@ -1,5 +1,6 @@
 -- anti_scrape/nginx/lua/detect_bot.lua
 -- Bot detection script for NGINX, checks for bad bots and robots.txt violations.
+-- This version is intended for Docker Compose and reads robots.txt from a mounted file.
 
 -- List of known bad User-Agent substrings (case-insensitive)
 local bad_bots = {
@@ -18,21 +19,49 @@ local benign_bots = {
   "linkedinbot", "twitterbot", "applebot"
 }
 
--- Simple list of disallowed paths for *all* bots (load from config/file ideally)
--- For demonstration, hardcoding a few common sensitive paths.
--- IMPORTANT: This is a simplified approach. Full robots.txt parsing is complex in Lua.
-local disallowed_paths = {
-  "/admin/",
-  "/api/",      -- If your real API shouldn't be crawled
-  "/config/",
-  "/models/",
-  "/secrets/",
-  "/data/",
-  "/cgi-bin/",
-  "/wp-admin/",
-  "/xmlrpc.php"
-  -- Add other critical paths that NO bot should access
-}
+-- Path to the robots.txt file mounted in the Docker container
+-- (as per docker-compose.yml: ./config/robots.txt:/etc/nginx/robots.txt:ro)
+local robots_txt_path = "/etc/nginx/robots.txt"
+local dynamic_disallowed_paths = {}
+
+-- Function to load and parse robots.txt for 'User-agent: *' disallow rules
+local function load_robots_rules()
+    local file = io.open(robots_txt_path, "r")
+    if not file then
+        ngx.log(ngx.ERR, "detect_bot: Could not open robots.txt at ", robots_txt_path)
+        return
+    end
+
+    local current_ua_is_star = false
+    for line in file:lines() do
+        line = string.lower(string.gsub(line, "^%s*(.-)%s*$", "%1")) -- Trim and lowercase
+
+        if string.match(line, "^user%-agent:%s*%*") then
+            current_ua_is_star = true
+        elseif string.match(line, "^user%-agent:") then
+            -- A new user-agent directive that is not '*' resets the star flag
+            current_ua_is_star = false
+        end
+
+        if current_ua_is_star then
+            local disallow_match = string.match(line, "^disallow:%s*(.+)")
+            -- Add rule if it's not empty and not just "/" (which means disallow nothing specific under '*')
+            if disallow_match and disallow_match ~= "" and disallow_match ~= "/" then
+                table.insert(dynamic_disallowed_paths, disallow_match)
+            end
+        end
+    end
+    file:close()
+
+    if #dynamic_disallowed_paths > 0 then
+        ngx.log(ngx.INFO, "detect_bot: Loaded ", #dynamic_disallowed_paths, " disallow rules for * from ", robots_txt_path)
+    else
+        ngx.log(ngx.WARN, "detect_bot: No disallow rules for * found or loaded from ", robots_txt_path)
+    end
+end
+
+-- Load rules when Lua module is initialized (Nginx worker starts)
+load_robots_rules()
 
 -- Function to check if a string contains any substring from a list (case-insensitive)
 local function contains_string(str, list)
@@ -47,11 +76,11 @@ local function contains_string(str, list)
 end
 
 -- Function to check if a path starts with any disallowed prefix
-local function is_path_disallowed(path, rules)
-  if not path or not rules then return false end
-  for _, disallowed in ipairs(rules) do
-    -- Check if the path starts with the disallowed prefix
-    if string.sub(path, 1, string.len(disallowed)) == disallowed then
+local function is_path_disallowed(path_to_check, rules)
+  if not path_to_check or not rules or #rules == 0 then return false end
+  for _, disallowed_rule in ipairs(rules) do
+    -- Ensure the disallowed_rule is not empty before checking
+    if disallowed_rule ~= "" and string.sub(path_to_check, 1, string.len(disallowed_rule)) == disallowed_rule then
       return true
     end
   end
@@ -64,6 +93,7 @@ local user_agent = headers["User-Agent"]
 local remote_addr = ngx.var.remote_addr
 local request_method = ngx.req.get_method()
 local request_uri = ngx.var.request_uri or "/" -- Ensure URI is never nil
+local real_backend_host = os.getenv("REAL_BACKEND_HOST") -- For proxying allowed requests
 
 ngx.log(ngx.DEBUG, "[BOT CHECK] IP: ", remote_addr, ", UA: ", user_agent, ", URI: ", request_uri)
 
@@ -71,13 +101,17 @@ ngx.log(ngx.DEBUG, "[BOT CHECK] IP: ", remote_addr, ", UA: ", user_agent, ", URI
 local is_benign, benign_pattern = contains_string(user_agent, benign_bots)
 
 if is_benign then
-  -- 2. If benign, check if it's accessing a disallowed path
-  if is_path_disallowed(request_uri, disallowed_paths) then
+  -- 2. If benign, check if it's accessing a disallowed path from loaded robots.txt
+  if is_path_disallowed(request_uri, dynamic_disallowed_paths) then
     ngx.log(ngx.WARN, "[TAR PIT TRIGGER] Benign bot (", benign_pattern, ") accessed disallowed path: ", request_uri, " IP: ", remote_addr)
     return ngx.exec("/api/tarpit") -- Send rule-violating benign bots to tarpit
   else
     ngx.log(ngx.INFO, "[BENIGN BOT ALLOWED] IP: ", remote_addr, ", UA: ", user_agent, " (Matched: ", benign_pattern, ")")
-    return -- Allow request (ngx.OK is implicit)
+    if real_backend_host and real_backend_host ~= "" then
+        ngx.var.lua_proxy_pass_upstream = real_backend_host
+        return ngx.OK -- Signal to Nginx to use this upstream
+    end
+    return -- Allow request (ngx.OK is implicit if no upstream set by Lua)
   end
 end
 
@@ -85,10 +119,10 @@ end
 local suspicion_score = 0
 local reasons = {}
 
-local is_bad_ua, bad_pattern = contains_string(user_agent, bad_bots)
+local is_bad_ua, bad_ua_pattern = contains_string(user_agent, bad_bots)
 if is_bad_ua then
   suspicion_score = suspicion_score + 0.8
-  table.insert(reasons, "KnownBadUA("..bad_pattern..")")
+  table.insert(reasons, "KnownBadUA("..bad_ua_pattern..")")
 end
 
 local accept_lang = headers["Accept-Language"]
@@ -106,12 +140,12 @@ if not accept_lang then
   table.insert(reasons, "MissingAcceptLang")
 end
 
-if not sec_fetch_site then -- Don't check if known bad UA already penalized
+if not sec_fetch_site and not is_bad_ua then -- Don't penalize if already known bad UA
   suspicion_score = suspicion_score + 0.15
   table.insert(reasons, "MissingSecFetchSite")
 end
 
-if accept_header == "*/*" then
+if accept_header and string.lower(accept_header) == "*/*" then -- Check if accept_header exists
   suspicion_score = suspicion_score + 0.1
   table.insert(reasons, "AcceptWildcard")
 end
@@ -129,10 +163,14 @@ end
 -- 4. Decision for non-benign bots
 if suspicion_score >= 0.7 then -- Adjust threshold as needed
   local reason_str = table.concat(reasons, ",")
-  ngx.log(ngx.WARN, "[TAR PIT TRIGGER: High Heuristic Score] Score: ", suspicion_score, ", IP: ", remote_addr, ", UA: ", user_agent, ", Reasons: ", reason_str)
+  ngx.log(ngx.WARN, "[TAR PIT TRIGGER: High Heuristic Score] Score: ", string.format("%.2f", suspicion_score), ", IP: ", remote_addr, ", UA: ", user_agent, ", Reasons: ", reason_str)
   return ngx.exec("/api/tarpit")
 else
   -- Request passed bot checks or low suspicion score
   ngx.log(ngx.DEBUG, "[REQUEST ALLOWED] Score: ", string.format("%.2f", suspicion_score), ", IP: ", remote_addr, ", UA: ", user_agent)
+   if real_backend_host and real_backend_host ~= "" then
+        ngx.var.lua_proxy_pass_upstream = real_backend_host
+        return ngx.OK -- Signal to Nginx to use this upstream
+    end
   return -- Allow request
 end

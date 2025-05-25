@@ -1,4 +1,4 @@
-# mkdocs.yml (Place in project root)
+# mkdocs.yml
 
 site_name: AI Scraping Defense Stack
 # Optional: Replace with your GitHub Pages URL if using a custom domain or project page
@@ -38,25 +38,29 @@ theme:
 # Navigation Structure (relative paths from project root)
 # Ensure these markdown files exist at the specified paths
 nav:
-  - Home: index.md # This should point to your main README.md
+  - Home: README.md # This should point to your main README.md in the root
   - User Guide:
     - Overview: docs/index.md # The landing page specifically for docs
+    - Getting Started (Docker): docs/getting_started.md
+    - Kubernetes Deployment: docs/kubernetes_deployment.md
     - Architecture: docs/architecture.md
-    - API Reference: docs/api_reference.md
+    - Key Data Flows: docs/key_data_flows.md
+    - API Reference: docs/api_references.md
   - Microservices:
     - Tarpit Service: tarpit/README.md
     # Add READMEs for other services (escalation, admin_ui) here if they exist
   - Contributing:
     - How to Contribute: CONTRIBUTING.md
-    - Code of Conduct: docs/code_of_conduct.md # We'll create this next
+    - Code of Conduct: docs/code_of_conduct.md
     - Changelog: CHANGELOG.md
+    - Roadmap: docs/ROADMAP.md
   - Legal & Compliance:
     - License: LICENSE # Link to the raw license file
-    - License Summary: LICENSE.md
-    # - Third-Party Licenses: third_party_licenses.md # Uncomment if using this file
+    - License Summary: license_summary.md # Corrected filename
+    - Third-Party Licenses: docs/third_party_licenses.md
     - Security Policy: SECURITY.md
-    - Privacy Policy: docs/privacy_policy.md
-    - Compliance Checklist: docs/legal_compliance.md
+    # - Privacy Policy: docs/privacy_policy.md # Uncomment if you create this
+    # - Compliance Checklist: docs/legal_compliance.md # Uncomment if you create this
 
 # Optional MkDocs Plugins (Install separately: pip install mkdocs-...)
 # plugins:
@@ -72,8 +76,9 @@ nav:
 copyright: Copyright &copy; 2024 Your Name / Project Name Here - Licensed under GPL-3.0
 
 # Repository link shown in header
-repo_url: https://github.com/yourusername/ai-scraping-defense/ # Replace with your repo URL
-repo_name: ai-scraping-defense
+# Replace with your actual repo URL if it's not rhamenator/ai-scraping-defense
+repo_url: https://github.com/rhamenator/ai-scraping-defense/
+repo_name: rhamenator/ai-scraping-defense
 
 # Edit link (points users to GitHub source for the current page)
 edit_uri: edit/main/

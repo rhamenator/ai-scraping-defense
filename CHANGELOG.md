@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## **[0.0.5] - 2025-05-25**
+
+### **Added**
+
+* **Kubernetes PostgreSQL Schema Initialization:** Implemented automatic schema initialization for PostgreSQL in Kubernetes by mounting db/init_markov.sql via a new postgres-init-script-cm ConfigMap into the standard /docker-entrypoint-initdb.d/ directory of the PostgreSQL container. This removes the need for manual schema setup in Kubernetes.  
+* **Helper Script for Local Setup:** Added setup_local_dirs.sh to assist users in creating the necessary local directory structure and placeholder secret files.
+
+### **Changed**
+
+* **Nginx robots.txt Handling (Docker Compose):** Updated nginx/lua/detect_bot.lua (for Docker Compose deployments) to dynamically load and parse robots.txt rules from the mounted /etc/nginx/robots.txt file, ensuring consistent behavior with Kubernetes for benign bot rule checking.  
+* **Kubernetes SYSTEM_SEED Management:**  
+  * Moved SYSTEM_SEED from kubernetes/configmap.yaml to kubernetes/secrets.yaml (under a new system-seed-secret) for enhanced security.  
+  * Updated kubernetes/tarpit-api-deployment.yaml to source the SYSTEM_SEED environment variable from this new Secret.  
+* **Kubernetes Image Placeholders:** Standardized placeholder image names (e.g., your-registry/ai-defense-python-base:latest, your-registry/ai-defense-nginx:latest) across all relevant Kubernetes YAML files (*-deployment.yaml,*-cronjob.yaml) to clarify where user-specific image URIs should be inserted.  
+* **Documentation (mkdocs.yml):** Corrected the "License Summary" link in nav section to point to license_summary.md.  
+* **Documentation (docs/api_references.md):** Updated to include the /metrics endpoint for the Escalation Engine.  
+* **Documentation (docs/kubernetes_deployment.md):** Significantly updated to reflect the new PostgreSQL schema initialization method, SYSTEM_SEED relocation, standardized image placeholders, and other recent enhancements for clarity and accuracy.
+
+### **Fixed**
+
+* Ensured init_markov.sql script within kubernetes/postgres-init-script-cm.yaml correctly handles potential pre-existing markov_words ID 1 for the empty string token.
+
+## **[0.0.4] - 2025-05-25**
+
+### **Added**
+
+* **Dynamic Wikipedia Corpus Generation:**  
+  * Introduced util/corpus_wikipedia_updater.py script to periodically fetch content from random Wikipedia pages.  
+  * Added kubernetes/corpus-updater-cronjob.yaml to schedule the corpus_wikipedia_updater.py script.  
+  * Added kubernetes/corpus-pvc.yaml to define a PersistentVolumeClaim (corpus-data-pvc) for storing the dynamically generated corpus.  
+* **Dynamic robots.txt Management:**  
+  * Introduced util/robots_fetcher.py script to periodically fetch robots.txt from the REAL_BACKEND_HOST.  
+  * Added kubernetes/robots-fetcher-cronjob.yaml (or robots-fetcher-setup.yaml) defining a ServiceAccount (robots-fetcher-sa), Role (configmap-updater-role), RoleBinding, and a CronJob (robots-txt-fetcher) to run the script and update a live-robots-txt-config ConfigMap.  
+* **Persistent Storage for Models and Archives:**  
+  * Added kubernetes/models-pvc.yaml for models-pvc to store trained ML models.  
+  * Added kubernetes/archives-pvc.yaml for archives-pvc to store generated ZIP honeypot archives.  
+* **Kubernetes Security Hardening:**  
+  * Applied securityContext (e.g., runAsNonRoot, runAsUser, capabilities: {drop: ["ALL"]}) to Pod and container specifications in Deployments, StatefulSets, and CronJob templates for enhanced security.  
+  * Restricted permissions for the robots-fetcher-sa ServiceAccount's Role to only manage the specific live-robots-txt-config ConfigMap.  
+* **New Python Dependencies:** Added kubernetes, wikipedia-api, beautifulsoup4, lxml to requirements.txt for the new utility scripts.
+
+### **Changed**
+
+* **Kubernetes Manifests:**  
+  * Applied namespace: ai-defense consistently across all Kubernetes resource manifests for better isolation and organization.  
+  * Updated service endpoint configurations in kubernetes/configmap.yaml (app-config) to use Fully Qualified Domain Names (FQDNs) for robust intra-cluster communication (e.g., redis.ai-defense.svc.cluster.local).  
+  * Updated kubernetes/nginx-deployment.yaml:  
+    * Nginx configuration and detect_bot.lua now utilize the dynamically fetched robots.txt (mounted from the live-robots-txt-config ConfigMap).  
+  * Updated kubernetes/escalation-engine-deployment.yaml to mount and use the live-robots-txt-config ConfigMap for its TRAINING_ROBOTS_TXT_PATH.  
+  * Converted the one-time Markov training Kubernetes Job to a periodic CronJob in kubernetes/markov-model-trainer.yaml, configured to read the corpus from corpus-data-pvc.  
+  * Refined filenames for Kubernetes CronJob YAMLs for clarity (e.g., robots-fetcher-cronjob.yaml for the robots.txt fetcher setup, markov-model-trainer.yaml for the Markov training CronJob).  
+* **Nginx Lua Scripts:**  
+  * Corrected nginx/lua/check_blocklist.lua to use redis:exists() for checking individual IP keys (e.g., blocklist:ip:1.2.3.4) in Redis, aligning with how blocklist entries are stored.  
+* **Dockerfile:**  
+  * Updated to include the new util/ directory (containing robots_fetcher.py and corpus_wikipedia_updater.py) in the Docker image.  
+* **docker-compose.yml:**  
+  * Enhanced for local development by adding ./data:/app/data and ./util:/app/util volume mounts to Python services, facilitating easier testing of new utility scripts.  
+* **Documentation:**  
+  * Updated README.md (Features section).  
+  * Updated docs/architecture.md (Component Overview, Data Flow, and Mermaid diagram).  
+  * Updated docs/key_data_flows.md.  
+  * Substantially updated docs/kubernetes_deployment.md to reflect new resources, namespacing, security contexts, and deployment procedures.
+
+### **Fixed**
+
+* Resolved potential inconsistencies in ServiceAccount naming and RoleBinding references for the robots-fetcher CronJob.  
+* Ensured PVCs referenced by CronJobs and Deployments are correctly configured to be in the ai-defense namespace.
+
 ## [0.0.3] - 2025-04-22
 
 ### Added

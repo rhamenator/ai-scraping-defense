@@ -1,14 +1,12 @@
-# anti_scrape/kubernetes/configmap.yaml
+# kubernetes/configmap.yaml
 # Defines non-sensitive configuration shared across services.
+# SYSTEM_SEED has been removed from this file and moved to secrets.yaml.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: app-config
-  namespace: ai-defense # Added namespace
+  namespace: ai-defense
 data:
-  # --- System Seed ---
-  SYSTEM_SEED: "default_kubernetes_seed_replace_me" # IMPORTANT: Override with a secure random value
-
   # --- JSON Metrics Logging ---
   LOG_METRICS_TO_JSON: "false" # Default disabled
   METRICS_JSON_FILE: "/app/logs/metrics_dump.json"
@@ -20,7 +18,7 @@ data:
   REDIS_DB_BLOCKLIST: "2"  # For IP blocking (Nginx, AI Service, Tarpit)
   REDIS_DB_FREQUENCY: "3"  # For Escalation Engine frequency tracking
   REDIS_DB_TAR_PIT: "1"     # For Tarpit IP flagging (visits)
-  REDIS_DB_TAR_PIT_HOPS: "4" # For Tarpit hop counting (NEW)
+  REDIS_DB_TAR_PIT_HOPS: "4" # For Tarpit hop counting
   # REDIS_PASSWORD_FILE path set directly in deployments needing it via secret mount
 
   # --- Blocklist TTL ---
@@ -30,8 +28,8 @@ data:
   TAR_PIT_FLAG_TTL: "300" # How long basic visit flag lasts
   TAR_PIT_MIN_DELAY_SEC: "0.6"
   TAR_PIT_MAX_DELAY_SEC: "1.2"
-  TAR_PIT_MAX_HOPS: "250" # Max requests per IP in window, 0 or -1 disables (NEW)
-  TAR_PIT_HOP_WINDOW_SECONDS: "86400" # Window for hop count (24 hours) (NEW)
+  TAR_PIT_MAX_HOPS: "250" # Max requests per IP in window, 0 or -1 disables
+  TAR_PIT_HOP_WINDOW_SECONDS: "86400" # Window for hop count (24 hours)
 
   # --- Service Endpoints (K8s service names/ports - fully qualified with namespace) ---
   ESCALATION_ENDPOINT: "http://escalation-engine.ai-defense.svc.cluster.local:8003/escalate"
@@ -45,15 +43,15 @@ data:
   # PG_PASSWORD_FILE path set directly in deployments needing it via secret mount
 
   # --- Alerting Configuration (Non-Sensitive) ---
-  ALERT_METHOD: "none"
-  ALERT_MIN_REASON_SEVERITY: "Local LLM"
+  ALERT_METHOD: "none" # Options: webhook, slack, smtp, none
+  ALERT_MIN_REASON_SEVERITY: "Local LLM" # Minimum severity to trigger alert
   ALERT_SMTP_PORT: "587"
   ALERT_SMTP_USE_TLS: "true"
   # Sensitive alert settings (URLs, emails, user, host) should be set via K8s secrets/patching
 
   # --- Escalation Engine: LLM/External API Config (Non-Sensitive) ---
-  LOCAL_LLM_API_URL: ""
-  LOCAL_LLM_MODEL: ""
+  LOCAL_LLM_API_URL: "" # e.g., http://localhost:11434/v1/chat/completions for Ollama
+  LOCAL_LLM_MODEL: "" # e.g., llama3:latest
   LOCAL_LLM_TIMEOUT: "45.0"
   EXTERNAL_CLASSIFICATION_API_URL: ""
   EXTERNAL_API_TIMEOUT: "15.0"
@@ -61,21 +59,21 @@ data:
 
   # --- Escalation Engine: IP Reputation Config (Non-Sensitive) ---
   ENABLE_IP_REPUTATION: "false"
-  IP_REPUTATION_API_URL: ""
+  IP_REPUTATION_API_URL: "" # e.g., https://api.abuseipdb.com/api/v2/check
   IP_REPUTATION_TIMEOUT: "10.0"
   IP_REPUTATION_MALICIOUS_SCORE_BONUS: "0.3"
-  IP_REPUTATION_MIN_MALICIOUS_THRESHOLD: "50"
+  IP_REPUTATION_MIN_MALICIOUS_THRESHOLD: "50" # Example threshold for AbuseIPDB score
   # IP_REPUTATION_API_KEY_FILE path set directly in deployment
 
   # --- Escalation Engine: CAPTCHA Trigger Config (Non-Sensitive) ---
   ENABLE_CAPTCHA_TRIGGER: "false"
   CAPTCHA_SCORE_THRESHOLD_LOW: "0.2"
   CAPTCHA_SCORE_THRESHOLD_HIGH: "0.5"
-  CAPTCHA_VERIFICATION_URL: ""
+  CAPTCHA_VERIFICATION_URL: "" # URL to your CAPTCHA page
 
   # --- AI Service: Community Reporting Config (Non-Sensitive) ---
   ENABLE_COMMUNITY_REPORTING: "false"
-  COMMUNITY_BLOCKLIST_REPORT_URL: ""
+  COMMUNITY_BLOCKLIST_REPORT_URL: "" # e.g., https://api.abuseipdb.com/api/v2/report
   COMMUNITY_BLOCKLIST_REPORT_TIMEOUT: "10.0"
   # COMMUNITY_BLOCKLIST_API_KEY_FILE path set directly in deployment
 
