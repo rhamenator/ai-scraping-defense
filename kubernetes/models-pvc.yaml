@@ -1,0 +1,15 @@
+# kubernetes/models-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: models-pvc
+  namespace: ai-defense # Ensure this is in the correct namespace
+spec:
+  accessModes:
+    - ReadWriteOnce # If only one pod (e.g., training job) writes, and others read.
+                    # Or ReadWriteMany if multiple pods might write/update models,
+                    # but this depends on your StorageClass capabilities.
+  resources:
+    requests:
+      storage: 1Gi # Adjust size as needed for your models
+  # storageClassName: "your-storage-class" # Optional: specify if not using default or need specific type

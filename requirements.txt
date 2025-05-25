@@ -58,8 +58,10 @@ user-agents >=0.4.0
 # slack_sdk >=3.20.0 # If implementing Slack alerts via dedicated SDK (requests is used currently)
 
 # Other Utilities
-# beautifulsoup4 >=4.11.0 # If scraping web pages for Markov corpus
-
+beautifulsoup4>=4.9.0 # If scraping web pages for Markov corpus
+lxml>=4.6.0
+wikipedia-api>=0.6.0
+kubernetes>=12.0.0
 # IP Reputation Services (Optional - Current implementation uses generic httpx)
 # Consider specific client libraries if needed for advanced features of services like:
 # abuseipdb-client

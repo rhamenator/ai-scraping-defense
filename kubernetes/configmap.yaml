@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: app-config
-  # namespace: ai-defense # Uncomment if using namespace
+  namespace: ai-defense # Added namespace
 data:
   # --- System Seed ---
   SYSTEM_SEED: "default_kubernetes_seed_replace_me" # IMPORTANT: Override with a secure random value
@@ -15,7 +15,7 @@ data:
   METRICS_DUMP_INTERVAL_MIN: "60"
 
   # --- Redis Configuration ---
-  REDIS_HOST: "redis" # K8s Service name for Redis
+  REDIS_HOST: "redis.ai-defense.svc.cluster.local" # K8s Service name for Redis (fully qualified)
   REDIS_PORT: "6379"
   REDIS_DB_BLOCKLIST: "2"  # For IP blocking (Nginx, AI Service, Tarpit)
   REDIS_DB_FREQUENCY: "3"  # For Escalation Engine frequency tracking
@@ -33,12 +33,12 @@ data:
   TAR_PIT_MAX_HOPS: "250" # Max requests per IP in window, 0 or -1 disables (NEW)
   TAR_PIT_HOP_WINDOW_SECONDS: "86400" # Window for hop count (24 hours) (NEW)
 
-  # --- Service Endpoints (K8s service names/ports) ---
-  ESCALATION_ENDPOINT: "http://escalation-engine:8003/escalate"
-  ESCALATION_WEBHOOK_URL: "http://ai-service:8000/analyze"
+  # --- Service Endpoints (K8s service names/ports - fully qualified with namespace) ---
+  ESCALATION_ENDPOINT: "http://escalation-engine.ai-defense.svc.cluster.local:8003/escalate"
+  ESCALATION_WEBHOOK_URL: "http://ai-service.ai-defense.svc.cluster.local:8000/analyze"
 
   # --- PostgreSQL Markov DB Config ---
-  PG_HOST: "postgres" # K8s Service name for Postgres
+  PG_HOST: "postgres.ai-defense.svc.cluster.local" # K8s Service name for Postgres (fully qualified)
   PG_PORT: "5432"
   PG_DBNAME: "markovdb" # Needs to match PG setup
   PG_USER: "markovuser" # Needs to match PG setup
@@ -80,7 +80,7 @@ data:
   # COMMUNITY_BLOCKLIST_API_KEY_FILE path set directly in deployment
 
   # --- File Path Configuration (In-Container Paths) ---
-  TRAINING_ROBOTS_TXT_PATH: "/app/config/robots.txt"
+  TRAINING_ROBOTS_TXT_PATH: "/app/config/live_robots.txt" # Updated to point to the dynamically fetched file
   TRAINING_MODEL_SAVE_PATH: "/app/models/bot_detection_rf_model.joblib"
   # Other training paths if needed
 
@@ -88,4 +88,4 @@ data:
   FLASK_ENV: "production"
   PYTHONPATH: "/app"
   UVICORN_WORKERS: "2" # Default worker count for Uvicorn services
-  REAL_BACKEND_HOST: "http://your-real-app-k8s-service:8080" # IMPORTANT: K8s specific backend target for Nginx
+  REAL_BACKEND_HOST: "http://your-real-app-k8s-service.ai-defense.svc.cluster.local:8080" # IMPORTANT: K8s specific backend target for Nginx (fully qualified)

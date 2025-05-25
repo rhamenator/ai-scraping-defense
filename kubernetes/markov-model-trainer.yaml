@@ -1,0 +1,68 @@
+# kubernetes/markov-model-trainer.yaml
+# Kubernetes CronJob to periodically train the PostgreSQL Markov model.
+# Reads corpus from the PVC populated by corpus-wikipedia-updater.
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: markov-model-trainer
+  namespace: ai-defense
+spec:
+  schedule: "0 4 * * *" # Run daily at 4 AM (server time), after corpus update. Adjust as needed.
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: robots-fetcher-sa # Or 'default'. Ensure 'robots-fetcher-sa' exists in 'ai-defense' if used.
+          securityContext:
+            runAsNonRoot: true
+            # fsGroup: 1001 # If PVC needs specific group ownership for writing by user 1001
+          containers:
+          - name: markov-trainer
+            image: defense_stack_py_base:v0.1.0 # Ensure this is your correct Python base image and tag
+            imagePullPolicy: IfNotPresent
+            workingDir: /app
+            command: ["python", "rag/train_markov_postgres.py", "/mnt/corpus_data/wikipedia_corpus.txt"]
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsUser: 1001
+              capabilities:
+                drop: ["ALL"]
+            envFrom:
+              - configMapRef:
+                  name: app-config 
+            env:
+              - name: PG_PASSWORD_FILE
+                value: /run/secrets/postgres/pg_password.txt
+              - name: PYTHONPATH
+                value: /app
+              - name: PYTHONUNBUFFERED 
+                value: "1"
+            volumeMounts:
+              - name: pg-secret-volume
+                mountPath: /run/secrets/postgres
+                readOnly: true
+              - name: corpus-storage-volume
+                mountPath: /mnt/corpus_data
+                readOnly: true
+            resources:
+              requests:
+                cpu: "250m"
+                memory: "512Mi"
+              limits:
+                cpu: "1500m" 
+                memory: "2Gi"
+          volumes:
+            - name: pg-secret-volume
+              secret:
+                secretName: postgres-credentials 
+                items:
+                  - key: pg_password.txt
+                    path: pg_password.txt
+            - name: corpus-storage-volume
+              persistentVolumeClaim:
+                claimName: corpus-data-pvc 
+          restartPolicy: OnFailure
+  concurrencyPolicy: "Forbid"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1

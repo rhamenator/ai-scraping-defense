@@ -1,0 +1,51 @@
+# anti-scraping-defense/kubernetes/corpus-updater-cronjob.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: corpus-wikipedia-updater
+  namespace: ai-defense
+spec:
+  schedule: "0 2 * * *" # Run daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          # serviceAccountName: default # Default SA is fine, script doesn't interact with K8s API
+          securityContext: # Pod level security context
+            runAsNonRoot: true
+            fsGroup: 1001 # Example: ensure files written to PVC have this group
+          containers:
+          - name: corpus-updater
+            image: defense_stack_py_base:v0.1.0
+            imagePullPolicy: IfNotPresent
+            command: ["python", "/app/util/corpus_wikipedia_updater.py"]
+            securityContext: # Container level security context
+              allowPrivilegeEscalation: false
+              runAsUser: 1001 # Example non-root user
+              capabilities:
+                drop:
+                  - "ALL"
+              # readOnlyRootFilesystem: false # Needs to write to PVC mount
+            env:
+              - name: WIKIPEDIA_CORPUS_FILE
+                value: "/mnt/corpus_data/wikipedia_corpus.txt"
+              - name: WIKIPEDIA_NUM_ARTICLES
+                value: "10"
+              - name: WIKIPEDIA_LANGUAGE
+                value: "en"
+              - name: PYTHONUNBUFFERED
+                value: "1"
+            resources:
+              requests: { cpu: "100m", memory: "128Mi" }
+              limits: { cpu: "500m", memory: "512Mi" }
+            volumeMounts:
+            - name: corpus-storage
+              mountPath: /mnt/corpus_data # Mount the PVC
+          volumes:
+          - name: corpus-storage
+            persistentVolumeClaim:
+              claimName: corpus-data-pvc
+          restartPolicy: OnFailure
+  concurrencyPolicy: "Forbid"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1

@@ -1,0 +1,15 @@
+# anti-scraping-defense/kubernetes/corpus-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: corpus-data-pvc
+  namespace: ai-defense
+spec:
+  accessModes:
+    - ReadWriteOnce # Sufficient if CronJobs run sequentially or can share.
+                    # ReadWriteMany might be needed if multiple pods write simultaneously,
+                    # but for this workflow, ReadWriteOnce is usually fine and more widely supported.
+  resources:
+    requests:
+      storage: 1Gi # Request 1 GB of storage for the corpus. Adjust as needed.
+  # storageClassName: "your-storage-class" # Optional: specify if not using default or need specific type

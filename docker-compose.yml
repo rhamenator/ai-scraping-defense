@@ -16,7 +16,7 @@ services:
     volumes:
       - ./mocks/external_api.yaml:/mocks/external_api.yaml:ro
     ports:
-      - "8000:8000"
+      - "8000:8000" # Host port:Container port
     networks:
       - defense_network
     restart: unless-stopped
@@ -28,7 +28,7 @@ services:
     volumes:
       - ./mocks/ip_reputation_api.yaml:/mocks/ip_reputation_api.yaml:ro
     ports:
-      - "8001:8000"
+      - "8001:8000" # Host port:Container port (Note: mock runs on 8000 in container)
     networks:
       - defense_network
     restart: unless-stopped
@@ -40,65 +40,273 @@ services:
     volumes:
       - ./mocks/community_blocklist_api.yaml:/mocks/community_blocklist_api.yaml:ro
     ports:
-      - "8002:8000"
+      - "8002:8000" # Host port:Container port
     networks:
       - defense_network
     restart: unless-stopped
 
-  ai_service:
+  # --- Main Application Services ---
+
+  nginx:
     build:
       context: .
-      dockerfile: Dockerfile
-    environment:
-      - ALERT_SMTP_HOST=mailhog
-      - ALERT_SMTP_PORT=1025
-      - ALERT_SMTP_USE_TLS=false
-      - ALERT_SMTP_USER=
-      - ALERT_SMTP_PASSWORD_FILE=/run/secrets/smtp_password.txt
-      - USE_MOCK_EXTERNAL_API=true
-      - EXTERNAL_API_URL=http://mock_external_api:8000
-      - IP_REPUTATION_API_URL=http://mock_ip_reputation_api:8000
-      - COMMUNITY_BLOCKLIST_API_URL=http://mock_community_blocklist_api:8000
+      dockerfile: Dockerfile # This Dockerfile should build an image with OpenResty/Nginx
+    container_name: nginx_proxy
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/lua:/etc/nginx/lua:ro
+      - ./config/robots.txt:/etc/nginx/robots.txt:ro # For Nginx to serve if configured
+      - ./docs:/var/www/html/docs:ro
+      - ./archives:/usr/share/nginx/html/archives:ro # Path Nginx serves archives from
+      - ./logs/nginx:/var/log/nginx
+      - ./certs:/etc/nginx/certs:ro # For SSL
+    depends_on:
+      tarpit_api:
+        condition: service_healthy # Example: wait for healthcheck
+      escalation_engine:
+        condition: service_healthy
+      admin_ui:
+        condition: service_healthy
+      ai_service:
+        condition: service_healthy
+      redis:
+        condition: service_started # Or service_healthy if healthcheck added
+      postgres:
+        condition: service_healthy
+    environment: # For Lua scripts if they read from env
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB_BLOCKLIST=2
+      - REAL_BACKEND_HOST=${REAL_BACKEND_HOST:-http://your-real-app-service:8080}
     networks:
       - defense_network
     restart: unless-stopped
+    healthcheck:
+        test: ["CMD-SHELL", "service nginx status || exit 1"]
+        interval: 30s
+        timeout: 10s
+        retries: 3
+
+  ai_service:
+    build:
+      context: .
+      dockerfile: Dockerfile # All Python services use the same base image
+    container_name: ai_service
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+      - ALERT_SMTP_HOST=mailhog
+      - ALERT_SMTP_PORT=1025
+      # Add other env vars from .env file (docker-compose automatically loads .env)
+    volumes:
+      - ./ai_service:/app/ai_service # For local code development
+      - ./shared:/app/shared
+      - ./metrics.py:/app/metrics.py:ro
+      - ./logs:/app/logs
+      - ./data:/app/data # For scripts needing access to data dir
+      - ./util:/app/util # Mount the util directory
+    secrets:
+      - smtp_password
+      - community_blocklist_api_key
+      - redis_password
+    depends_on:
+      redis:
+        condition: service_started # Or service_healthy
+      mailhog:
+        condition: service_started
+    networks:
+      - defense_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   escalation_engine:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: escalation_engine
+    working_dir: /app
     environment:
-      - ALERT_SMTP_HOST=mailhog
-      - ALERT_SMTP_PORT=1025
-      - ALERT_SMTP_USE_TLS=false
-      - ALERT_SMTP_USER=
-      - ALERT_SMTP_PASSWORD_FILE=/run/secrets/smtp_password.txt
-      - USE_MOCK_EXTERNAL_API=true
-      - EXTERNAL_API_URL=http://mock_external_api:8000
-      - IP_REPUTATION_API_URL=http://mock_ip_reputation_api:8000
-      - COMMUNITY_BLOCKLIST_API_URL=http://mock_community_blocklist_api:8000
+      - PYTHONPATH=/app
+      # Add other env vars from .env
+    volumes:
+      - ./escalation:/app/escalation
+      - ./shared:/app/shared
+      - ./metrics.py:/app/metrics.py:ro
+      - ./models:/app/models:ro
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./util:/app/util
+    secrets:
+      - external_api_key
+      - ip_reputation_api_key
+      - redis_password
+      - smtp_password # If it sends alerts
+    depends_on:
+      ai_service:
+        condition: service_healthy
+      redis:
+        condition: service_started # Or service_healthy
     networks:
       - defense_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8003/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   tarpit_api:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: tarpit_api
+    working_dir: /app
     environment:
-      - ALERT_SMTP_HOST=mailhog
-      - ALERT_SMTP_PORT=1025
-      - ALERT_SMTP_USE_TLS=false
-      - ALERT_SMTP_USER=
-      - ALERT_SMTP_PASSWORD_FILE=/run/secrets/smtp_password.txt
-      - USE_MOCK_EXTERNAL_API=true
-      - EXTERNAL_API_URL=http://mock_external_api:8000
-      - IP_REPUTATION_API_URL=http://mock_ip_reputation_api:8000
-      - COMMUNITY_BLOCKLIST_API_URL=http://mock_community_blocklist_api:8000
+      - PYTHONPATH=/app
+      - WIKIPEDIA_CORPUS_FILE=/app/data/wikipedia_corpus.txt # Used by corpus_updater if run here
+      # Add other env vars from .env
+    volumes:
+      - ./tarpit:/app/tarpit
+      - ./shared:/app/shared
+      - ./metrics.py:/app/metrics.py:ro
+      - ./logs:/app/logs
+      - ./data:/app/data  # For corpus input/output
+      - ./util:/app/util
+    secrets:
+      - pg_password
+      - redis_password
+    depends_on:
+      escalation_engine:
+        condition: service_healthy
+      redis:
+        condition: service_started # Or service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - defense_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  admin_ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: admin_ui
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+      # Add other env vars from .env
+    volumes:
+      - ./admin_ui:/app/admin_ui
+      - ./shared:/app/shared
+      - ./metrics.py:/app/metrics.py:ro
+      - ./logs:/app/logs
+      - ./data:/app/data # If it might run utility scripts
+      - ./util:/app/util
+    networks:
+      - defense_network
+    restart: unless-stopped
+    # Flask dev server doesn't have a simple health endpoint by default
+    # For production, you'd use gunicorn and could add a healthcheck.
+
+  archive_rotator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: archive_rotator
+    working_dir: /app
+    command: ["python", "tarpit/rotating_archive.py"]
+    environment:
+      - PYTHONPATH=/app
+      - DEFAULT_ARCHIVE_DIR=/app/fake_archives # Path inside container where script writes
+    volumes:
+      - ./tarpit:/app/tarpit # For rotating_archive.py script
+      - ./shared:/app/shared
+      - ./archives:/app/fake_archives # Mount host ./archives to where script writes
+      - ./logs:/app/logs
+      - ./data:/app/data # If it needs access
+      - ./util:/app/util
     networks:
       - defense_network
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis_store
+    volumes:
+      - redis_data:/data
+      # - ./secrets/redis_password.txt:/run/secrets/redis_password.txt:ro # Alternative for password if not using Docker secrets feature
+    networks:
+      - defense_network
+    restart: unless-stopped
+    command: >
+      sh -c "redis-server --save 60 1 --loglevel warning $([ -f /run/secrets/redis_password.txt ] && echo '--requirepass $(cat /run/secrets/redis_password.txt)')"
+    secrets:
+      - source: redis_password # Use Docker secrets feature
+        target: /run/secrets/redis_password.txt # Make available at this path
+    healthcheck:
+      test: >
+        sh -c "PASSWORD_ARG=$([ -f /run/secrets/redis_password.txt ] && echo '-a $(cat /run/secrets/redis_password.txt)'); redis-cli $$PASSWORD_ARG ping | grep -q PONG"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres_markov_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init_markov.sql:/docker-entrypoint-initdb.d/init.sql # For schema creation
+    environment:
+      - POSTGRES_DB=${PG_DBNAME:-markovdb}
+      - POSTGRES_USER=${PG_USER:-markovuser}
+      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password.txt
+    secrets:
+      - source: pg_password # Use Docker secrets feature
+        target: /run/secrets/pg_password.txt
+    networks:
+      - defense_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-markovuser} -d $${POSTGRES_DB:-markovdb} -h localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 networks:
   defense_network:
     driver: bridge
+
+volumes:
+  redis_data:
+  postgres_data:
+
+secrets:
+  smtp_password:
+    file: ./secrets/smtp_password.txt
+  external_api_key:
+    file: ./secrets/external_api_key.txt
+  ip_reputation_api_key:
+    file: ./secrets/ip_reputation_api_key.txt
+  community_blocklist_api_key:
+    file: ./secrets/community_blocklist_api_key.txt
+  pg_password:
+    file: ./secrets/pg_password.txt
+  redis_password: # Optional, used if you create ./secrets/redis_password.txt
+    file: ./secrets/redis_password.txt

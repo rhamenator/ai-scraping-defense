@@ -1,0 +1,85 @@
+# kubernetes/robots-fetcher-cronjob.yaml
+# Contains ServiceAccount, Role, RoleBinding, and CronJob for fetching robots.txt
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: robots-fetcher-sa # Consistent ServiceAccount name
+  namespace: ai-defense
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: configmap-updater-role
+  namespace: ai-defense
+rules:
+- apiGroups: [""] # Core API group
+  resources: ["configmaps"]
+  resourceNames: ["live-robots-txt-config"] # Restrict to only this ConfigMap
+  verbs: ["get", "update", "patch", "create"] # Create if not exists, get to read, update/patch to modify
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: robots-fetcher-configmap-updater-binding
+  namespace: ai-defense
+subjects:
+- kind: ServiceAccount
+  name: robots-fetcher-sa # Ensure this matches the ServiceAccount name defined above
+  namespace: ai-defense
+roleRef:
+  kind: Role
+  name: configmap-updater-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: robots-txt-fetcher
+  namespace: ai-defense
+spec:
+  schedule: "0 3 * * *" # Run daily at 3 AM (server time). Adjust as needed.
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: robots-fetcher-sa # Use the ServiceAccount with permissions
+          securityContext:
+            runAsNonRoot: true
+            # fsGroup: 1001 # If needed for volume permissions
+          containers:
+          - name: robots-fetcher
+            image: defense_stack_py_base:v0.1.0 # Your Python base image
+            imagePullPolicy: IfNotPresent
+            command: ["python", "/app/util/robots_fetcher.py"] # Path to the script in the image
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsUser: 1001
+              capabilities:
+                drop: ["ALL"]
+            envFrom:
+              - configMapRef:
+                  name: app-config # To get REAL_BACKEND_HOST, must be in 'ai-defense'
+            env:
+              - name: KUBERNETES_NAMESPACE # Script will use this to know its own namespace
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.namespace
+              - name: ROBOTS_CONFIGMAP_NAME
+                value: "live-robots-txt-config" # The ConfigMap to update (must be in 'ai-defense')
+              - name: PYTHONUNBUFFERED
+                value: "1"
+            resources:
+              requests:
+                cpu: "50m"
+                memory: "64Mi"
+              limits:
+                cpu: "200m"
+                memory: "128Mi"
+          restartPolicy: OnFailure
+  concurrencyPolicy: "Forbid"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1

@@ -1,33 +1,31 @@
 # kubernetes/tarpit-api-deployment.yaml
-# Defines the Deployment and Service for the Tarpit API (FastAPI application).
-
 apiVersion: v1
 kind: Service
 metadata:
-  name: tarpit-api # Service name used by Nginx internal location
-  # Consider adding namespace: ai-defense
+  name: tarpit-api
+  namespace: ai-defense
   labels:
     app: tarpit-api
 spec:
   selector:
-    app: tarpit-api # Selects pods with this label
+    app: tarpit-api
   ports:
     - protocol: TCP
-      port: 8001 # Port the service listens on within the cluster
-      targetPort: http-tarpit # Matches the container port name
+      port: 8001
+      targetPort: http-tarpit
       name: http
-  type: ClusterIP # Only reachable internally
+  type: ClusterIP
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tarpit-api
-  # Consider adding namespace: ai-defense
+  namespace: ai-defense
   labels:
     app: tarpit-api
 spec:
-  replicas: 2 # Start with 2 replicas for potential load, adjust as needed
+  replicas: 1
   selector:
     matchLabels:
       app: tarpit-api
@@ -36,80 +34,72 @@ spec:
       labels:
         app: tarpit-api
     spec:
+      securityContext: # Pod-level security context
+        runAsNonRoot: true
+        # fsGroup: 1001 # If app writes to shared volumes and needs group access
       containers:
       - name: tarpit-api
-        # IMPORTANT: Use the same base image as other Python services
-        image: defense_stack_py_base:latest
+        image: defense_stack_py_base:v0.1.0
         imagePullPolicy: IfNotPresent
+        securityContext: # Container-level security context
+          allowPrivilegeEscalation: false
+          runAsUser: 1001
+          capabilities:
+            drop:
+              - "ALL"
+          # readOnlyRootFilesystem: true # If applicable
         workingDir: /app
-        # Command matches docker-compose, using 2 workers
         command: ["uvicorn", "tarpit.tarpit_api:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "2"]
         ports:
         - containerPort: 8001
-          name: http-tarpit # Name for the container port
-        envFrom: # Inject all variables from the ConfigMap
+          name: http-tarpit
+        envFrom:
           - configMapRef:
-              name: app-config # Reference the ConfigMap created earlier
+              name: app-config
+        env:
+          - name: PG_PASSWORD_FILE
+            value: /run/secrets/postgres/pg_password.txt
+          - name: REDIS_PASSWORD_FILE
+            value: /run/secrets/redis/redis_password.txt
         resources:
-          # Values from docker-compose
-          requests:
-            cpu: "250m"
-            memory: "256Mi"
-          limits:
-            cpu: "750m"
-            memory: "512Mi"
+          requests: { cpu: "250m", memory: "256Mi" }
+          limits: { cpu: "750m", memory: "512Mi" }
         volumeMounts:
-          # Assume tarpit and shared code are built into the image
-          # - name: app-code
-          #   mountPath: /app/tarpit
-          #   subPath: tarpit
-          #   readOnly: true
-          # - name: app-code
-          #   mountPath: /app/shared
-          #   subPath: shared
-          #   readOnly: true
-
-          # Mount the shared volume for archives (ReadOnly for Tarpit API)
-          # Assumes the API might need to list/read archives for link generation.
-          # If not needed, remove this mount.
           - name: archives-volume
-            mountPath: /app/fake_archives # DEFAULT_ARCHIVE_DIR in js_zip_generator.py
-            readOnly: true # Tarpit API should not write here
-
-          # Mount a volume for logs (ephemeral)
+            mountPath: /app/fake_archives # Tarpit API only reads these
+            readOnly: true
           - name: log-volume
-            mountPath: /app/logs
-        # Liveness probe: Check if the container is running
+            mountPath: /app/logs # App user 1001 needs write access
+          - name: pg-secret-volume
+            mountPath: /run/secrets/postgres
+            readOnly: true
+          - name: redis-secret-volume
+            mountPath: /run/secrets/redis
+            readOnly: true
         livenessProbe:
-          httpGet:
-            path: /health # Assuming a /health endpoint exists in tarpit_api.py
-            port: http-tarpit
-          initialDelaySeconds: 20 # Wait longer for Uvicorn workers to start
+          httpGet: { path: /health, port: http-tarpit }
+          initialDelaySeconds: 20
           periodSeconds: 30
-          failureThreshold: 3
-        # Readiness probe: Check if the container is ready to serve traffic
         readinessProbe:
-          httpGet:
-            path: /health # Assuming a /health endpoint exists
-            port: http-tarpit
+          httpGet: { path: /health, port: http-tarpit }
           initialDelaySeconds: 10
           periodSeconds: 15
-          successThreshold: 1
-          failureThreshold: 2
-
       volumes:
-        # Define the log volume (ephemeral)
         - name: log-volume
           emptyDir: {}
-
-        # Define the archives volume using the same PVC as the rotator
-        # Ensure the PVC 'archives-pvc' is created separately.
         - name: archives-volume
           persistentVolumeClaim:
-            claimName: archives-pvc # Use the same PVC name
-            # readOnly: true # Mount the PVC itself as R/O if supported by storage provisioner & needed
-
-        # If using a shared volume for code:
-        # - name: app-code
-        #   persistentVolumeClaim:
-        #     claimName: app-code-pvc
+            claimName: archives-pvc
+        - name: pg-secret-volume
+          secret:
+            secretName: postgres-credentials
+            items:
+              - key: pg_password.txt
+                path: pg_password.txt
+        - name: redis-secret-volume
+          secret:
+            secretName: redis-credentials
+            optional: true
+            items:
+              - key: redis_password.txt
+                path: redis_password.txt

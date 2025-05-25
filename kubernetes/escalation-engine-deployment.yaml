@@ -1,60 +1,31 @@
 # kubernetes/escalation-engine-deployment.yaml
-# Defines ConfigMap for robots.txt, Service, and Deployment for the Escalation Engine.
-
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: robots-txt-config
-  # Consider adding namespace: ai-defense
-data:
-  # IMPORTANT: Paste the content of your ./config/robots.txt file here
-  robots.txt: |
-    User-agent: *
-    Disallow: /admin/
-    Disallow: /api/
-    Disallow: /tarpit/
-    Disallow: /config/
-    Disallow: /models/
-    Disallow: /secrets/
-    Disallow: /data/
-    Disallow: /cgi-bin/
-
-    User-agent: GPTBot
-    Disallow: /
-
-    User-agent: CCBot
-    Disallow: /
-
-    # Add other specific bot disallows here
-
----
 apiVersion: v1
 kind: Service
 metadata:
-  name: escalation-engine # Service name used by Tarpit API
-  # Consider adding namespace: ai-defense
+  name: escalation-engine
+  namespace: ai-defense
   labels:
     app: escalation-engine
 spec:
   selector:
-    app: escalation-engine # Selects pods with this label
+    app: escalation-engine
   ports:
     - protocol: TCP
-      port: 8003 # Port the service listens on within the cluster
-      targetPort: http-escalation # Matches the container port name
+      port: 8003
+      targetPort: http-escalation
       name: http
-  type: ClusterIP # Only reachable internally
+  type: ClusterIP
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: escalation-engine
-  # Consider adding namespace: ai-defense
+  namespace: ai-defense
   labels:
     app: escalation-engine
 spec:
-  replicas: 2 # Start with 2 replicas, adjust based on load/CPU usage
+  replicas: 1
   selector:
     matchLabels:
       app: escalation-engine
@@ -63,122 +34,92 @@ spec:
       labels:
         app: escalation-engine
     spec:
+      securityContext: # Pod-level security context
+        runAsNonRoot: true
+        # fsGroup: 1001 # If writing to models-pvc or other shared volumes
       containers:
       - name: escalation-engine
-        # IMPORTANT: Use the same base image as other Python services
-        image: defense_stack_py_base:latest
+        image: defense_stack_py_base:v0.1.0
         imagePullPolicy: IfNotPresent
+        securityContext: # Container-level security context
+          allowPrivilegeEscalation: false
+          runAsUser: 1001
+          capabilities:
+            drop:
+              - "ALL"
+          # readOnlyRootFilesystem: true # If models are read-only and logs go to volume
         workingDir: /app
-        # Command matches docker-compose, using 2 workers
         command: ["uvicorn", "escalation.escalation_engine:app", "--host", "0.0.0.0", "--port", "8003", "--workers", "2"]
         ports:
         - containerPort: 8003
-          name: http-escalation # Name for the container port
-        envFrom: # Inject all variables from the main ConfigMap
+          name: http-escalation
+        envFrom:
           - configMapRef:
               name: app-config
-        env: # Define secret file paths explicitly
+        env:
           - name: EXTERNAL_CLASSIFICATION_API_KEY_FILE
-            value: /run/secrets/external-api/external_api_key
+            value: /run/secrets/external-api/external_api_key.txt
           - name: IP_REPUTATION_API_KEY_FILE
-            value: /run/secrets/ip-reputation/ip_reputation_api_key
+            value: /run/secrets/ip-reputation/ip_reputation_api_key.txt
+          - name: REDIS_PASSWORD_FILE
+            value: /run/secrets/redis/redis_password.txt
+          - name: TRAINING_ROBOTS_TXT_PATH
+            value: /app/config/live_robots.txt
         resources:
-          # Values from docker-compose (potentially higher CPU needs)
-          requests:
-            cpu: "500m"  # Request 0.5 CPU core
-            memory: "512Mi"
-          limits:
-            cpu: "1000m" # Max 1 CPU core
-            memory: "1Gi"
+          requests: { cpu: "500m", memory: "512Mi" }
+          limits: { cpu: "1000m", memory: "1Gi" }
         volumeMounts:
-          # Assume escalation and shared code are built into the image
-          # - name: app-code
-          #   mountPath: /app/escalation
-          #   subPath: escalation
-          #   readOnly: true
-          # - name: app-code
-          #   mountPath: /app/shared
-          #   subPath: shared
-          #   readOnly: true
-
-          # Mount the ML model(s) volume (ReadOnly)
-          # Assumes model file(s) are at the root of the PVC.
           - name: models-volume
-            mountPath: /app/models # Corresponds to RF_MODEL_PATH parent dir
+            mountPath: /app/models # Script might write new models here if retraining in-pod
+            readOnly: false # Set to false if training.py saves models here from this pod
+          - name: live-robots-txt-volume
+            mountPath: /app/config/live_robots.txt
+            subPath: robots.txt
             readOnly: true
-
-          # Mount the config file(s) volume (ReadOnly)
-          # Mounts the robots.txt from the ConfigMap defined above
-          - name: config-files-volume
-            mountPath: /app/config # Corresponds to ROBOTS_TXT_PATH parent dir
-            readOnly: true
-
-          # Mount a volume for logs (ephemeral)
           - name: log-volume
-            mountPath: /app/logs
-
-          # Mount secrets
+            mountPath: /app/logs # App user 1001 needs write access
           - name: external-api-secret-volume
-            mountPath: /run/secrets/external-api # Directory where the secret file will appear
+            mountPath: /run/secrets/external-api
             readOnly: true
           - name: ip-reputation-secret-volume
-            mountPath: /run/secrets/ip-reputation # Directory where the secret file will appear
+            mountPath: /run/secrets/ip-reputation
             readOnly: true
-
-        # Liveness probe: Check if the container is running
+          - name: redis-secret-volume
+            mountPath: /run/secrets/redis
+            readOnly: true
         livenessProbe:
-          httpGet:
-            path: /health # Use the health endpoint
-            port: http-escalation
-          initialDelaySeconds: 30 # Wait longer for model loading etc.
+          httpGet: { path: /health, port: http-escalation }
+          initialDelaySeconds: 30
           periodSeconds: 30
-          failureThreshold: 3
-        # Readiness probe: Check if the container is ready to serve traffic
         readinessProbe:
-          httpGet:
-            path: /health
-            port: http-escalation
+          httpGet: { path: /health, port: http-escalation }
           initialDelaySeconds: 15
           periodSeconds: 15
-          successThreshold: 1
-          failureThreshold: 3
-
       volumes:
-        # Define the log volume (ephemeral)
         - name: log-volume
           emptyDir: {}
-
-        # Define the models volume using a PersistentVolumeClaim
-        # IMPORTANT: You must create a PVC named 'models-pvc' separately
-        # and ensure the model file(s) are present on the underlying volume.
         - name: models-volume
           persistentVolumeClaim:
-            claimName: models-pvc # Name of the PVC to use
-            # readOnly: true # Mount PVC read-only if possible/needed
-
-        # Define the config files volume using the ConfigMap
-        - name: config-files-volume
+            claimName: models-pvc
+        - name: live-robots-txt-volume
           configMap:
-            name: robots-txt-config # Name of the ConfigMap defined above
-            items:
-              - key: robots.txt # Key in the ConfigMap data
-                path: robots.txt # Filename inside the mountPath (/app/config)
-
-        # Define volumes for secrets
+            name: live-robots-txt-config
         - name: external-api-secret-volume
           secret:
-            secretName: external-api-credentials # Name of the Secret object
+            secretName: external-api-credentials
             items:
-            - key: external_api_key # Key within the Secret data
-              path: external_api_key # Filename inside the mountPath (/run/secrets/external-api)
+              - key: external_api_key
+                path: external_api_key.txt
         - name: ip-reputation-secret-volume
           secret:
             secretName: ip-reputation-credentials
             items:
-            - key: ip_reputation_api_key
-              path: ip_reputation_api_key
-
-        # If using a shared volume for code:
-        # - name: app-code
-        #   persistentVolumeClaim:
-        #     claimName: app-code-pvc
+              - key: ip_reputation_api_key
+                path: ip_reputation_api_key.txt
+        - name: redis-secret-volume
+          secret:
+            secretName: redis-credentials
+            optional: true
+            items:
+              - key: redis_password.txt
+                path: redis_password.txt

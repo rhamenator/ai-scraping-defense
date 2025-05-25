@@ -1,0 +1,62 @@
+# kubernetes/markov-trainer-job.yaml
+# Kubernetes Job to train the PostgreSQL Markov model.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: markov-trainer
+  namespace: ai-defense
+
+spec:
+  template:
+    spec:
+      containers:
+      - name: markov-trainer
+        image: defense_stack_py_base:v0.1.0 # Use the same Python base image
+        imagePullPolicy: IfNotPresent
+        workingDir: /app
+        # Command to run the training script.
+        # Assumes your corpus file will be mounted at /app/corpus/YOUR_CORPUS_FILE_NAME.txt
+        command: ["python", "rag/train_markov_postgres.py", "/app/corpus/YOUR_CORPUS_FILE_NAME.txt"]
+        envFrom:
+          - configMapRef:
+              name: app-config # For PG_HOST, PG_DBNAME, PG_USER etc.
+        env:
+          - name: PG_PASSWORD_FILE # Explicitly set path for password file
+            value: /run/secrets/postgres/pg_password.txt
+          - name: PYTHONPATH # Ensure scripts in /app can be imported
+            value: /app
+        volumeMounts:
+          # Mount PostgreSQL password secret
+          - name: pg-secret-volume
+            mountPath: /run/secrets/postgres # Directory where pg_password.txt will appear
+            readOnly: true
+          # Mount corpus file from ConfigMap
+          - name: corpus-data-volume
+            mountPath: /app/corpus # Mount the ConfigMap content into /app/corpus
+            readOnly: true
+        resources: # Define resources for the job pod
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "1000m" # Can use more CPU during training
+            memory: "1Gi"  # Adjust based on corpus size
+      volumes:
+        # Volume for PostgreSQL password secret
+        - name: pg-secret-volume
+          secret:
+            secretName: postgres-credentials # Matches the Secret name in postgres-statefulset.yaml
+            items:
+              - key: pg_password.txt # The key in the Secret data
+                path: pg_password.txt # The filename inside the mountPath
+        # Volume for corpus data from ConfigMap
+        # You need to create this ConfigMap from your corpus file, e.g.:
+        # kubectl create configmap corpus-data-cm --from-file=YOUR_CORPUS_FILE_NAME.txt=./data/YOUR_CORPUS_FILE_NAME.txt
+        - name: corpus-data-volume
+          configMap:
+            name: corpus-data-cm # Name of the ConfigMap holding the corpus
+            # Default mode for files in ConfigMap is 0644
+      restartPolicy: Never # Jobs should run once to completion or failure
+  backoffLimit: 2 # Number of retries before marking the job as failed
+  ttlSecondsAfterFinished: 3600 # Optional: Clean up job after 1 hour

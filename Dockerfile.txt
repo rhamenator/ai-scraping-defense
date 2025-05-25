@@ -60,7 +60,6 @@ COPY admin_ui /app/admin_ui
 COPY rag /app/rag
 COPY shared /app/shared
 COPY ai_service /app/ai_service
-COPY util /app/util
 COPY metrics.py /app/ 
 
 # --- Static Documentation ---

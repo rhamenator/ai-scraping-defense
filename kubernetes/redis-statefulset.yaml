@@ -2,11 +2,11 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: redis # Matches the service name used in other configs
-  # Consider adding namespace: ai-defense
+  name: redis
+  namespace: ai-defense
 spec:
-  serviceName: redis-headless # Headless service for discovery within the StatefulSet
-  replicas: 1 # Start with one replica; clustering is more complex
+  serviceName: redis-headless
+  replicas: 1
   selector:
     matchLabels:
       app: redis
@@ -15,48 +15,63 @@ spec:
       labels:
         app: redis
     spec:
+      securityContext: # Pod-level security context
+        runAsUser: 999    # UID for redis user in official image
+        runAsGroup: 999   # GID for redis user
+        fsGroup: 999      # Ensures data volume is group-writable by redis user
       terminationGracePeriodSeconds: 10
       containers:
       - name: redis
-        image: redis:7-alpine # Match image from docker-compose
-        # Command matches docker-compose, adjust loglevel/save as needed
-        command: ["redis-server", "--save", "60 1", "--loglevel", "warning"]
+        image: redis:7-alpine
+        securityContext: # Container-level security context
+          allowPrivilegeEscalation: false
+          # runAsNonRoot: true # Effectively true due to Pod's runAsUser
+          capabilities:
+            drop:
+              - "ALL"
+          # readOnlyRootFilesystem: true # Redis needs to write to its data dir / RDB file
+        command:
+          - sh
+          - -c
+          - |
+            PASSWORD_ARG=""
+            if [ -f /run/secrets/redis/redis_password.txt ]; then
+              PASSWORD_ARG="--requirepass $(cat /run/secrets/redis/redis_password.txt)"
+            elif [ -f /run/secrets/redis/password ]; then
+              PASSWORD_ARG="--requirepass $(cat /run/secrets/redis/password)"
+            fi
+            exec redis-server --save 60 1 --loglevel warning $PASSWORD_ARG
         ports:
         - containerPort: 6379
           name: redis-port
         resources:
-          # Adjust requests and limits based on expected load
-          requests:
-            cpu: "250m" # 0.25 CPU core
-            memory: "256Mi"
-          limits:
-            cpu: "500m" # Max 0.5 CPU core
-            memory: "512Mi"
+          requests: { cpu: "250m", memory: "256Mi" }
+          limits: { cpu: "500m", memory: "512Mi" }
         volumeMounts:
-        - name: redis-data
+        - name: redis-data # This is the data directory
           mountPath: /data
-      # Optional: Security context if needed
-      # securityContext:
-      #   runAsUser: 1000
-      #   fsGroup: 1000
-  volumeClaimTemplates: # Request persistent storage
+        - name: redis-secret-volume
+          mountPath: /run/secrets/redis
+          readOnly: true
+      volumes:
+        - name: redis-secret-volume
+          secret:
+            secretName: redis-credentials
+            optional: true
+  volumeClaimTemplates:
   - metadata:
       name: redis-data
     spec:
-      accessModes: [ "ReadWriteOnce" ] # Standard for single-node stateful sets
+      accessModes: [ "ReadWriteOnce" ]
       resources:
-        requests:
-          storage: 1Gi # Request 1 GB of storage - Adjust as needed
-      # Optional: specify a storageClassName if default is not suitable/available
-      # storageClassName: your-storage-class
+        requests: { storage: "1Gi" }
 
 ---
-# kubernetes/redis-service.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: redis # Service name used by other pods to connect
-  # Consider adding namespace: ai-defense
+  name: redis
+  namespace: ai-defense
   labels:
     app: redis
 spec:
@@ -65,21 +80,18 @@ spec:
     targetPort: redis-port
     name: redis-client
   selector:
-    app: redis # Selects pods managed by the StatefulSet
-  # type: ClusterIP # Default type, only reachable within the cluster
+    app: redis
 
 ---
-# Optional Headless Service for StatefulSet DNS discovery (if needed by clients)
 apiVersion: v1
 kind: Service
 metadata:
   name: redis-headless
-  # Consider adding namespace: ai-defense
+  namespace: ai-defense
 spec:
   ports:
   - port: 6379
     name: redis-port
-  clusterIP: None # Makes it headless
+  clusterIP: None
   selector:
     app: redis
-
