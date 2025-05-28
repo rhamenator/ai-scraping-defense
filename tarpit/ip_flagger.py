@@ -2,6 +2,7 @@
 # Utility for flagging suspicious IP addresses using Redis
 
 import redis
+from redis.exceptions import ConnectionError, RedisError
 import os
 import datetime
 
@@ -17,9 +18,9 @@ try:
     redis_pool = redis.ConnectionPool(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, decode_responses=True)
     redis_client = redis.Redis(connection_pool=redis_pool)
     redis_client.ping() # Test connection on import
-    print(f"Connected to Redis for IP flagging at {REDIS_HOST}:{REDIS_PORT}, DB: {REDIS_DB}")
-except redis.exceptions.ConnectionError as e:
+except ConnectionError as e:
     print(f"ERROR: Could not connect to Redis at {REDIS_HOST}:{REDIS_PORT}. IP Flagging disabled. Error: {e}")
+    redis_client = None # Disable flagging if Redis is unavailable
     redis_client = None # Disable flagging if Redis is unavailable
 
 def flag_suspicious_ip(ip_address: str):
@@ -46,12 +47,12 @@ def flag_suspicious_ip(ip_address: str):
         #     print(f"WARNING: IP {ip_address} flagged {current_count} times. Consider longer ban.")
 
         print(f"Flagged IP: {ip_address} in Redis for {FLAG_TTL_SECONDS} seconds.")
-        return True
-    except redis.exceptions.RedisError as e:
+    except RedisError as e:
         print(f"ERROR: Redis error while flagging IP {ip_address}: {e}")
         return False
     except Exception as e:
         print(f"ERROR: Unexpected error flagging IP {ip_address}: {e}")
+        return False
         return False
 
 def check_ip_flag(ip_address: str) -> bool:
@@ -63,8 +64,9 @@ def check_ip_flag(ip_address: str) -> bool:
 
     try:
         flag_key = f"tarpit_flag:{ip_address}"
-        return redis_client.exists(flag_key) > 0
-    except redis.exceptions.RedisError as e:
+        # Check if the flag exists in Redis
+        return redis_client.exists(flag_key) == 1
+    except RedisError as e:
         print(f"ERROR: Redis error while checking IP flag {ip_address}: {e}")
         return False # Fail safe (assume not flagged if error)
     except Exception as e:

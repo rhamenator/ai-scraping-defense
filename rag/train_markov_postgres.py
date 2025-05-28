@@ -143,6 +143,7 @@ def train_from_corpus(corpus_path):
             sequence_batch = []
 
             # Process text line by line or chunk by chunk
+            line_num = -1  # Ensure line_num is always defined
             for line_num, line in enumerate(f):
                 words = tokenize_text(line)
                 if not words:

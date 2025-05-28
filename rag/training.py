@@ -21,8 +21,14 @@ import random
 import sqlite3
 
 # Attempt to import user-agents library
-try: from user_agents import parse as ua_parse; UA_PARSER_AVAILABLE = True; print("Imported 'user-agents'.")
-except ImportError: UA_PARSER_AVAILABLE = False; print("Warning: 'user-agents' not installed.")
+try:
+    from user_agents import parse as ua_parse
+    UA_PARSER_AVAILABLE = True
+    print("Imported 'user-agents'.")
+except ImportError:
+    UA_PARSER_AVAILABLE = False
+    ua_parse = None
+    print("Warning: 'user-agents' not installed.")
 
 # --- Configuration ---
 LOG_FILE_PATH = os.getenv("TRAINING_LOG_FILE_PATH", "/app/data/apache_access.log")
@@ -57,6 +63,7 @@ def load_robots_txt(path): # (Complete function as in previous response)
     global disallowed_paths; disallowed_paths = set();
     try:
         current_ua = None;
+        rule = None
         with open(path, 'r', encoding='utf-8', errors='ignore') as f:
             for line in f:
                 line = line.strip().lower();
@@ -116,10 +123,10 @@ def extract_features_from_db(log_entry_row, db_cursor): # (Complete function as 
     features['path_depth'] = path.count('/'); features['path_length'] = len(path); features['path_is_root'] = 1 if path == '/' else 0; features['path_has_docs'] = 1 if '/docs' in path else 0; features['path_is_wp'] = 1 if ('/wp-' in path or '/xmlrpc.php' in path) else 0; features['path_disallowed'] = 1 if is_path_disallowed(path) else 0;
     ua_lower = ua_string.lower() if ua_string else ''; features['ua_is_known_bad'] = 1 if any(bad in ua_lower for bad in KNOWN_BAD_UAS) else 0; features['ua_is_known_benign_crawler'] = 1 if any(good in ua_lower for good in KNOWN_BENIGN_CRAWLERS_UAS) else 0; features['ua_is_empty'] = 1 if not ua_string else 0;
     ua_parse_failed = False;
-    if UA_PARSER_AVAILABLE and ua_string:
+    if UA_PARSER_AVAILABLE and callable(ua_parse) and ua_string:
         try: parsed_ua = ua_parse(ua_string); features['ua_browser_family'] = parsed_ua.browser.family or 'Other'; features['ua_os_family'] = parsed_ua.os.family or 'Other'; features['ua_device_family'] = parsed_ua.device.family or 'Other'; features['ua_is_mobile'] = 1 if parsed_ua.is_mobile else 0; features['ua_is_tablet'] = 1 if parsed_ua.is_tablet else 0; features['ua_is_pc'] = 1 if parsed_ua.is_pc else 0; features['ua_is_touch'] = 1 if parsed_ua.is_touch_capable else 0; features['ua_library_is_bot'] = 1 if parsed_ua.is_bot else 0
         except Exception: ua_parse_failed = True
-    if not UA_PARSER_AVAILABLE or ua_parse_failed: features['ua_browser_family'] = 'Unknown'; features['ua_os_family'] = 'Unknown'; features['ua_device_family'] = 'Unknown'; features['ua_is_mobile'], features['ua_is_tablet'], features['ua_is_pc'], features['ua_is_touch'] = 0, 0, 0, 0; features['ua_library_is_bot'] = features['ua_is_known_bad']
+    if not UA_PARSER_AVAILABLE or not callable(ua_parse) or ua_parse_failed: features['ua_browser_family'] = 'Unknown'; features['ua_os_family'] = 'Unknown'; features['ua_device_family'] = 'Unknown'; features['ua_is_mobile'], features['ua_is_tablet'], features['ua_is_pc'], features['ua_is_touch'] = 0, 0, 0, 0; features['ua_library_is_bot'] = features['ua_is_known_bad']
     features['referer_is_empty'] = 1 if not referer else 0; features['referer_has_domain'] = 0;
     try:
         if referer: parsed_referer = urlparse(referer); features['referer_has_domain'] = 1 if parsed_referer.netloc else 0
@@ -213,7 +220,13 @@ def assign_label_and_score(log_entry_dict, honeypot_triggers, captcha_successes)
     if path.endswith(('.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.woff2')): score -= 0.05; reasons.append("StaticAsset");
     if UA_PARSER_AVAILABLE and not is_known_benign and not is_known_bad:
         try:
-            if ua_parse(log_entry_dict.get('user_agent')).is_bot: score += 0.20; reasons.append("UALibBotFlag")
+            if ua_parse and callable(ua_parse):
+                try:
+                    if ua_parse(log_entry_dict.get('user_agent')).is_bot:
+                        score += 0.20
+                        reasons.append("UALibBotFlag")
+                except Exception:
+                    pass
         except Exception: pass;
     score = max(0.0, min(1.0, score));
     if score >= 0.80: label = 'bot';

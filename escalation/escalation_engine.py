@@ -15,6 +15,7 @@ import numpy as np
 from urllib.parse import urlparse
 import re
 import redis # For real-time frequency tracking
+from redis.exceptions import ConnectionError, RedisError
 import asyncio # For LLM/API call placeholders if needed
 import logging # Added for better logging
 
@@ -35,6 +36,7 @@ except ImportError:
 try:
     from user_agents import parse as ua_parse; UA_PARSER_AVAILABLE = True
 except ImportError:
+    ua_parse = None
     UA_PARSER_AVAILABLE = False
     logger.warning("user-agents library not found. Detailed UA parsing disabled.")
 
@@ -105,10 +107,11 @@ try:
     redis_client_freq = redis.Redis(connection_pool=redis_pool_freq)
     redis_client_freq.ping()
     logger.info(f"Connected to Redis for Frequency Tracking (DB: {REDIS_DB_FREQUENCY})")
-    FREQUENCY_TRACKING_ENABLED = True
-except redis.exceptions.ConnectionError as e:
+    FREQUENCY_TRACKING_ENABLED = True # Corrected: Use redis.exceptions
+except ConnectionError as e:
     logger.error(f"Redis connection failed for Frequency Tracking: {e}. Tracking disabled.")
 except Exception as e:
+    logger.error(f"Unexpected error connecting to Redis for Frequency Tracking: {e}. Tracking disabled.")
     logger.error(f"Unexpected error connecting to Redis for Frequency Tracking: {e}. Tracking disabled.")
 
 # Load Robots.txt
@@ -117,12 +120,14 @@ def load_robots_txt(path):
     global disallowed_paths; disallowed_paths = set()
     try:
         current_ua = None;
+        rule = None  # Ensure rule is always defined
         with open(path, 'r', encoding='utf-8', errors='ignore') as f:
             for line in f:
                 line = line.strip().lower();
                 if not line or line.startswith('#'): continue;
                 if line.startswith('user-agent:'): ua = line.split(':', 1)[1].strip(); current_ua = '*' if ua == '*' else None;
                 elif line.startswith('disallow:') and current_ua == '*': rule = line.split(':', 1)[1].strip();
+                else: rule = None
                 if rule and rule != "/": disallowed_paths.add(rule);
     except FileNotFoundError: logger.warning(f"robots.txt not found at {path}.")
     except Exception as e: logger.error(f"Error loading robots.txt from {path}: {e}")
@@ -159,7 +164,7 @@ def extract_features(log_entry_dict, freq_features):
     features['path_depth'] = path.count('/'); features['path_length'] = len(path); features['path_is_root'] = 1 if path == '/' else 0; features['path_has_docs'] = 1 if '/docs' in path else 0; features['path_is_wp'] = 1 if ('/wp-' in path or '/xmlrpc.php' in path) else 0; features['path_disallowed'] = 1 if is_path_disallowed(path) else 0;
     ua_lower = ua_string.lower() if ua_string else ''; features['ua_is_known_bad'] = 1 if any(bad in ua_lower for bad in KNOWN_BAD_UAS) else 0; features['ua_is_known_benign_crawler'] = 1 if any(good in ua_lower for good in KNOWN_BENIGN_CRAWLERS_UAS) else 0; features['ua_is_empty'] = 1 if not ua_string else 0;
     ua_parse_failed = False;
-    if UA_PARSER_AVAILABLE and ua_string:
+    if UA_PARSER_AVAILABLE and ua_parse is not None and ua_string:
         try: parsed_ua = ua_parse(ua_string); features['ua_browser_family'] = parsed_ua.browser.family or 'Other'; features['ua_os_family'] = parsed_ua.os.family or 'Other'; features['ua_device_family'] = parsed_ua.device.family or 'Other'; features['ua_is_mobile'] = 1 if parsed_ua.is_mobile else 0; features['ua_is_tablet'] = 1 if parsed_ua.is_tablet else 0; features['ua_is_pc'] = 1 if parsed_ua.is_pc else 0; features['ua_is_touch'] = 1 if parsed_ua.is_touch_capable else 0; features['ua_library_is_bot'] = 1 if parsed_ua.is_bot else 0
         except Exception: ua_parse_failed = True
     if not UA_PARSER_AVAILABLE or ua_parse_failed: features['ua_browser_family'] = 'Unknown'; features['ua_os_family'] = 'Unknown'; features['ua_device_family'] = 'Unknown'; features['ua_is_mobile'], features['ua_is_tablet'], features['ua_is_pc'], features['ua_is_touch'] = 0, 0, 0, 0; features['ua_library_is_bot'] = features['ua_is_known_bad']
@@ -198,9 +203,9 @@ def get_realtime_frequency_features(ip: str) -> dict:
         recent_entries = results[3] if len(results) > 3 and isinstance(results[3], list) else [];
         if len(recent_entries) > 1:
             last_ts = recent_entries[0][1]; time_diff = now_unix - last_ts;
-            features['time_since'] = round(time_diff, 3);
-    except redis.exceptions.RedisError as e: logger.warning(f"Redis error frequency check IP {ip}: {e}"); increment_metric("redis_errors_frequency")
+    except RedisError as e: logger.warning(f"Redis error frequency check IP {ip}: {e}"); increment_metric("redis_errors_frequency")
     except Exception as e: logger.warning(f"Unexpected error frequency check IP {ip}: {e}");
+    return features
     return features
 
 # --- IP Reputation Check (NEW) ---
@@ -218,6 +223,7 @@ async def check_ip_reputation(ip: str) -> Optional[Dict[str, Any]]:
     if IP_REPUTATION_API_KEY:
         headers['Authorization'] = f"Bearer {IP_REPUTATION_API_KEY}" # Or other auth method
 
+    response = None
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(IP_REPUTATION_API_URL, params=params, headers=headers, timeout=IP_REPUTATION_TIMEOUT)
@@ -240,7 +246,11 @@ async def check_ip_reputation(ip: str) -> Optional[Dict[str, Any]]:
 
     except httpx.TimeoutException: logger.error(f"Timeout checking IP reputation for {ip}"); increment_metric("ip_reputation_errors_timeout"); return None
     except httpx.RequestError as exc: logger.error(f"Request error checking IP reputation for {ip}: {exc}"); increment_metric("ip_reputation_errors_request"); return None
-    except json.JSONDecodeError as exc: logger.error(f"JSON decode error processing IP reputation response for {ip}: {exc} - Response: {response.text[:500]}"); increment_metric("ip_reputation_errors_response_decode"); return None
+    except json.JSONDecodeError as exc: 
+        resp_text = response.text[:500] if response is not None and hasattr(response, "text") else "<no response>"
+        logger.error(f"JSON decode error processing IP reputation response for {ip}: {exc} - Response: {resp_text}")
+        increment_metric("ip_reputation_errors_response_decode")
+        return None
     except Exception as e: logger.error(f"Unexpected error checking IP reputation for {ip}: {e}", exc_info=True); increment_metric("ip_reputation_errors_unexpected"); return None
 
 
@@ -327,6 +337,7 @@ async def classify_with_local_llm_api(metadata: RequestMetadata) -> bool | None:
     **Instructions:** Respond ONLY with 'MALICIOUS_BOT', 'BENIGN_CRAWLER', or 'HUMAN'.
     """
     api_payload = { "model": LOCAL_LLM_MODEL, "messages": [{"role": "system", "content": "You are a security analysis assistant specializing in bot detection. Respond ONLY with 'MALICIOUS_BOT', 'BENIGN_CRAWLER', or 'HUMAN'."},{"role": "user", "content": prompt}], "temperature": 0.1, "stream": False }
+    response = None
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(LOCAL_LLM_API_URL, json=api_payload, timeout=LOCAL_LLM_TIMEOUT)
@@ -339,7 +350,11 @@ async def classify_with_local_llm_api(metadata: RequestMetadata) -> bool | None:
             else: logger.warning(f"Unexpected classification from local LLM ({metadata.ip}): '{content}'"); increment_metric("local_llm_errors_unexpected_response"); return None
     except httpx.TimeoutException: logger.error(f"Timeout calling local LLM API ({LOCAL_LLM_API_URL}) for IP {metadata.ip} after {LOCAL_LLM_TIMEOUT}s"); increment_metric("local_llm_errors_timeout"); return None
     except httpx.RequestError as exc: logger.error(f"Request error calling local LLM API ({LOCAL_LLM_API_URL}) for IP {metadata.ip}: {exc}"); increment_metric("local_llm_errors_request"); return None
-    except json.JSONDecodeError as exc: logger.error(f"JSON decode error processing LLM response for IP {metadata.ip}: {exc} - Response: {response.text[:500]}"); increment_metric("local_llm_errors_response_decode"); return None
+    except json.JSONDecodeError as exc: 
+        resp_text = response.text[:500] if response is not None and hasattr(response, "text") else "<no response>"
+        logger.error(f"JSON decode error processing LLM response for IP {metadata.ip}: {exc} - Response: {resp_text}")
+        increment_metric("local_llm_errors_response_decode")
+        return None
     except Exception as e: logger.error(f"Unexpected error processing local LLM API response for IP {metadata.ip}: {e}", exc_info=True); increment_metric("local_llm_errors_unexpected"); return None
 
 
@@ -352,6 +367,7 @@ async def classify_with_external_api(metadata: RequestMetadata) -> bool | None:
     external_payload = {"ipAddress": metadata.ip, "userAgent": metadata.user_agent, "referer": metadata.referer, "requestPath": metadata.path, "headers": metadata.headers}
     headers = { 'Content-Type': 'application/json' }
     if EXTERNAL_API_KEY: headers['Authorization'] = f"Bearer {EXTERNAL_API_KEY}"
+    response = None
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(EXTERNAL_API_URL, headers=headers, json=external_payload, timeout=EXTERNAL_API_TIMEOUT)
@@ -362,8 +378,12 @@ async def classify_with_external_api(metadata: RequestMetadata) -> bool | None:
             if isinstance(is_bot, bool): increment_metric("external_api_success"); return is_bot
             else: logger.warning(f"Unexpected response format from external API for {metadata.ip}. Response: {result}"); increment_metric("external_api_errors_unexpected_response"); return None
     except httpx.TimeoutException: logger.error(f"Timeout calling external API ({EXTERNAL_API_URL}) for IP {metadata.ip}"); increment_metric("external_api_errors_timeout"); return None
-    except httpx.RequestError as exc: logger.error(f"Request error calling external API ({EXTERNAL_API_URL}) for IP {metadata.ip}: {exc}"); increment_metric("external_api_errors_request"); return None
-    except json.JSONDecodeError as exc: logger.error(f"JSON decode error processing external API response for IP {metadata.ip}: {exc} - Response: {response.text[:500]}"); increment_metric("external_api_errors_response_decode"); return None
+    except httpx.RequestError as exc:
+        logger.error(f"Request error calling external API ({EXTERNAL_API_URL}) for IP {metadata.ip}: {exc}"); increment_metric("external_api_errors_request"); return None
+    except json.JSONDecodeError as exc: 
+        resp_text = response.text[:500] if response is not None and hasattr(response, "text") else "<no response>"
+        logger.error(f"JSON decode error processing external API response for IP {metadata.ip}: {exc} - Response: {resp_text}")
+        increment_metric("external_api_errors_response_decode"); return None
     except Exception as e: logger.error(f"Unexpected error processing external API response for IP {metadata.ip}: {e}", exc_info=True); increment_metric("external_api_errors_unexpected"); return None
 
 

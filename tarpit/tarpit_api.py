@@ -10,6 +10,7 @@ import sys
 import logging
 import hashlib
 import redis # Added for hop limit check
+from redis.exceptions import ConnectionError, RedisError
 
 # --- Setup Logging ---
 # Assuming basic logging is configured elsewhere or use:
@@ -33,6 +34,8 @@ try:
     logger.debug("PostgreSQL Markov generator imported.")
 except ImportError as e:
     logger.warning(f"Could not import markov_generator: {e}. Dynamic content generation disabled.")
+    def generate_dynamic_tarpit_page() -> str:
+        return "<html><body>Tarpit Error</body></html>"
     GENERATOR_AVAILABLE = False
 
 try:
@@ -41,7 +44,8 @@ try:
     logger.debug("IP Flagger imported.")
 except ImportError as e:
     logger.warning(f"Could not import ip_flagger: {e}. IP Flagging disabled.")
-    def flag_suspicious_ip(ip: str): pass
+    def flag_suspicious_ip(ip_address: str) -> bool:
+        return False
     FLAGGING_AVAILABLE = False
 
 
@@ -97,12 +101,12 @@ try:
     # Pool for IP Flagger (DB 1 - if flagger uses it)
     # Assuming ip_flagger manages its own connection based on env vars for now
     # If ip_flagger needs a shared pool, initialize it here too.
-
-except redis.exceptions.ConnectionError as e:
+except ConnectionError as e:
     logger.error(f"FATAL: Could not connect to Redis at {REDIS_HOST}:{REDIS_PORT}. Tarpit hop/blocking features disabled. Error: {e}")
     # Disable features requiring Redis if connection fails
     HOP_LIMIT_ENABLED = False
     redis_hops = None
+    redis_blocklist = None
     redis_blocklist = None
 except Exception as e:
     logger.error(f"FATAL: Unexpected error setting up Redis connections: {e}", exc_info=True)
@@ -139,9 +143,9 @@ def trigger_ip_block(ip: str, reason: str):
             return True
         else:
             logger.error(f"Failed to set blocklist key for IP {ip} in Redis.")
-            return False
-    except redis.RedisError as e:
+    except RedisError as e:
         logger.error(f"Redis error while trying to block IP {ip}: {e}")
+        return False
         return False
     except Exception as e:
          logger.error(f"Unexpected error while blocking IP {ip}: {e}", exc_info=True)
@@ -150,7 +154,7 @@ def trigger_ip_block(ip: str, reason: str):
 
 # --- API Endpoints ---
 @app.get("/tarpit/{path:path}", response_class=StreamingResponse, status_code=200)
-async def tarpit_handler(request: Request, path: str = None):
+async def tarpit_handler(request: Request, path: str = ""):
     """
     Handles requests redirected here. Logs hit, flags IP, checks hop limit,
     escalates metadata, and serves a slow, deterministically generated fake response.
@@ -183,7 +187,7 @@ async def tarpit_handler(request: Request, path: str = None):
                     content="<html><head><title>Forbidden</title></head><body>Access Denied. Request frequency limit exceeded.</body></html>",
                     status_code=403
                 )
-        except redis.RedisError as e:
+        except RedisError as e:
             logger.error(f"Redis error during hop limit check for IP {client_ip}: {e}")
             # Fail open: If Redis check fails, proceed with serving the tarpit
         except Exception as e:

@@ -11,13 +11,14 @@ import json
 from datasets import load_dataset, Dataset, Features, Value, ClassLabel # Using Hugging Face datasets library
 from transformers import (
     AutoModelForSequenceClassification,
-    AutoTokenizer,
-    TrainingArguments,
-    Trainer,
-    DataCollatorWithPadding
+    AutoTokenizer
 )
+from transformers.data.data_collator import DataCollatorWithPadding
+from transformers.trainer import Trainer
+from transformers.training_args import TrainingArguments
 import evaluate # Using Hugging Face evaluate library
 import numpy as np
+import collections.abc # Added for Sized check
 
 # --- Configuration ---
 # Paths assume data is prepared and accessible by training.py's export function
@@ -133,10 +134,17 @@ def load_and_prepare_dataset(file_path, tokenizer):
         processed_dataset = raw_dataset.map(
             preprocess_function,
             batched=True,
-            remove_columns=raw_dataset.column_names # Remove original columns after processing
+            remove_columns=["log_data", "label"] # Remove original columns after processing
         )
 
-        print(f"Dataset prepared. Number of examples: {len(processed_dataset)}")
+        try:
+            if isinstance(processed_dataset, collections.abc.Sized): # Check if the object is Sized
+                num_examples = len(processed_dataset) # Now Pylance might be more confident
+                print(f"Dataset prepared. Number of examples: {num_examples}")
+            else:
+                print("Dataset prepared. Number of examples: (IterableDataset, length unknown)")
+        except Exception:
+            print("Dataset prepared. Number of examples: (IterableDataset, length unknown)")
         # print("Example processed sample:", processed_dataset[0]) # Debug: check structure
         return processed_dataset
 
@@ -168,8 +176,8 @@ def compute_metrics(eval_pred):
         f1_score = metric_f1.compute(predictions=predictions, references=labels, average="binary") # Use 'binary' for 2 classes
 
         return {
-            "accuracy": accuracy["accuracy"],
-            "f1": f1_score["f1"],
+            "accuracy": accuracy["accuracy"] if accuracy and "accuracy" in accuracy else 0.0,
+            "f1": f1_score["f1"] if f1_score and "f1" in f1_score else 0.0,
         }
     except Exception as e:
         print(f"Error computing metrics: {e}")
@@ -217,7 +225,7 @@ def fine_tune_model():
         logging_dir=LOGGING_DIR,
         logging_strategy="steps", # Log metrics periodically
         logging_steps=LOGGING_STEPS,
-        evaluation_strategy="steps", # Evaluate periodically
+        eval_strategy="steps", # Evaluate periodically
         eval_steps=EVAL_STEPS,
         save_strategy="steps",
         save_steps=SAVE_STEPS,
@@ -242,7 +250,6 @@ def fine_tune_model():
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
     )

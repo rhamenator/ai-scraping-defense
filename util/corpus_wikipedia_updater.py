@@ -7,6 +7,7 @@ import re # Added missing import
 import requests
 from bs4 import BeautifulSoup # For HTML parsing
 import wikipediaapi # For a more structured API access
+from urllib.parse import unquote
 
 # Configure logging
 logging.basicConfig(
@@ -69,19 +70,18 @@ def fetch_random_wikipedia_articles_api(num_articles: int) -> list[str]:
     while len(fetched_titles) < num_articles and attempts < max_attempts:
         attempts += 1
         page_title_from_url = "" # Initialize for logging in case of early error
+        random_url = f"https://{WIKI_LANGUAGE}.wikipedia.org/wiki/Special:Random"
         try:
-            random_url = f"https://{WIKI_LANGUAGE}.wikipedia.org/wiki/Special:Random"
             response = session.get(random_url, allow_redirects=True, timeout=15) # Increased timeout
             response.raise_for_status()
             
-            final_url = response.url
-            page_title_from_url = requests.utils.unquote(final_url.split('/')[-1]) # Decode URL-encoded titles
+            page_title_from_url = unquote(response.url.split('/')[-1]) # Decode URL-encoded titles
 
             if page_title_from_url and page_title_from_url not in fetched_titles:
                 logging.debug(f"Random page identified: {page_title_from_url}")
                 page = wiki_wiki.page(page_title_from_url)
                 
-                if page.exists() and not page.is_categorypage() and not page.is_disambigpage():
+                if page.exists() and not page.is_categorypage and not page.is_disambigpage:
                     content = page.text
                     if content:
                         cleaned_content = clean_text(content)
@@ -103,8 +103,6 @@ def fetch_random_wikipedia_articles_api(num_articles: int) -> list[str]:
             logging.error(f"Timeout fetching random page URL ({random_url if 'random_url' in locals() else 'N/A'}). Attempt {attempts}/{max_attempts}.")
         except requests.exceptions.RequestException as e:
             logging.error(f"Request error fetching random page URL: {e}. Attempt {attempts}/{max_attempts}.")
-        except wikipediaapi.exceptions.WikipediaException as e:
-            logging.error(f"Wikipedia API error processing page '{page_title_from_url}': {e}. Attempt {attempts}/{max_attempts}.")
         except Exception as e:
             logging.error(f"Unexpected error processing page '{page_title_from_url}': {e}. Attempt {attempts}/{max_attempts}.", exc_info=True)
             
@@ -137,10 +135,11 @@ def fetch_random_wikipedia_articles_scrape(num_articles: int) -> list[str]:
             soup = BeautifulSoup(response.content, 'lxml')
             
             page_title_tag = soup.find('h1', id='firstHeading')
-            page_title_text = page_title_tag.text.strip() if page_title_tag else requests.utils.unquote(response.url.split('/')[-1])
+            page_title_text = page_title_tag.text.strip() if page_title_tag else unquote(response.url.split('/')[-1])
 
             content_div = soup.find('div', class_='mw-parser-output')
-            if content_div:
+            from bs4.element import Tag
+            if isinstance(content_div, Tag):
                 for unwanted_tag in content_div.find_all(['table', 'div', 'span', 'style', 'script'], 
                                                          class_=['infobox', 'navbox', 'metadata', 'mw-editsection', 
                                                                  'reflist', 'reference', 'noprint', 'mw-references',
@@ -151,7 +150,7 @@ def fetch_random_wikipedia_articles_scrape(num_articles: int) -> list[str]:
                 
                 # Get text from paragraphs, lists, and headings to capture more content
                 page_text_elements = []
-                for element in content_div.find_all(['p', 'li', 'h2', 'h3', 'h4']): # Consider adding 'ul', 'ol' if list items are not enough
+                for element in content_div.find_all(['p', 'li', 'h2', 'h3', 'h4']):
                     text = element.get_text(separator=" ", strip=True)
                     if text:
                         page_text_elements.append(text)

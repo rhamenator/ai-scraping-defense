@@ -1,6 +1,6 @@
 # anti_scrape/metrics.py
 # Simple in-memory metrics tracking for the defense stack.
-
+from typing import Dict, Union
 from collections import Counter
 import datetime
 import threading
@@ -23,7 +23,7 @@ metrics_store = Counter()
 _lock = threading.Lock()
 
 # Store the start time
-start_time = datetime.datetime.utcnow()
+start_time = datetime.datetime.now(datetime.timezone.utc)
 
 def increment_metric(key: str, value: int = 1):
     """Increments a counter metric."""
@@ -31,22 +31,25 @@ def increment_metric(key: str, value: int = 1):
         metrics_store[key] += value
         # logger.debug(f"Metric incremented: {key} = {metrics_store[key]}") # Optional: Debug logging
 
-def get_metrics() -> dict:
+def get_metrics() -> Dict[str, Union[int, str]]:
     """Returns a dictionary of all current metrics."""
     with _lock:
         # Add uptime calculation
-        uptime_seconds = (datetime.datetime.utcnow() - start_time).total_seconds()
-        current_metrics = dict(metrics_store)
-        current_metrics["service_uptime_seconds"] = round(uptime_seconds, 2)
-        current_metrics["last_updated_utc"] = datetime.datetime.utcnow().isoformat() + "Z"
-        return current_metrics
+        # Ensure start_time is aware for correct subtraction with aware now()
+        uptime_seconds = (datetime.datetime.now(datetime.timezone.utc) - start_time).total_seconds()
+        # Explicitly type current_metrics to help Pylance understand its structure
+        current_metrics: Dict[str, Union[int, str]] = dict(metrics_store)
+        current_metrics["service_uptime_seconds"] = int(uptime_seconds) # Truncates to whole seconds
+        # Add string timestamp; Pylance should now understand this is permissible
+        current_metrics["last_updated_utc"] = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
+    return current_metrics
 
 def reset_metrics():
     """Resets all metrics (useful for testing)."""
     global start_time
     with _lock:
         metrics_store.clear()
-        start_time = datetime.datetime.utcnow()
+        start_time = datetime.datetime.now(datetime.timezone.utc) # Ensure reset start_time is also aware
         logger.info("Metrics have been reset.")
 
 # --- JSON Logging ---

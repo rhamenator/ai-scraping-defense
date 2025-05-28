@@ -8,6 +8,7 @@ import datetime
 import pprint
 import os
 import redis # For blocklisting
+from redis.exceptions import ConnectionError, RedisError
 import json
 import httpx # For sending generic webhook alerts
 import smtplib # For sending alerts via email
@@ -85,11 +86,12 @@ try:
     redis_pool_blocklist = redis.ConnectionPool(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB_BLOCKLIST, decode_responses=True)
     redis_client_blocklist = redis.Redis(connection_pool=redis_pool_blocklist)
     redis_client_blocklist.ping()
-    logger.info(f"Connected to Redis for blocklisting at {REDIS_HOST}:{REDIS_PORT}, DB: {REDIS_DB_BLOCKLIST}")
     BLOCKLISTING_ENABLED = True
-except redis.exceptions.ConnectionError as e:
+    logger.info(f"Connected to Redis for blocklisting at {REDIS_HOST}:{REDIS_PORT}, DB: {REDIS_DB_BLOCKLIST}")
+except ConnectionError as e:
     logger.error(f"Redis connection failed for Blocklisting: {e}. Blocklisting disabled.")
 except Exception as e:
+    logger.error(f"Unexpected error connecting to Redis for Blocklisting: {e}. Blocklisting disabled.")
     logger.error(f"Unexpected error connecting to Redis for Blocklisting: {e}. Blocklisting disabled.")
 
 # Check SMTP config
@@ -118,8 +120,9 @@ app = FastAPI(
 
 # --- Helper Functions ---
 
-def log_error(message: str, exception: Exception = None):
+def log_error(message: str, exception: Optional[Exception] = None):
     """Logs errors to a dedicated error log file and standard logger."""
+    log_entry = f"ERROR: {message}"  # fallback value in case of early exception
     try:
         timestamp = datetime.datetime.utcnow().isoformat() + "Z"
         log_entry = f"{timestamp} - ERROR: {message}"
@@ -141,9 +144,8 @@ def log_event(log_file: str, event_type: str, data: dict):
 # --- Action Functions ---
 
 # --- MODIFIED BLOCKLIST FUNCTION ---
-def add_ip_to_blocklist(ip_address: str, reason: str, event_details: dict = None) -> bool:
-    """Adds an IP address as a key in Redis with a TTL."""
-    if not BLOCKLISTING_ENABLED or not ip_address or ip_address == "unknown":
+def add_ip_to_blocklist(ip_address: str, reason: str, event_details: Optional[dict] = None) -> bool:
+    if not BLOCKLISTING_ENABLED or not redis_client_blocklist or not ip_address or ip_address == "unknown":
         if ip_address == "unknown":
             logger.warning(f"Attempted to blocklist 'unknown' IP. Reason: {reason}. Details: {event_details}")
         return False
@@ -170,12 +172,12 @@ def add_ip_to_blocklist(ip_address: str, reason: str, event_details: dict = None
             "details": event_details
         })
         return True # Consider success if setex command succeeds
-
-    except redis.exceptions.RedisError as e:
+    except RedisError as e:
         log_error(f"Redis error setting blocklist key for IP {ip_address}", e)
         return False
     except Exception as e:
         log_error(f"Unexpected error setting blocklist key for IP {ip_address}", e)
+        return False
         return False
 # --- END MODIFIED BLOCKLIST FUNCTION ---
 
@@ -210,6 +212,7 @@ async def report_ip_to_community(ip: str, reason: str, details: dict) -> bool:
     }
     # --------------------------------------------------------
 
+    response = None
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(COMMUNITY_BLOCKLIST_REPORT_URL, headers=headers, data=payload, timeout=COMMUNITY_BLOCKLIST_REPORT_TIMEOUT) # AbuseIPDB uses form data
@@ -222,7 +225,7 @@ async def report_ip_to_community(ip: str, reason: str, details: dict) -> bool:
     except httpx.TimeoutException: logger.error(f"Timeout reporting IP {ip} to community blocklist"); increment_metric("community_reports_errors_timeout"); return False
     except httpx.RequestError as exc: logger.error(f"Request error reporting IP {ip} to community blocklist: {exc}"); increment_metric("community_reports_errors_request"); return False
     except httpx.HTTPStatusError as exc: logger.error(f"Community blocklist report failed for IP {ip} with status {exc.response.status_code}. Response: {exc.response.text[:500]}"); increment_metric("community_reports_errors_status"); return False
-    except json.JSONDecodeError as exc: logger.error(f"JSON decode error processing community blocklist response for IP {ip}: {exc} - Response: {response.text[:500]}"); increment_metric("community_reports_errors_response_decode"); return False
+    except json.JSONDecodeError as exc: logger.error(f"JSON decode error processing community blocklist response for IP {ip}: {exc} - Response: {(response.text[:500] if response else 'No response')}"); increment_metric("community_reports_errors_response_decode"); return False
     except Exception as e: logger.error(f"Unexpected error reporting IP {ip} to community blocklist: {e}", exc_info=True); increment_metric("community_reports_errors_unexpected"); return False
 
 
@@ -287,20 +290,36 @@ Check logs in {LOG_DIR} for more context.
     def smtp_send_sync():
         smtp_conn = None
         try:
-            if ALERT_SMTP_PORT == 465: context = ssl.create_default_context(); smtp_conn = smtplib.SMTP_SSL(ALERT_SMTP_HOST, ALERT_SMTP_PORT, timeout=15, context=context)
-            else: smtp_conn = smtplib.SMTP(ALERT_SMTP_HOST, ALERT_SMTP_PORT, timeout=15);
-            if ALERT_SMTP_USE_TLS: context = ssl.create_default_context(); smtp_conn.starttls(context=context)
-            if ALERT_SMTP_USER and ALERT_SMTP_PASSWORD: smtp_conn.login(ALERT_SMTP_USER, ALERT_SMTP_PASSWORD)
-            elif ALERT_SMTP_USER: logger.warning("SMTP User provided but password missing for login.")
-            smtp_conn.sendmail(ALERT_EMAIL_FROM, ALERT_EMAIL_TO.split(','), msg.as_string())
+            if not ALERT_SMTP_HOST:
+                logger.error("SMTP host is not set. Cannot send email alert.")
+                return
+            if ALERT_SMTP_PORT == 465:
+                context = ssl.create_default_context()
+                smtp_conn = smtplib.SMTP_SSL(str(ALERT_SMTP_HOST), ALERT_SMTP_PORT, timeout=15, context=context)
+            else:
+                smtp_conn = smtplib.SMTP(str(ALERT_SMTP_HOST), ALERT_SMTP_PORT, timeout=15)
+            if ALERT_SMTP_USE_TLS:
+                context = ssl.create_default_context()
+                smtp_conn.starttls(context=context)
+            if ALERT_SMTP_USER and ALERT_SMTP_PASSWORD:
+                smtp_conn.login(ALERT_SMTP_USER, ALERT_SMTP_PASSWORD)
+            elif ALERT_SMTP_USER:
+                logger.warning("SMTP User provided but password missing for login.")
+            from_addr = ALERT_EMAIL_FROM if ALERT_EMAIL_FROM is not None else ""
+            to_addrs = ALERT_EMAIL_TO.split(',') if ALERT_EMAIL_TO else []
+            smtp_conn.sendmail(from_addr, to_addrs, msg.as_string())
             logger.info(f"SMTP alert sent successfully for IP {ip} to {ALERT_EMAIL_TO}.")
             log_event(ALERT_LOG_FILE, "ALERT_SENT_SMTP", {"reason": reason, "ip": ip, "to": ALERT_EMAIL_TO})
-        except smtplib.SMTPException as e: log_error(f"SMTP error sending email alert for IP {ip} (Host: {ALERT_SMTP_HOST}:{ALERT_SMTP_PORT}, User: {ALERT_SMTP_USER})", e)
-        except Exception as e: log_error(f"Unexpected error sending email alert for IP {ip}", e)
+        except smtplib.SMTPException as e:
+            log_error(f"SMTP error sending email alert for IP {ip} (Host: {ALERT_SMTP_HOST}:{ALERT_SMTP_PORT}, User: {ALERT_SMTP_USER})", e)
+        except Exception as e:
+            log_error(f"Unexpected error sending email alert for IP {ip}", e)
         finally:
             if smtp_conn:
-                try: smtp_conn.quit()
-                except Exception: pass
+                try:
+                    smtp_conn.quit()
+                except Exception:
+                    pass
     try: await asyncio.to_thread(smtp_send_sync)
     except Exception as e: log_error(f"Error executing SMTP send thread for IP {ip}", e)
 

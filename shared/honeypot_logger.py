@@ -25,7 +25,7 @@ class JsonFormatter(logging.Formatter):
             'level': record.levelname,
             'message': record.getMessage(),
             # Add extra context passed to the logger
-            **(record.details if hasattr(record, 'details') else {})
+            **getattr(record, 'details', {})
         }
         return json.dumps(log_record)
 

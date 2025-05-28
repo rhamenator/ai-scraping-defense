@@ -7,12 +7,13 @@ import logging
 # without significant setup to connect to a Kubernetes cluster.
 # For Colab, you'd typically test the fetching logic in isolation.
 try:
-    from kubernetes import client, config
+    from kubernetes import client
+    from kubernetes import config as k8s_config
 except ImportError:
     logging.warning("Kubernetes library not found. ConfigMap update features will not work.")
     # Define dummy classes if kubernetes library is not available
     # to prevent NameError if functions are called.
-    class client:
+    class DummyClient:
         class CoreV1Api:
             pass
         class exceptions:
@@ -28,6 +29,8 @@ except ImportError:
             raise config.ConfigException("Kube config not available or not set up for this environment.")
         class ConfigException(Exception):
             pass
+    k8s_config = config  # Ensure k8s_config is always defined
+    client = DummyClient  # Ensure client is always defined
 
 
 # Configure logging
@@ -75,7 +78,6 @@ Disallow: /
 
 # User-Agent for the fetcher itself
 FETCHER_USER_AGENT = "RobotsTxtFetcher/1.0 (+https://github.com/your-repo/ai-scraping-defense)" # Replace with your repo
-
 def get_kubernetes_api():
     """Initializes and returns Kubernetes API client."""
     # This function is for Kubernetes environments.
@@ -84,16 +86,19 @@ def get_kubernetes_api():
         logging.error("Kubernetes library is not available.")
         return None
     try:
-        config.load_incluster_config()
+        k8s_config.load_incluster_config()
         logging.info("Loaded in-cluster Kubernetes configuration.")
-    except config.ConfigException:
+    except Exception:
         try:
-            config.load_kube_config()
+            k8s_config.load_kube_config()
             logging.info("Loaded local Kubernetes configuration (kube-config).")
-        except config.ConfigException:
+        except Exception:
             logging.error("Could not load Kubernetes configuration.")
             return None
-    return client.CoreV1Api()
+    if 'client' in globals():
+        return client.CoreV1Api()
+    else:
+        return DummyClient.CoreV1Api()
 
 def fetch_robots_txt(url):
     """Fetches robots.txt content from the given URL."""
@@ -119,7 +124,7 @@ def fetch_robots_txt(url):
         logging.error(f"Error fetching robots.txt from {robots_url}: {e}")
         return None
 
-def update_configmap(api: client.CoreV1Api, content: str):
+def update_configmap(api, content: str):
     """Creates or updates the ConfigMap with the new robots.txt content."""
     # This function is for Kubernetes environments.
     if not api:
@@ -146,17 +151,19 @@ def update_configmap(api: client.CoreV1Api, content: str):
         api.read_namespaced_config_map(name=CONFIGMAP_NAME, namespace=CONFIGMAP_NAMESPACE)
         api.patch_namespaced_config_map(name=CONFIGMAP_NAME, namespace=CONFIGMAP_NAMESPACE, body=body)
         logging.info(f"ConfigMap '{CONFIGMAP_NAME}' in namespace '{CONFIGMAP_NAMESPACE}' patched successfully.")
-    except client.exceptions.ApiException as e:
-        if e.status == 404:
-            try:
-                api.create_namespaced_config_map(namespace=CONFIGMAP_NAMESPACE, body=body)
-                logging.info(f"ConfigMap '{CONFIGMAP_NAME}' created successfully in namespace '{CONFIGMAP_NAMESPACE}'.")
-            except client.exceptions.ApiException as e_create:
-                logging.error(f"Failed to create ConfigMap '{CONFIGMAP_NAME}': {e_create}")
-        else:
-            logging.error(f"Failed to patch ConfigMap '{CONFIGMAP_NAME}': {e}")
     except Exception as e:
-        logging.error(f"An unexpected error occurred while updating ConfigMap: {e}")
+        # Try to handle both real and dummy client exceptions
+        exception_class = getattr(api, 'exceptions', None)
+        if exception_class and hasattr(exception_class, 'ApiException') and isinstance(e, exception_class.ApiException):
+            if getattr(e, "status", None) == 404:
+                try:
+                    api.create_namespaced_config_map(namespace=CONFIGMAP_NAMESPACE, body=body)
+                    logging.info(f"ConfigMap '{CONFIGMAP_NAME}' created successfully in namespace '{CONFIGMAP_NAMESPACE}'.")
+                except Exception as e_create:
+                    logging.error(f"Failed to create ConfigMap '{CONFIGMAP_NAME}': {e_create}")
+            else:
+                logging.error(f"Failed to patch ConfigMap '{CONFIGMAP_NAME}': {e}")
+    # Remove the else block because 'e' is only defined in the except block
 
 # --- Main execution block for testing the fetching part in Colab ---
 if __name__ == "__main__":
