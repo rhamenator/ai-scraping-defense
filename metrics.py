@@ -1,119 +1,155 @@
-# anti_scrape/metrics.py
-# Simple in-memory metrics tracking for the defense stack.
-from typing import Dict, Union
-from collections import Counter
-import datetime
-import threading
-import json
-import os
-import schedule
+# metrics.py
+from prometheus_client import Counter, Histogram, Gauge, CollectorRegistry, generate_latest
 import time
-import logging
 
-# --- Configuration ---
-LOG_METRICS_TO_JSON = os.getenv("LOG_METRICS_TO_JSON", "false").lower() == "true"
-METRICS_JSON_FILE = os.getenv("METRICS_JSON_FILE", "/app/logs/metrics_dump.json")
-METRICS_DUMP_INTERVAL_MIN = int(os.getenv("METRICS_DUMP_INTERVAL_MIN", 60)) # Dump every hour by default
+# 0. Global Registry
+REGISTRY = CollectorRegistry()
 
-logger = logging.getLogger(__name__)
+# 1. Counters
 
-# Use a thread-safe Counter for basic metrics
-metrics_store = Counter()
-# Lock for operations that might not be inherently atomic if extended
-_lock = threading.Lock()
+# General Counters (from previous versions)
+REQUEST_COUNT = Counter(
+    'http_requests_total',
+    'Total HTTP requests.',
+    ['method', 'endpoint', 'status_code'],
+    registry=REGISTRY
+)
+PAGE_VIEWS = Counter(
+    'page_views_total',
+    'Total page views.',
+    ['page_type'],
+    registry=REGISTRY
+)
+# ... (other general counters from metrics_py_for_test_v3 remain here) ...
+CACHE_HITS = Counter('cache_hits_total', 'Total cache hits.', registry=REGISTRY)
+CACHE_MISSES = Counter('cache_misses_total', 'Total cache misses.', registry=REGISTRY)
+DB_QUERIES = Counter('db_queries_total', 'Total database queries.', ['query_type'], registry=REGISTRY)
+ERROR_COUNT = Counter('errors_total', 'Total errors encountered.', ['error_type'], registry=REGISTRY)
+SECURITY_EVENTS = Counter('security_events_total', 'Total security events.', ['event_type'], registry=REGISTRY)
+LOGIN_ATTEMPTS = Counter('login_attempts_total', 'Total login attempts.', ['result'], registry=REGISTRY)
+USER_REGISTRATIONS = Counter('user_registrations_total', 'Total user registrations.', registry=REGISTRY)
+API_CALLS = Counter('api_calls_total', 'Total API calls.', ['api_name', 'version'], registry=REGISTRY)
+EXTERNAL_API_CALLS = Counter('external_api_calls_total', 'Total external API calls.', ['service_name'], registry=REGISTRY)
+FILE_UPLOADS = Counter('file_uploads_total', 'Total file uploads.', ['file_type'], registry=REGISTRY)
+EMAIL_SENT = Counter('email_sent_total', 'Total emails sent.', ['email_type'], registry=REGISTRY)
+TARPIT_ENTRIES = Counter('tarpit_entries_total', 'Total entries into the tarpit.', registry=REGISTRY)
+HONEYPOT_TRIGGERS = Counter('honeypot_triggers_total', 'Total honeypot triggers.', ['honeypot_name'], registry=REGISTRY)
 
-# Store the start time
-start_time = datetime.datetime.now(datetime.timezone.utc)
 
-def increment_metric(key: str, value: int = 1):
-    """Increments a counter metric."""
-    with _lock:
-        metrics_store[key] += value
-        # logger.debug(f"Metric incremented: {key} = {metrics_store[key]}") # Optional: Debug logging
+# Counters for AI Webhook (from metrics_py_for_test_v3)
+COMMUNITY_REPORTS_ATTEMPTED = Counter('community_reports_attempted_total', 'Total attempts to report IPs to community blocklists.', registry=REGISTRY)
+COMMUNITY_REPORTS_SUCCESS = Counter('community_reports_success_total', 'Total successful reports to community blocklists.', registry=REGISTRY)
+COMMUNITY_REPORTS_ERRORS_TIMEOUT = Counter('community_reports_errors_timeout_total', 'Total timeout errors during community blocklist reporting.', registry=REGISTRY)
+COMMUNITY_REPORTS_ERRORS_REQUEST = Counter('community_reports_errors_request_total', 'Total request errors during community blocklist reporting.', registry=REGISTRY)
+COMMUNITY_REPORTS_ERRORS_STATUS = Counter('community_reports_errors_status_total', 'Total HTTP status errors from community blocklist API.', registry=REGISTRY)
+COMMUNITY_REPORTS_ERRORS_RESPONSE_DECODE = Counter('community_reports_errors_response_decode_total', 'Total errors decoding responses from community blocklist API.', registry=REGISTRY)
+COMMUNITY_REPORTS_ERRORS_UNEXPECTED = Counter('community_reports_errors_unexpected_total', 'Total unexpected errors during community blocklist reporting.', registry=REGISTRY)
 
-def get_metrics() -> Dict[str, Union[int, str]]:
-    """Returns a dictionary of all current metrics."""
-    with _lock:
-        # Add uptime calculation
-        # Ensure start_time is aware for correct subtraction with aware now()
-        uptime_seconds = (datetime.datetime.now(datetime.timezone.utc) - start_time).total_seconds()
-        # Explicitly type current_metrics to help Pylance understand its structure
-        current_metrics: Dict[str, Union[int, str]] = dict(metrics_store)
-        current_metrics["service_uptime_seconds"] = int(uptime_seconds) # Truncates to whole seconds
-        # Add string timestamp; Pylance should now understand this is permissible
-        current_metrics["last_updated_utc"] = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
-    return current_metrics
+# Counters for Escalation Engine
+REDIS_ERRORS_FREQUENCY = Counter('redis_errors_frequency_total', 'Total Redis errors during frequency tracking.', registry=REGISTRY)
+IP_REPUTATION_CHECKS_RUN = Counter('ip_reputation_checks_run_total', 'Total IP reputation checks performed.', registry=REGISTRY)
+IP_REPUTATION_SUCCESS = Counter('ip_reputation_success_total', 'Total successful IP reputation checks.', registry=REGISTRY)
+IP_REPUTATION_MALICIOUS = Counter('ip_reputation_malicious_total', 'Total IPs flagged as malicious by reputation service.', registry=REGISTRY)
+IP_REPUTATION_ERRORS_TIMEOUT = Counter('ip_reputation_errors_timeout_total', 'Total timeout errors during IP reputation checks.', registry=REGISTRY)
+IP_REPUTATION_ERRORS_REQUEST = Counter('ip_reputation_errors_request_total', 'Total request errors during IP reputation checks.', registry=REGISTRY)
+IP_REPUTATION_ERRORS_RESPONSE_DECODE = Counter('ip_reputation_errors_response_decode_total', 'Total errors decoding IP reputation API responses.', registry=REGISTRY)
+IP_REPUTATION_ERRORS_UNEXPECTED = Counter('ip_reputation_errors_unexpected_total', 'Total unexpected errors during IP reputation checks.', registry=REGISTRY)
 
-def reset_metrics():
-    """Resets all metrics (useful for testing)."""
-    global start_time
-    with _lock:
-        metrics_store.clear()
-        start_time = datetime.datetime.now(datetime.timezone.utc) # Ensure reset start_time is also aware
-        logger.info("Metrics have been reset.")
+HEURISTIC_CHECKS_RUN = Counter('heuristic_checks_run_total', 'Total heuristic checks performed by escalation engine.', registry=REGISTRY)
+# Note: The dynamic f"req_freq_{FREQUENCY_WINDOW_SECONDS}s" metric is complex for a simple counter.
+# Escalation engine should increment a general counter per analysis, and actual frequencies might be better as observed values in a Histogram.
+# For now, a general counter for frequency analyses performed:
+FREQUENCY_ANALYSES_PERFORMED = Counter('frequency_analyses_performed_total', 'Total frequency analyses performed.', registry=REGISTRY)
 
-# --- JSON Logging ---
-def dump_metrics_to_json(filepath=METRICS_JSON_FILE):
-    """Dumps the current metrics store to a JSON file."""
-    if not LOG_METRICS_TO_JSON:
-        return # Do nothing if not enabled
+RF_MODEL_PREDICTIONS = Counter('rf_model_predictions_total', 'Total predictions made by the Random Forest model.', registry=REGISTRY)
+RF_MODEL_ERRORS = Counter('rf_model_errors_total', 'Total errors during Random Forest model prediction.', registry=REGISTRY)
+SCORE_ADJUSTED_IP_REPUTATION = Counter('score_adjusted_ip_reputation_total', 'Total times final score was adjusted due to IP reputation.', registry=REGISTRY)
 
-    logger.info(f"Dumping metrics to {filepath}...")
-    try:
-        metrics_snapshot = get_metrics() # Get current metrics including uptime etc.
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(metrics_snapshot, f, indent=2)
-        logger.info(f"Metrics successfully dumped to {filepath}")
-    except Exception as e:
-        logger.error(f"ERROR: Failed to dump metrics to JSON file {filepath}: {e}")
+LOCAL_LLM_CHECKS_RUN = Counter('local_llm_checks_run_total', 'Total checks made using local LLM.', registry=REGISTRY)
+LOCAL_LLM_ERRORS_UNEXPECTED_RESPONSE = Counter('local_llm_errors_unexpected_response_total', 'Total unexpected responses from local LLM.', registry=REGISTRY)
+LOCAL_LLM_ERRORS_TIMEOUT = Counter('local_llm_errors_timeout_total', 'Total timeout errors calling local LLM.', registry=REGISTRY)
+LOCAL_LLM_ERRORS_REQUEST = Counter('local_llm_errors_request_total', 'Total request errors calling local LLM.', registry=REGISTRY)
+LOCAL_LLM_ERRORS_RESPONSE_DECODE = Counter('local_llm_errors_response_decode_total', 'Total errors decoding local LLM responses.', registry=REGISTRY)
+LOCAL_LLM_ERRORS_UNEXPECTED = Counter('local_llm_errors_unexpected_total', 'Total unexpected errors with local LLM.', registry=REGISTRY)
 
-def run_scheduled_dump():
-    """Runs the metric dump function according to schedule."""
-    dump_metrics_to_json()
+EXTERNAL_API_CHECKS_RUN = Counter('external_api_checks_run_total', 'Total checks made using external classification API.', registry=REGISTRY)
+EXTERNAL_API_SUCCESS = Counter('external_api_success_total', 'Total successful calls to external classification API.', registry=REGISTRY)
+EXTERNAL_API_ERRORS_UNEXPECTED_RESPONSE = Counter('external_api_errors_unexpected_response_total', 'Total unexpected responses from external API.', registry=REGISTRY)
+EXTERNAL_API_ERRORS_TIMEOUT = Counter('external_api_errors_timeout_total', 'Total timeout errors calling external API.', registry=REGISTRY)
+EXTERNAL_API_ERRORS_REQUEST = Counter('external_api_errors_request_total', 'Total request errors calling external API.', registry=REGISTRY)
+EXTERNAL_API_ERRORS_RESPONSE_DECODE = Counter('external_api_errors_response_decode_total', 'Total errors decoding external API responses.', registry=REGISTRY)
+EXTERNAL_API_ERRORS_UNEXPECTED = Counter('external_api_errors_unexpected_total', 'Total unexpected errors with external API.', registry=REGISTRY)
 
-# --- Metrics Scheduler (Run in one of the services, e.g., admin_ui or ai_service) ---
-def start_metrics_scheduler():
-    """Starts the background scheduler for dumping metrics if enabled."""
-    if LOG_METRICS_TO_JSON:
-        logger.info(f"Scheduling metrics JSON dump every {METRICS_DUMP_INTERVAL_MIN} minutes to {METRICS_JSON_FILE}")
-        schedule.every(METRICS_DUMP_INTERVAL_MIN).minutes.do(run_scheduled_dump)
+ESCALATION_WEBHOOKS_SENT = Counter('escalation_webhooks_sent_total', 'Total webhooks sent by escalation engine.', registry=REGISTRY)
+ESCALATION_WEBHOOK_ERRORS_REQUEST = Counter('escalation_webhook_errors_request_total', 'Total request errors sending escalation webhooks.', registry=REGISTRY)
+ESCALATION_WEBHOOK_ERRORS_UNEXPECTED = Counter('escalation_webhook_errors_unexpected_total', 'Total unexpected errors sending escalation webhooks.', registry=REGISTRY)
 
-        # Run the scheduler in a separate thread
-        def run_continuously():
-            while True:
-                schedule.run_pending()
-                time.sleep(30) # Check every 30 seconds
+CAPTCHA_CHALLENGES_TRIGGERED = Counter('captcha_challenges_triggered_total', 'Total CAPTCHA challenges triggered.', registry=REGISTRY)
+ESCALATION_REQUESTS_RECEIVED = Counter('escalation_requests_received_total', 'Total requests received by escalation engine.', registry=REGISTRY)
 
-        scheduler_thread = threading.Thread(target=run_continuously, daemon=True)
-        scheduler_thread.start()
-        logger.info("Metrics dump scheduler thread started.")
-    else:
-        logger.info("JSON metrics logging is disabled.")
+BOTS_DETECTED_IP_REPUTATION = Counter('bots_detected_ip_reputation_total', 'Total bots detected primarily by IP reputation.', registry=REGISTRY)
+BOTS_DETECTED_HIGH_SCORE = Counter('bots_detected_high_score_total', 'Total bots detected by high combined score.', registry=REGISTRY)
+HUMANS_DETECTED_LOW_SCORE = Counter('humans_detected_low_score_total', 'Total classified as human by low combined score.', registry=REGISTRY)
+BOTS_DETECTED_LOCAL_LLM = Counter('bots_detected_local_llm_total', 'Total bots detected by local LLM.', registry=REGISTRY)
+HUMANS_DETECTED_LOCAL_LLM = Counter('humans_detected_local_llm_total', 'Total classified as human by local LLM.', registry=REGISTRY)
+BOTS_DETECTED_EXTERNAL_API = Counter('bots_detected_external_api_total', 'Total bots detected by external API.', registry=REGISTRY)
+HUMANS_DETECTED_EXTERNAL_API = Counter('humans_detected_external_api_total', 'Total classified as human by external API.', registry=REGISTRY)
 
-# --- Predefined Metric Keys (Examples remain the same) ---
-METRIC_ESCALATION_REQUESTS = "escalation_requests_received"
-METRIC_HEURISTIC_CHECKS = "heuristic_checks_run"
-METRIC_LOCAL_LLM_CHECKS = "local_llm_checks_run"
-METRIC_EXTERNAL_API_CHECKS = "external_api_checks_run"
-METRIC_BOTS_DETECTED_HEURISTIC = "bots_detected_heuristic"
-METRIC_BOTS_DETECTED_LOCAL_LLM = "bots_detected_local_llm"
-METRIC_BOTS_DETECTED_EXTERNAL_API = "bots_detected_external_api"
-METRIC_HUMANS_DETECTED_LOCAL_LLM = "humans_detected_local_llm"
-METRIC_HUMANS_DETECTED_EXTERNAL_API = "humans_detected_external_api"
-METRIC_WEBHOOKS_SENT = "webhooks_sent"
-METRIC_WEBHOOK_ERRORS = "webhook_errors_request"
-METRIC_LLM_ERRORS = "local_llm_errors_unexpected"
-METRIC_TARPIT_HITS = "tarpit_hits"
-METRIC_IP_FLAGGED = "tarpit_ips_flagged"
 
-# Example: How to start the scheduler from another module
-# if __name__ == "__main__":
-#     # This part would typically be called from the main entry point of a service
-#     print("Starting metrics scheduler (example)...")
-#     start_metrics_scheduler()
-#     # Keep the main thread alive or let the service run its course
-#     try:
-#         while True: time.sleep(1)
-#     except KeyboardInterrupt:
-#         print("Stopping scheduler example.")
+# 2. Histograms (from previous versions)
+REQUEST_LATENCY = Histogram('http_request_duration_seconds', 'HTTP request duration in seconds.', ['method', 'endpoint'], registry=REGISTRY)
+DB_QUERY_LATENCY = Histogram('db_query_duration_seconds', 'Database query duration in seconds.', ['query_type'], registry=REGISTRY)
+EXTERNAL_API_LATENCY = Histogram('external_api_latency_seconds', 'Latency of external API calls in seconds.', ['service_name'], registry=REGISTRY)
+FUNCTION_EXECUTION_TIME = Histogram('function_execution_seconds', 'Execution time of specific functions in seconds.', ['function_name'], registry=REGISTRY)
+FILE_UPLOAD_SIZE = Histogram('file_upload_size_bytes', 'Size of uploaded files in bytes.', ['file_type'], registry=REGISTRY)
+RESPONSE_SIZE = Histogram('response_size_bytes', 'Size of HTTP responses in bytes.', ['endpoint'], registry=REGISTRY)
+
+# 3. Gauges (from previous versions)
+ACTIVE_USERS = Gauge('active_users_current', 'Current number of active users.', registry=REGISTRY)
+CPU_USAGE = Gauge('cpu_usage_percent', 'Current CPU usage.', ['core'], registry=REGISTRY)
+MEMORY_USAGE = Gauge('memory_usage_bytes', 'Current memory usage in bytes.', ['type'], registry=REGISTRY)
+DISK_SPACE_USAGE = Gauge('disk_space_usage_bytes', 'Disk space usage by mount point.', ['mount_point'], registry=REGISTRY)
+DB_CONNECTIONS = Gauge('db_connections_active', 'Active database connections.', ['db_name', 'state'], registry=REGISTRY)
+QUEUE_LENGTH = Gauge('queue_length_current', 'Current length of a queue.', ['queue_name'], registry=REGISTRY)
+UPTIME_SECONDS = Gauge('uptime_seconds_total', 'System uptime in seconds.', registry=REGISTRY)
+CELERY_WORKERS = Gauge('celery_workers_active', 'Number of active Celery workers.', registry=REGISTRY)
+CELERY_TASKS = Gauge('celery_tasks_total', 'Number of Celery tasks by state.', ['state'], registry=REGISTRY)
+FEATURE_FLAGS = Gauge('feature_flags_status', 'Status of feature flags (1=on, 0=off).', ['flag_name'], registry=REGISTRY)
+
+
+# 4. Helper Functions (from previous versions)
+def record_request(method, endpoint, status_code):
+    REQUEST_COUNT.labels(method=method, endpoint=endpoint, status_code=str(status_code)).inc()
+
+@REQUEST_LATENCY.labels(method='GET', endpoint='/example').time() 
+def example_timed_request_handler():
+    time.sleep(0.1)
+
+def observe_histogram_metric(metric_instance, value, labels=None):
+    if labels: metric_instance.labels(**labels).observe(value)
+    else: metric_instance.observe(value)
+
+def increment_counter_metric(metric_instance, labels=None):
+    if labels: metric_instance.labels(**labels).inc()
+    else: metric_instance.inc()
+
+def set_gauge_metric(metric_instance, value, labels=None):
+    if labels: metric_instance.labels(**labels).set(value)
+    else: metric_instance.set(value)
+
+def increment_gauge_metric(metric_instance, labels=None):
+    if labels: metric_instance.labels(**labels).inc()
+    else: metric_instance.inc()
+
+def decrement_gauge_metric(metric_instance, labels=None):
+    if labels: metric_instance.labels(**labels).dec()
+    else: metric_instance.dec()
+
+def get_metrics():
+    return generate_latest(REGISTRY)
+
+if __name__ == '__main__':
+    # Example usage
+    increment_counter_metric(ESCALATION_REQUESTS_RECEIVED)
+    increment_counter_metric(RF_MODEL_PREDICTIONS)
+    print(get_metrics().decode())

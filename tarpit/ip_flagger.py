@@ -9,9 +9,11 @@ import datetime
 # --- Redis Configuration ---
 REDIS_HOST = os.getenv("REDIS_HOST", "redis") # Assumes 'redis' service name from docker-compose
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-REDIS_DB = int(os.getenv("REDIS_DB_TAR PIT", 1)) # Use a separate DB for tarpit flags
-FLAG_TTL_SECONDS = int(os.getenv("TAR PIT_FLAG_TTL", 300)) # Time-to-live for an IP flag (e.g., 5 minutes)
-MAX_FLAGS_PER_IP = int(os.getenv("TAR PIT_MAX_FLAGS", 5)) # Max flags before longer action? (Optional)
+REDIS_DB = int(os.getenv("REDIS_DB_TAR_PIT", 1)) # Use a separate DB for tarpit flags # Changed from "REDIS_DB_TAR PIT"
+FLAG_TTL_SECONDS = int(os.getenv("TAR_PIT_FLAG_TTL", 300)) # Time-to-live for an IP flag (e.g., 5 minutes) # Changed from "TAR PIT_FLAG_TTL"
+MAX_FLAGS_PER_IP = int(os.getenv("TAR_PIT_MAX_FLAGS", 5)) # Max flags before longer action? (Optional) # Changed from "TAR PIT_MAX_FLAGS"
+
+redis_client = None # Initialize redis_client to None
 
 try:
     # Use connection pooling for efficiency
@@ -20,16 +22,20 @@ try:
     redis_client.ping() # Test connection on import
 except ConnectionError as e:
     print(f"ERROR: Could not connect to Redis at {REDIS_HOST}:{REDIS_PORT}. IP Flagging disabled. Error: {e}")
-    redis_client = None # Disable flagging if Redis is unavailable
-    redis_client = None # Disable flagging if Redis is unavailable
+    # redis_client remains None, disabling flagging
+except Exception as e: # Catch other potential errors during Redis setup
+    print(f"ERROR: Unexpected error connecting to Redis. IP Flagging disabled. Error: {e}")
+    # redis_client remains None
 
-def flag_suspicious_ip(ip_address: str):
+def flag_suspicious_ip(ip_address: str) -> bool: # Added return type hint
     """
     Flags an IP address in Redis with a specific TTL.
     Increments a counter for the IP.
+    Returns True if flagging was successful or attempted, False otherwise.
     """
     if not redis_client or not ip_address:
-        return False # Do nothing if Redis is unavailable or IP is invalid
+        print(f"WARN: IP Flagging skipped. Redis client not available or IP address invalid for IP: {ip_address}")
+        return False
 
     try:
         # Use a key like 'tarpit_flag:<ip_address>'
@@ -47,13 +53,14 @@ def flag_suspicious_ip(ip_address: str):
         #     print(f"WARNING: IP {ip_address} flagged {current_count} times. Consider longer ban.")
 
         print(f"Flagged IP: {ip_address} in Redis for {FLAG_TTL_SECONDS} seconds.")
+        return True # Explicitly return True on success
     except RedisError as e:
         print(f"ERROR: Redis error while flagging IP {ip_address}: {e}")
         return False
     except Exception as e:
         print(f"ERROR: Unexpected error flagging IP {ip_address}: {e}")
         return False
-        return False
+    # Removed redundant return False
 
 def check_ip_flag(ip_address: str) -> bool:
     """
@@ -80,3 +87,5 @@ def check_ip_flag(ip_address: str) -> bool:
 #    print(f"Flagging {test_ip}...")
 #    flag_suspicious_ip(test_ip)
 #    print(f"Checking flag for {test_ip}: {check_ip_flag(test_ip)}")
+# Note: The example usage is commented out to prevent execution on import.
+# This module is intended to be imported and used by other parts of the application.
