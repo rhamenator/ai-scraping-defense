@@ -1,0 +1,92 @@
+# 1. Version control
+.git/
+.gitignore
+.gitattributes
+.hg/
+.svn/
+
+# 2. Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+
+# 3. IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 4. Build and output directories
+build/
+dist/
+out/
+tmp/
+temp/
+
+# 5. Test files and directories
+test/
+tests/
+*.test.py
+*.test
+
+# 6. Logs and debug files
+*.log
+debug/
+logs/
+
+# 7. Node.js (precautionary)
+node_modules/
+npm-debug.log
+yarn-debug.log
+
+# 8. Go (precautionary)
+/vendor/
+*.test
+.go-cache/
+
+# 9. Java (precautionary)
+target/
+*.class
+.gradle/
+
+# 10. Environment and secrets
+.env
+.env.*
+*.env
+secrets/
+*.pem
+*.key
+*.crt
+certs/
+
+# 11. Local and temporary config
+config.local.*
+*.local.yml
+.local/
+local/
+
+# 12. Documentation and markdown
+# docs/
+*.md
+README*
+CHANGELOG.md
+CONTRIBUTING.md
+SECURITY.md
+
+# 13. Docker and compose files
+Dockerfile*
+docker-compose*
+
+# 14. Miscellaneous
+archives/
+data/
+models/
+mnt/
+
+# 15. Project-specific patterns
+# (Add more as needed for your project)
+
+# End of .dockerignore

@@ -58,11 +58,14 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/lua:/etc/nginx/lua:ro
-      - ./config/robots.txt:/etc/nginx/robots.txt:ro # For Nginx to serve if configured
+      - ./config/robots.txt:/etc/nginx/robots.txt:ro # For Nginx to serve if configured & for Lua in Docker
       - ./docs:/var/www/html/docs:ro
       - ./archives:/usr/share/nginx/html/archives:ro # Path Nginx serves archives from
       - ./logs/nginx:/var/log/nginx
       - ./certs:/etc/nginx/certs:ro # For SSL
+      # --- ADDED FOR ADMIN UI AUTHENTICATION ---
+      - ./secrets/.htpasswd:/etc/nginx/secrets/.htpasswd:ro # Mount the htpasswd file
+      # --- END OF ADDED ADMIN UI AUTHENTICATION ---
     depends_on:
       tarpit_api:
         condition: service_healthy # Example: wait for healthcheck
@@ -96,25 +99,26 @@ services:
       dockerfile: Dockerfile # All Python services use the same base image
     container_name: ai_service
     working_dir: /app
+    command: ["uvicorn", "ai_service.ai_webhook:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "${UVICORN_WORKERS:-2}"]
     environment:
       - PYTHONPATH=/app
-      - ALERT_SMTP_HOST=mailhog
-      - ALERT_SMTP_PORT=1025
-      # Add other env vars from .env file (docker-compose automatically loads .env)
+      - ALERT_SMTP_HOST=mailhog # Example, should be in .env
+      - ALERT_SMTP_PORT=1025   # Example, should be in .env
+      # Other env vars loaded from .env file by Docker Compose
     volumes:
-      - ./ai_service:/app/ai_service # For local code development
+      - ./ai_service:/app/ai_service
       - ./shared:/app/shared
       - ./metrics.py:/app/metrics.py:ro
       - ./logs:/app/logs
-      - ./data:/app/data # For scripts needing access to data dir
-      - ./util:/app/util # Mount the util directory
+      - ./data:/app/data
+      - ./util:/app/util
     secrets:
       - smtp_password
       - community_blocklist_api_key
       - redis_password
     depends_on:
       redis:
-        condition: service_started # Or service_healthy
+        condition: service_healthy # Changed to service_healthy assuming Redis has one
       mailhog:
         condition: service_started
     networks:
@@ -133,15 +137,16 @@ services:
       dockerfile: Dockerfile
     container_name: escalation_engine
     working_dir: /app
+    command: ["uvicorn", "escalation.escalation_engine:app", "--host", "0.0.0.0", "--port", "8003", "--workers", "${UVICORN_WORKERS:-2}"]
     environment:
       - PYTHONPATH=/app
-      # Add other env vars from .env
+      # Other env vars loaded from .env
     volumes:
       - ./escalation:/app/escalation
       - ./shared:/app/shared
       - ./metrics.py:/app/metrics.py:ro
-      - ./models:/app/models:ro
-      - ./config:/app/config:ro
+      - ./models:/app/models:ro # Models are read-only for this service
+      - ./config:/app/config:ro # Configs like robots.txt
       - ./logs:/app/logs
       - ./data:/app/data
       - ./util:/app/util
@@ -149,12 +154,14 @@ services:
       - external_api_key
       - ip_reputation_api_key
       - redis_password
-      - smtp_password # If it sends alerts
+      # - smtp_password # Only if escalation engine itself sends SMTP alerts
     depends_on:
-      ai_service:
+      ai_service: # Ensures AI service is up if escalations immediately trigger actions
         condition: service_healthy
       redis:
-        condition: service_started # Or service_healthy
+        condition: service_healthy
+      # postgres: # If it directly queries PG, though less likely for escalation logic itself
+      #   condition: service_healthy
     networks:
       - defense_network
     restart: unless-stopped
@@ -171,26 +178,28 @@ services:
       dockerfile: Dockerfile
     container_name: tarpit_api
     working_dir: /app
+    command: ["uvicorn", "tarpit.tarpit_api:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "${UVICORN_WORKERS:-2}"]
     environment:
       - PYTHONPATH=/app
-      - WIKIPEDIA_CORPUS_FILE=/app/data/wikipedia_corpus.txt # Used by corpus_updater if run here
-      # Add other env vars from .env
+      # WIKIPEDIA_CORPUS_FILE is used by corpus_updater, not directly by tarpit_api runtime usually
+      # Other env vars loaded from .env
     volumes:
       - ./tarpit:/app/tarpit
       - ./shared:/app/shared
       - ./metrics.py:/app/metrics.py:ro
       - ./logs:/app/logs
-      - ./data:/app/data  # For corpus input/output
+      - ./data:/app/data # For Markov model if it were file-based (now PG)
       - ./util:/app/util
     secrets:
-      - pg_password
-      - redis_password
+      - pg_password # For PostgreSQL Markov DB
+      - redis_password # For hop limit and blocklist trigger
+      - system_seed # For deterministic tarpit generation
     depends_on:
       escalation_engine:
         condition: service_healthy
       redis:
-        condition: service_started # Or service_healthy
-      postgres:
+        condition: service_healthy
+      postgres: # Tarpit API now relies on PostgreSQL for Markov chains
         condition: service_healthy
     networks:
       - defense_network
@@ -208,21 +217,22 @@ services:
       dockerfile: Dockerfile
     container_name: admin_ui
     working_dir: /app
+    command: ["python", "admin_ui/admin_ui.py"] # Flask dev server
     environment:
       - PYTHONPATH=/app
-      # Add other env vars from .env
+      - FLASK_ENV=${FLASK_ENV:-production}
+      # Other env vars from .env
     volumes:
       - ./admin_ui:/app/admin_ui
       - ./shared:/app/shared
-      - ./metrics.py:/app/metrics.py:ro
-      - ./logs:/app/logs
-      - ./data:/app/data # If it might run utility scripts
-      - ./util:/app/util
+      - ./metrics.py:/app/metrics.py:ro # Admin UI reads metrics
+      - ./logs:/app/logs # If admin_ui writes its own logs
+      # - ./data:/app/data # Unlikely needed by admin_ui directly
+      # - ./util:/app/util # Unlikely needed
     networks:
       - defense_network
     restart: unless-stopped
-    # Flask dev server doesn't have a simple health endpoint by default
-    # For production, you'd use gunicorn and could add a healthcheck.
+    # No standard healthcheck for Flask dev server, use depends_on if critical path
 
   archive_rotator:
     build:
@@ -235,50 +245,54 @@ services:
       - PYTHONPATH=/app
       - DEFAULT_ARCHIVE_DIR=/app/fake_archives # Path inside container where script writes
     volumes:
-      - ./tarpit:/app/tarpit # For rotating_archive.py script
-      - ./shared:/app/shared
+      - ./tarpit:/app/tarpit # For rotating_archive.py and js_zip_generator.py
+      # - ./shared:/app/shared # If it uses shared modules
       - ./archives:/app/fake_archives # Mount host ./archives to where script writes
-      - ./logs:/app/logs
-      - ./data:/app/data # If it needs access
-      - ./util:/app/util
+      - ./logs:/app/logs # For its own logs
+      # - ./util:/app/util # If it uses utilities
     networks:
       - defense_network
     restart: unless-stopped
+    # This is a batch-like job, healthcheck might not be typical.
+    # Consider if it needs to run periodically (then a cron job in K8s, or host cron for Docker)
 
   redis:
     image: redis:7-alpine
     container_name: redis_store
     volumes:
       - redis_data:/data
-      # - ./secrets/redis_password.txt:/run/secrets/redis_password.txt:ro # Alternative for password if not using Docker secrets feature
+      # - ./secrets/redis_password.txt:/run/secrets/redis_password.txt:ro # Alternative if not using Docker secrets feature
     networks:
       - defense_network
     restart: unless-stopped
     command: >
-      sh -c "redis-server --save 60 1 --loglevel warning $([ -f /run/secrets/redis_password.txt ] && echo '--requirepass $(cat /run/secrets/redis_password.txt)')"
+      sh -c "redis-server --save 60 1 --loglevel warning $([ -f /run/secrets/redis_password.txt ] && echo '--requirepass \"$(cat /run/secrets/redis_password.txt)\"' || echo '')"
     secrets:
-      - source: redis_password # Use Docker secrets feature
-        target: /run/secrets/redis_password.txt # Make available at this path
+      - source: redis_password
+        target: /run/secrets/redis_password.txt
+        # mode: 0400 # Restrict permissions if needed
     healthcheck:
       test: >
-        sh -c "PASSWORD_ARG=$([ -f /run/secrets/redis_password.txt ] && echo '-a $(cat /run/secrets/redis_password.txt)'); redis-cli $$PASSWORD_ARG ping | grep -q PONG"
+        sh -c "PASSWORD_ARG=$([ -f /run/secrets/redis_password.txt ] && echo '-a \"$(cat /run/secrets/redis_password.txt)\"'); redis-cli $$PASSWORD_ARG ping | grep -q PONG"
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 5s # Give Redis a moment to start
 
   postgres:
     image: postgres:15-alpine
     container_name: postgres_markov_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./db/init_markov.sql:/docker-entrypoint-initdb.d/init.sql # For schema creation
+      - ./db/init_markov.sql:/docker-entrypoint-initdb.d/init_markov.sql:ro # For schema creation
     environment:
       - POSTGRES_DB=${PG_DBNAME:-markovdb}
       - POSTGRES_USER=${PG_USER:-markovuser}
-      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password.txt
+      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password.txt # Tells PG entrypoint script where to find password
     secrets:
-      - source: pg_password # Use Docker secrets feature
+      - source: pg_password
         target: /run/secrets/pg_password.txt
+        # mode: 0400
     networks:
       - defense_network
     restart: unless-stopped
@@ -287,7 +301,100 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 10s # Allow time for init scripts on first run
+
+# Utility/Training Services (can be run on demand)
+  corpus_updater: # For dynamic Wikipedia corpus generation
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: corpus_updater
+    working_dir: /app
+    command: ["python", "util/corpus_wikipedia_updater.py"] # Example command
+    environment:
+      - PYTHONPATH=/app
+      - WIKIPEDIA_CORPUS_FILE=/app/data/wikipedia_corpus.txt # Path inside container
+      - WIKIPEDIA_NUM_ARTICLES=${WIKIPEDIA_NUM_ARTICLES:-5}
+      - WIKIPEDIA_LANGUAGE=${WIKIPEDIA_LANGUAGE:-en}
+    volumes:
+      - ./util:/app/util
+      - ./data:/app/data # Mount host ./data to where script writes corpus
+    networks:
+      - defense_network
+    # This is a one-off or periodic task, so `restart: on-failure` or run manually.
+    # Not typically part of `docker-compose up -d` for continuous running.
+
+  robots_fetcher: # For dynamic robots.txt fetching
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: robots_fetcher
+    working_dir: /app
+    command: ["python", "util/robots_fetcher.py"] # Example command
+    environment:
+      - PYTHONPATH=/app
+      - REAL_BACKEND_HOST=${REAL_BACKEND_HOST_FOR_ROBOTS:-http://your-real-app-service:8080} # Needs to be set
+      # For Docker Compose, it doesn't update a K8s ConfigMap.
+      # It would typically write to a file mounted by Nginx.
+      # This service's role is more prominent in K8s. For local testing,
+      # Nginx directly mounts ./config/robots.txt
+    volumes:
+      - ./util:/app/util
+      # - ./config:/app/config # If it were to write robots.txt here for Nginx to pick up
+    networks:
+      - defense_network
+
+  markov_trainer: # For training the PostgreSQL Markov model
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: markov_trainer
+    working_dir: /app
+    # Command will be `python rag/train_markov_postgres.py /app/data/your_corpus.txt`
+    # Run this manually: docker-compose run --rm markov_trainer python rag/train_markov_postgres.py /app/data/your_corpus_file.txt
+    environment:
+      - PYTHONPATH=/app
+      # PG_HOST, PG_PORT, PG_DBNAME, PG_USER, PG_PASSWORD_FILE from .env
+    volumes:
+      - ./rag:/app/rag
+      - ./data:/app/data # For corpus input
+    secrets:
+      - pg_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - defense_network
+
+  model_trainer: # For training the RF model
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: model_trainer
+    working_dir: /app
+    # Command: python rag/training.py
+    # Run manually: docker-compose run --rm model_trainer python rag/training.py
+    environment:
+      - PYTHONPATH=/app
+      # All TRAINING_* env vars from .env
+      # PG_HOST, PG_PORT, TRAINING_PG_DBNAME, TRAINING_PG_USER, TRAINING_PG_PASSWORD_FILE from .env
+    volumes:
+      - ./rag:/app/rag
+      - ./shared:/app/shared # If training uses shared modules
+      - ./metrics.py:/app/metrics.py:ro # If training script uses metrics
+      - ./models:/app/models # For saving the trained model
+      - ./data:/app/data # For input logs, finetuning data output
+      - ./config:/app/config # For robots.txt input
+      - ./logs:/app/logs # For feedback logs (honeypot, captcha)
+    secrets:
+      - training_pg_password # Assuming a separate password/secret for this DB if different
+      # Or use pg_password if it's the same DB/user
+    depends_on:
+      postgres: # If it uses the same PG instance for log analysis DB
+        condition: service_healthy
+    networks:
+      - defense_network
+
 
 networks:
   defense_network:
@@ -296,6 +403,9 @@ networks:
 volumes:
   redis_data:
   postgres_data:
+  # models_data: # If you want ./models to be a named volume
+  # archives_data: # If you want ./archives to be a named volume
+  # corpus_data: # If you want ./data (for corpus) to be a named volume
 
 secrets:
   smtp_password:
@@ -306,7 +416,11 @@ secrets:
     file: ./secrets/ip_reputation_api_key.txt
   community_blocklist_api_key:
     file: ./secrets/community_blocklist_api_key.txt
-  pg_password:
+  pg_password: # For Markov DB
     file: ./secrets/pg_password.txt
-  redis_password: # Optional, used if you create ./secrets/redis_password.txt
+  redis_password:
     file: ./secrets/redis_password.txt
+  system_seed: # For Tarpit API
+    file: ./secrets/system_seed.txt # Create this file with your seed
+  training_pg_password: # For the log analysis DB used by rag/training.py
+    file: ./secrets/training_pg_password.txt # Create if different from main pg_password

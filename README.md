@@ -1,67 +1,64 @@
-# AI Scraping Defense Stack
+## Running with Docker
 
-This system combats scraping by unauthorized AI bots targeting FOSS or documentation sites. It employs a multi-layered defense strategy including real-time detection, tarpitting, honeypots, and behavioral analysis with optional AI/LLM integration for sophisticated threat assessment.
+This project is fully containerized and can be run locally using Docker Compose. The stack includes multiple Python-based services, Redis, and PostgreSQL, each with its own Dockerfile and specific configuration.
 
-## Features
+### Requirements
 
-This project employs a multi-layered defense strategy:
+- **Docker** and **Docker Compose** installed on your system.
+- The project uses **Python 3.11-slim** as the base image for all Python services (as specified in the Dockerfiles).
+- A `requirements.txt` file is required for dependency installation in each service directory.
+- For persistent data (Redis, Postgres), uncomment the `volumes` sections in the `docker-compose.yml` if you want to retain data between runs.
 
-* **Edge Filtering (Nginx + Lua):** Real-time filtering based on User-Agent, headers, and IP blocklists. Includes rate limiting. The Lua scripts now use a dynamically updated `robots.txt` (fetched periodically from the protected backend) to check compliance for known benign bots.
-* **IP Blocklisting (Redis + Nginx + AI Service):** Confirmed malicious IPs (identified by various system components) are added as individual keys with TTLs to a Redis database (DB 2) and blocked efficiently at the edge by Nginx.
-* **Tarpit API (FastAPI + PostgreSQL):**
-  * Serves endlessly deep, slow-streaming fake content pages to waste bot resources.
-  * Uses **PostgreSQL-backed Markov chains** for persistent and scalable fake text generation. The corpus for this is now **dynamically updated periodically by fetching content from Wikipedia**.
-  * Generates **deterministic content and links** based on URL hash and a system seed, creating a stable maze.
-  * Implements a **configurable hop limit** tracked per IP in Redis (DB 4) to prevent excessive resource use, blocking IPs that exceed the limit.
-* **Escalation Engine (FastAPI):** Processes suspicious requests redirected from the Tarpit or Nginx. Applies heuristic scoring (including frequency analysis via Redis DB 3), uses a trained Random Forest model, optionally checks **IP reputation** (configurable), and can trigger further analysis (e.g., via local LLM or external APIs). It now also uses the dynamically updated `robots.txt` for its logic.
-* **AI Service (FastAPI):** Receives escalation webhooks, manages the Redis blocklist (DB 2), optionally reports blocked IPs to **community blocklists** (configurable), and handles configurable alerting (Slack, SMTP, Webhook).
-* **Admin UI (Flask):** Real-time metrics dashboard visualizing system activity.
-* **Dynamic `robots.txt` Management:** A Kubernetes CronJob (`robots-fetcher-cronjob.yaml`) periodically fetches `robots.txt` from the `REAL_BACKEND_HOST`, storing it in a ConfigMap (`live-robots-txt-config`) for use by Nginx and other services.
-* **Dynamic Wikipedia Corpus Generation:** A Kubernetes CronJob (`corpus-updater-cronjob.yaml`) periodically fetches content from Wikipedia, saving it to a PersistentVolumeClaim (`corpus-data-pvc`).
-* **PostgreSQL Markov Training (Automated):** A Kubernetes CronJob (`markov-model-trainer.yaml`) periodically retrains the PostgreSQL Markov database using the dynamically updated corpus from the PVC.
-* **Kubernetes Deployment:**
-  * Comprehensive Kubernetes manifests provided for deploying the entire stack.
-  * All resources are deployed into a dedicated namespace (default: `ai-defense`).
-  * Utilizes `PersistentVolumeClaims` for corpus data (`corpus-data-pvc`), ML models (`models-pvc`), and ZIP archives (`archives-pvc`).
-  * Includes `securityContext` settings for Deployments, StatefulSets, and CronJobs to enhance security by adhering to the principle of least privilege.
-  * RBAC is configured for CronJobs needing to interact with Kubernetes resources (e.g., the `robots.txt` fetcher updating a ConfigMap).
-* **Email Entropy Analysis:** Utility script (`rag/email_entropy_scanner.py`) to score email addresses for detecting potentially bot-generated accounts.
-* **JavaScript ZIP Honeypots:** Dynamically generated and rotated ZIP archives (`archive-rotator-deployment.yaml`) containing decoy JavaScript files.
-* **ML Model Training:** Includes scripts (`rag/training.py`) to parse logs, label data, extract features, and train a Random Forest classifier.
-* **Dockerized Stack:** Entire system orchestrated using Docker Compose for local development and testing.
-* **Secrets Management:** Supports Docker secrets and Kubernetes Secrets for sensitive configurations.
-* **Separate Deployment Ready:** Nginx configuration supports running the anti-scrape stack separately from the protected web application using `REAL_BACKEND_HOST`.
+### Environment Variables
 
-## Getting Started
+- Default credentials for Postgres are set in the compose file:
+  - `POSTGRES_USER=postgres`
+  - `POSTGRES_PASSWORD=postgres`
+  - `POSTGRES_DB=markov`
+- For additional configuration (e.g., API keys, SMTP settings), use `.env` files in the root or service directories as needed. Uncomment the `env_file` lines in the compose file to enable this.
+- **Secrets** (API keys, passwords) should be managed via Docker secrets or environment variables and are not included in the images by default.
 
-### See [docs/getting_started.md](docs/getting_started.md) for detailed instructions using Docker Compose
+### Build and Run Instructions
 
-### For Kubernetes deployments, see [docs/kubernetes_deployment.md](docs/kubernetes_deployment.md)
+1. **Clone the repository** and ensure you are in the project root directory.
+2. **Build and start the stack:**
 
-### Accessing Services (Default Ports)
+   ```sh
+   docker compose up --build
+   ```
 
-*(Note: Ports might differ in Kubernetes depending on Service type and Ingress configuration)*
+   This will build all service images and start the containers as defined in `docker-compose.yml`.
 
-* **Main Website / Docs:** `http://localhost/` (or `https://localhost/` if HTTPS configured)
-* **Tarpit Endpoint (Internal):** Accessed via Nginx redirect (`/api/tarpit`)
-* **Admin UI:** `http://localhost/admin/` (or `https://localhost/admin/`)
+3. **Access the services:**
 
-## Architecture
+   - **Admin UI:** [http://localhost:5002/](http://localhost:5002/)
+   - **Tarpit API:** [http://localhost:8001/](http://localhost:8001/)
+   - **AI Service:** [http://localhost:8000/](http://localhost:8000/)
+   - **Escalation Engine:** [http://localhost:8003/](http://localhost:8003/)
+   - **Redis:** [localhost:6379](localhost:6379)
+   - **PostgreSQL:** [localhost:5432](localhost:5432)
+   - **RAG** and **Util** services do not expose ports by default (used for batch jobs/scripts).
 
-See [`docs/architecture.md`](docs/architecture.md) for a detailed diagram and component overview.
+4. **Special Configuration:**
+   - The stack is designed to run all services on a shared `backend` Docker network.
+   - For local development, you may need to provide `.env` files or Docker secrets for sensitive configuration (see the `secrets/` directory for examples of required keys/passwords).
+   - The Nginx edge filtering and Lua scripts require a dynamically updated `robots.txt`, managed via Kubernetes CronJob in production. For local Docker use, ensure `config/robots.txt` is present and up to date.
+   - If you want to persist Redis or Postgres data, uncomment the `volumes` sections in the compose file.
 
-## Contributing
+5. **Rebuilding Images:**
+   - If you change dependencies or code, re-run `docker compose up --build` to rebuild the images.
 
-Contributions are welcome! Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines.
+### Exposed Ports (per service)
 
-## License
+| Service           | Port  |
+|-------------------|-------|
+| Admin UI          | 5002  |
+| Tarpit API        | 8001  |
+| AI Service        | 8000  |
+| Escalation Engine | 8003  |
+| Redis             | 6379  |
+| PostgreSQL        | 5432  |
 
-This project is licensed under the terms of the GPL-3.0 license. See [`LICENSE`](LICENSE) for the full text and [`license_summary.md`](license_summary.md) for a summary.
+> **Note:** RAG and Util services do not expose ports by default; they are intended for internal batch processing.
 
-## Security
-
-Please report any security vulnerabilities according to the policy outlined in [`SECURITY.md`](SECURITY.md).
-
-## Ethics & Usage
-
-This system is intended for defensive purposes only. Use responsibly and ethically. Ensure compliance with relevant laws and regulations in your jurisdiction. See [`docs/legal_compliance.md`](docs/legal_compliance.md) and [`docs/privacy_policy.md`](docs/privacy_policy.md).
+For more detailed setup and advanced configuration, see [`docs/getting_started.md`](docs/getting_started.md).

@@ -1,0 +1,49 @@
+# FastAPI and Uvicorn (for web services)
+fastapi
+uvicorn[standard]
+
+# Flask (for Admin UI)
+Flask
+
+# Database Clients
+psycopg2-binary # For PostgreSQL
+redis # For Redis
+
+# HTTP Clients
+httpx # Async HTTP client
+requests # Sync HTTP client
+
+# Data Validation & Serialization
+pydantic
+
+# Machine Learning & Data Handling
+scikit-learn
+pandas
+joblib
+numpy # Often a dependency, good to list explicitly
+
+# User-Agent Parsing
+user-agents
+
+# Scheduling
+schedule # For rotating_archive.py
+
+# Web Scraping/Parsing (for corpus_wikipedia_updater.py)
+wikipedia-api
+beautifulsoup4
+lxml # Parser for BeautifulSoup
+
+# Kubernetes Client (for robots_fetcher.py, optional if not in K8s context for that script)
+kubernetes
+
+# Hugging Face Libraries (for rag/finetune.py - these can be large)
+datasets
+transformers
+torch # Core dependency for transformers
+evaluate # For metrics in fine-tuning
+
+# Metrics
+prometheus-client
+
+# Testing (optional, but good if tests are run in the same environment)
+freezegun
