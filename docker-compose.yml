@@ -261,19 +261,28 @@ services:
     container_name: redis_store
     volumes:
       - redis_data:/data
-      # - ./secrets/redis_password.txt:/run/secrets/redis_password.txt:ro # Alternative if not using Docker secrets feature
     networks:
       - defense_network
     restart: unless-stopped
     command: >
-      sh -c "redis-server --save 60 1 --loglevel warning $([ -f /run/secrets/redis_password.txt ] && echo '--requirepass \"$(cat /run/secrets/redis_password.txt)\"' || echo '')"
+      sh -c 'if [ -f /run/secrets/redis_password.txt ] && [ -s /run/secrets/redis_password.txt ]; then \
+               echo "Starting Redis with password protection."; \
+               exec redis-server --save 60 1 --loglevel warning --requirepass "$(cat /run/secrets/redis_password.txt)"; \
+             else \
+               echo "Starting Redis without password protection (password file not found or empty)."; \
+               exec redis-server --save 60 1 --loglevel warning; \
+             fi'
     secrets:
-      - source: redis_password
+      - source: redis_password # This refers to the secret defined at the bottom of docker-compose.yml
         target: /run/secrets/redis_password.txt
-        # mode: 0400 # Restrict permissions if needed
+        mode: 0400 # Restrict permissions of the secret file in the container
     healthcheck:
       test: >
-        sh -c "PASSWORD_ARG=$([ -f /run/secrets/redis_password.txt ] && echo '-a \"$(cat /run/secrets/redis_password.txt)\"'); redis-cli $$PASSWORD_ARG ping | grep -q PONG"
+        sh -c 'if [ -f /run/secrets/redis_password.txt ] && [ -s /run/secrets/redis_password.txt ]; then \
+                 redis-cli -a "$(cat /run/secrets/redis_password.txt)" ping | grep -q PONG; \
+               else \
+                 redis-cli ping | grep -q PONG; \
+               fi'
       interval: 10s
       timeout: 5s
       retries: 5
