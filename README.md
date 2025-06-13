@@ -1,6 +1,6 @@
 # AI Scraping Defense Stack
 
-## * This system is a work in progress and not yet ready for release *
+## *This system is a work-in-progress and not yet ready for release*
 
 This system combats scraping by unauthorized AI bots targeting FOSS or documentation sites. It employs a multi-layered defense strategy including real-time detection, tarpitting, honeypots, and behavioral analysis with optional AI/LLM integration for sophisticated threat assessment.
 
