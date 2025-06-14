@@ -1,11 +1,10 @@
-
 services:
   mailhog:
     image: mailhog/mailhog
     container_name: mailhog
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "${ALERT_SMTP_PORT}:1025"
+      - "${ALERT_SMTP_WEB_PORT}:8025"
     networks:
       - defense_network
     restart: unless-stopped
@@ -17,7 +16,7 @@ services:
     volumes:
       - ./mocks/external_api.yaml:/mocks/external_api.yaml:ro
     ports:
-      - "8000:8000"
+      - "${MOCK_EXTERNAL_API_PORT}:8000"
     networks:
       - defense_network
     restart: unless-stopped
@@ -29,7 +28,7 @@ services:
     volumes:
       - ./mocks/ip_reputation_api.yaml:/mocks/ip_reputation_api.yaml:ro
     ports:
-      - "8004:8000" # Updated to avoid port conflict
+      - "${MOCK_IP_REPUTATION_PORT}:8000"
     networks:
       - defense_network
     restart: unless-stopped
@@ -41,19 +40,18 @@ services:
     volumes:
       - ./mocks/community_blocklist_api.yaml:/mocks/community_blocklist_api.yaml:ro
     ports:
-      - "8002:8000"
+      - "${MOCK_BLOCKLIST_API_PORT}:8000"
     networks:
       - defense_network
     restart: unless-stopped
 
-  # --- Main Application Services ---
-  nginx_proxy:  # Changed from 'nginx' to 'nginx_proxy' to match container name
+  nginx_proxy:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: nginx_proxy
-    user: nobody  # Add this to match Dockerfile
-    entrypoint: [] # Bypass the docker-entrypoint.sh from Dockerfile
+    user: nobody
+    entrypoint: []
     command: ["/usr/local/openresty/nginx/sbin/nginx", "-g", "daemon off;"]
     ports:
       - "${NGINX_HTTP_PORT:-8080}:80"
@@ -81,13 +79,16 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
       - REDIS_DB_BLOCKLIST=2
       - REAL_BACKEND_HOST=${REAL_BACKEND_HOST:-http://your-real-app-service:8080}
-      # Add these for Lua paths
       - LUA_PATH=/usr/local/openresty/lualib/?.lua;/usr/local/openresty/nginx/lua/?.lua;/etc/nginx/lua/?.lua;;
       - LUA_CPATH=/usr/local/openresty/lualib/?.so;;
+      - AI_SERVICE_PORT=${AI_SERVICE_PORT}
+      - ESCALATION_ENGINE_PORT=${ESCALATION_ENGINE_PORT}
+      - TARPIT_API_PORT=${TARPIT_API_PORT}
+      - ADMIN_UI_PORT=${ADMIN_UI_PORT}
     networks:
       - defense_network
     restart: unless-stopped
@@ -104,12 +105,26 @@ services:
       dockerfile: Dockerfile
     container_name: ai_service
     working_dir: /app
-    entrypoint: [] # Bypass the docker-entrypoint.sh
-    command: ["uvicorn", "ai_service.ai_webhook:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "${UVICORN_WORKERS:-2}"]
+    entrypoint: []
+    command: [
+      "uvicorn",
+      "ai_service.ai_webhook:app",
+      "--host", "0.0.0.0",
+      "--port", "${AI_SERVICE_PORT}",
+      "--workers", "${UVICORN_WORKERS:-2}",
+      "--log-level", "${UVICORN_LOG_LEVEL:-info}"
+    ]
     environment:
       - PYTHONPATH=/app
-      - ALERT_SMTP_HOST=mailhog
-      - ALERT_SMTP_PORT=1025
+      - ALERT_SMTP_HOST=${ALERT_SMTP_HOST}
+      - ALERT_SMTP_PORT=${ALERT_SMTP_PORT}
+      - ALERT_SMTP_USE_TLS=${ALERT_SMTP_USE_TLS}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - AI_SERVICE_PORT=${AI_SERVICE_PORT}
+      - DEBUG=${DEBUG}
+      - APP_ENV=${APP_ENV}
     volumes:
       - ./ai_service:/app/ai_service
       - ./shared:/app/shared
@@ -130,7 +145,7 @@ services:
       - defense_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${AI_SERVICE_PORT}/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -142,10 +157,26 @@ services:
       dockerfile: Dockerfile
     container_name: escalation_engine
     working_dir: /app
-    entrypoint: [] # Bypass the docker-entrypoint.sh
-    command: ["uvicorn", "escalation.escalation_engine:app", "--host", "0.0.0.0", "--port", "8003", "--workers", "${UVICORN_WORKERS:-2}"]
+    entrypoint: []
+    command: [
+      "uvicorn",
+      "escalation.escalation_engine:app",
+      "--host", "0.0.0.0",
+      "--port", "${ESCALATION_ENGINE_PORT}",
+      "--workers", "${UVICORN_WORKERS:-2}",
+      "--log-level", "${UVICORN_LOG_LEVEL:-info}"
+    ]
     environment:
       - PYTHONPATH=/app
+      - LOG_LEVEL=${LOG_LEVEL}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - ESCALATION_ENGINE_PORT=${ESCALATION_ENGINE_PORT}
+      - ESCALATION_THRESHOLD=${ESCALATION_THRESHOLD}
+      - EXTERNAL_API_URL=${EXTERNAL_API_URL}
+      - IP_REPUTATION_API_URL=${IP_REPUTATION_API_URL}
+      - DEBUG=${DEBUG}
+      - APP_ENV=${APP_ENV}
     volumes:
       - ./escalation:/app/escalation
       - ./shared:/app/shared
@@ -168,7 +199,7 @@ services:
       - defense_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8003/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${ESCALATION_ENGINE_PORT}/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -180,10 +211,23 @@ services:
       dockerfile: Dockerfile
     container_name: tarpit_api
     working_dir: /app
-    entrypoint: [] # Bypass the docker-entrypoint.sh
-    command: ["uvicorn", "tarpit.tarpit_api:app", "--host", "0.0.0.0", "--port", "8005", "--workers", "${UVICORN_WORKERS:-2}"] # Updated port
+    entrypoint: []
+    command: [
+      "uvicorn",
+      "tarpit.tarpit_api:app",
+      "--host", "0.0.0.0",
+      "--port", "${TARPIT_API_PORT}",
+      "--workers", "${UVICORN_WORKERS:-2}",
+      "--log-level", "${UVICORN_LOG_LEVEL:-info}"
+    ]
     environment:
       - PYTHONPATH=/app
+      - LOG_LEVEL=${LOG_LEVEL}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - TARPIT_API_PORT=${TARPIT_API_PORT}
+      - DEBUG=${DEBUG}
+      - APP_ENV=${APP_ENV}
     volumes:
       - ./tarpit:/app/tarpit
       - ./shared:/app/shared
@@ -206,7 +250,7 @@ services:
       - defense_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8005/health || exit 1"] # Updated port
+      test: ["CMD-SHELL", "curl -f http://localhost:${TARPIT_API_PORT}/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -218,21 +262,27 @@ services:
       dockerfile: Dockerfile
     container_name: admin_ui
     working_dir: /app
-    entrypoint: [] # Bypass the docker-entrypoint.sh
+    entrypoint: []
     command: ["python", "admin_ui/admin_ui.py"]
     environment:
       - PYTHONPATH=/app
-      - FLASK_ENV=${FLASK_ENV:-production}
+      - FLASK_ENV=${FLASK_ENV}
+      - ADMIN_UI_PORT=${ADMIN_UI_PORT}
+      - DEBUG=${DEBUG}
+      - APP_ENV=${APP_ENV}
+      - ADMIN_UI_USERNAME=${ADMIN_UI_USERNAME}
     volumes:
       - ./admin_ui:/app/admin_ui
       - ./shared:/app/shared
       - ./metrics.py:/app/metrics.py:ro
       - ./logs:/app/logs
+    secrets:
+      - admin_ui_password
     networks:
       - defense_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://admin_ui:5002/ || exit 1"] # Updated to use internal network hostname
+      test: ["CMD-SHELL", "curl -f http://localhost:${ADMIN_UI_PORT}/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -244,11 +294,12 @@ services:
       dockerfile: Dockerfile
     container_name: archive_rotator
     working_dir: /app
-    entrypoint: [] # Bypass the docker-entrypoint.sh
+    entrypoint: []
     command: ["python", "tarpit/rotating_archive.py"]
     environment:
       - PYTHONPATH=/app
       - DEFAULT_ARCHIVE_DIR=/app/fake_archives
+      - LOG_LEVEL=${LOG_LEVEL}
     volumes:
       - ./tarpit:/app/tarpit
       - ./archives:/app/fake_archives
@@ -306,7 +357,7 @@ services:
       - defense_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-markovuser} -d $${POSTGRES_DB:-markovdb} -h localhost"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-markovuser} -d ${POSTGRES_DB:-markovdb} -h localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -318,13 +369,14 @@ services:
       dockerfile: Dockerfile
     container_name: corpus_updater
     working_dir: /app
-    entrypoint: [] # Bypass the docker-entrypoint.sh
+    entrypoint: []
     command: ["python", "util/corpus_wikipedia_updater.py"]
     environment:
       - PYTHONPATH=/app
-      - WIKIPEDIA_CORPUS_FILE=/app/data/wikipedia_corpus.txt
+      - WIKIPEDIA_CORPUS_FILE=${WIKIPEDIA_CORPUS_FILE}
       - WIKIPEDIA_NUM_ARTICLES=${WIKIPEDIA_NUM_ARTICLES:-5}
       - WIKIPEDIA_LANGUAGE=${WIKIPEDIA_LANGUAGE:-en}
+      - LOG_LEVEL=${LOG_LEVEL}
     volumes:
       - ./util:/app/util
       - ./data:/app/data
@@ -337,11 +389,12 @@ services:
       dockerfile: Dockerfile
     container_name: robots_fetcher
     working_dir: /app
-    entrypoint: [] # Bypass the docker-entrypoint.sh
+    entrypoint: []
     command: ["python", "util/robots_fetcher.py"]
     environment:
       - PYTHONPATH=/app
       - REAL_BACKEND_HOST=${REAL_BACKEND_HOST_FOR_ROBOTS:-http://your-real-app-service:8080}
+      - LOG_LEVEL=${LOG_LEVEL}
     volumes:
       - ./util:/app/util
     networks:
@@ -353,10 +406,10 @@ services:
       dockerfile: Dockerfile
     container_name: markov_trainer
     working_dir: /app
-    entrypoint: [] # Bypass the docker-entrypoint.sh
-    # Command specified when running: docker-compose run --rm markov_trainer python rag/train_markov_postgres.py /app/data/your_corpus_file.txt
+    entrypoint: []
     environment:
       - PYTHONPATH=/app
+      - LOG_LEVEL=${LOG_LEVEL}
     volumes:
       - ./rag:/app/rag
       - ./data:/app/data
@@ -374,11 +427,10 @@ services:
       dockerfile: Dockerfile
     container_name: model_trainer
     working_dir: /app
-    entrypoint: [] # Bypass the docker-entrypoint.sh
-    # Command: python rag/training.py
-    # Run manually: docker-compose run --rm model_trainer python rag/training.py
+    entrypoint: []
     environment:
       - PYTHONPATH=/app
+      - LOG_LEVEL=${LOG_LEVEL}
     volumes:
       - ./rag:/app/rag
       - ./shared:/app/shared
@@ -394,7 +446,7 @@ services:
         condition: service_healthy
     networks:
       - defense_network
-  
+
 networks:
   defense_network:
     driver: bridge
@@ -420,3 +472,5 @@ secrets:
     file: ./secrets/system_seed.txt
   training_pg_password:
     file: ./secrets/training_pg_password.txt
+  admin_ui_password:
+    file: ./secrets/admin_ui_password.txt

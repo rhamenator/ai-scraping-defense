@@ -73,6 +73,8 @@ except ImportError:
     HUMANS_DETECTED_EXTERNAL_API = DummyCounter()
     METRICS_SYSTEM_AVAILABLE = False
 
+ESCALATION_THRESHOLD = float(os.getenv("ESCALATION_THRESHOLD", 0.8))
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # --- Attempt to import user-agents library ---
 try:
@@ -86,7 +88,7 @@ WEBHOOK_URL = os.getenv("ESCALATION_WEBHOOK_URL")
 LOCAL_LLM_API_URL = os.getenv("LOCAL_LLM_API_URL")
 LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL")
 LOCAL_LLM_TIMEOUT = float(os.getenv("LOCAL_LLM_TIMEOUT", 45.0))
-EXTERNAL_API_URL = os.getenv("EXTERNAL_CLASSIFICATION_API_URL")
+EXTERNAL_API_URL = os.getenv("EXTERNAL_CLASSIFICATION_API_URL") if os.getenv("EXTERNAL_CLASSIFICATION_API_URL") else os.getenv("EXTERNAL_API_URL")
 EXTERNAL_API_KEY_FILE = os.getenv("EXTERNAL_CLASSIFICATION_API_KEY_FILE", "/run/secrets/external_api_key.txt") # Corrected default
 EXTERNAL_API_TIMEOUT = float(os.getenv("EXTERNAL_API_TIMEOUT", 15.0))
 
@@ -110,6 +112,7 @@ REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_DB_FREQUENCY = int(os.getenv("REDIS_DB_FREQUENCY", 3))
 FREQUENCY_WINDOW_SECONDS = int(os.getenv("FREQUENCY_WINDOW_SECONDS", 300)) 
 FREQUENCY_KEY_PREFIX = "freq:"
+FREQUENCY_TRACKING_TTL = FREQUENCY_WINDOW_SECONDS + 60
 
 HEURISTIC_THRESHOLD_LOW = 0.3
 HEURISTIC_THRESHOLD_MEDIUM = 0.6
@@ -529,6 +532,10 @@ async def health_check():
 # --- Main ---
 if __name__ == "__main__":
     import uvicorn
+    port = int(os.getenv("ESCALATION_ENGINE_PORT", 8003))
+    workers = int(os.getenv("UVICORN_WORKERS", 2))
+    log_level = os.getenv("LOG_LEVEL", "info").lower()
+
     logger.info("--- Escalation Engine Starting ---")
     if MODEL_LOADED: logger.info(f"Loaded RF Model from: {RF_MODEL_PATH}")
     else: logger.warning(f"RF Model NOT loaded from {RF_MODEL_PATH}. Using rule-based heuristics only.")
@@ -541,4 +548,5 @@ if __name__ == "__main__":
     logger.info(f"CAPTCHA Trigger Enabled: {ENABLE_CAPTCHA_TRIGGER} (Low: {CAPTCHA_SCORE_THRESHOLD_LOW}, High: {CAPTCHA_SCORE_THRESHOLD_HIGH})")
     logger.info(f"Webhook URL configured: {'Yes (' + str(WEBHOOK_URL) + ')' if WEBHOOK_URL else 'No'}")
     logger.info("---------------------------------")
-    uvicorn.run("escalation_engine:app", host="0.0.0.0", port=8003, workers=int(os.getenv("UVICORN_WORKERS", 2)), reload=False)
+    logger.info(f"Starting Escalation Engine on port {port}")
+    uvicorn.run("escalation_engine:app", host="0.0.0.0", port=port, workers=workers, log_level=log_level, reload=False)

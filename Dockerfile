@@ -27,13 +27,19 @@ RUN apk update && apk add --no-cache \
     gfortran \
     cmake \
     ninja \
-    luarocks \
+    perl \
+    perl-utils \
+    perl-dev \
+    wget \
     && rm -rf /var/cache/apk/*
 
-# Install Lua dependencies
-RUN luarocks install lua-resty-redis && \
-    luarocks install lua-resty-http
+# Install OpenResty packages
+RUN wget https://raw.githubusercontent.com/openresty/lua-resty-redis/master/lib/resty/redis.lua -O /usr/local/openresty/lualib/resty/redis.lua && \
+    wget https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http.lua -O /usr/local/openresty/lualib/resty/http.lua && \
+    wget https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http_headers.lua -O /usr/local/openresty/lualib/resty/http_headers.lua && \
+    wget https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http_connect.lua -O /usr/local/openresty/lualib/resty/http_connect.lua
 
+# Set environment variables
 ENV PATH="/usr/local/openresty/nginx/sbin:/opt/venv/bin:${PATH}"
 ENV PYTHONUNBUFFERED=1
 ENV PYTORCH_ENABLE_MPS_FALLBACK=1
@@ -41,20 +47,24 @@ ENV GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
 ENV GRPC_PYTHON_BUILD_WITH_CYTHON=1
 ENV MAX_JOBS=4
 # Add OpenResty paths
-ENV LUA_PATH="/usr/local/openresty/lualib/?.lua;/usr/local/openresty/nginx/lua/?.lua;/etc/nginx/lua/?.lua;;"
-ENV LUA_CPATH="/usr/local/openresty/lualib/?.so;;"
+ENV LUA_PATH="/usr/local/openresty/site/lualib/?.lua;/usr/local/openresty/lualib/?.lua;/usr/local/openresty/nginx/lua/?.lua;/etc/nginx/lua/?.lua;;"
+ENV LUA_CPATH="/usr/local/openresty/site/lualib/?.so;/usr/local/openresty/lualib/?.so;;"
 
 # --- Python Setup ---
 COPY requirements.txt constraints.txt /app/
-RUN python3 -m venv /opt/venv \
-    && /opt/venv/bin/pip install --upgrade pip \
-    && /opt/venv/bin/pip install wheel setuptools \
-    # Install numpy first
-    && /opt/venv/bin/pip install --no-cache-dir numpy \
-    # Then install PyTorch
-    && /opt/venv/bin/pip install --no-cache-dir -r /app/constraints.txt \
-    # Finally install other requirements
-    && /opt/venv/bin/pip install --no-cache-dir -r /app/requirements.txt
+
+# Create and activate virtual environment
+RUN python3 -m venv /opt/venv && \
+    /opt/venv/bin/pip install --upgrade pip && \
+    /opt/venv/bin/pip install wheel setuptools
+
+# Install packages in the correct order
+RUN /opt/venv/bin/pip install --no-cache-dir numpy && \
+    /opt/venv/bin/pip install --no-cache-dir -r /app/constraints.txt && \
+    /opt/venv/bin/pip install --no-cache-dir -r /app/requirements.txt
+
+# Ensure venv bin directory is in PATH
+ENV PATH="/opt/venv/bin:$PATH"
 
 # --- Directory Structure ---
 RUN mkdir -p /etc/nginx/lua \
@@ -77,9 +87,9 @@ COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY nginx/lua /etc/nginx/lua
 COPY goaccess/goaccess.conf /etc/goaccess/goaccess.conf
 
-# Set proper permissions for Lua scripts
-RUN chmod -R 755 /etc/nginx/lua && \
-    chown -R nobody:nobody /etc/nginx/lua
+# Set proper permissions for Lua scripts and modules
+RUN chmod -R 755 /etc/nginx/lua /usr/local/openresty/lualib/resty && \
+    chown -R nobody:nobody /etc/nginx/lua /usr/local/openresty/lualib/resty
 
 # --- Application Code ---
 COPY tarpit /app/tarpit

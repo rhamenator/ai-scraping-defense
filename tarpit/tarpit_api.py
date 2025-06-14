@@ -48,6 +48,19 @@ except ImportError as e:
         return False
     FLAGGING_AVAILABLE = False
 
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+APP_ENV = os.getenv("APP_ENV", "production")
+DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+
+if APP_ENV == "development" or DEBUG:
+    logger.setLevel(logging.DEBUG) 
+    logger.debug("Debug logging enabled.")
+else:
+    if LOG_LEVEL: logger.setLevel(LOG_LEVEL.upper())
+    else:
+        logger.setLevel(logging.INFO)
+        LOG_LEVEL = "INFO"
+    logger.debug(f"Log level set to {LOG_LEVEL}.")
 
 # --- Configuration ---
 ESCALATION_ENDPOINT = os.getenv("ESCALATION_ENDPOINT", "http://escalation_engine:8003/escalate")
@@ -300,11 +313,16 @@ if __name__ == "__main__":
     logger.info(f"Streaming Delay: {MIN_STREAM_DELAY_SEC:.2f}s - {MAX_STREAM_DELAY_SEC:.2f}s")
     logger.info("--------------------------")
     # Determine number of workers based on environment or default
-    num_workers = int(os.getenv("UVICORN_WORKERS", 2))
+    port = int(os.getenv("TARPIT_API_PORT", 8005))
+    workers = int(os.getenv("UVICORN_WORKERS", 2))
+    log_level = os.getenv("LOG_LEVEL", "info").lower()
+    
+    logger.info(f"Starting Tarpit API on port {port}")
     uvicorn.run(
         "tarpit_api:app",
         host="0.0.0.0",
-        port=8001,
-        workers=num_workers,
-        log_level=os.getenv("LOG_LEVEL", "info").lower() # Sync Uvicorn logging with app
+        port=port,
+        workers=workers,
+        log_level=log_level
     )
+    logger.info("--- Tarpit API Started ---")

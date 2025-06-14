@@ -1,49 +1,21 @@
-# FastAPI and Uvicorn (for web services)
-fastapi
-uvicorn[standard]
-
-# Flask (for Admin UI)
-Flask
-
-# Database Clients
-psycopg2-binary # For PostgreSQL
-redis # For Redis
-
-# HTTP Clients
-httpx # Async HTTP client
-requests # Sync HTTP client
-
-# Data Validation & Serialization
-pydantic
-
-# Machine Learning & Data Handling
-scikit-learn
-pandas
-joblib
-numpy # Often a dependency, good to list explicitly
-
-# User-Agent Parsing
-user-agents
-
-# Scheduling
-schedule # For rotating_archive.py
-
-# Web Scraping/Parsing (for corpus_wikipedia_updater.py)
-wikipedia-api
-beautifulsoup4
-lxml # Parser for BeautifulSoup
-
-# Kubernetes Client (for robots_fetcher.py, optional if not in K8s context for that script)
-kubernetes
-
-# Hugging Face Libraries (for rag/finetune.py - these can be large)
-datasets
-transformers
-torch # Core dependency for transformers
-evaluate # For metrics in fine-tuning
-
-# Metrics
-prometheus-client
-
-# Testing (optional, but good if tests are run in the same environment)
-freezegun
+numpy>=1.24.0
+fastapi>=0.115.0
+flask>=3.0.0
+psycopg2-binary>=2.9.9
+redis>=6.0.0
+httpx>=0.24.0
+requests>=2.31.0
+pydantic>=2.0.0
+pandas>=2.0.0
+joblib>=1.3.0
+user-agents>=2.0
+schedule>=1.0.0
+wikipedia-api>=0.8.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+kubernetes>=25.3.0
+datasets>=3.0.0
+transformers>=4.30.0
+uvicorn[standard]>=0.27.0  # Added uvicorn
+gunicorn>=21.2.0  # Added gunicorn for production serving
+python-multipart>=0.0.9  # For FastAPI form handling

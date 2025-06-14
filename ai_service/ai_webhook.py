@@ -62,7 +62,7 @@ BLOCKLIST_TTL_SECONDS = int(os.getenv("BLOCKLIST_TTL_SECONDS", 86400))
 ALERT_METHOD = os.getenv("ALERT_METHOD", "none").lower()
 ALERT_GENERIC_WEBHOOK_URL = os.getenv("ALERT_GENERIC_WEBHOOK_URL")
 ALERT_SLACK_WEBHOOK_URL = os.getenv("ALERT_SLACK_WEBHOOK_URL")
-ALERT_SMTP_HOST = os.getenv("ALERT_SMTP_HOST")
+ALERT_SMTP_HOST = os.getenv("ALERT_SMTP_HOST", "mailhog")
 ALERT_SMTP_PORT = int(os.getenv("ALERT_SMTP_PORT", 587))
 ALERT_SMTP_USER = os.getenv("ALERT_SMTP_USER")
 ALERT_SMTP_PASSWORD = None # Populated by load_secret below
@@ -79,6 +79,7 @@ COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = float(os.getenv("COMMUNITY_BLOCKLIST_REPORT
 COMMUNITY_BLOCKLIST_API_KEY = None # Populated by load_secret
 
 LOG_DIR = "/app/logs"
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 BLOCK_LOG_FILE = os.path.join(LOG_DIR, "block_events.log")
 ALERT_LOG_FILE = os.path.join(LOG_DIR, "alert_events.log")
 ERROR_LOG_FILE = os.path.join(LOG_DIR, "aiservice_errors.log")
@@ -307,9 +308,13 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+    port = int(os.getenv("AI_SERVICE_PORT", 8000))
+    workers = int(os.getenv("UVICORN_WORKERS", 2))
+    log_level = os.getenv("LOG_LEVEL", "info").lower()
+
     logger.info("--- AI Service / Webhook Receiver Starting ---")
     # ... (startup logging remains the same) ...
-    uvicorn.run("ai_webhook:app", host="0.0.0.0", port=8000, workers=int(os.getenv("UVICORN_WORKERS", 2)), reload=False)
+    uvicorn.run("ai_webhook:app", host="0.0.0.0", port=port, workers=workers, log_level=log_level, reload=False)
     logger.info("--- AI Service / Webhook Receiver Started ---")
 # Note: The above code is designed to be run as a FastAPI application.
 # It should be run with a WSGI server like Uvicorn or Gunicorn.
