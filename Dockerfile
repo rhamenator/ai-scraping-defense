@@ -1,4 +1,5 @@
 # Dockerfile for AI Scraping Defense Stack
+FROM ubuntu:22.04
 FROM openresty/openresty:alpine
 
 ENV DEBIAN_FRONTEND=noninteractive
