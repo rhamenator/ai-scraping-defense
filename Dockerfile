@@ -1,10 +1,10 @@
 # Dockerfile for AI Scraping Defense Stack
-FROM ubuntu:22.04
+FROM openresty/openresty:alpine
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # --- System Dependencies and OpenResty Installation ---
-RUN apt-get update && apt-get install -y \
+RUN apk update && apk install -y \
     curl \
     gnupg \
     dos2unix \
@@ -21,8 +21,8 @@ RUN apt-get update && apt-get install -y \
     redis-tools \
     && curl -fsSL https://openresty.org/package/pubkey.gpg | gpg --dearmor -o /usr/share/keyrings/openresty-archive-keyring.gpg \
     && echo "deb [signed-by=/usr/share/keyrings/openresty-archive-keyring.gpg] http://openresty.org/package/ubuntu jammy main" | tee /etc/apt/sources.list.d/openresty.list \
-    && apt-get update && apt-get install -y openresty \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apk update && apk install -y openresty \
+    && apk clean && rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/usr/local/openresty/nginx/sbin:/opt/venv/bin:${PATH}"
 
