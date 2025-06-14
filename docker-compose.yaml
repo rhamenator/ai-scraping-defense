@@ -47,12 +47,12 @@ services:
     restart: unless-stopped
 
   # --- Main Application Services ---
-
-  nginx:
+  nginx_proxy:  # Changed from 'nginx' to 'nginx_proxy' to match container name
     build:
       context: .
       dockerfile: Dockerfile
     container_name: nginx_proxy
+    user: nobody  # Add this to match Dockerfile
     entrypoint: [] # Bypass the docker-entrypoint.sh from Dockerfile
     command: ["/usr/local/openresty/nginx/sbin/nginx", "-g", "daemon off;"]
     ports:
@@ -85,14 +85,18 @@ services:
       - REDIS_PORT=6379
       - REDIS_DB_BLOCKLIST=2
       - REAL_BACKEND_HOST=${REAL_BACKEND_HOST:-http://your-real-app-service:8080}
+      # Add these for Lua paths
+      - LUA_PATH=/usr/local/openresty/lualib/?.lua;/usr/local/openresty/nginx/lua/?.lua;/etc/nginx/lua/?.lua;;
+      - LUA_CPATH=/usr/local/openresty/lualib/?.so;;
     networks:
       - defense_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:80/ || exit 1"] # Check Nginx directly
+      test: ["CMD-SHELL", "curl -f http://localhost:80/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 15s
 
   ai_service:
     build:
