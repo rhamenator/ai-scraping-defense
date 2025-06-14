@@ -1,40 +1,59 @@
 # Dockerfile for AI Scraping Defense Stack
-FROM ubuntu:22.04
 FROM openresty/openresty:alpine
 
-ENV DEBIAN_FRONTEND=noninteractive
+# --- Add Community Repository ---
+RUN echo "https://dl-cdn.alpinelinux.org/alpine/v3.18/community" >> /etc/apk/repositories
 
-# --- System Dependencies and OpenResty Installation ---
-RUN apk update && apk install -y \
+# --- System Dependencies ---
+RUN apk update && apk add --no-cache \
     curl \
     gnupg \
-    dos2unix \
-    dnsutils \
+    coreutils \
+    bind-tools \
     fail2ban \
     goaccess \
     python3 \
-    python3-pip \
-    python3-venv \
-    python-is-python3 \
+    python3-dev \
+    py3-pip \
     git \
-    build-essential \
+    build-base \
     jq \
-    redis-tools \
-    && curl -fsSL https://openresty.org/package/pubkey.gpg | gpg --dearmor -o /usr/share/keyrings/openresty-archive-keyring.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/openresty-archive-keyring.gpg] http://openresty.org/package/ubuntu jammy main" | tee /etc/apt/sources.list.d/openresty.list \
-    && apk update && apk install -y openresty \
-    && apk clean && rm -rf /var/lib/apt/lists/*
+    redis \
+    linux-headers \
+    musl-dev \
+    libffi-dev \
+    openblas-dev \
+    && rm -rf /var/cache/apk/*
 
 ENV PATH="/usr/local/openresty/nginx/sbin:/opt/venv/bin:${PATH}"
+ENV PYTHONUNBUFFERED=1
+# Add these environment variables for PyTorch
+ENV PYTORCH_ENABLE_MPS_FALLBACK=1
+ENV GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
+ENV GRPC_PYTHON_BUILD_WITH_CYTHON=1
 
 # --- Python Setup ---
-COPY requirements.txt /app/requirements.txt
+COPY requirements.txt constraints.txt /app/
 RUN python3 -m venv /opt/venv \
     && /opt/venv/bin/pip install --upgrade pip \
-    && /opt/venv/bin/pip install -r /app/requirements.txt
+    && /opt/venv/bin/pip install wheel setuptools \
+    # Install PyTorch first
+    && /opt/venv/bin/pip install --no-cache-dir -r /app/constraints.txt \
+    # Then install other requirements
+    && /opt/venv/bin/pip install --no-cache-dir -r /app/requirements.txt
 
 # --- Directory Structure ---
-RUN mkdir -p /etc/nginx/lua /var/www/html/docs /app/tarpit /app/escalation /app/admin_ui /app/rag /app/shared /app/ai_service /logs /archives /etc/nginx/secrets
+RUN mkdir -p /etc/nginx/lua \
+    /var/www/html/docs \
+    /app/tarpit \
+    /app/escalation \
+    /app/admin_ui \
+    /app/rag \
+    /app/shared \
+    /app/ai_service \
+    /logs \
+    /archives \
+    /etc/nginx/secrets
 
 # --- Configuration Files ---
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
@@ -55,8 +74,7 @@ COPY metrics.py /app/
 COPY docs /var/www/html/docs
 
 # --- Expose Ports ---
-EXPOSE 80
-EXPOSE 443
+EXPOSE 80 443
 
 # --- Default Command ---
 CMD ["/usr/local/openresty/nginx/sbin/nginx", "-g", "daemon off;"]
