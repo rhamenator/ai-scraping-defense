@@ -97,7 +97,8 @@ create_secret "community_blocklist_api_key.txt" "key_$(openssl rand -hex 16)"
 
 # Generate .htpasswd file
 if command -v htpasswd >/dev/null 2>&1; then
-    htpasswd_password="$(generate_password)_$(openssl rand -base64 32 | tr -d '/+=' | head -c 16)_$(date -u -d "$CURRENT_TIME" +%Y%m%d%H%M%S)"
+    # Generate a completely random password without patterns
+    htpasswd_password="$(cat /dev/urandom | tr -dc 'A-Za-z0-9@#$%^&*()_+[]{}|;:,.<>?~' | head -c $((RANDOM % 18 + 30)))"
     echo "$htpasswd_password" | htpasswd -ci "$SECRETS_DIR/.htpasswd" "$CURRENT_USER"
     chmod 600 "$SECRETS_DIR/.htpasswd"
     echo "Created: .htpasswd"

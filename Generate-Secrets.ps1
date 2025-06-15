@@ -97,8 +97,12 @@ New-Secret "external_api_key.txt" "key_$(New-Generated-Hex 16)"
 New-Secret "ip_reputation_api_key.txt" "key_$(New-Generated-Hex 16)"
 New-Secret "community_blocklist_api_key.txt" "key_$(New-Generated-Hex 16)"
 
-# Generate .htpasswd file
-$htpasswdPassword = "$(New-Password)_$(New-Generated-Hex 16)_$((Get-Date $CurrentTime).ToString('yyyyMMddHHmmss'))"
+# Generate .htpasswd file - completely random without patterns
+$htpasswdPassword = -join ((1..(Get-Random -Minimum 30 -Maximum 49)) | 
+    ForEach-Object { 
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()_+[]{}|;:,.<>?~'.ToCharArray() | 
+        Get-Random 
+    })
 $htpasswd = "${CurrentUser}:{SHA}" + [Convert]::ToBase64String([System.Security.Cryptography.SHA1]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($htpasswdPassword)))
 New-Secret ".htpasswd" $htpasswd
 
