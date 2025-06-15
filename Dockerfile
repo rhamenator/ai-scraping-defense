@@ -66,8 +66,34 @@ RUN /opt/venv/bin/pip install --no-cache-dir numpy && \
 # Ensure venv bin directory is in PATH
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Create required nginx directories with proper permissions
+RUN mkdir -p \
+    /var/run/openresty \
+    /var/run/openresty/nginx-client-body \
+    /var/cache/nginx \
+    /var/cache/nginx/proxy_temp \
+    /var/cache/nginx/fastcgi_temp \
+    /var/cache/nginx/uwsgi_temp \
+    /var/cache/nginx/scgi_temp \
+    /var/log/nginx \
+    /var/run/nginx \
+    && chown -R nobody:nobody \
+        /var/run/openresty \
+        /var/run/openresty/nginx-client-body \
+        /var/cache/nginx \
+        /var/cache/nginx/proxy_temp \
+        /var/cache/nginx/fastcgi_temp \
+        /var/cache/nginx/uwsgi_temp \
+        /var/cache/nginx/scgi_temp \
+        /var/log/nginx \
+        /var/run/nginx \
+    && chmod 755 /var/run/openresty \
+    && chmod 700 /var/run/openresty/nginx-client-body \
+    && chmod -R 755 /var/cache/nginx
+
 # --- Directory Structure ---
-RUN mkdir -p /etc/nginx/lua \
+RUN mkdir -p \
+    /etc/nginx/lua \
     /var/www/html/docs \
     /app/tarpit \
     /app/escalation \
@@ -78,9 +104,13 @@ RUN mkdir -p /etc/nginx/lua \
     /logs \
     /archives \
     /etc/nginx/secrets \
-    /var/run/nginx \
-    /var/log/nginx \
-    && chown -R nobody:nobody /var/log/nginx /var/run/nginx
+    && chown -R nobody:nobody \
+        /etc/nginx/lua \
+        /var/www/html/docs \
+        /app \
+        /logs \
+        /archives \
+        /etc/nginx/secrets
 
 # --- Configuration Files ---
 COPY nginx/nginx.conf /etc/nginx/nginx.conf

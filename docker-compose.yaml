@@ -45,6 +45,9 @@ services:
       - defense_network
     restart: unless-stopped
 
+# Previous content of docker-compose.yaml remains the same until nginx_proxy service
+# Only showing the modified nginx_proxy service and volumes section for brevity
+
   nginx_proxy:
     build:
       context: .
@@ -65,6 +68,11 @@ services:
       - ./logs/nginx:/var/log/nginx
       - ./certs:/etc/nginx/certs:ro
       - ./secrets/.htpasswd:/etc/nginx/secrets/.htpasswd:ro
+      - nginx_client_body_temp:/var/run/openresty/nginx-client-body
+      - nginx_proxy_temp:/var/cache/nginx/proxy_temp
+      - nginx_fastcgi_temp:/var/cache/nginx/fastcgi_temp
+      - nginx_uwsgi_temp:/var/cache/nginx/uwsgi_temp
+      - nginx_scgi_temp:/var/cache/nginx/scgi_temp
     depends_on:
       tarpit_api:
         condition: service_healthy
@@ -452,6 +460,11 @@ networks:
     driver: bridge
 
 volumes:
+  nginx_client_body_temp:
+  nginx_proxy_temp:
+  nginx_fastcgi_temp:
+  nginx_uwsgi_temp:
+  nginx_scgi_temp:
   redis_data:
   postgres_data:
 
