@@ -45,9 +45,6 @@ services:
       - defense_network
     restart: unless-stopped
 
-# Previous content of docker-compose.yaml remains the same until nginx_proxy service
-# Only showing the modified nginx_proxy service and volumes section for brevity
-
   nginx_proxy:
     build:
       context: .
@@ -99,6 +96,8 @@ services:
       - ADMIN_UI_PORT=${ADMIN_UI_PORT}
     networks:
       - defense_network
+    secrets:
+      - redis_password
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:80/ || exit 1"]

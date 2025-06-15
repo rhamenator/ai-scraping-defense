@@ -31,16 +31,22 @@ if not ok then
   return
 end
 
--- Optional: Authenticate if Redis requires a password
--- local redis_password = os.getenv("REDIS_PASSWORD") -- Or read from a secret file if possible
--- if redis_password then
---   local auth_ok, auth_err = red:auth(redis_password)
---   if not auth_ok then
---     ngx.log(ngx.ERR, "check_blocklist: Redis authentication failed: ", auth_err)
---     red:close()
---     return -- Fail open
---   end
--- end
+-- Redis authentication
+local redis_password_file = "/run/secrets/redis_password.txt"
+local f = io.open(redis_password_file, "r")
+if f then
+    local redis_password = f:read("*all")
+    f:close()
+    if redis_password then
+        redis_password = string.gsub(redis_password, "^%s*(.-)%s*$", "%1") -- trim whitespace
+        local auth_ok, auth_err = red:auth(redis_password)
+        if not auth_ok then
+            ngx.log(ngx.ERR, "check_blocklist: Redis authentication failed: ", auth_err)
+            red:close()
+            return -- Fail open
+        end
+    end
+end
 
 -- Select the correct database
 local select_ok, select_err = red:select(redis_db_blocklist)
