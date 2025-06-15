@@ -6,14 +6,46 @@ CURRENT_USER=$(whoami)
 CURRENT_HOSTNAME=$(hostname)
 SECRETS_DIR="./secrets"
 
+# Parse command line arguments
+FORCE_OVERWRITE=0
+while getopts "f" opt; do
+    case $opt in
+        f) FORCE_OVERWRITE=1 ;;
+    esac
+done
+
+# Check for existing secrets before starting
+if [ -d "$SECRETS_DIR" ] && [ $FORCE_OVERWRITE -eq 0 ]; then
+    if ls $SECRETS_DIR/* >/dev/null 2>&1; then
+        echo "WARNING: Secrets directory already contains files."
+        echo "Use -f flag to force overwrite of existing secrets."
+        exit 1
+    fi
+fi
+
 echo "Generating secrets for:"
 echo "User: $CURRENT_USER"
 echo "Hostname: $CURRENT_HOSTNAME"
 echo "Time (UTC): $CURRENT_TIME"
 echo "------------------------"
 
-# Rest of the script remains the same
+# Create secrets directory if it doesn't exist
 mkdir -p "$SECRETS_DIR"
+
+# Function to generate highly random system seed
+generate_system_seed() {
+    # Random length between 128 and 256 characters
+    local length=$((RANDOM % 129 + 128))
+    echo "Generating ${length}-character system seed..." >&2
+    
+    # Combine multiple sources of entropy
+    local seed=$(cat /dev/urandom | tr -dc 'A-Za-z0-9@#$%^&*()_+[]{}|;:,.<>?~' | head -c $length)
+    seed+=$(openssl rand -base64 64 | tr -dc 'A-Za-z0-9@#$%^&*()_+[]{}|;:,.<>?~' | head -c 64)
+    seed+=$(date +%s%N | sha256sum | base64 | head -c 32)
+    
+    # Shuffle the combined string
+    echo "$seed" | fold -w1 | shuf | tr -d '\n' | head -c $length
+}
 
 # Function to generate a complex random password
 generate_password() {
@@ -39,7 +71,7 @@ create_secret() {
 }
 
 # Generate system seed
-system_seed="seed_${CURRENT_HOSTNAME}_$(date -u -d "$CURRENT_TIME" +%Y%m%d%H%M%S)_$(openssl rand -hex 8)"
+system_seed=$(generate_system_seed)
 create_secret "system_seed.txt" "$system_seed"
 
 # Generate Redis password
@@ -65,7 +97,7 @@ create_secret "community_blocklist_api_key.txt" "key_$(openssl rand -hex 16)"
 
 # Generate .htpasswd file
 if command -v htpasswd >/dev/null 2>&1; then
-    htpasswd_password="protected_$(date -d "$CURRENT_TIME" +%Y%m%d%H%M%S)_$(openssl rand -hex 4)"
+    htpasswd_password="$(generate_password)_$(openssl rand -base64 32 | tr -d '/+=' | head -c 16)_$(date -u -d "$CURRENT_TIME" +%Y%m%d%H%M%S)"
     echo "$htpasswd_password" | htpasswd -ci "$SECRETS_DIR/.htpasswd" "$CURRENT_USER"
     chmod 600 "$SECRETS_DIR/.htpasswd"
     echo "Created: .htpasswd"

@@ -1,8 +1,25 @@
+# Generate-Secrets.ps1
+# This script generates various secrets for the application, including passwords and API keys.
+# Add force parameter
+param(
+    [switch]$Force
+)
+
 # Get current time in UTC and current user from OS
 $CurrentTime = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss")
 $CurrentUser = $env:USERNAME
 $CurrentHostname = $env:COMPUTERNAME
 $SecretsDir = ".\secrets"
+
+# Check for existing secrets before starting
+if (Test-Path $SecretsDir) {
+    $existingFiles = Get-ChildItem $SecretsDir -File
+    if ($existingFiles.Count -gt 0 -and -not $Force) {
+        Write-Host "WARNING: Secrets directory already contains files."
+        Write-Host "Use -Force parameter to overwrite existing secrets."
+        exit 1
+    }
+}
 
 Write-Host "Generating secrets for:"
 Write-Host "User: $CurrentUser"
@@ -12,6 +29,26 @@ Write-Host "------------------------"
 
 # Create secrets directory if it doesn't exist
 New-Item -ItemType Directory -Force -Path $SecretsDir | Out-Null
+
+# Function to generate highly random system seed
+function New-SystemSeed {
+    # Random length between 128 and 256 characters
+    $length = Get-Random -Minimum 128 -Maximum 257
+    Write-Host "Generating $length-character system seed..."
+    
+    # Create random bytes and convert to base64
+    $randomBytes = New-Object byte[] $length
+    $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::Create()
+    $rng.GetBytes($randomBytes)
+    
+    # Convert to usable characters and shuffle
+    $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()_+[]{}|;:,.<>?~'
+    $result = -join ($randomBytes | ForEach-Object {
+        $chars[$_ % $chars.Length]
+    } | Get-Random -Count $length)
+    
+    return $result
+}
 
 # Function to generate a random password
 function New-Password {
@@ -44,7 +81,7 @@ function New-Secret {
 }
 
 # Generate system seed
-$systemSeed = "seed_${CurrentHostname}_$((Get-Date $CurrentTime).ToString('yyyyMMddHHmmss'))_$(New-Generated-Hex 8)"
+$systemSeed = New-SystemSeed
 New-Secret "system_seed.txt" $systemSeed
 
 # Generate passwords and keys
@@ -61,7 +98,7 @@ New-Secret "ip_reputation_api_key.txt" "key_$(New-Generated-Hex 16)"
 New-Secret "community_blocklist_api_key.txt" "key_$(New-Generated-Hex 16)"
 
 # Generate .htpasswd file
-$htpasswdPassword = "protected_$((Get-Date $CurrentTime).ToString('yyyyMMddHHmmss'))_$(New-Generated-Hex 4)"
+$htpasswdPassword = "$(New-Password)_$(New-Generated-Hex 16)_$((Get-Date $CurrentTime).ToString('yyyyMMddHHmmss'))"
 $htpasswd = "${CurrentUser}:{SHA}" + [Convert]::ToBase64String([System.Security.Cryptography.SHA1]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($htpasswdPassword)))
 New-Secret ".htpasswd" $htpasswd
 
@@ -74,7 +111,7 @@ Write-Host "`nImportant Passwords (save these):"
 Write-Host "Admin UI Username: $CurrentUser"
 Write-Host "Admin UI Password: $adminPassword"
 Write-Host "HTPasswd Username: $CurrentUser"
-Write-Host "HTPasswd Password: $htpasswd"
+Write-Host "HTPasswd Password: $htpasswdPassword"
 Write-Host "System Seed: $systemSeed"
 
 Write-Host "`nDone! Make sure to save these passwords securely and never commit them to version control."
