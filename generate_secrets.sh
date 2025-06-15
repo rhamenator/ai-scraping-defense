@@ -82,7 +82,9 @@ ls -l "$SECRETS_DIR"
 
 # Print important passwords
 echo -e "\nImportant Passwords (save these):"
+echo "Admin UI Username: $CURRENT_USER"
 echo "Admin UI Password: $admin_password"
+echo "HTPasswd Username: $CURRENT_USER"
 echo "HTPasswd Password: $htpasswd_password"
 echo "System Seed: $system_seed"
 

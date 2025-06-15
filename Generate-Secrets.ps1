@@ -71,9 +71,10 @@ Get-ChildItem $SecretsDir | Format-Table Name, Length, LastWriteTime
 
 # Print important passwords
 Write-Host "`nImportant Passwords (save these):"
+Write-Host "Admin UI Username: $CurrentUser"
 Write-Host "Admin UI Password: $adminPassword"
 Write-Host "HTPasswd Username: $CurrentUser"
-Write-Host "HTPasswd Password: $htpasswdPassword"
+Write-Host "HTPasswd Password: $htpasswd"
 Write-Host "System Seed: $systemSeed"
 
 Write-Host "`nDone! Make sure to save these passwords securely and never commit them to version control."
