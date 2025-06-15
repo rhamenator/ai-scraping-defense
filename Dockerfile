@@ -97,7 +97,7 @@ RUN mkdir -p \
     && chmod -R 755 /var/cache/nginx \
     && chmod -R 755 /usr/local/openresty/nginx/logs
 
-# --- Directory Structure ---
+    # --- Directory Structure ---
 RUN mkdir -p \
     /etc/nginx/lua \
     /var/www/html/docs \
@@ -110,13 +110,15 @@ RUN mkdir -p \
     /logs \
     /archives \
     /etc/nginx/secrets \
+    /data \
     && chown -R nobody:nobody \
         /etc/nginx/lua \
         /var/www/html/docs \
         /app \
         /logs \
         /archives \
-        /etc/nginx/secrets
+        /etc/nginx/secrets \
+        /data
 
 # --- Configuration Files ---
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
