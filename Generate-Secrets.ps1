@@ -1,5 +1,3 @@
-# Generate-Secrets.ps1
-# This script generates various secrets for the application, including passwords and API keys.
 # Add force parameter
 param(
     [switch]$Force
@@ -9,7 +7,13 @@ param(
 $CurrentTime = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss")
 $CurrentUser = $env:USERNAME
 $CurrentHostname = $env:COMPUTERNAME
-$SecretsDir = ".\secrets"
+$SecretsDir = Join-Path (Get-Location) "secrets"  # Use current directory
+
+Write-Host "Generating secrets for:"
+Write-Host "User: $CurrentUser"
+Write-Host "Hostname: $CurrentHostname"
+Write-Host "Time (UTC): $CurrentTime"
+Write-Host "------------------------"
 
 # Check for existing secrets before starting
 if (Test-Path $SecretsDir) {
@@ -21,27 +25,18 @@ if (Test-Path $SecretsDir) {
     }
 }
 
-Write-Host "Generating secrets for:"
-Write-Host "User: $CurrentUser"
-Write-Host "Hostname: $CurrentHostname"
-Write-Host "Time (UTC): $CurrentTime"
-Write-Host "------------------------"
-
 # Create secrets directory if it doesn't exist
 New-Item -ItemType Directory -Force -Path $SecretsDir | Out-Null
 
 # Function to generate highly random system seed
 function New-SystemSeed {
-    # Random length between 128 and 256 characters
     $length = Get-Random -Minimum 128 -Maximum 257
     Write-Host "Generating $length-character system seed..."
     
-    # Create random bytes and convert to base64
     $randomBytes = New-Object byte[] $length
     $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::Create()
     $rng.GetBytes($randomBytes)
     
-    # Convert to usable characters and shuffle
     $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()_+[]{}|;:,.<>?~'
     $result = -join ($randomBytes | ForEach-Object {
         $chars[$_ % $chars.Length]
@@ -52,7 +47,6 @@ function New-SystemSeed {
 
 # Function to generate a random password
 function New-Password {
-    # Random length between 15 and 32 characters
     $length = Get-Random -Minimum 15 -Maximum 33
     Write-Host "Generating $length-character password..."
     $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?'
@@ -68,16 +62,32 @@ function New-Generated-Hex {
 # Function to create a secret file
 function New-Secret {
     param($filename, $content)
-    $path = Join-Path $SecretsDir $filename
-    [System.IO.File]::WriteAllText($path, $content)
-    # Set file permissions to be accessible only by the current user
-    $acl = Get-Acl $path
-    $acl.SetAccessRuleProtection($true, $false)
-    $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule($identity, "FullControl", "Allow")
-    $acl.AddAccessRule($accessRule)
-    Set-Acl $path $acl
-    Write-Host "Created: $filename"
+    try {
+        $path = Join-Path $SecretsDir $filename
+        [System.IO.File]::WriteAllText($path, $content)
+        
+        # Try to set file permissions, but continue if it fails
+        try {
+            $acl = Get-Acl $path
+            $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+            $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                $identity, 
+                "FullControl",
+                "Allow"
+            )
+            $acl.SetAccessRule($accessRule)
+            Set-Acl -Path $path -AclObject $acl -ErrorAction SilentlyContinue
+        }
+        catch {
+            Write-Host "Note: Could not set special file permissions (not critical)" -ForegroundColor Yellow
+        }
+        
+        Write-Host "Created: $filename"
+    }
+    catch {
+        Write-Host "Error creating $filename : $_" -ForegroundColor Red
+        exit 1
+    }
 }
 
 # Generate system seed

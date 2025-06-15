@@ -67,6 +67,9 @@ RUN /opt/venv/bin/pip install --no-cache-dir numpy && \
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Create required nginx directories with proper permissions
+# [Previous content remains the same until the nginx directories section]
+
+# Create required nginx directories with proper permissions
 RUN mkdir -p \
     /var/run/openresty \
     /var/run/openresty/nginx-client-body \
@@ -87,9 +90,12 @@ RUN mkdir -p \
         /var/cache/nginx/scgi_temp \
         /var/log/nginx \
         /var/run/nginx \
+        /usr/local/openresty/nginx \  
+        /usr/local/openresty/nginx/logs \  
     && chmod 755 /var/run/openresty \
     && chmod 700 /var/run/openresty/nginx-client-body \
-    && chmod -R 755 /var/cache/nginx
+    && chmod -R 755 /var/cache/nginx \
+    && chmod -R 755 /usr/local/openresty/nginx/logs
 
 # --- Directory Structure ---
 RUN mkdir -p \
@@ -114,6 +120,12 @@ RUN mkdir -p \
 
 # --- Configuration Files ---
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
+
+# Update nginx.conf to use the correct pid path
+RUN sed -i 's|pid.*|pid /var/run/openresty/nginx.pid;|' /etc/nginx/nginx.conf && \
+    touch /var/run/openresty/nginx.pid && \
+    chown nobody:nobody /var/run/openresty/nginx.pid
+
 COPY nginx/lua /etc/nginx/lua
 COPY goaccess/goaccess.conf /etc/goaccess/goaccess.conf
 
