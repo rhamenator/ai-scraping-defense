@@ -53,8 +53,7 @@ services:
     user: nobody
     entrypoint: []
     # Comment this command for debugging purposes
-    # command: ["/usr/local/openresty/nginx/sbin/nginx", "-g", "daemon off;"]
-    command: /bin/bash -c "envsubst < /etc/nginx/templates/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'
+    command: ["/bin/sh", "-c", "envsubst '$${AI_SERVICE_PORT} $${ESCALATION_ENGINE_PORT} $${TARPIT_API_PORT} $${ADMIN_UI_PORT}' < /etc/nginx/templates/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
     # Uncomment this command for debugging purposes
     # command: tail -f /dev/null
 
@@ -62,8 +61,6 @@ services:
       - "${NGINX_HTTP_PORT:-8080}:80"
       - "${NGINX_HTTPS_PORT:-8443}:443"
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      # - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro
       - ./nginx/lua:/etc/nginx/lua:ro
       - ./config/robots.txt:/etc/nginx/robots.txt:ro
@@ -493,3 +490,4 @@ secrets:
     file: ./secrets/training_pg_password.txt
   admin_ui_password:
     file: ./secrets/admin_ui_password.txt
+    

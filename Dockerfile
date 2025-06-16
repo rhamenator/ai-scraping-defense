@@ -25,6 +25,7 @@ RUN apk update && apk add --no-cache \
     openblas-dev \
     lapack-dev \
     gfortran \
+	gettext \
     cmake \
     ninja \
     perl \
@@ -99,6 +100,7 @@ RUN mkdir -p \
 
     # --- Directory Structure ---
 RUN mkdir -p \
+    /etc/nginx/conf.d \
     /etc/nginx/lua \
     /var/www/html/docs \
     /app/tarpit \
@@ -112,6 +114,7 @@ RUN mkdir -p \
     /etc/nginx/secrets \
     /data \
     && chown -R nobody:nobody \
+        /etc/nginx/conf.d \
         /etc/nginx/lua \
         /var/www/html/docs \
         /app \
