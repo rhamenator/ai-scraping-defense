@@ -39,7 +39,7 @@ spec:
         # fsGroup: 1001 # If app writes to shared volumes and needs group access
       containers:
       - name: ai-service
-        image: defense_stack_py_base:v0.1.0
+        image: my-approved-registry.example.com/defense_stack_py_base:v0.1.0
         imagePullPolicy: IfNotPresent
         securityContext: # Container-level security context
           allowPrivilegeEscalation: false

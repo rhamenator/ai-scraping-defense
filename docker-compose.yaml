@@ -127,6 +127,8 @@ services:
     ]
     environment:
       - PYTHONPATH=/app
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+      - EXTERNAL_API_URL=${EXTERNAL_API_URL}
       - ALERT_SMTP_HOST=${ALERT_SMTP_HOST}
       - ALERT_SMTP_PORT=${ALERT_SMTP_PORT}
       - ALERT_SMTP_USE_TLS=${ALERT_SMTP_USE_TLS}
@@ -179,6 +181,7 @@ services:
     ]
     environment:
       - PYTHONPATH=/app
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
       - LOG_LEVEL=${LOG_LEVEL}
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
@@ -236,6 +239,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL}
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
       - TARPIT_API_PORT=${TARPIT_API_PORT}
       - DEBUG=${DEBUG}
       - APP_ENV=${APP_ENV}

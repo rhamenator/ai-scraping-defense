@@ -1,28 +1,22 @@
-# anti-scraping-defense/util/corpus_wikipedia_updater.py
+# util/corpus_wikipedia_updater.py
 import os
 import time
 import random
 import logging
-import re # Added missing import
+import re
 import requests
-from bs4 import BeautifulSoup # For HTML parsing
-import wikipediaapi # For a more structured API access
+from bs4 import BeautifulSoup
+import wikipediaapi
 from urllib.parse import unquote
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(message)s', # More detailed format
-    handlers=[logging.StreamHandler()]
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Configuration ---
-CORPUS_OUTPUT_FILE = os.getenv("WIKIPEDIA_CORPUS_FILE", "/corpus_data/wikipedia_corpus.txt")
+CORPUS_OUTPUT_FILE = os.getenv("WIKIPEDIA_CORPUS_FILE", "/app/data/wikipedia_corpus.txt")
 NUM_ARTICLES_TO_FETCH = int(os.getenv("WIKIPEDIA_NUM_ARTICLES", 5))
 WIKI_LANGUAGE = os.getenv("WIKIPEDIA_LANGUAGE", "en")
-REQUESTS_USER_AGENT = f"CorpusUpdater/1.1 (AI-Scraping-Defense; +https://github.com/your-repo/ai-scraping-defense; process/{os.getpid()})" # Added process ID
+REQUESTS_USER_AGENT = f"CorpusUpdater/1.1 (AI-Scraping-Defense-Stack; process/{os.getpid()})"
 
-# Wikipedia API setup
 wiki_wiki = wikipediaapi.Wikipedia(
     language=WIKI_LANGUAGE,
     extract_format=wikipediaapi.ExtractFormat.WIKI,
@@ -30,85 +24,69 @@ wiki_wiki = wikipediaapi.Wikipedia(
 )
 
 def clean_text(text_content: str) -> str:
-    """Basic text cleaning."""
-    if not isinstance(text_content, str):
-        return ""
-    text_content = re.sub(r'\n{3,}', '\n\n', text_content)
-    text_content = text_content.strip()
-    # Further cleaning for wikitext can be extensive. Examples:
-    # Remove {{...}} templates (can be nested and complex)
-    text_content = re.sub(r'\{\{[^\{]*?\}\}', '', text_content) # Simple, non-greedy template removal
-    # Remove <ref...> tags
+    """Basic text cleaning for wikitext."""
+    if not isinstance(text_content, str): return ""
+    for _ in range(5):
+        text_content = re.sub(r'\{\{[^{}]*?\}\}', '', text_content)
     text_content = re.sub(r'<ref[^>]*?>.*?</ref>', '', text_content, flags=re.IGNORECASE | re.DOTALL)
     text_content = re.sub(r'<ref[^>]*?/>', '', text_content, flags=re.IGNORECASE)
-    # Remove basic HTML tags if any slip through (though extract_format=WIKI should minimize this)
-    text_content = re.sub(r'<[^>]+>', '', text_content)
-    # Remove category links like [[Category:...]]
-    text_content = re.sub(r'\[\[Category:[^\]]+\]\]', '', text_content, flags=re.IGNORECASE)
-    # Remove file/image links like [[File:...]] or [[Image:...]]
-    text_content = re.sub(r'\[\[(File|Image):[^\]]+\]\]', '', text_content, flags=re.IGNORECASE)
-    # Remove '''bold''' and ''italic'' markup
+    text_content = re.sub(r'\[\[(File|Image|Category):[^\]]+\]\]', '', text_content, flags=re.IGNORECASE)
     text_content = text_content.replace("'''", "").replace("''", "")
-    # Remove ==Section Titles==
-    text_content = re.sub(r'^==+[^=]+==+\s*$', '', text_content, flags=re.MULTILINE)
+    text_content = re.sub(r'(?m)^==+\s*.*\s*==+\s*$', '', text_content)
+    text_content = re.sub(r'\n{3,}', '\n\n', text_content)
     return text_content.strip()
 
 def fetch_random_wikipedia_articles_api(num_articles: int) -> list[str]:
     """Fetches content from random Wikipedia pages using the API."""
-    articles_content = []
-    if not num_articles or num_articles <= 0:
-        logging.warning("Number of articles to fetch is zero or negative. Skipping API fetch.")
-        return articles_content
-
-    logging.info(f"Attempting to fetch {num_articles} random Wikipedia articles using API ({WIKI_LANGUAGE})...")
+    if num_articles <= 0:
+        return []
+    
+    logging.info(f"Attempting to fetch {num_articles} random articles using API...")
     session = requests.Session()
     session.headers.update({"User-Agent": REQUESTS_USER_AGENT})
+    articles_content = []
     fetched_titles = set()
-    attempts = 0
-    max_attempts = num_articles * 3 # Try more times to get the desired number of unique articles
+    max_attempts = num_articles * 4
 
-    while len(fetched_titles) < num_articles and attempts < max_attempts:
-        attempts += 1
-        page_title_from_url = "" # Initialize for logging in case of early error
-        random_url = f"https://{WIKI_LANGUAGE}.wikipedia.org/wiki/Special:Random"
+    for _ in range(max_attempts):
+        if len(articles_content) >= num_articles: break
+            
+        page_title = "N/A"
         try:
-            response = session.get(random_url, allow_redirects=True, timeout=15) # Increased timeout
+            response = session.get(f"https://{WIKI_LANGUAGE}.wikipedia.org/wiki/Special:Random", allow_redirects=True, timeout=15)
             response.raise_for_status()
-            
-            page_title_from_url = unquote(response.url.split('/')[-1]) # Decode URL-encoded titles
+            page_title = unquote(response.url.split('/')[-1])
 
-            if page_title_from_url and page_title_from_url not in fetched_titles:
-                logging.debug(f"Random page identified: {page_title_from_url}")
-                page = wiki_wiki.page(page_title_from_url)
+            if page_title in fetched_titles: continue
+
+            page = wiki_wiki.page(page_title)
+            
+            # --- CORRECTED LOGIC ---
+            if page.exists() and page.ns == wikipediaapi.Namespace.MAIN:
+                is_disambiguation = any('disambiguation pages' in cat.lower() for cat in page.categories)
                 
-                if page.exists() and not page.is_categorypage and not page.is_disambigpage:
+                if not is_disambiguation:
                     content = page.text
-                    if content:
+                    if content and len(content) > 500: # Ensure article has minimum length
                         cleaned_content = clean_text(content)
-                        if cleaned_content: # Ensure content remains after cleaning
+                        if cleaned_content:
                             articles_content.append(cleaned_content)
-                            fetched_titles.add(page_title_from_url)
-                            logging.info(f"Fetched and cleaned content for: {page.title} (Original length: {len(content)}, Cleaned length: {len(cleaned_content)})")
-                        else:
-                            logging.warning(f"Content for page '{page.title}' became empty after cleaning.")
-                    else:
-                        logging.warning(f"No text content found for page (API): {page.title}")
+                            fetched_titles.add(page_title)
+                            logging.info(f"({len(articles_content)}/{num_articles}) Fetched and cleaned: {page.title}")
                 else:
-                    logging.info(f"Page '{page_title_from_url}' does not exist, is a category, or disambiguation. Skipping.")
-            elif page_title_from_url in fetched_titles:
-                logging.debug(f"Already fetched '{page_title_from_url}'. Skipping.")
-
-            time.sleep(random.uniform(1.0, 2.5)) # Be polite
-        except requests.exceptions.Timeout:
-            logging.error(f"Timeout fetching random page URL ({random_url if 'random_url' in locals() else 'N/A'}). Attempt {attempts}/{max_attempts}.")
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Request error fetching random page URL: {e}. Attempt {attempts}/{max_attempts}.")
+                    logging.info(f"Skipping disambiguation page: {page.title}")
+            else:
+                logging.info(f"Skipping non-article page: {page.title} (Namespace: {page.ns})")
+                
+            time.sleep(random.uniform(1.0, 2.5))
         except Exception as e:
-            logging.error(f"Unexpected error processing page '{page_title_from_url}': {e}. Attempt {attempts}/{max_attempts}.", exc_info=True)
+            logging.error(f"Error processing page '{page_title}': {e}", exc_info=False)
             
-    if len(fetched_titles) < num_articles:
-        logging.warning(f"API fetch: Expected {num_articles} articles, but only got {len(fetched_titles)} after {max_attempts} attempts.")
-    return articles_content # Return whatever was successfully fetched
+    if len(articles_content) < num_articles:
+        logging.warning(f"API Fetch complete. Expected {num_articles}, got {len(articles_content)}.")
+        
+    return articles_content
+
 
 def fetch_random_wikipedia_articles_scrape(num_articles: int) -> list[str]:
     """Fallback: Fetches content using requests and BeautifulSoup."""

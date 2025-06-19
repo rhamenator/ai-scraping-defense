@@ -109,11 +109,12 @@ RUN mkdir -p \
     /app/rag \
     /app/shared \
     /app/ai_service \
+    /app/data \
     /logs \
     /archives \
     /etc/nginx/secrets \
     /data \
-    && chown -R nobody:nobody \
+&& chown -R nobody:nobody \
         /etc/nginx/conf.d \
         /etc/nginx/lua \
         /var/www/html/docs \
@@ -121,7 +122,9 @@ RUN mkdir -p \
         /logs \
         /archives \
         /etc/nginx/secrets \
-        /data
+        /data \
+        /app/data
+
 
 # --- Configuration Files ---
 COPY nginx/nginx.conf /etc/nginx/nginx.conf

@@ -1,6 +1,23 @@
 import os
 from typing import Dict, Any
 
+# In shared/config.py
+import os
+
+def get_secret(file_variable_name: str) -> str | None:
+    """Reads a secret from the file path specified in an environment variable."""
+    file_path = os.environ.get(file_variable_name)
+    if file_path and os.path.exists(file_path):
+        try:
+            with open(file_path, 'r') as f:
+                return f.read().strip()
+        except IOError as e:
+            print(f"Warning: Could not read secret file at {file_path}: {e}")
+    return None
+
+# Update how REDIS_PASSWORD is defined to use this new function
+REDIS_PASSWORD = get_secret("REDIS_PASSWORD_FILE")
+
 # Service Ports
 AI_SERVICE_PORT = int(os.getenv("AI_SERVICE_PORT", 8000))
 ESCALATION_ENGINE_PORT = int(os.getenv("ESCALATION_ENGINE_PORT", 8003))
