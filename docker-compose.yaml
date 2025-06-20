@@ -52,11 +52,7 @@ services:
     container_name: nginx_proxy
     user: nobody
     entrypoint: []
-    # Comment this command for debugging purposes
     command: ["/bin/sh", "-c", "envsubst '$${AI_SERVICE_PORT} $${ESCALATION_ENGINE_PORT} $${TARPIT_API_PORT} $${ADMIN_UI_PORT}' < /etc/nginx/templates/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
-    # Uncomment this command for debugging purposes
-    # command: tail -f /dev/null
-
     ports:
       - "${NGINX_HTTP_PORT:-8080}:80"
       - "${NGINX_HTTPS_PORT:-8443}:443"
@@ -91,7 +87,7 @@ services:
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_DB_BLOCKLIST=2
-      - REAL_BACKEND_HOST=${REAL_BACKEND_HOST:-http://your-real-app-service:8080}
+      - REAL_BACKEND_HOST=${REAL_BACKEND_HOST:-http://localhost:8080}
       - LUA_PATH=/usr/local/openresty/lualib/?.lua;/usr/local/openresty/nginx/lua/?.lua;/etc/nginx/lua/?.lua;;
       - LUA_CPATH=/usr/local/openresty/lualib/?.so;;
       - AI_SERVICE_PORT=${AI_SERVICE_PORT}
@@ -116,14 +112,13 @@ services:
       dockerfile: Dockerfile
     container_name: ai_service
     working_dir: /app
-    entrypoint: []
+    entrypoint: ["/app/docker-entrypoint.sh"]
     command: [
-      "uvicorn",
-      "ai_service.ai_webhook:app",
-      "--host", "0.0.0.0",
-      "--port", "${AI_SERVICE_PORT}",
+      "gunicorn",
+      "-k", "uvicorn.workers.UvicornWorker",
       "--workers", "${UVICORN_WORKERS:-2}",
-      "--log-level", "${UVICORN_LOG_LEVEL:-info}"
+      "--bind", "0.0.0.0:${AI_SERVICE_PORT}",
+      "ai_service.ai_webhook:app"
     ]
     environment:
       - PYTHONPATH=/app
@@ -139,6 +134,7 @@ services:
       - DEBUG=${DEBUG}
       - APP_ENV=${APP_ENV}
     volumes:
+      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
       - ./ai_service:/app/ai_service
       - ./shared:/app/shared
       - ./metrics.py:/app/metrics.py:ro
@@ -151,6 +147,8 @@ services:
       - redis_password
     depends_on:
       redis:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
       mailhog:
         condition: service_started
@@ -170,42 +168,50 @@ services:
       dockerfile: Dockerfile
     container_name: escalation_engine
     working_dir: /app
-    entrypoint: []
+    entrypoint: ["/app/docker-entrypoint.sh"]
     command: [
-      "uvicorn",
-      "escalation.escalation_engine:app",
-      "--host", "0.0.0.0",
-      "--port", "${ESCALATION_ENGINE_PORT}",
+      "gunicorn",
+      "-k", "uvicorn.workers.UvicornWorker",
       "--workers", "${UVICORN_WORKERS:-2}",
-      "--log-level", "${UVICORN_LOG_LEVEL:-info}"
+      "--bind", "0.0.0.0:${ESCALATION_ENGINE_PORT:-8003}",
+      "escalation.escalation_engine:app"
     ]
     environment:
+      # --- NEW MODEL PROVIDER CONFIG ---
+      - MODEL_TYPE=sklearn
+      - MODEL_URI=/app/models/bot_detection_rf_model.joblib
+
+      # --- Other Variables ---
+      - RUN_MODEL_TRAINING=true
+      - MODEL_PATH=/app/models/bot_detection_rf_model.joblib # Still needed for the entrypoint trainer
       - PYTHONPATH=/app
-      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
-      - LOG_LEVEL=${LOG_LEVEL}
       - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - ESCALATION_ENGINE_PORT=${ESCALATION_ENGINE_PORT}
-      - ESCALATION_THRESHOLD=${ESCALATION_THRESHOLD}
-      - EXTERNAL_API_URL=${EXTERNAL_API_URL}
-      - IP_REPUTATION_API_URL=${IP_REPUTATION_API_URL}
-      - DEBUG=${DEBUG}
-      - APP_ENV=${APP_ENV}
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+      - POSTGRES_HOST=${PG_HOST}
+      - POSTGRES_USER_FILE=/run/secrets/pg_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password
+      - POSTGRES_DB_FILE=/run/secrets/pg_db
+      - EXTERNAL_API_URL=http://mock_external_api:8000
+      - IP_REPUTATION_API_URL=http://mock_ip_reputation_api:8000
+      - COMMUNITY_BLOCKLIST_API_URL=http://mock_community_blocklist_api:8000
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - ALERT_RECIPIENT=alerts@example.com
+      - ALERT_SENDER=noreply@defense.local
     volumes:
+      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
       - ./escalation:/app/escalation
       - ./shared:/app/shared
-      - ./metrics.py:/app/metrics.py:ro
-      - ./models:/app/models:ro
-      - ./config:/app/config:ro
-      - ./logs:/app/logs
-      - ./data:/app/data
-      - ./util:/app/util
+      - ./rag:/app/rag
+      - ./models:/app/models:rw
+      - ./data:/app/data:ro
     secrets:
-      - external_api_key
-      - ip_reputation_api_key
       - redis_password
+      - pg_password
+      - pg_user
+      - pg_db
     depends_on:
-      ai_service:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -213,11 +219,11 @@ services:
       - defense_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${ESCALATION_ENGINE_PORT}/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${ESCALATION_ENGINE_PORT:-8003}/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 20s
+      start_period: 15s
 
   tarpit_api:
     build:
@@ -225,14 +231,13 @@ services:
       dockerfile: Dockerfile
     container_name: tarpit_api
     working_dir: /app
-    entrypoint: []
+    entrypoint: ["/app/docker-entrypoint.sh"]
     command: [
-      "uvicorn",
-      "tarpit.tarpit_api:app",
-      "--host", "0.0.0.0",
-      "--port", "${TARPIT_API_PORT}",
+      "gunicorn",
+      "-k", "uvicorn.workers.UvicornWorker",
       "--workers", "${UVICORN_WORKERS:-2}",
-      "--log-level", "${UVICORN_LOG_LEVEL:-info}"
+      "--bind", "0.0.0.0:${TARPIT_API_PORT}",
+      "tarpit.tarpit_api:app"
     ]
     environment:
       - PYTHONPATH=/app
@@ -243,7 +248,12 @@ services:
       - TARPIT_API_PORT=${TARPIT_API_PORT}
       - DEBUG=${DEBUG}
       - APP_ENV=${APP_ENV}
+      - POSTGRES_HOST=${PG_HOST}
+      - POSTGRES_USER_FILE=/run/secrets/pg_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password
+      - POSTGRES_DB_FILE=/run/secrets/pg_db
     volumes:
+      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
       - ./tarpit:/app/tarpit
       - ./shared:/app/shared
       - ./metrics.py:/app/metrics.py:ro
@@ -252,11 +262,11 @@ services:
       - ./util:/app/util
     secrets:
       - pg_password
+      - pg_user
+      - pg_db
       - redis_password
       - system_seed
     depends_on:
-      escalation_engine:
-        condition: service_healthy
       redis:
         condition: service_healthy
       postgres:
@@ -277,8 +287,13 @@ services:
       dockerfile: Dockerfile
     container_name: admin_ui
     working_dir: /app
-    entrypoint: []
-    command: ["python", "admin_ui/admin_ui.py"]
+    entrypoint: ["/app/docker-entrypoint.sh"]
+    command: [
+        "gunicorn",
+        "--workers", "4",
+        "--bind", "0.0.0.0:${ADMIN_UI_PORT}",
+        "admin_ui.admin_ui:app"
+    ]
     environment:
       - PYTHONPATH=/app
       - FLASK_ENV=${FLASK_ENV}
@@ -286,13 +301,27 @@ services:
       - DEBUG=${DEBUG}
       - APP_ENV=${APP_ENV}
       - ADMIN_UI_USERNAME=${ADMIN_UI_USERNAME}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+      - POSTGRES_HOST=${PG_HOST}
+      - POSTGRES_USER_FILE=/run/secrets/pg_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password
+      - POSTGRES_DB_FILE=/run/secrets/pg_db
     volumes:
+      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
       - ./admin_ui:/app/admin_ui
       - ./shared:/app/shared
       - ./metrics.py:/app/metrics.py:ro
       - ./logs:/app/logs
     secrets:
       - admin_ui_password
+      - redis_password
+      - pg_user
+      - pg_password
+      - pg_db
+    depends_on:
+      - redis
+      - postgres
     networks:
       - defense_network
     restart: unless-stopped
@@ -362,17 +391,21 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init_markov.sql:/docker-entrypoint-initdb.d/init_markov.sql:ro
     environment:
-      - POSTGRES_DB=${PG_DBNAME:-markovdb}
-      - POSTGRES_USER=${PG_USER:-markovuser}
-      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password.txt
+      - POSTGRES_DB_FILE=/run/secrets/pg_db
+      - POSTGRES_USER_FILE=/run/secrets/pg_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password
     secrets:
       - source: pg_password
-        target: /run/secrets/pg_password.txt
+        target: /run/secrets/pg_password
+      - source: pg_user
+        target: /run/secrets/pg_user
+      - source: pg_db
+        target: /run/secrets/pg_db
     networks:
       - defense_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-markovuser} -d ${POSTGRES_DB:-markovdb} -h localhost"]
+      test: ["CMD-SHELL", "pg_isready -U $$(cat /run/secrets/pg_user) -d $$(cat /run/secrets/pg_db) -h localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -408,7 +441,7 @@ services:
     command: ["python", "util/robots_fetcher.py"]
     environment:
       - PYTHONPATH=/app
-      - REAL_BACKEND_HOST=${REAL_BACKEND_HOST_FOR_ROBOTS:-http://your-real-app-service:8080}
+      - REAL_BACKEND_HOST=${REAL_BACKEND_HOST_FOR_ROBOTS:-http://nginx_proxy:80}
       - LOG_LEVEL=${LOG_LEVEL}
     volumes:
       - ./util:/app/util
@@ -421,41 +454,23 @@ services:
       dockerfile: Dockerfile
     container_name: markov_trainer
     working_dir: /app
-    entrypoint: []
+    entrypoint: ["/app/docker-entrypoint.sh"]
+    command: ["python", "rag/train_markov_postgres.py"]
     environment:
       - PYTHONPATH=/app
       - LOG_LEVEL=${LOG_LEVEL}
+      - POSTGRES_HOST=${PG_HOST}
+      - POSTGRES_USER_FILE=/run/secrets/pg_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password
+      - POSTGRES_DB_FILE=/run/secrets/pg_db
     volumes:
+      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
       - ./rag:/app/rag
       - ./data:/app/data
     secrets:
       - pg_password
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - defense_network
-
-  model_trainer:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: model_trainer
-    working_dir: /app
-    entrypoint: []
-    environment:
-      - PYTHONPATH=/app
-      - LOG_LEVEL=${LOG_LEVEL}
-    volumes:
-      - ./rag:/app/rag
-      - ./shared:/app/shared
-      - ./metrics.py:/app/metrics.py:ro
-      - ./models:/app/models
-      - ./data:/app/data
-      - ./config:/app/config
-      - ./logs:/app/logs
-    secrets:
-      - training_pg_password
+      - pg_user
+      - pg_db
     depends_on:
       postgres:
         condition: service_healthy
@@ -486,6 +501,10 @@ secrets:
     file: ./secrets/community_blocklist_api_key.txt
   pg_password:
     file: ./secrets/pg_password.txt
+  pg_user:
+    file: ./secrets/pg_user.txt
+  pg_db:
+    file: ./secrets/pg_db.txt
   redis_password:
     file: ./secrets/redis_password.txt
   system_seed:
@@ -494,4 +513,3 @@ secrets:
     file: ./secrets/training_pg_password.txt
   admin_ui_password:
     file: ./secrets/admin_ui_password.txt
-    

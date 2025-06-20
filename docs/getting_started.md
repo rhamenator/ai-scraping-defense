@@ -124,7 +124,7 @@ Ensure you have the following installed on your system:
             * `TAR_PIT_FLAG_TTL=300`
             * `REDIS_DB_TAR_PIT=1` (Redis DB for visit flags)
         * **Deployment Mode:**
-            * `REAL_BACKEND_HOST=http://your-real-app-service:8080` **IMPORTANT:** Set this to the actual address (hostname/IP and port) of your *real* web application backend IF you are running the anti-scrape stack separately. If running co-located where Nginx can directly serve/proxy, this might point to localhost or another internal address.
+            * `REAL_BACKEND_HOST=http://localhosot:8080` **IMPORTANT:** Set this to the actual address (hostname/IP and port) of your *real* web application backend IF you are running the anti-scrape stack separately. If running co-located where Nginx can directly serve/proxy, this might point to localhost or another internal address.
         * **Redis Settings:**
             * `REDIS_HOST=redis`
             * `REDIS_PORT=6379`

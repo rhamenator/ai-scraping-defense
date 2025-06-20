@@ -19,3 +19,18 @@ transformers>=4.30.0
 uvicorn[standard]>=0.27.0  # Added uvicorn
 gunicorn>=21.2.0  # Added gunicorn for production serving
 python-multipart>=0.0.9  # For FastAPI form handling
+prometheus-client>=0.18.0  # For metrics
+aiofiles>=23.1.0  # For async file handling in FastAPI 
+# Added dependencies for Redis and external API integration
+redis-py-cluster>=2.1.0  # For Redis cluster support   
+# Added dependencies for AI service
+langchain>=0.0.200  # For AI service integration   
+openai>=0.27.0  # For OpenAI API integration
+tiktoken>=0.3.0  # For tokenization in AI service
+chromadb>=0.3.21  # For vector database support in AI service
+faiss-cpu>=1.7.2  # For efficient similarity search in AI service
+sentence-transformers>=2.2.2  # For sentence embeddings in AI service 
+pymongo>=4.3.3  # For MongoDB integration in AI service
+pymilvus>=2.2.9  # For Milvus vector database support in
+guinicorn>=21.2.0  # For production serving
+# Added dependencies for web scraping and data processing

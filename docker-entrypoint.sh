@@ -1,24 +1,39 @@
 #!/bin/bash
+# This script acts as the entrypoint for multiple services.
+# It ensures dependencies are ready and performs one-time initialization tasks
+# before launching the main application process.
+
 set -e
 
-# Basic entrypoint script
+# Define the expected path for the bot detection model.
+# The MODEL_PATH env var should be set in docker-compose.yaml.
+MODEL_FILE="${MODEL_PATH:-/app/models/bot_detection_rf_model.joblib}"
 
-# Start NGINX in the background
-if service nginx start; then
-  echo "NGINX started successfully."
+# --- Wait for PostgreSQL ---
+# Ensures the database is ready before any application logic runs.
+echo "Waiting for postgres..."
+# The password file is used securely.
+export PGPASSWORD=$(cat "$POSTGRES_PASSWORD_FILE")
+while ! pg_isready -h "$POSTGRES_HOST" -p 5432 -q -U "$(cat "$POSTGRES_USER_FILE")"; do
+  echo "PostgreSQL is unavailable - sleeping"
+  sleep 2
+done
+echo "PostgreSQL is up - proceeding."
+
+# --- Automatic Model Training ---
+# Checks if the bot detection model exists. If not, it runs the training script.
+# This logic is triggered only by the service designated as the trainer.
+if [ "$RUN_MODEL_TRAINING" == "true" ] && [ ! -f "$MODEL_FILE" ]; then
+  echo "Bot detection model not found at $MODEL_FILE. Starting training..."
+  # Ensure the target directory exists.
+  mkdir -p /app/models
+  # Run the training script.
+  python rag/training.py
+  echo "Training complete. Model saved to $MODEL_FILE"
 else
-  echo "Failed to start NGINX." >&2
-  exit 1
+  echo "Skipping bot detection model training."
 fi
 
-# Optional: Start other services if needed, e.g., fail2ban
-if service fail2ban start; then
-  echo "Fail2Ban started successfully."
-else
-  echo "Failed to start Fail2Ban." >&2
-fi
-
-# Execute the command passed to the container (e.g., the CMD from Dockerfile or docker-compose)
+# Execute the main command passed to the container (e.g., uvicorn, gunicorn).
+echo "Launching main command: $@"
 exec "$@"
-# Note: The script uses 'exec' to replace the shell with the command passed to the container.
-# This allows the command to receive signals directly, which is important for proper shutdown.

@@ -1,26 +1,29 @@
 # escalation/escalation_engine.py
 from fastapi import FastAPI, Request, HTTPException, Response 
 from pydantic import BaseModel, Field, ValidationError
-from typing import Dict, Any, Optional, Union # Added Union
+from typing import Dict, Any, Optional, Union
 import httpx
 import os
 import datetime
 import time
 import json
-import joblib 
 import numpy as np
 from urllib.parse import urlparse
 import re
-import redis 
-from redis.exceptions import ConnectionError, RedisError
 import asyncio 
-import logging 
+import logging
+import sys
+
+# --- Refactored Imports ---
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from shared.model_provider import load_model
+from shared.redis_client import get_redis_connection
 
 # --- Setup Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Updated Metrics Import ---
+# --- Metrics Import (Preserved from your original file) ---
 try:
     from metrics import (
         increment_counter_metric, get_metrics, 
@@ -47,7 +50,7 @@ try:
 except ImportError:
     logger.warning("Could not import specific metrics or helpers from metrics.py. Metric incrementation will be no-op.")
     def increment_counter_metric(metric_instance, labels=None): pass
-    def get_metrics() -> bytes: return b"# Metrics unavailable\n" # Ensure dummy also returns bytes
+    def get_metrics() -> bytes: return b"# Metrics unavailable\n"
     class DummyCounter:
         def inc(self, amount=1): pass
     # Define all required metric objects as dummies
@@ -73,28 +76,27 @@ except ImportError:
     HUMANS_DETECTED_EXTERNAL_API = DummyCounter()
     METRICS_SYSTEM_AVAILABLE = False
 
+# --- Configuration (Preserved) ---
 ESCALATION_THRESHOLD = float(os.getenv("ESCALATION_THRESHOLD", 0.8))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
-# --- Attempt to import user-agents library ---
 try:
     from user_agents import parse as ua_parse; UA_PARSER_AVAILABLE = True
 except ImportError:
     ua_parse = None; UA_PARSER_AVAILABLE = False
     logger.warning("user-agents library not found. Detailed UA parsing disabled.")
 
-# --- Configuration (remains mostly the same) ---
 WEBHOOK_URL = os.getenv("ESCALATION_WEBHOOK_URL") 
 LOCAL_LLM_API_URL = os.getenv("LOCAL_LLM_API_URL")
 LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL")
 LOCAL_LLM_TIMEOUT = float(os.getenv("LOCAL_LLM_TIMEOUT", 45.0))
 EXTERNAL_API_URL = os.getenv("EXTERNAL_CLASSIFICATION_API_URL") if os.getenv("EXTERNAL_CLASSIFICATION_API_URL") else os.getenv("EXTERNAL_API_URL")
-EXTERNAL_API_KEY_FILE = os.getenv("EXTERNAL_CLASSIFICATION_API_KEY_FILE", "/run/secrets/external_api_key.txt") # Corrected default
+EXTERNAL_API_KEY_FILE = os.getenv("EXTERNAL_CLASSIFICATION_API_KEY_FILE", "/run/secrets/external_api_key.txt")
 EXTERNAL_API_TIMEOUT = float(os.getenv("EXTERNAL_API_TIMEOUT", 15.0))
 
 ENABLE_IP_REPUTATION = os.getenv("ENABLE_IP_REPUTATION", "false").lower() == "true"
 IP_REPUTATION_API_URL = os.getenv("IP_REPUTATION_API_URL")
-IP_REPUTATION_API_KEY_FILE = os.getenv("IP_REPUTATION_API_KEY_FILE", "/run/secrets/ip_reputation_api_key.txt") # Corrected default
+IP_REPUTATION_API_KEY_FILE = os.getenv("IP_REPUTATION_API_KEY_FILE", "/run/secrets/ip_reputation_api_key.txt")
 IP_REPUTATION_TIMEOUT = float(os.getenv("IP_REPUTATION_TIMEOUT", 10.0))
 IP_REPUTATION_MALICIOUS_SCORE_BONUS = float(os.getenv("IP_REPUTATION_MALICIOUS_SCORE_BONUS", 0.3))
 IP_REPUTATION_MIN_MALICIOUS_THRESHOLD = float(os.getenv("IP_REPUTATION_MIN_MALICIOUS_THRESHOLD", 50))
@@ -104,11 +106,8 @@ CAPTCHA_SCORE_THRESHOLD_LOW = float(os.getenv("CAPTCHA_SCORE_THRESHOLD_LOW", 0.2
 CAPTCHA_SCORE_THRESHOLD_HIGH = float(os.getenv("CAPTCHA_SCORE_THRESHOLD_HIGH", 0.5))
 CAPTCHA_VERIFICATION_URL = os.getenv("CAPTCHA_VERIFICATION_URL")
 
-RF_MODEL_PATH = os.getenv("TRAINING_MODEL_SAVE_PATH", "/app/models/bot_detection_rf_model.joblib") 
 ROBOTS_TXT_PATH = os.getenv("TRAINING_ROBOTS_TXT_PATH", "/app/config/robots.txt") 
 
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_DB_FREQUENCY = int(os.getenv("REDIS_DB_FREQUENCY", 3))
 FREQUENCY_WINDOW_SECONDS = int(os.getenv("FREQUENCY_WINDOW_SECONDS", 300)) 
 FREQUENCY_KEY_PREFIX = "freq:"
@@ -125,7 +124,7 @@ KNOWN_BENIGN_CRAWLERS_UAS_ENV = os.getenv("KNOWN_BENIGN_CRAWLERS_UAS", 'googlebo
 KNOWN_BENIGN_CRAWLERS_UAS = [ua.strip() for ua in KNOWN_BENIGN_CRAWLERS_UAS_ENV.split(',') if ua.strip()]
 
 
-# --- Load Secrets ---
+# --- Load Secrets (Preserved) ---
 def load_secret(file_path: Optional[str]) -> Optional[str]:
     if file_path and os.path.exists(file_path):
         try:
@@ -137,16 +136,23 @@ EXTERNAL_API_KEY = load_secret(EXTERNAL_API_KEY_FILE)
 IP_REPUTATION_API_KEY = load_secret(IP_REPUTATION_API_KEY_FILE)
 
 # --- Setup Clients & Load Resources ---
-FREQUENCY_TRACKING_ENABLED = False; redis_client_freq = None
+# The manual joblib loading and redis pool have been replaced by these abstractions.
+model_adapter = None
+MODEL_LOADED = False
 try:
-    redis_pool_freq = redis.ConnectionPool(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB_FREQUENCY, decode_responses=True)
-    redis_client_freq = redis.Redis(connection_pool=redis_pool_freq)
-    redis_client_freq.ping()
-    logger.info(f"Connected to Redis for Frequency Tracking (DB: {REDIS_DB_FREQUENCY})")
-    FREQUENCY_TRACKING_ENABLED = True
-except ConnectionError as e: logger.error(f"Redis connection failed for Frequency Tracking: {e}. Tracking disabled.")
-except Exception as e: logger.error(f"Unexpected error connecting to Redis for Frequency Tracking: {e}. Tracking disabled.")
+    model_adapter = load_model()
+    if model_adapter and model_adapter.model:
+        MODEL_LOADED = True
+        logger.info(f"Model adapter '{os.getenv('MODEL_TYPE')}' loaded successfully.")
+    else:
+        logger.warning("Model adapter failed to initialize or load model. Heuristic scoring only.")
+except Exception as e:
+    logger.error(f"CRITICAL: Unhandled exception during model loading: {e}", exc_info=True)
 
+redis_client_freq = get_redis_connection(db_number=REDIS_DB_FREQUENCY)
+FREQUENCY_TRACKING_ENABLED = bool(redis_client_freq)
+
+# Robots.txt loading (Preserved)
 disallowed_paths = set()
 def load_robots_txt(path):
     global disallowed_paths; disallowed_paths = set()
@@ -175,20 +181,11 @@ def is_path_disallowed(path):
 
 load_robots_txt(ROBOTS_TXT_PATH) 
 
-model_pipeline = None; MODEL_LOADED = False
-try:
-    if RF_MODEL_PATH and os.path.exists(RF_MODEL_PATH): 
-        model_pipeline = joblib.load(RF_MODEL_PATH)
-        MODEL_LOADED = True
-        logger.info(f"RF model loaded successfully from {RF_MODEL_PATH}.")
-    else: logger.warning(f"Model file not found or path not set ({RF_MODEL_PATH}). Heuristic scoring only.")
-except Exception as e: logger.error(f"Failed to load RF model from {RF_MODEL_PATH}: {e}")
-
-# --- Feature Extraction Logic ---
+# --- Feature Extraction Logic (Preserved) ---
 def extract_features(log_entry_dict: Dict[str, Any], freq_features: Dict[str, Any]) -> Dict[str, Any]:
-    features: Dict[str, Any] = {} # Ensure features is always a dict
+    features: Dict[str, Any] = {}
     if not isinstance(log_entry_dict, dict): return features
-    ua_string = log_entry_dict.get('user_agent', '') or '' # Ensure ua_string is not None
+    ua_string = log_entry_dict.get('user_agent', '') or ''
     referer = log_entry_dict.get('referer', '') or ''
     path = log_entry_dict.get('path', '') or ''
     
@@ -226,7 +223,7 @@ def extract_features(log_entry_dict: Dict[str, Any], freq_features: Dict[str, An
         features['ua_browser_family'] = 'Unknown'; features['ua_os_family'] = 'Unknown'
         features['ua_device_family'] = 'Unknown'; features['ua_is_mobile'] = 0
         features['ua_is_tablet'] = 0; features['ua_is_pc'] = 0; features['ua_is_touch'] = 0
-        features['ua_library_is_bot'] = features['ua_is_known_bad'] # Fallback
+        features['ua_library_is_bot'] = features['ua_is_known_bad']
         
     features['referer_is_empty'] = 1 if not referer else 0
     features['referer_has_domain'] = 0
@@ -240,7 +237,7 @@ def extract_features(log_entry_dict: Dict[str, Any], freq_features: Dict[str, An
         try: 
             if isinstance(timestamp_val, str): ts = datetime.datetime.fromisoformat(timestamp_val.replace('Z', '+00:00'))
             elif isinstance(timestamp_val, datetime.datetime): ts = timestamp_val
-            else: ts = None # Or raise error
+            else: ts = None
             
             if ts: hour = ts.hour; dow = ts.weekday()
         except Exception: pass
@@ -250,7 +247,7 @@ def extract_features(log_entry_dict: Dict[str, Any], freq_features: Dict[str, An
     features['time_since_last_sec'] = freq_features.get('time_since', -1.0)
     return features
 
-# --- Real-time Frequency Calculation using Redis ---
+# --- Real-time Frequency Calculation (Preserved) ---
 def get_realtime_frequency_features(ip: str) -> dict:
     features = {'count': 0, 'time_since': -1.0}
     if not FREQUENCY_TRACKING_ENABLED or not ip or not redis_client_freq: return features
@@ -262,7 +259,7 @@ def get_realtime_frequency_features(ip: str) -> dict:
         pipe.zadd(redis_key, {now_ms_str: now_unix})
         pipe.zcount(redis_key, window_start_unix, now_unix)
         pipe.zrange(redis_key, -2, -1, withscores=True) 
-        pipe.expire(redis_key, FREQUENCY_WINDOW_SECONDS + 60) 
+        pipe.expire(redis_key, FREQUENCY_TRACKING_TTL) 
         results = pipe.execute()
         
         current_count = results[2] if len(results) > 2 and isinstance(results[2], int) else 0
@@ -270,17 +267,18 @@ def get_realtime_frequency_features(ip: str) -> dict:
 
         recent_entries = results[3] if len(results) > 3 and isinstance(results[3], list) else []
         if len(recent_entries) > 1: 
-            last_ts_score = float(recent_entries[-2][1]) # Ensure float for score
+            last_ts_score = float(recent_entries[-2][1])
             time_diff = now_unix - last_ts_score
             features['time_since'] = round(time_diff, 3)
-        elif len(recent_entries) == 1 and current_count ==1: 
+        elif len(recent_entries) == 1 and current_count == 1: 
             features['time_since'] = -1.0 
         
-    except RedisError as e: logger.warning(f"Redis error frequency check IP {ip}: {e}"); increment_counter_metric(REDIS_ERRORS_FREQUENCY)
-    except Exception as e: logger.warning(f"Unexpected error frequency check IP {ip}: {e}")
+    except Exception as e:
+        logger.warning(f"Redis error during frequency check for IP {ip}: {e}")
+        increment_counter_metric(REDIS_ERRORS_FREQUENCY)
     return features
 
-# --- IP Reputation Check ---
+# --- IP Reputation Check (Preserved) ---
 async def check_ip_reputation(ip: str) -> Optional[Dict[str, Any]]:
     if not ENABLE_IP_REPUTATION or not IP_REPUTATION_API_URL or not ip: return None
     increment_counter_metric(IP_REPUTATION_CHECKS_RUN)
@@ -296,7 +294,7 @@ async def check_ip_reputation(ip: str) -> Optional[Dict[str, Any]]:
             result = response.json()
             logger.debug(f"IP Reputation API response for {ip}: {result}")
             is_malicious = False; score_val = result.get("abuseConfidenceScore", 0) 
-            score = float(score_val) if score_val is not None else 0.0 # Ensure score is float
+            score = float(score_val) if score_val is not None else 0.0
             if score >= IP_REPUTATION_MIN_MALICIOUS_THRESHOLD: is_malicious = True
             increment_counter_metric(IP_REPUTATION_SUCCESS)
             if is_malicious: increment_counter_metric(IP_REPUTATION_MALICIOUS)
@@ -308,7 +306,7 @@ async def check_ip_reputation(ip: str) -> Optional[Dict[str, Any]]:
         logger.error(f"JSON decode error IP rep for {ip}: {exc} - Resp: {resp_text}"); increment_counter_metric(IP_REPUTATION_ERRORS_RESPONSE_DECODE); return None
     except Exception as e: logger.error(f"Unexpected error IP rep for {ip}: {e}", exc_info=True); increment_counter_metric(IP_REPUTATION_ERRORS_UNEXPECTED); return None
 
-# --- Pydantic Models ---
+# --- Pydantic Models (Preserved) ---
 class RequestMetadata(BaseModel):
     timestamp: Union[str, datetime.datetime] 
     ip: str
@@ -327,8 +325,7 @@ def run_heuristic_and_model_analysis(metadata: RequestMetadata, ip_rep_result: O
     frequency_features = get_realtime_frequency_features(metadata.ip)
     increment_counter_metric(FREQUENCY_ANALYSES_PERFORMED)
     
-    log_entry_dict = metadata.model_dump() # Use Pydantic's model_dump
-    # Ensure timestamp is string for feature extraction if it was datetime
+    log_entry_dict = metadata.model_dump()
     if isinstance(log_entry_dict.get('timestamp'), datetime.datetime): 
         log_entry_dict['timestamp'] = log_entry_dict['timestamp'].isoformat()
 
@@ -337,25 +334,29 @@ def run_heuristic_and_model_analysis(metadata: RequestMetadata, ip_rep_result: O
     if any(bad in ua for bad in KNOWN_BAD_UAS) and not is_known_benign: rule_score += 0.7
     if not metadata.user_agent: rule_score += 0.5
     if is_path_disallowed(path) and not is_known_benign: rule_score += 0.6
-    if frequency_features.get('count', 0) > 60 : rule_score += 0.3 # Use .get for safety
+    if frequency_features.get('count', 0) > 60 : rule_score += 0.3
     elif frequency_features.get('count', 0) > 30 : rule_score += 0.1
     if frequency_features.get('time_since', -1.0) != -1.0 and frequency_features.get('time_since', -1.0) < 0.3: rule_score += 0.2
     if is_known_benign: rule_score -= 0.5
     rule_score = max(0.0, min(1.0, rule_score))
 
-    if MODEL_LOADED and model_pipeline:
+    # --- THIS IS THE PRIMARY CHANGE ---
+    # It now uses the model_adapter instead of the direct model_pipeline.
+    if MODEL_LOADED and model_adapter:
         try:
             features_dict = extract_features(log_entry_dict, frequency_features)
-            if features_dict: # Check if features were extracted
-                # Ensure all features expected by the model are present, possibly with defaults
-                # This step depends on how your model was trained.
-                # For DictVectorizer, it handles missing keys by assigning them a zero value if not seen during fit.
-                probabilities = model_pipeline.predict_proba([features_dict])[0]
-                model_score = probabilities[1] 
+            if features_dict:
+                # The adapter's predict method is called here.
+                probabilities = model_adapter.predict([features_dict])
+                model_score = probabilities[0][1] 
                 model_used = True
                 increment_counter_metric(RF_MODEL_PREDICTIONS)
-            else: logger.warning(f"Could not extract features for RF model (IP: {metadata.ip})")
-        except Exception as e: logger.error(f"RF model prediction failed for IP {metadata.ip}: {e}"); increment_counter_metric(RF_MODEL_ERRORS)
+            else: 
+                logger.warning(f"Could not extract features for RF model (IP: {metadata.ip})")
+        except Exception as e: 
+            logger.error(f"RF model prediction failed for IP {metadata.ip}: {e}", exc_info=True)
+            increment_counter_metric(RF_MODEL_ERRORS)
+    # --- END OF CHANGE ---
     
     if model_used: final_score = (0.3 * rule_score) + (0.7 * model_score)
     else: final_score = rule_score
@@ -368,7 +369,8 @@ def run_heuristic_and_model_analysis(metadata: RequestMetadata, ip_rep_result: O
     final_score = max(0.0, min(1.0, final_score))
     return final_score
 
-async def classify_with_local_llm_api(metadata: RequestMetadata) -> Optional[bool]: # Return type changed
+# --- All other helper functions are preserved as-is ---
+async def classify_with_local_llm_api(metadata: RequestMetadata) -> Optional[bool]:
     if not LOCAL_LLM_API_URL or not LOCAL_LLM_MODEL: return None
     increment_counter_metric(LOCAL_LLM_CHECKS_RUN)
     logger.info(f"Attempting classification for IP {metadata.ip} using local LLM API ({LOCAL_LLM_MODEL})...")
@@ -391,11 +393,10 @@ async def classify_with_local_llm_api(metadata: RequestMetadata) -> Optional[boo
         logger.error(f"JSON decode error LLM for IP {metadata.ip}: {exc} - Resp: {resp_text}"); increment_counter_metric(LOCAL_LLM_ERRORS_RESPONSE_DECODE); return None
     except Exception as e: logger.error(f"Unexpected error LLM API for IP {metadata.ip}: {e}", exc_info=True); increment_counter_metric(LOCAL_LLM_ERRORS_UNEXPECTED); return None
 
-async def classify_with_external_api(metadata: RequestMetadata) -> Optional[bool]: # Return type changed
+async def classify_with_external_api(metadata: RequestMetadata) -> Optional[bool]:
     if not EXTERNAL_API_URL: return None
     increment_counter_metric(EXTERNAL_API_CHECKS_RUN)
     logger.info(f"Attempting classification for IP {metadata.ip} using External API...")
-    # Ensure headers is a dict, even if None from metadata
     headers_to_send = metadata.headers if metadata.headers is not None else {}
     external_payload = {"ipAddress": metadata.ip, "userAgent": metadata.user_agent, "referer": metadata.referer, "requestPath": metadata.path, "headers": headers_to_send}
     
@@ -438,7 +439,7 @@ async def trigger_captcha_challenge(metadata: RequestMetadata) -> bool:
     increment_counter_metric(CAPTCHA_CHALLENGES_TRIGGERED)
     return True
 
-# --- API Endpoint (/escalate) ---
+# --- API Endpoint (/escalate) (Preserved) ---
 @app.post("/escalate")
 async def handle_escalation(metadata_req: RequestMetadata, request: Request):
     client_ip = request.client.host if request.client else "unknown"
@@ -481,7 +482,7 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
                      increment_counter_metric(HUMANS_DETECTED_LOCAL_LLM)
                  else:
                      action_taken = "local_llm_inconclusive"
-                     if EXTERNAL_API_URL: # Check if EXTERNAL_API_URL is configured
+                     if EXTERNAL_API_URL:
                          external_api_result = await classify_with_external_api(metadata_req)
                          if external_api_result is True:
                              is_bot_decision = True; action_taken = "webhook_triggered_external_api"
@@ -498,7 +499,6 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
     except Exception as e:
         logger.error(f"Unexpected error during escalation for IP {ip_under_test}: {e}", exc_info=True)
         action_taken = "internal_server_error"; is_bot_decision = None; final_score = -1.0
-        # Ensure this returns a FastAPI Response object
         return Response(content=json.dumps({"status": "error", "detail": "Internal server error"}), 
                         status_code=500, media_type="application/json")
 
@@ -508,19 +508,19 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
     logger.info(f"Escalation Complete: {log_msg}")
     return {"status": "processed", "action": action_taken, "is_bot_decision": is_bot_decision, "score": round(final_score, 3)}
 
-# --- Metrics Endpoint ---
+# --- Metrics Endpoint (Preserved) ---
 @app.get("/metrics")
 async def get_metrics_endpoint_escalation(): 
     if not METRICS_SYSTEM_AVAILABLE: 
         return Response(content=b"# Metrics system unavailable in escalation_engine\n", media_type="text/plain; version=0.0.4")
     try:
-        prometheus_metrics_bytes = get_metrics() # This now comes from the (potentially dummied) get_metrics
+        prometheus_metrics_bytes = get_metrics()
         return Response(content=prometheus_metrics_bytes, media_type="text/plain; version=0.0.4")
     except Exception as e:
         logger.error(f"Error retrieving metrics: {e}", exc_info=True)
         return Response(content=f"# Error retrieving metrics: {e}\n".encode('utf-8'), media_type="text/plain; version=0.0.4", status_code=500)
 
-# --- Health Check Endpoint ---
+# --- Health Check Endpoint (Preserved) ---
 @app.get("/health")
 async def health_check():
     redis_ok = False
@@ -529,7 +529,7 @@ async def health_check():
         except Exception: redis_ok = False
     return {"status": "ok", "redis_frequency_connected": redis_ok, "model_loaded": MODEL_LOADED}
 
-# --- Main ---
+# --- Main (Preserved) ---
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("ESCALATION_ENGINE_PORT", 8003))
@@ -537,8 +537,8 @@ if __name__ == "__main__":
     log_level = os.getenv("LOG_LEVEL", "info").lower()
 
     logger.info("--- Escalation Engine Starting ---")
-    if MODEL_LOADED: logger.info(f"Loaded RF Model from: {RF_MODEL_PATH}")
-    else: logger.warning(f"RF Model NOT loaded from {RF_MODEL_PATH}. Using rule-based heuristics only.")
+    if MODEL_LOADED: logger.info(f"Loaded Model Adapter Type: {os.getenv('MODEL_TYPE')}")
+    else: logger.warning(f"Model NOT loaded. Using rule-based heuristics only.")
     if FREQUENCY_TRACKING_ENABLED: logger.info(f"Redis Frequency Tracking Enabled (DB: {REDIS_DB_FREQUENCY})")
     else: logger.warning(f"Redis Frequency Tracking DISABLED.")
     if not disallowed_paths: logger.warning(f"No robots.txt rules loaded from {ROBOTS_TXT_PATH}.")
