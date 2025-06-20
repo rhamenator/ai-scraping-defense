@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # --- Metrics Import (Preserved from your original file) ---
 try:
-    from metrics import (
+    from shared.metrics import (
         increment_counter_metric, get_metrics, 
         REDIS_ERRORS_FREQUENCY, IP_REPUTATION_CHECKS_RUN, IP_REPUTATION_SUCCESS,
         IP_REPUTATION_MALICIOUS, IP_REPUTATION_ERRORS_TIMEOUT, IP_REPUTATION_ERRORS_REQUEST,
