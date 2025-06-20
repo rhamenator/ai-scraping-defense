@@ -20,7 +20,7 @@ import logging
 
 # --- Updated Metrics Import ---
 try:
-    from metrics import (
+    from shared.metrics import (
         increment_counter_metric, # Use the helper for counters
         COMMUNITY_REPORTS_ATTEMPTED,
         COMMUNITY_REPORTS_SUCCESS,

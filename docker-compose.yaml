@@ -137,7 +137,6 @@ services:
       - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
       - ./ai_service:/app/ai_service
       - ./shared:/app/shared
-      - ./metrics.py:/app/metrics.py:ro
       - ./logs:/app/logs
       - ./data:/app/data
       - ./util:/app/util
@@ -256,7 +255,6 @@ services:
       - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
       - ./tarpit:/app/tarpit
       - ./shared:/app/shared
-      - ./metrics.py:/app/metrics.py:ro
       - ./logs:/app/logs
       - ./data:/app/data
       - ./util:/app/util
@@ -311,7 +309,6 @@ services:
       - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
       - ./admin_ui:/app/admin_ui
       - ./shared:/app/shared
-      - ./metrics.py:/app/metrics.py:ro
       - ./logs:/app/logs
     secrets:
       - admin_ui_password
