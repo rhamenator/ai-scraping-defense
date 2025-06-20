@@ -66,6 +66,7 @@ jobs:
           # KUBECONFIG is a secret containing the kubeconfig file content for your cluster.
           # You must add this secret to your GitHub repository settings:
           # Settings > Secrets and variables > Actions > New repository secret
+          # If you see a context access error, ensure the secret is set in your repository.
           kubeconfig: ${{ secrets.KUBECONFIG }}
 
       - name: Deploy to Kubernetes
