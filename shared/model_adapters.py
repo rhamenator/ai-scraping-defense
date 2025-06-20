@@ -106,17 +106,3 @@ class HttpModelAdapter(BaseModelAdapter):
         except Exception as e:
             logging.error(f"Failed to call remote model API at {self.model_uri}: {e}")
             return {"error": "Could not connect to model API"}
-class ModelAdapterFactory:
-    """
-    Factory class to create model adapters based on the model type.
-    """
-    @staticmethod
-    def create_adapter(model_type: str, model_uri: str, config: Optional[Dict[str, Any]] = None) -> BaseModelAdapter:
-        if model_type == "sklearn":
-            return SklearnAdapter(model_uri, config)
-        elif model_type == "markov":
-            return MarkovAdapter(model_uri, config)
-        elif model_type == "http":
-            return HttpModelAdapter(model_uri, config)
-        else:
-            raise ValueError(f"Unknown model type: {model_type}")
