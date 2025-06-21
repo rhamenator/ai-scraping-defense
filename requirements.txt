@@ -1,36 +1,63 @@
-numpy>=1.24.0
-fastapi>=0.115.0
-flask>=3.0.0
-psycopg2-binary>=2.9.9
-redis>=6.0.0
-httpx>=0.24.0
-requests>=2.31.0
-pydantic>=2.0.0
-pandas>=2.0.0
-joblib>=1.3.0
-user-agents>=2.0
-schedule>=1.0.0
-wikipedia-api>=0.8.0
-beautifulsoup4>=4.12.0
-lxml>=4.9.0
-kubernetes>=25.3.0
-datasets>=3.0.0
-transformers>=4.30.0
-uvicorn[standard]>=0.27.0  # Added uvicorn
-gunicorn>=21.2.0  # Added gunicorn for production serving
-python-multipart>=0.0.9  # For FastAPI form handling
-prometheus-client>=0.18.0  # For metrics
-aiofiles>=23.1.0  # For async file handling in FastAPI 
-# Added dependencies for Redis and external API integration
-redis-py-cluster>=2.1.0  # For Redis cluster support   
-# Added dependencies for AI service
-langchain>=0.0.200  # For AI service integration   
-openai>=0.27.0  # For OpenAI API integration
-tiktoken>=0.3.0  # For tokenization in AI service
-chromadb>=0.3.21  # For vector database support in AI service
-faiss-cpu>=1.7.2  # For efficient similarity search in AI service
-sentence-transformers>=2.2.2  # For sentence embeddings in AI service 
-pymongo>=4.3.3  # For MongoDB integration in AI service
-pymilvus>=2.2.9  # For Milvus vector database support in
-guinicorn>=21.2.0  # For production serving
-# Added dependencies for web scraping and data processing
+# ==============================================================================
+# AI-SCRAPING-DEFENSE REQUIREMENTS
+#
+# This file lists the Python packages needed to run the project.
+# It is organized by function for clarity.
+#
+# Versioning Strategy:
+# We use the compatible release operator (~=) to ensure stable builds.
+# For example, "fastapi~=0.115" will install the latest 0.115.x version
+# but will not upgrade to 0.116.0, protecting against breaking changes.
+# ==============================================================================
+
+# --- CORE WEB FRAMEWORK & SERVER ---
+fastapi~=0.115
+uvicorn[standard]~=0.27
+gunicorn~=21.2
+flask~=3.0
+python-multipart~=0.0.9 # For FastAPI form handling
+aiofiles~=23.1         # For async file handling in FastAPI
+
+# --- DATABASE & CACHE ---
+psycopg2-binary~=2.9
+redis~=5.0             # The official redis client, includes cluster support
+
+# --- DATA SCIENCE & MACHINE LEARNING ---
+numpy~=1.24
+pandas~=2.0
+joblib~=1.3
+scikit-learn~=1.3      # Explicitly adding scikit-learn for model training
+user-agents~=2.2
+schedule~=1.2
+
+# --- UTILITIES & EXTERNAL DATA ---
+httpx~=0.27
+requests~=2.31
+beautifulsoup4~=4.12
+lxml~=4.9
+wikipedia~=1.4         # Replaced deprecated wikipedia-api
+prometheus-client~=0.18
+
+# --- KUBERNETES ---
+kubernetes~=29.0
+
+# --- LLM - CLOUD PROVIDERS ---
+openai~=1.17
+anthropic~=0.25
+google-generativeai~=0.4
+cohere~=5.3
+
+# --- LLM - LOCAL/OPEN SOURCE ---
+ollama~=0.2
+llama-cpp-python~=0.2
+sentence-transformers~=2.7
+tiktoken~=0.6
+
+# --- LLM - VECTOR STORES (Optional, for RAG) ---
+# Un-comment these if you are implementing vector search functionality.
+# chromadb~=0.4
+# faiss-cpu~=1.7
+# pymilvus~=2.4
+
+# --- TESTING ---
+freezegun~=1.5

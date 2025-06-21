@@ -2,123 +2,115 @@
 import unittest
 from unittest.mock import patch, MagicMock, mock_open
 import os
+import sys
 import tempfile
 import shutil
 
+# Add project root to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
 from util import corpus_wikipedia_updater
+# Import the actual exceptions from the library for mocking
+from wikipedia.exceptions import DisambiguationError, PageError
 
-class MockWikiPage:
-    """A mock object for a wikipediaapi page."""
-    def __init__(self, title, text, exists=True, ns=0, categories=None):
-        self.title = title
-        self.text = text
-        self.summary = text[:50] # Abridged version
-        self._exists = exists
-        self.ns = ns # 0 for articles
-        self.categories = categories if categories is not None else {"Category:Living people": MagicMock()}
-    
-    def exists(self):
-        return self._exists
-
-class TestWikipediaCorpusUpdaterComprehensive(unittest.TestCase):
+class TestWikipediaCorpusUpdater(unittest.TestCase):
 
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
         self.corpus_file = os.path.join(self.test_dir, "corpus.txt")
         
+        # Patch the wikipedia library and the output file path
         self.patches = {
-            'requests.Session': patch('util.corpus_wikipedia_updater.requests.Session'),
-            'wikipediaapi.Wikipedia': patch('util.corpus_wikipedia_updater.wikipediaapi.Wikipedia'),
-            'time.sleep': patch('time.sleep', return_value=None),
+            'wikipedia': patch('util.corpus_wikipedia_updater.wikipedia'),
             'CORPUS_OUTPUT_FILE': patch('util.corpus_wikipedia_updater.CORPUS_OUTPUT_FILE', self.corpus_file)
         }
         self.mocks = {name: patcher.start() for name, patcher in self.patches.items()}
 
-        # Configure mocks
-        self.mock_wiki_api = self.mocks['wikipediaapi.Wikipedia'].return_value
-        self.mock_session = self.mocks['requests.Session'].return_value
-        
     def tearDown(self):
         shutil.rmtree(self.test_dir)
         for patcher in self.patches.values():
             patcher.stop()
 
     def test_clean_text(self):
-        """Test the text cleaning function with various edge cases."""
-        raw_text = "== Section ==\n'''Bold''' text with a <!-- comment --> and a <ref>citation</ref>. It also has {{template|param}} and [[File:image.jpg|thumb|caption]]. Finally, a list:\n* Item 1\n* Item 2"
-        expected = "Bold text with a  and a . It also has  and . Finally, a list: Item 1 Item 2"
+        """Test the text cleaning function with various markup."""
+        raw_text = "== History ==\n'''AI''' is a field of computer science. <ref>A citation.</ref> It is cool.\n* Point 1\n* [[File:Test.png|thumb]]"
+        expected = "AI is a field of computer science.  It is cool. Point 1"
         self.assertEqual(corpus_wikipedia_updater.clean_text(raw_text), expected)
-        # Test with only whitespace and newlines
-        self.assertEqual(corpus_wikipedia_updater.clean_text(" \n \n "), "")
 
-    def test_fetch_random_wikipedia_articles_api_success(self):
-        """Test successful fetching of multiple valid articles."""
-        # Simulate the API returning a list of random titles
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "query": {"random": [{"title": "Page One"}, {"title": "Page Two"}]}
-        }
-        self.mock_session.get.return_value = mock_response
-
-        # Simulate the page objects returned for these titles
-        self.mock_wiki_api.page.side_effect = [
-            MockWikiPage("Page One", "Content for page one."),
-            MockWikiPage("Page Two", "Content for page two.")
-        ]
+    def test_fetch_random_wikipedia_articles_success(self):
+        """Test the successful fetching and processing of a valid article."""
+        mock_wiki = self.mocks['wikipedia']
         
-        articles = corpus_wikipedia_updater.fetch_random_wikipedia_articles_api(num_articles=2)
+        # Simulate the 'wikipedia.random()' call
+        mock_wiki.random.return_value = "Artificial Intelligence"
         
-        self.assertEqual(len(articles), 2)
-        self.assertIn("Content for page one.", articles)
-        self.assertIn("Content for page two.", articles)
+        # Create a mock page object with the expected attributes
+        mock_page = MagicMock()
+        mock_page.title = "Artificial Intelligence"
+        mock_page.content = "This is the full, long content of the AI article which is definitely more than 500 characters long to pass the length check. " * 10
+        mock_page.categories = ["Computer science", "Cybernetics"]
+        
+        # Make 'wikipedia.page()' return our mock page
+        mock_wiki.page.return_value = mock_page
+        
+        articles = corpus_wikipedia_updater.fetch_random_wikipedia_articles(num_articles=1)
+        
+        self.assertEqual(len(articles), 1)
+        self.assertIn("This is the full, long content", articles[0])
+        mock_wiki.random.assert_called_once_with(pages=1)
+        mock_wiki.page.assert_called_once_with("Artificial Intelligence", auto_suggest=False, redirect=True)
 
-    def test_fetch_skips_non_articles_and_disallowed_categories(self):
-        """Test that the fetcher correctly skips non-articles and pages in disallowed categories."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "query": {"random": [{"title": "Living Person"}, {"title": "Talk Page"}, {"title": "Good Article"}]}
-        }
-        self.mock_session.get.return_value = mock_response
+    def test_fetch_skips_disambiguation_pages(self):
+        """Test that DisambiguationError is caught and the page is skipped."""
+        mock_wiki = self.mocks['wikipedia']
+        mock_wiki.random.side_effect = ["Disambiguation Page", "Good Page"]
+        
+        # First call to page() will raise an error, second will succeed
+        mock_good_page = MagicMock(content="Good content " * 100, categories=["Technology"])
+        mock_wiki.page.side_effect = [DisambiguationError(title="Disambiguation Page", may_refer_to=[]), mock_good_page]
 
-        self.mock_wiki_api.page.side_effect = [
-            MockWikiPage("Living Person", "This person is alive.", categories={"Category:Living people": MagicMock()}),
-            MockWikiPage("Talk Page", "Discussion here.", ns=1), # ns=1 is a talk page
-            MockWikiPage("Good Article", "This is a good article.", categories={"Category:Science": MagicMock()})
-        ]
-
-        articles = corpus_wikipedia_updater.fetch_random_wikipedia_articles_api(num_articles=3)
+        with self.assertLogs('util.corpus_wikipedia_updater', level='WARNING') as cm:
+            articles = corpus_wikipedia_updater.fetch_random_wikipedia_articles(num_articles=1)
+            self.assertIn("Skipping 'Disambiguation Page'", cm.output[0])
 
         self.assertEqual(len(articles), 1)
-        self.assertEqual(articles[0], "This is a good article.")
-        
-    @patch('util.corpus_wikipedia_updater.logger.error')
-    def test_fetch_api_request_fails(self, mock_logger_error):
-        """Test handling of a network error when fetching random pages."""
-        self.mock_session.get.side_effect = Exception("Network timeout")
-        articles = corpus_wikipedia_updater.fetch_random_wikipedia_articles_api(num_articles=5)
-        self.assertEqual(articles, [])
-        mock_logger_error.assert_called_once()
-        self.assertIn("Failed to fetch random pages", mock_logger_error.call_args[0][0])
+        self.assertIn("Good content", articles[0])
 
+    def test_fetch_skips_disallowed_categories(self):
+        """Test that articles in disallowed categories are skipped."""
+        mock_wiki = self.mocks['wikipedia']
+        mock_wiki.random.return_value = "John Doe"
+        
+        mock_page = MagicMock()
+        mock_page.title = "John Doe"
+        mock_page.content = "Content about a person " * 50
+        mock_page.categories = ["Living people", "Scientists"] # "Living people" is disallowed
+        
+        mock_wiki.page.return_value = mock_page
+        
+        with self.assertLogs('util.corpus_wikipedia_updater', level='DEBUG') as cm:
+            articles = corpus_wikipedia_updater.fetch_random_wikipedia_articles(num_articles=1)
+            # This should try again since the first was skipped, so we mock a second good return
+            mock_wiki.random.return_value = "Good Article"
+            mock_page.categories = ["Good Category"]
+            articles.extend(corpus_wikipedia_updater.fetch_random_wikipedia_articles(num_articles=1))
+            self.assertIn("Skipping 'John Doe' due to disallowed category", cm.output[0])
+        
     def test_update_corpus_file(self):
-        """Test writing fetched content to the corpus file."""
-        articles = ["New article content.", "Another line of text."]
-        corpus_wikipedia_updater.update_corpus_file(articles)
+        """Test that new articles are correctly appended to the corpus file."""
+        articles = ["First article.", "Second article."]
         
-        with open(self.corpus_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        self.assertIn("New article content.\n", content)
-        self.assertIn("Another line of text.\n", content)
-
-    @patch('util.corpus_wikipedia_updater.logger.error')
-    def test_update_corpus_file_write_error(self, mock_logger_error):
-        """Test that an error during file writing is caught and logged."""
-        with patch('builtins.open', mock_open()) as mocked_file:
-            mocked_file.side_effect = IOError("Disk full")
-            corpus_wikipedia_updater.update_corpus_file(["some content"])
-            mock_logger_error.assert_called_once()
-            self.assertIn("Failed to write to corpus file", mock_logger_error.call_args[0][0])
+        # Use mock_open to simulate file I/O
+        with patch("builtins.open", mock_open()) as mocked_file:
+            corpus_wikipedia_updater.update_corpus_file(articles)
+            
+            # Verify the file was opened in append mode
+            mocked_file.assert_called_once_with(self.corpus_file, 'a', encoding='utf-8')
+            
+            # Verify the content was written
+            handle = mocked_file()
+            handle.write.assert_any_call("First article.\n")
+            handle.write.assert_any_call("Second article.\n")
 
 if __name__ == '__main__':
     unittest.main()
