@@ -54,7 +54,7 @@ spec:
           - name: robots-fetcher
             image: defense_stack_py_base:v0.1.0 # Your Python base image
             imagePullPolicy: IfNotPresent
-            command: ["python", "/app/util/robots_fetcher.py"] # Path to the script in the image
+            command: ["python", "/app/src/util/robots_fetcher.py"] # Path to the script in the image
             securityContext:
               allowPrivilegeEscalation: false
               runAsUser: 1001

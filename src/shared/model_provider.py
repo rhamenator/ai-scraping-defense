@@ -5,9 +5,10 @@ import sys
 from typing import Optional
 
 # Ensure parent directories are in the path for module resolution
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# This is no longer necessary if PYTHONPATH is set correctly in the environment
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from shared.model_adapters import SklearnAdapter, MarkovAdapter, HttpModelAdapter, BaseModelAdapter
+from src.shared.model_adapters import SklearnAdapter, MarkovAdapter, HttpModelAdapter, BaseModelAdapter
 
 # A mapping from the MODEL_TYPE string to the corresponding adapter class.
 # This makes the provider easily extensible with new model types.
@@ -53,4 +54,3 @@ def load_model() -> Optional[BaseModelAdapter]:
     except Exception as e:
         logging.error(f"CRITICAL: Failed to instantiate model adapter for type '{model_type}': {e}", exc_info=True)
         return None
-

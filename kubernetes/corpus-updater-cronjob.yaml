@@ -18,7 +18,7 @@ spec:
           - name: corpus-updater
             image: defense_stack_py_base:v0.1.0
             imagePullPolicy: IfNotPresent
-            command: ["python", "/app/util/corpus_wikipedia_updater.py"]
+            command: ["python", "/app/src/util/corpus_wikipedia_updater.py"]
             securityContext: # Container level security context
               allowPrivilegeEscalation: false
               runAsUser: 1001 # Example non-root user

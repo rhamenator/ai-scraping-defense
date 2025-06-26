@@ -7,8 +7,7 @@ import httpx
 import sys
 
 # --- Refactored Imports ---
-# Add project root to the path for correct module resolution
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# No longer need sys.path manipulation if PYTHONPATH is set correctly
 
 # Import third-party libraries safely
 try:
@@ -55,7 +54,7 @@ except ImportError:
 
 # Local module import
 try:
-    from tarpit.markov_generator import generate_dynamic_tarpit_page
+    from src.tarpit.markov_generator import generate_dynamic_tarpit_page
     MARKOV_AVAILABLE = True
 except ImportError:
     MARKOV_AVAILABLE = False

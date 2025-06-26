@@ -1,131 +1,190 @@
-# Add force parameter
-param(
-    [switch]$Force
-)
+# Generate-Secrets.ps1 (Updated for Kubernetes)
+#
+# This script creates a single, ready-to-use Kubernetes secrets manifest.
+# It generates strong random passwords, creates Nginx htpasswd credentials,
+# base64-encodes all values, assembles them into one YAML file, and
+# outputs the generated credentials to the console for the administrator.
 
-# Get current time in UTC and current user from OS
-$CurrentTime = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss")
-$CurrentUser = $env:USERNAME
-$CurrentHostname = $env:COMPUTERNAME
-$SecretsDir = Join-Path (Get-Location) "secrets"  # Use current directory
+# --- Configuration ---
+# Ensure the 'kubernetes' directory exists
+$K8sDir = Join-Path $PSScriptRoot "kubernetes"
+if (-not (Test-Path $K8sDir)) {
+    New-Item -ItemType Directory -Path $K8sDir | Out-Null
+}
+$OutputFile = Join-Path $K8sDir "secrets.yaml"
 
-Write-Host "Generating secrets for:"
-Write-Host "User: $CurrentUser"
-Write-Host "Hostname: $CurrentHostname"
-Write-Host "Time (UTC): $CurrentTime"
-Write-Host "------------------------"
-
-# Check for existing secrets before starting
-if (Test-Path $SecretsDir) {
-    $existingFiles = Get-ChildItem $SecretsDir -File
-    if ($existingFiles.Count -gt 0 -and -not $Force) {
-        Write-Host "WARNING: Secrets directory already contains files."
-        Write-Host "Use -Force parameter to overwrite existing secrets."
-        exit 1
+# --- Functions ---
+# Function to generate a strong, random password
+function New-RandomPassword {
+    param(
+        [int]$Length = 24
+    )
+    $specialChars = '!@#$%^&*'
+    $passwordChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' + $specialChars
+    $random = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
+    $bytes = New-Object byte[] $Length
+    $random.GetBytes($bytes)
+    $password = -join ($bytes | ForEach-Object { $passwordChars[$_ % $passwordChars.Length] })
+    # Ensure at least one special character is present
+    if ($password -notmatch "[$([regex]::Escape($specialChars))]") {
+        $password = $password.Substring(0, $Length - 1) + $specialChars[(Get-Random -Minimum 0 -Maximum $specialChars.Length)]
     }
+    return $password
 }
 
-# Create secrets directory if it doesn't exist
-New-Item -ItemType Directory -Force -Path $SecretsDir | Out-Null
-
-# Function to generate highly random system seed
-function New-SystemSeed {
-    $length = Get-Random -Minimum 128 -Maximum 257
-    Write-Host "Generating $length-character system seed..."
-    
-    $randomBytes = New-Object byte[] $length
-    $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::Create()
-    $rng.GetBytes($randomBytes)
-    
-    $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()_+[]{}|;:,.<>?~'
-    $result = -join ($randomBytes | ForEach-Object {
-        $chars[$_ % $chars.Length]
-    } | Get-Random -Count $length)
-    
-    return $result
+# Function to Base64-encode a string
+function ConvertTo-Base64 {
+    param(
+        [string]$InputString
+    )
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($InputString)
+    return [System.Convert]::ToBase64String($bytes)
 }
 
-# Function to generate a random password
-function New-Password {
-    $length = Get-Random -Minimum 15 -Maximum 33
-    Write-Host "Generating $length-character password..."
-    $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?'
-    return -join ((1..$length) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
+# --- Main Logic ---
+Write-Host "Generating secrets for Kubernetes..."
+
+# 1. Generate all required secret values
+$postgresUser = "postgres"
+$postgresDb = "markov_db"
+$postgresPassword = New-RandomPassword
+$redisPassword = New-RandomPassword
+
+# Use the current user's name for the admin UI for better security
+$adminUiUsername = $env:USERNAME
+if ([string]::IsNullOrEmpty($adminUiUsername)) {
+    $adminUiUsername = "defense-admin" # Fallback for environments without a username
 }
 
-# Function to generate a hex string
-function New-Generated-Hex {
-    param([int]$length)
-    return -join ((1..$length) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
-}
+$adminUiPassword = New-RandomPassword
+$systemSeed = New-RandomPassword -Length 48
+$externalApiKey = New-RandomPassword
+$ipReputationApiKey = New-RandomPassword
+$communityBlocklistApiKey = New-RandomPassword
+$smtpPassword = New-RandomPassword
 
-# Function to create a secret file
-function New-Secret {
-    param($filename, $content)
-    try {
-        $path = Join-Path $SecretsDir $filename
-        [System.IO.File]::WriteAllText($path, $content)
-        
-        # Try to set file permissions, but continue if it fails
-        try {
-            $acl = Get-Acl $path
-            $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-            $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-                $identity, 
-                "FullControl",
-                "Allow"
-            )
-            $acl.SetAccessRule($accessRule)
-            Set-Acl -Path $path -AclObject $acl -ErrorAction SilentlyContinue
-        }
-        catch {
-            Write-Host "Note: Could not set special file permissions (not critical)" -ForegroundColor Yellow
-        }
-        
-        Write-Host "Created: $filename"
-    }
-    catch {
-        Write-Host "Error creating $filename : $_" -ForegroundColor Red
-        exit 1
-    }
-}
+# 2. Generate Nginx .htpasswd secret
+$nginxUsername = $adminUiUsername # Use the same username for consistency
+$nginxPassword = New-RandomPassword -Length 32
+# Create the SHA1 hash of the password and then Base64 encode it (this is the htpasswd format)
+$sha1 = [System.Security.Cryptography.SHA1]::Create()
+$passwordBytes = [System.Text.Encoding]::UTF8.GetBytes($nginxPassword)
+$hashBytes = $sha1.ComputeHash($passwordBytes)
+$hash_b64 = [System.Convert]::ToBase64String($hashBytes)
+# This is the final line that goes inside the .htpasswd file
+$htpasswdFileContent = "${nginxUsername}:{SHA}${hash_b64}"
 
-# Generate system seed
-$systemSeed = New-SystemSeed
-New-Secret "system_seed.txt" $systemSeed
 
-# Generate passwords and keys
-$adminPassword = New-Password
-New-Secret "admin_ui_password.txt" $adminPassword
-New-Secret "redis_password.txt" (New-Password)
-New-Secret "pg_password.txt" (New-Password)
-New-Secret "training_pg_password.txt" (New-Password)
-New-Secret "smtp_password.txt" (New-Password)
+# 3. Base64-encode all values for Kubernetes Secret data
+$postgresUser_b64 = ConvertTo-Base64 $postgresUser
+$postgresDb_b64 = ConvertTo-Base64 $postgresDb
+$postgresPassword_b64 = ConvertTo-Base64 $postgresPassword
+$redisPassword_b64 = ConvertTo-Base64 $redisPassword
+$adminUiUsername_b64 = ConvertTo-Base64 $adminUiUsername
+$adminUiPassword_b64 = ConvertTo-Base64 $adminUiPassword
+$systemSeed_b64 = ConvertTo-Base64 $systemSeed
+$externalApiKey_b64 = ConvertTo-Base64 $externalApiKey
+$ipReputationApiKey_b64 = ConvertTo-Base64 $ipReputationApiKey
+$communityBlocklistApiKey_b64 = ConvertTo-Base64 $communityBlocklistApiKey
+$smtpPassword_b64 = ConvertTo-Base64 $smtpPassword
+# We must also Base64-encode the entire .htpasswd file content for the K8s secret
+$htpasswdFileContent_b64 = ConvertTo-Base64 $htpasswdFileContent
 
-# Generate API keys
-New-Secret "external_api_key.txt" "key_$(New-Generated-Hex 16)"
-New-Secret "ip_reputation_api_key.txt" "key_$(New-Generated-Hex 16)"
-New-Secret "community_blocklist_api_key.txt" "key_$(New-Generated-Hex 16)"
 
-# Generate .htpasswd file - completely random without patterns
-$htpasswdPassword = -join ((1..(Get-Random -Minimum 30 -Maximum 49)) | 
-    ForEach-Object { 
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()_+[]{}|;:,.<>?~'.ToCharArray() | 
-        Get-Random 
-    })
-$htpasswd = "${CurrentUser}:{SHA}" + [Convert]::ToBase64String([System.Security.Cryptography.SHA1]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($htpasswdPassword)))
-New-Secret ".htpasswd" $htpasswd
+# 4. Assemble the YAML content using a Here-String
+$yamlContent = @"
+# kubernetes/secrets.yaml
+#
+# GENERATED BY SCRIPT - DO NOT EDIT MANUALLY
+# This file contains sensitive data. DO NOT commit it to version control.
+# Ensure 'kubernetes/secrets.yaml' is in your .gitignore file.
+#
+# To apply, run: kubectl apply -f kubernetes/secrets.yaml
 
-# Print summary
-Write-Host "`nSecret files generated in ${SecretsDir}:"
-Get-ChildItem $SecretsDir | Format-Table Name, Length, LastWriteTime
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-credentials
+  namespace: ai-defense
+type: Opaque
+data:
+  POSTGRES_USER: $postgresUser_b64
+  POSTGRES_DB: $postgresDb_b64
+  POSTGRES_PASSWORD: $postgresPassword_b64
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: redis-credentials
+  namespace: ai-defense
+type: Opaque
+data:
+  REDIS_PASSWORD: $redisPassword_b64
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: admin-ui-credentials
+  namespace: ai-defense
+type: Opaque
+data:
+  ADMIN_UI_USERNAME: $adminUiUsername_b64
+  ADMIN_UI_PASSWORD: $adminUiPassword_b64
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: system-seed-secret
+  namespace: ai-defense
+type: Opaque
+data:
+  SYSTEM_SEED: $systemSeed_b64
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: external-api-keys
+  namespace: ai-defense
+type: Opaque
+data:
+  EXTERNAL_API_KEY: $externalApiKey_b64
+  IP_REPUTATION_API_KEY: $ipReputationApiKey_b64
+  COMMUNITY_BLOCKLIST_API_KEY: $communityBlocklistApiKey_b64
+  SMTP_PASSWORD: $smtpPassword_b64
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nginx-auth
+  namespace: ai-defense
+type: Opaque
+data:
+  # This secret contains the content for the .htpasswd file, which is used
+  # by Nginx for HTTP Basic Authentication.
+  .htpasswd: $htpasswdFileContent_b64
+"@
 
-# Print important passwords
-Write-Host "`nImportant Passwords (save these):"
-Write-Host "Admin UI Username: $CurrentUser"
-Write-Host "Admin UI Password: $adminPassword"
-Write-Host "HTPasswd Username: $CurrentUser"
-Write-Host "HTPasswd Password: $htpasswdPassword"
-Write-Host "System Seed: $systemSeed"
+# 5. Write the YAML content to the output file
+Set-Content -Path $OutputFile -Value $yamlContent -Encoding UTF8
 
-Write-Host "`nDone! Make sure to save these passwords securely and never commit them to version control."
+Write-Host "Successfully created Kubernetes secrets file at:"
+Write-Host $OutputFile -ForegroundColor Green
+Write-Host "------------------------------------------------------------" -ForegroundColor Yellow
+Write-Host "IMPORTANT: Save the following credentials in a secure place!" -ForegroundColor Yellow
+Write-Host "------------------------------------------------------------" -ForegroundColor Yellow
+
+# 6. Output the generated secrets for the user to save
+Write-Host ""
+Write-Host "NGINX / Admin UI Credentials (for browser access):" -ForegroundColor Cyan
+Write-Host "  Username: " -NoNewline; Write-Host $nginxUsername -ForegroundColor White
+Write-Host "  Password: " -NoNewline; Write-Host $nginxPassword -ForegroundColor White
+Write-Host ""
+Write-Host "Service Passwords & Keys (for config and troubleshooting):" -ForegroundColor Cyan
+Write-Host "  PostgreSQL Password:" -NoNewline; Write-Host " $postgresPassword" -ForegroundColor White
+Write-Host "  Redis Password:     " -NoNewline; Write-Host " $redisPassword" -ForegroundColor White
+Write-Host "  System Seed:        " -NoNewline; Write-Host " $systemSeed" -ForegroundColor White
+Write-Host ""
+Write-Host "------------------------------------------------------------" -ForegroundColor Yellow
+Write-Host "After saving these values, clear your screen history." -ForegroundColor Yellow
+Write-Host "Remember to add 'kubernetes/secrets.yaml' to your .gitignore file."
+

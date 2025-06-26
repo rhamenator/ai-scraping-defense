@@ -15,9 +15,8 @@ import logging
 import sys
 
 # --- Refactored Imports ---
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from shared.model_provider import load_model
-from shared.redis_client import get_redis_connection
+from src.shared.model_provider import load_model
+from src.shared.redis_client import get_redis_connection
 
 # --- Setup Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -25,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # --- Metrics Import (Preserved from your original file) ---
 try:
-    from shared.metrics import (
+    from src.shared.metrics import (
         increment_counter_metric, get_metrics, 
         REDIS_ERRORS_FREQUENCY, IP_REPUTATION_CHECKS_RUN, IP_REPUTATION_SUCCESS,
         IP_REPUTATION_MALICIOUS, IP_REPUTATION_ERRORS_TIMEOUT, IP_REPUTATION_ERRORS_REQUEST,
@@ -390,7 +389,7 @@ async def classify_with_local_llm_api(metadata: RequestMetadata) -> Optional[boo
     except httpx.RequestError as exc: logger.error(f"Request error LLM API ({LOCAL_LLM_API_URL}) for IP {metadata.ip}: {exc}"); increment_counter_metric(LOCAL_LLM_ERRORS_REQUEST); return None
     except json.JSONDecodeError as exc: 
         resp_text = response.text[:500] if response is not None and hasattr(response, "text") else "<no response>"
-        logger.error(f"JSON decode error LLM for IP {metadata.ip}: {exc} - Resp: {resp_text}"); increment_counter_metric(LOCAL_LLM_ERRORS_RESPONSE_DECODE); return None
+        logger.error(f"JSON decode error LLM for {metadata.ip}: {exc} - Resp: {resp_text}"); increment_counter_metric(LOCAL_LLM_ERRORS_RESPONSE_DECODE); return None
     except Exception as e: logger.error(f"Unexpected error LLM API for IP {metadata.ip}: {e}", exc_info=True); increment_counter_metric(LOCAL_LLM_ERRORS_UNEXPECTED); return None
 
 async def classify_with_external_api(metadata: RequestMetadata) -> Optional[bool]:
@@ -549,4 +548,4 @@ if __name__ == "__main__":
     logger.info(f"Webhook URL configured: {'Yes (' + str(WEBHOOK_URL) + ')' if WEBHOOK_URL else 'No'}")
     logger.info("---------------------------------")
     logger.info(f"Starting Escalation Engine on port {port}")
-    uvicorn.run("escalation_engine:app", host="0.0.0.0", port=port, workers=workers, log_level=log_level, reload=False)
+    uvicorn.run("src.escalation.escalation_engine:app", host="0.0.0.0", port=port, workers=workers, log_level=log_level, reload=False)

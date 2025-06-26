@@ -31,7 +31,7 @@ spec:
               - "ALL"
           # readOnlyRootFilesystem: false # Needs to write to PVC mount
         workingDir: /app
-        command: ["python", "tarpit/rotating_archive.py"]
+        command: ["python", "src/tarpit/rotating_archive.py"]
         env:
           - name: DEFAULT_ARCHIVE_DIR
             value: "/app/fake_archives_on_pvc" # This is the mountPath for the PVC

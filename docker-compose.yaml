@@ -1,3 +1,4 @@
+# docker-compose.yaml
 services:
   mailhog:
     image: mailhog/mailhog
@@ -118,7 +119,7 @@ services:
       "-k", "uvicorn.workers.UvicornWorker",
       "--workers", "${UVICORN_WORKERS:-2}",
       "--bind", "0.0.0.0:${AI_SERVICE_PORT}",
-      "ai_service.ai_webhook:app"
+      "src.ai_service.ai_webhook:app"
     ]
     environment:
       - PYTHONPATH=/app
@@ -135,11 +136,11 @@ services:
       - APP_ENV=${APP_ENV}
     volumes:
       - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
-      - ./ai_service:/app/ai_service
-      - ./shared:/app/shared
+      - ./src/ai_service:/app/src/ai_service
+      - ./src/shared:/app/src/shared
       - ./logs:/app/logs
       - ./data:/app/data
-      - ./util:/app/util
+      - ./src/util:/app/src/util
     secrets:
       - smtp_password
       - community_blocklist_api_key
@@ -173,7 +174,7 @@ services:
       "-k", "uvicorn.workers.UvicornWorker",
       "--workers", "${UVICORN_WORKERS:-2}",
       "--bind", "0.0.0.0:${ESCALATION_ENGINE_PORT:-8003}",
-      "escalation.escalation_engine:app"
+      "src.escalation.escalation_engine:app"
     ]
     environment:
       # --- NEW MODEL PROVIDER CONFIG ---
@@ -199,9 +200,9 @@ services:
       - ALERT_SENDER=noreply@defense.local
     volumes:
       - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
-      - ./escalation:/app/escalation
-      - ./shared:/app/shared
-      - ./rag:/app/rag
+      - ./src/escalation:/app/src/escalation
+      - ./src/shared:/app/src/shared
+      - ./src/rag:/app/src/rag
       - ./models:/app/models:rw
       - ./data:/app/data:ro
     secrets:
@@ -236,7 +237,7 @@ services:
       "-k", "uvicorn.workers.UvicornWorker",
       "--workers", "${UVICORN_WORKERS:-2}",
       "--bind", "0.0.0.0:${TARPIT_API_PORT}",
-      "tarpit.tarpit_api:app"
+      "src.tarpit.tarpit_api:app"
     ]
     environment:
       - PYTHONPATH=/app
@@ -253,11 +254,11 @@ services:
       - POSTGRES_DB_FILE=/run/secrets/pg_db
     volumes:
       - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
-      - ./tarpit:/app/tarpit
-      - ./shared:/app/shared
+      - ./src/tarpit:/app/src/tarpit
+      - ./src/shared:/app/src/shared
       - ./logs:/app/logs
       - ./data:/app/data
-      - ./util:/app/util
+      - ./src/util:/app/src/util
     secrets:
       - pg_password
       - pg_user
@@ -290,7 +291,7 @@ services:
         "gunicorn",
         "--workers", "4",
         "--bind", "0.0.0.0:${ADMIN_UI_PORT}",
-        "admin_ui.admin_ui:app"
+        "src.admin_ui.admin_ui:app"
     ]
     environment:
       - PYTHONPATH=/app
@@ -307,8 +308,8 @@ services:
       - POSTGRES_DB_FILE=/run/secrets/pg_db
     volumes:
       - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
-      - ./admin_ui:/app/admin_ui
-      - ./shared:/app/shared
+      - ./src/admin_ui:/app/src/admin_ui
+      - ./src/shared:/app/src/shared
       - ./logs:/app/logs
     secrets:
       - admin_ui_password
@@ -336,13 +337,13 @@ services:
     container_name: archive_rotator
     working_dir: /app
     entrypoint: []
-    command: ["python", "tarpit/rotating_archive.py"]
+    command: ["python", "src/tarpit/rotating_archive.py"]
     environment:
       - PYTHONPATH=/app
       - DEFAULT_ARCHIVE_DIR=/app/fake_archives
       - LOG_LEVEL=${LOG_LEVEL}
     volumes:
-      - ./tarpit:/app/tarpit
+      - ./src/tarpit:/app/src/tarpit
       - ./archives:/app/fake_archives
       - ./logs:/app/logs
     networks:
@@ -415,7 +416,7 @@ services:
     container_name: corpus_updater
     working_dir: /app
     entrypoint: []
-    command: ["python", "util/corpus_wikipedia_updater.py"]
+    command: ["python", "src/util/corpus_wikipedia_updater.py"]
     environment:
       - PYTHONPATH=/app
       - WIKIPEDIA_CORPUS_FILE=${WIKIPEDIA_CORPUS_FILE}
@@ -423,7 +424,7 @@ services:
       - WIKIPEDIA_LANGUAGE=${WIKIPEDIA_LANGUAGE:-en}
       - LOG_LEVEL=${LOG_LEVEL}
     volumes:
-      - ./util:/app/util
+      - ./src/util:/app/src/util
       - ./data:/app/data
     networks:
       - defense_network
@@ -435,13 +436,13 @@ services:
     container_name: robots_fetcher
     working_dir: /app
     entrypoint: []
-    command: ["python", "util/robots_fetcher.py"]
+    command: ["python", "src/util/robots_fetcher.py"]
     environment:
       - PYTHONPATH=/app
       - REAL_BACKEND_HOST=${REAL_BACKEND_HOST_FOR_ROBOTS:-http://nginx_proxy:80}
       - LOG_LEVEL=${LOG_LEVEL}
     volumes:
-      - ./util:/app/util
+      - ./src/util:/app/src/util
     networks:
       - defense_network
 
@@ -452,7 +453,7 @@ services:
     container_name: markov_trainer
     working_dir: /app
     entrypoint: ["/app/docker-entrypoint.sh"]
-    command: ["python", "rag/train_markov_postgres.py"]
+    command: ["python", "src/rag/train_markov_postgres.py"]
     environment:
       - PYTHONPATH=/app
       - LOG_LEVEL=${LOG_LEVEL}
@@ -462,7 +463,7 @@ services:
       - POSTGRES_DB_FILE=/run/secrets/pg_db
     volumes:
       - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
-      - ./rag:/app/rag
+      - ./src/rag:/app/src/rag
       - ./data:/app/data
     secrets:
       - pg_password

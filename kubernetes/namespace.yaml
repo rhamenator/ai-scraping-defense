@@ -1,4 +1,8 @@
+# kubernetes/namespace.yaml
+# Defines the Kubernetes namespace for the project.
+# All other resources should be deployed into this namespace.
 apiVersion: v1
 kind: Namespace
 metadata:
+  # The name of the namespace.
   name: ai-defense

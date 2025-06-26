@@ -1,124 +1,151 @@
 #!/bin/bash
+#
+# generate-secrets.sh (Updated for Kubernetes)
+#
+# This script creates a single, ready-to-use Kubernetes secrets manifest.
+# It generates strong random passwords, creates Nginx htpasswd credentials,
+# base64-encodes all values, assembles them into one YAML file, and
+# outputs the generated credentials to the console for the administrator.
 
-# Get current time in UTC and current user from OS
-CURRENT_TIME=$(date -u +"%Y-%m-%d %H:%M:%S")
-CURRENT_USER=$(whoami)
-CURRENT_HOSTNAME=$(hostname)
-SECRETS_DIR="./secrets"
+# --- Configuration ---
+# Set colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
 
-# Parse command line arguments
-FORCE_OVERWRITE=0
-while getopts "f" opt; do
-    case $opt in
-        f) FORCE_OVERWRITE=1 ;;
-    esac
-done
+# Ensure the 'kubernetes' directory exists relative to the script's location
+K8S_DIR="$(dirname "$0")/kubernetes"
+mkdir -p "$K8S_DIR"
+OUTPUT_FILE="$K8S_DIR/secrets.yaml"
 
-# Check for existing secrets before starting
-if [ -d "$SECRETS_DIR" ] && [ $FORCE_OVERWRITE -eq 0 ]; then
-    if ls $SECRETS_DIR/* >/dev/null 2>&1; then
-        echo "WARNING: Secrets directory already contains files."
-        echo "Use -f flag to force overwrite of existing secrets."
-        exit 1
-    fi
-fi
-
-echo "Generating secrets for:"
-echo "User: $CURRENT_USER"
-echo "Hostname: $CURRENT_HOSTNAME"
-echo "Time (UTC): $CURRENT_TIME"
-echo "------------------------"
-
-# Create secrets directory if it doesn't exist
-mkdir -p "$SECRETS_DIR"
-
-# Function to generate highly random system seed
-generate_system_seed() {
-    # Random length between 128 and 256 characters
-    local length=$((RANDOM % 129 + 128))
-    echo "Generating ${length}-character system seed..." >&2
-    
-    # Combine multiple sources of entropy
-    local seed=$(cat /dev/urandom | tr -dc 'A-Za-z0-9@#$%^&*()_+[]{}|;:,.<>?~' | head -c $length)
-    seed+=$(openssl rand -base64 64 | tr -dc 'A-Za-z0-9@#$%^&*()_+[]{}|;:,.<>?~' | head -c 64)
-    seed+=$(date +%s%N | sha256sum | base64 | head -c 32)
-    
-    # Shuffle the combined string
-    echo "$seed" | fold -w1 | shuf | tr -d '\n' | head -c $length
-}
-
-# Function to generate a complex random password
+# --- Functions ---
+# Function to generate a strong, random password.
+# It uses /dev/urandom for cryptographic randomness and filters for URL-safe characters plus some specials.
 generate_password() {
-    # Random length between 15 and 32 characters
-    local length=$((RANDOM % 18 + 15))
-    local chars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?'
-    local password=""
-    echo "Generating ${length}-character password..." >&2
-    for ((i=0; i<length; i++)); do
-        pos=$((RANDOM % ${#chars}))
-        password+=${chars:$pos:1}
-    done
-    echo "$password"
+    LC_ALL=C tr -dc 'A-Za-z0-9_!@#$%^&*' < /dev/urandom | head -c "${1:-24}"
 }
 
-# Function to create a secret file
-create_secret() {
-    local filename="$1"
-    local content="$2"
-    echo "$content" > "$SECRETS_DIR/$filename"
-    chmod 600 "$SECRETS_DIR/$filename"
-    echo "Created: $filename"
-}
+# --- Main Logic ---
+echo -e "${CYAN}Generating secrets for Kubernetes...${NC}"
 
-# Generate system seed
-system_seed=$(generate_system_seed)
-create_secret "system_seed.txt" "$system_seed"
+# 1. Generate all required secret values
+POSTGRES_USER="postgres"
+POSTGRES_DB="markov_db"
+POSTGRES_PASSWORD=$(generate_password)
+REDIS_PASSWORD=$(generate_password)
 
-# Generate Redis password
-create_secret "redis_password.txt" "$(generate_password)"
-
-# Generate PostgreSQL password
-create_secret "pg_password.txt" "$(generate_password)"
-
-# Generate training PostgreSQL password
-create_secret "training_pg_password.txt" "$(generate_password)"
-
-# Generate admin UI password
-admin_password="$(generate_password)"
-create_secret "admin_ui_password.txt" "$admin_password"
-
-# Generate SMTP password
-create_secret "smtp_password.txt" "$(generate_password)"
-
-# Generate API keys
-create_secret "external_api_key.txt" "key_$(openssl rand -hex 16)"
-create_secret "ip_reputation_api_key.txt" "key_$(openssl rand -hex 16)"
-create_secret "community_blocklist_api_key.txt" "key_$(openssl rand -hex 16)"
-
-# Generate .htpasswd file
-if command -v htpasswd >/dev/null 2>&1; then
-    # Generate a completely random password without patterns
-    htpasswd_password="$(cat /dev/urandom | tr -dc 'A-Za-z0-9@#$%^&*()_+[]{}|;:,.<>?~' | head -c $((RANDOM % 18 + 30)))"
-    echo "$htpasswd_password" | htpasswd -ci "$SECRETS_DIR/.htpasswd" "$CURRENT_USER"
-    chmod 600 "$SECRETS_DIR/.htpasswd"
-    echo "Created: .htpasswd"
-    echo -e "\nHTPasswd Credentials:"
-    echo "Username: $CURRENT_USER"
-    echo "Password: $htpasswd_password"
-else
-    echo "Warning: htpasswd command not found. Please install apache2-utils to generate .htpasswd file."
+# Use the current user's name for the admin UI for better security.
+# SUDO_USER is used as a fallback if the script is run with sudo.
+ADMIN_UI_USERNAME=${SUDO_USER:-$USER}
+if [ -z "$ADMIN_UI_USERNAME" ]; then
+    ADMIN_UI_USERNAME="defense-admin"
 fi
+ADMIN_UI_PASSWORD=$(generate_password)
 
-# Print summary
-echo -e "\nSecret files generated in $SECRETS_DIR:"
-ls -l "$SECRETS_DIR"
+SYSTEM_SEED=$(generate_password 48)
+EXTERNAL_API_KEY=$(generate_password)
+IP_REPUTATION_API_KEY=$(generate_password)
+COMMUNITY_BLOCKLIST_API_KEY=$(generate_password)
+SMTP_PASSWORD=$(generate_password)
 
-# Print important passwords
-echo -e "\nImportant Passwords (save these):"
-echo "Admin UI Username: $CURRENT_USER"
-echo "Admin UI Password: $admin_password"
-echo "HTPasswd Username: $CURRENT_USER"
-echo "HTPasswd Password: $htpasswd_password"
-echo "System Seed: $system_seed"
+# 2. Generate Nginx .htpasswd secret
+NGINX_USERNAME="$ADMIN_UI_USERNAME"
+NGINX_PASSWORD=$(generate_password 32)
+# Create the SHA1 hash of the password, then Base64 encode it, which is the htpasswd format
+HASH_B64=$(echo -n "$NGINX_PASSWORD" | openssl dgst -sha1 -binary | base64)
+HTPASSWD_FILE_CONTENT="${NGINX_USERNAME}:{SHA}${HASH_B64}"
 
-echo -e "\nDone! Make sure to save these passwords securely and never commit them to version control."
+# 3. Write the YAML content to the output file using a Here Document
+# The `tr -d '\n'` command for base64 is important on some systems (like macOS)
+# to avoid extra newlines in the encoded string.
+cat > "$OUTPUT_FILE" << EOL
+# kubernetes/secrets.yaml
+#
+# GENERATED BY SCRIPT - DO NOT EDIT MANUALLY
+# This file contains sensitive data. DO NOT commit it to version control.
+# Ensure 'kubernetes/secrets.yaml' is in your .gitignore file.
+#
+# To apply, run: kubectl apply -f kubernetes/secrets.yaml
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-credentials
+  namespace: ai-defense
+type: Opaque
+data:
+  POSTGRES_USER: $(echo -n "$POSTGRES_USER" | base64 | tr -d '\n')
+  POSTGRES_DB: $(echo -n "$POSTGRES_DB" | base64 | tr -d '\n')
+  POSTGRES_PASSWORD: $(echo -n "$POSTGRES_PASSWORD" | base64 | tr -d '\n')
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: redis-credentials
+  namespace: ai-defense
+type: Opaque
+data:
+  REDIS_PASSWORD: $(echo -n "$REDIS_PASSWORD" | base64 | tr -d '\n')
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: admin-ui-credentials
+  namespace: ai-defense
+type: Opaque
+data:
+  ADMIN_UI_USERNAME: $(echo -n "$ADMIN_UI_USERNAME" | base64 | tr -d '\n')
+  ADMIN_UI_PASSWORD: $(echo -n "$ADMIN_UI_PASSWORD" | base64 | tr -d '\n')
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: system-seed-secret
+  namespace: ai-defense
+type: Opaque
+data:
+  SYSTEM_SEED: $(echo -n "$SYSTEM_SEED" | base64 | tr -d '\n')
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: external-api-keys
+  namespace: ai-defense
+type: Opaque
+data:
+  EXTERNAL_API_KEY: $(echo -n "$EXTERNAL_API_KEY" | base64 | tr -d '\n')
+  IP_REPUTATION_API_KEY: $(echo -n "$IP_REPUTATION_API_KEY" | base64 | tr -d '\n')
+  COMMUNITY_BLOCKLIST_API_KEY: $(echo -n "$COMMUNITY_BLOCKLIST_API_KEY" | base64 | tr -d '\n')
+  SMTP_PASSWORD: $(echo -n "$SMTP_PASSWORD" | base64 | tr -d '\n')
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nginx-auth
+  namespace: ai-defense
+type: Opaque
+data:
+  .htpasswd: $(echo -n "$HTPASSWD_FILE_CONTENT" | base64 | tr -d '\n')
+EOL
+
+# 4. Output the results to the user
+echo -e "\nSuccessfully created Kubernetes secrets file at:"
+echo -e "${GREEN}${OUTPUT_FILE}${NC}"
+echo -e "${YELLOW}------------------------------------------------------------${NC}"
+echo -e "${YELLOW}IMPORTANT: Save the following credentials in a secure place!${NC}"
+echo -e "${YELLOW}------------------------------------------------------------${NC}"
+echo ""
+echo -e "${CYAN}NGINX / Admin UI Credentials (for browser access):${NC}"
+echo "  Username: $NGINX_USERNAME"
+echo "  Password: $NGINX_PASSWORD"
+echo ""
+echo -e "${CYAN}Service Passwords & Keys (for config and troubleshooting):${NC}"
+echo "  PostgreSQL Password: $POSTGRES_PASSWORD"
+echo "  Redis Password:      $REDIS_PASSWORD"
+echo "  System Seed:         $SYSTEM_SEED"
+echo ""
+echo -e "${YELLOW}------------------------------------------------------------${NC}"
+echo -e "${YELLOW}After saving these values, clear your screen history.${NC}"
+echo -e "${YELLOW}Remember to add 'kubernetes/secrets.yaml' to your .gitignore file.${NC}"
+

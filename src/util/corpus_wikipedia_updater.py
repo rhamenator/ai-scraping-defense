@@ -10,8 +10,8 @@ import wikipedia
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Add project root to path to allow imports from shared
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# No longer necessary with correct PYTHONPATH
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # --- Configuration ---
 # Set the language for Wikipedia
@@ -39,7 +39,7 @@ def clean_text(text: str) -> str:
     text = re.sub(r'\{\{.*?\}\}', '', text, flags=re.DOTALL)
     text = re.sub(r'<ref.*?</ref>', '', text, flags=re.DOTALL)
     text = re.sub(r'\[\[File:.*?\]\]', '', text, flags=re.DOTALL)
-    text = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
+    text = re.sub(r'', '', text, flags=re.DOTALL)
     
     # Remove section headers
     text = re.sub(r'==+[^=]+==+', '', text)

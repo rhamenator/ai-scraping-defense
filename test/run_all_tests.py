@@ -8,15 +8,11 @@ def main():
     # Get the project root directory (the parent of the 'test' directory)
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     
-    # Define the path to the source code directory
-    src_path = os.path.join(project_root, 'src')
+    # Add the project root to the path, so imports like 'from src.admin_ui' work.
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
 
-    # Add the src directory to the Python path.
-    # This is crucial so that tests can import modules like 'from admin_ui import ...'
-    if src_path not in sys.path:
-        sys.path.insert(0, src_path)
-
-    print(f"Source root added to path: {src_path}")
+    print(f"Project root added to path: {project_root}")
     print("Discovering tests...")
     print("-" * 70)
     

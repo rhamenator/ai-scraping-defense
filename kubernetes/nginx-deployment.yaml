@@ -1,416 +1,68 @@
 # kubernetes/nginx-deployment.yaml
-# This file includes:
-# 1. ConfigMap for nginx.conf, check_blocklist.lua, detect_bot.lua
-# 2. ConfigMap for dhparam.pem
-# 3. ConfigMap for custom Nginx error pages
-# 4. Service definition for Nginx
-# 5. Deployment definition for Nginx (with Admin UI authentication)
-
-# --- Nginx ConfigMap (nginx.conf & Lua scripts) ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-  namespace: ai-defense
-data:
-  nginx.conf: |
-    user www-data;
-    worker_processes auto;
-    pid /run/nginx.pid;
-    include /etc/nginx/modules-enabled/*.conf;
-
-    events {
-        worker_connections 1024;
-    }
-
-    http {
-        sendfile on;
-        tcp_nopush on;
-        tcp_nodelay on;
-        keepalive_timeout 65;
-        types_hash_max_size 2048;
-        include /etc/nginx/mime.types;
-        default_type application/octet-stream;
-
-        # SSL Settings (example, uncomment and configure if using HTTPS)
-        # ssl_protocols TLSv1.2 TLSv1.3;
-        # ssl_prefer_server_ciphers on;
-        # ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384';
-        # ssl_session_cache shared:SSL:10m;
-        # ssl_session_timeout 10m;
-        # ssl_session_tickets off;
-
-        log_format detailed '$remote_addr - $remote_user [$time_local] '
-                           '"$request" $status $body_bytes_sent '
-                           '"$http_referer" "$http_user_agent" "$http_x_forwarded_for" '
-                           'rt=$request_time ua="$http_user_agent"';
-
-        access_log /var/log/nginx/access.log detailed;
-        error_log /var/log/nginx/error.log warn;
-
-        gzip on;
-        gzip_vary on;
-        gzip_proxied any;
-        gzip_comp_level 6;
-        gzip_types text/plain text/css application/json application/javascript application/x-javascript text/xml application/xml application/xml+rss text/javascript;
-
-        upstream admin_ui {
-            server admin-ui.ai-defense.svc.cluster.local:5002;
-        }
-        upstream tarpit_api {
-            server tarpit-api.ai-defense.svc.cluster.local:8001;
-        }
-        # Example for REAL_BACKEND_HOST if it's a Kubernetes service
-        # upstream real_application_service {
-        #   server your-real-app-k8s-service.ai-defense.svc.cluster.local:8080;
-        # }
-
-        server {
-            listen 80;
-            listen [::]:80;
-            server_name _;
-
-            add_header X-Frame-Options "SAMEORIGIN" always;
-            add_header X-Content-Type-Options "nosniff" always;
-            add_header X-XSS-Protection "1; mode=block" always;
-
-            location = /robots.txt {
-                alias /usr/share/nginx/html/robots.txt;
-                access_log off;
-                log_not_found off;
-            }
-
-            location /docs/archives/ {
-                alias /usr/share/nginx/html/archives/;
-                autoindex off;
-            }
-
-            error_page 403 /errors/403_forbidden.html;
-            error_page 404 /errors/404_not_found.html; # Added for completeness
-            error_page 500 502 503 504 /errors/50x_error.html; # Added for completeness
-            location /errors/ {
-                alias /usr/share/nginx/html/errors/;
-                internal;
-            }
-
-            access_by_lua_file /etc/nginx/lua/check_blocklist.lua;
-
-            location /admin/ {
-                auth_basic "Admin Area - Restricted";
-                auth_basic_user_file /etc/nginx/secrets/.htpasswd;
-
-                proxy_pass http://admin_ui/;
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
-                proxy_http_version 1.1;
-                proxy_set_header Upgrade $http_upgrade;
-                proxy_set_header Connection "upgrade";
-            }
-
-            location /api/tarpit {
-                internal;
-                proxy_pass http://tarpit_api;
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
-            }
-            
-            location / {
-                set $lua_proxy_pass_upstream '';
-                access_by_lua_file /etc/nginx/lua/detect_bot.lua;
-
-                if ($lua_proxy_pass_upstream ~* "^http") {
-                    proxy_pass $lua_proxy_pass_upstream;
-                }
-                # If detect_bot.lua doesn't set an upstream (e.g. for allowed direct access)
-                # and REAL_BACKEND_HOST is meant to be proxied by Nginx directly for such cases:
-                # else {
-                #    proxy_pass http://real_application_service; # Use defined upstream
-                # }
-
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
-            }
-        }
-
-        # HTTPS server block (Example)
-        # server {
-        #     listen 443 ssl http2;
-        #     listen [::]:443 ssl http2;
-        #     server_name _;
-        #     ssl_certificate /etc/nginx/ssl/tls.crt;
-        #     ssl_certificate_key /etc/nginx/ssl/tls.key;
-        #     ssl_dhparam /etc/nginx/ssl/dhparam.pem;
-        #     # ... include locations similar to HTTP block, ensuring /admin/ auth is present ...
-        # }
-    }
-  check_blocklist.lua: |
-    local redis_host = os.getenv("REDIS_HOST") or "redis.ai-defense.svc.cluster.local"
-    local redis_port = tonumber(os.getenv("REDIS_PORT")) or 6379
-    local redis_db_blocklist = tonumber(os.getenv("REDIS_DB_BLOCKLIST")) or 2
-    local redis_blocklist_key_prefix = "blocklist:ip:"
-    local redis_timeout_ms = 200
-    local remote_addr = ngx.var.remote_addr
-    if not remote_addr then ngx.log(ngx.WARN, "check_blocklist: Could not get remote_addr"); return end
-    local redis = require "resty.redis"; local red = redis:new()
-    red:set_timeout(redis_timeout_ms)
-    local ok, err = red:connect(redis_host, redis_port)
-    if not ok then ngx.log(ngx.ERR, "check_blocklist: Failed to connect to Redis: ", err); return end
-    local select_ok, select_err = red:select(redis_db_blocklist)
-    if not select_ok then ngx.log(ngx.ERR, "check_blocklist: Failed to select Redis DB: ", select_err); red:close(); return end
-    local blocklist_ip_key = redis_blocklist_key_prefix .. remote_addr
-    local exists, err = red:exists(blocklist_ip_key)
-    if err then ngx.log(ngx.ERR, "check_blocklist: Failed to query Redis EXISTS: ", err); red:close(); return end
-    local close_ok, close_err = red:set_keepalive(0, 100)
-    if not close_ok then ngx.log(ngx.WARN,"check_blocklist: Failed to set Redis keepalive: ", close_err); red:close() end
-    if exists == 1 then ngx.log(ngx.WARN, "check_blocklist: Blocking IP ", remote_addr); return ngx.exit(ngx.HTTP_FORBIDDEN) end
-    return
-  detect_bot.lua: |
-    local bad_bots = { "GPTBot", "CCBot", "Bytespider", "PetalBot", "Scrapy", "python-requests", "curl", "wget", "AhrefsBot", "SemrushBot", "MJ12bot", "DotBot" }
-    local benign_bots = { "googlebot", "adsbot-google", "apis-google", "mediapartners-google", "googlebot-image", "googlebot-news", "googlebot-video", "bingbot", "adidxbot", "bingpreview", "msnbot", "duckduckbot", "baiduspider", "yandexbot", "yandeximages", "slurp", "facebookexternalhit", "facebot", "linkedinbot", "twitterbot", "applebot" }
-    local live_robots_txt_path = "/etc/nginx/live_robots.txt" 
-    local dynamic_disallowed_paths = {}
-    
-    local function load_dynamic_robots_rules()
-        local file = io.open(live_robots_txt_path, "r")
-        if not file then ngx.log(ngx.ERR, "detect_bot: Could not open live_robots.txt at ", live_robots_txt_path); return end
-        local current_ua_is_star = false
-        for line in file:lines() do
-            line = string.lower(string.gsub(line, "^%s*(.-)%s*$", "%1"))
-            if string.match(line, "^user%-agent:%s*%*") then current_ua_is_star = true
-            elseif string.match(line, "^user%-agent:") then current_ua_is_star = false end
-            if current_ua_is_star then
-                local disallow_match = string.match(line, "^disallow:%s*(.+)")
-                if disallow_match and disallow_match ~= "" and disallow_match ~= "/" then table.insert(dynamic_disallowed_paths, disallow_match) end
-            end
-        end
-        file:close()
-        if #dynamic_disallowed_paths > 0 then ngx.log(ngx.INFO, "detect_bot: Loaded ", #dynamic_disallowed_paths, " disallow rules for * from ", live_robots_txt_path)
-        else ngx.log(ngx.WARN, "detect_bot: No 'User-agent: *' disallow rules found in ", live_robots_txt_path) end
-    end
-    
-    load_dynamic_robots_rules()
-    
-    local function contains_string(str, list) if not str then return false end; local s = string.lower(str); for _, p in ipairs(list) do if string.find(s, string.lower(p), 1, true) then return true, p end end; return false end
-    local function is_path_disallowed_by_rules(path_to_check, rules) if not path_to_check or not rules or #rules == 0 then return false end; for _, d_rule in ipairs(rules) do if d_rule ~= "" and string.sub(path_to_check, 1, string.len(d_rule)) == d_rule then return true end end; return false end
-    
-    local headers = ngx.req.get_headers()
-    local user_agent = headers["User-Agent"]
-    local remote_addr = ngx.var.remote_addr
-    local request_uri = ngx.var.request_uri or "/"
-    local real_backend_host = os.getenv("REAL_BACKEND_HOST")
-    
-    local is_benign, benign_pattern = contains_string(user_agent, benign_bots)
-    
-    if is_benign then
-      if is_path_disallowed_by_rules(request_uri, dynamic_disallowed_paths) then
-        ngx.log(ngx.WARN, "[TAR PIT TRIGGER] Benign bot (", benign_pattern, ") accessed disallowed path: ", request_uri, " IP: ", remote_addr)
-        return ngx.exec("/api/tarpit")
-      else
-        ngx.log(ngx.INFO, "[BENIGN BOT ALLOWED] IP: ", remote_addr, ", UA: ", user_agent, " (Matched: ", benign_pattern, ")")
-        if real_backend_host and real_backend_host ~= "" then ngx.var.lua_proxy_pass_upstream = real_backend_host; return end
-        return
-      end
-    end
-    
-    local score = 0; local reasons = {}
-    local is_bad_ua, bad_ua_pattern = contains_string(user_agent, bad_bots)
-    if is_bad_ua then score = score + 0.8; table.insert(reasons, "KnownBadUA("..bad_ua_pattern..")") end
-    if not user_agent or user_agent == "" then score = score + 0.4; table.insert(reasons, "MissingUA") end
-    -- Add other header checks from your original script if needed
-    if headers["accept-language"] == nil then score = score + 0.2; table.insert(reasons, "NoAcceptLang") end
-
-    if score >= 0.7 then
-      ngx.log(ngx.WARN, "[TAR PIT TRIGGER: Heuristic] Score: ", string.format("%.2f", score), " IP: ", remote_addr, ", UA: ", user_agent, ", Reasons: ", table.concat(reasons, ","))
-      return ngx.exec("/api/tarpit")
-    end
-    
-    if real_backend_host and real_backend_host ~= "" then ngx.var.lua_proxy_pass_upstream = real_backend_host
-    else ngx.log(ngx.ERR, "detect_bot: REAL_BACKEND_HOST not configured for proxying allowed request from IP: ", remote_addr); return ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR) end
-    return
-
----
-# ConfigMap for DH parameters
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: dhparam-config
-  namespace: ai-defense
-data:
-  dhparam.pem: |
-    -----BEGIN DH PARAMETERS-----
-    REPLACE THIS WITH YOUR SECURELY GENERATED 4096-BIT DH PARAMETERS
-    MIIBCAKCAQEA//////////+t+FRYortKmq/cViAnPTzx2LnFg84tNpWp4TZBFGQz
-    +8yTnc4kmz75fS/jY2MMddj2gbICrsRhetPfHtXV/WVhJDP1H18GbtCFY2VVPe0a
-    87VXEWT0PU8VLfjrVQMeQaSbPkMCyHWrwZxN/gia/vaMs0ZtXELGduP67AGJTShr
-    DWGCZn1J0Yp7qHyxvyYdkJkzaLpAb/+VWdHhDWJgMWBjlHuHYdhMhPymg2mN1fX/
-    f+M/TLzVOYSnMA+E4Shc/7ISU/Tt/hEXnvuYRaL+GjN2lsHDerzLxa7+PFHBdXkM
-    h+1nCaTWsTuMIKBPfv0QD3aFV4LdLoPGtEpNrtQ9Y+o+pa829A==
-    -----END DH PARAMETERS-----
----
-# ConfigMap for custom Nginx error pages
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-error-pages
-  namespace: ai-defense
-data:
-  403_forbidden.html: |
-    <!DOCTYPE html><html><head><title>403 Forbidden</title></head><body><h1>403 Forbidden</h1><p>Access denied.</p></body></html>
-  404_not_found.html: |
-    <!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The requested resource was not found.</p></body></html>
-  50x_error.html: |
-    <!DOCTYPE html><html><head><title>Server Error</title></head><body><h1>Server Error</h1><p>An internal server error occurred.</p></body></html>
----
-# Nginx Service
 apiVersion: v1
 kind: Service
 metadata:
-  name: nginx
+  name: nginx-proxy
   namespace: ai-defense
-  labels:
-    app: nginx
 spec:
   selector:
-    app: nginx
+    app: nginx-proxy
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: 80
-      targetPort: http
-      name: http
-    - protocol: TCP
+      targetPort: 80
+    - name: https
+      protocol: TCP
       port: 443
-      targetPort: https # Ensure your Nginx container exposes 443 if using HTTPS
-      name: https
-  type: LoadBalancer # Or NodePort, or ClusterIP if using Ingress
+      targetPort: 443
+  type: LoadBalancer # Exposes NGINX to the internet
+
 ---
-# Nginx Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx
+  name: nginx-proxy
   namespace: ai-defense
-  labels:
-    app: nginx
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app: nginx
+      app: nginx-proxy
   template:
     metadata:
       labels:
-        app: nginx
+        app: nginx-proxy
     spec:
-      # serviceAccountName: default # Or a specific SA if Nginx needs K8s API access (unlikely for this setup)
-      # securityContext: # Pod-level security context
-      #   runAsNonRoot: true # Nginx master usually needs root, workers run as non-root
-      #   fsGroup: # If writing to shared volumes
       containers:
       - name: nginx
-        image: your-registry/your-username/ai-defense-nginx:v0.0.4 # <<<=== REPLACE WITH YOUR NGINX IMAGE
-        imagePullPolicy: IfNotPresent
-        securityContext:
-          allowPrivilegeEscalation: false
-          # Nginx master process typically runs as root to bind to privileged ports (80, 443)
-          # and then worker processes drop privileges to 'www-data' (as configured in nginx.conf).
-          # capabilities: { drop: ["ALL"], add: ["NET_BIND_SERVICE"] } # Only if master itself was non-root
+        image: openresty/openresty:1.21.4.1-alpine
         ports:
         - containerPort: 80
-          name: http
         - containerPort: 443
-          name: https
-        envFrom:
-          - configMapRef:
-              name: app-config # For REAL_BACKEND_HOST, REDIS_HOST etc. for Lua
-        resources:
-          requests: { cpu: "150m", memory: "128Mi" }
-          limits: { cpu: "500m", memory: "256Mi" }
         volumeMounts:
-          - name: nginx-config-volume
-            mountPath: /etc/nginx/nginx.conf
-            subPath: nginx.conf
-            readOnly: true
-          - name: nginx-config-volume
-            mountPath: /etc/nginx/lua/check_blocklist.lua
-            subPath: check_blocklist.lua
-            readOnly: true
-          - name: nginx-config-volume
-            mountPath: /etc/nginx/lua/detect_bot.lua
-            subPath: detect_bot.lua
-            readOnly: true
-          - name: live-robots-txt-for-serving
-            mountPath: /usr/share/nginx/html/robots.txt
-            subPath: robots.txt
-            readOnly: true
-          - name: live-robots-txt-for-lua
-            mountPath: /etc/nginx/live_robots.txt
-            subPath: robots.txt
-            readOnly: true
-          - name: dhparam-volume
-            mountPath: /etc/nginx/ssl/dhparam.pem
-            subPath: dhparam.pem
-            readOnly: true
-          - name: tls-secret-volume
-            mountPath: /etc/nginx/ssl # Mounts tls.crt and tls.key
-            readOnly: true
-          - name: archives-volume
-            mountPath: /usr/share/nginx/html/archives/
-            readOnly: true
-          - name: log-volume
-            mountPath: /var/log/nginx
-          - name: error-pages-volume
-            mountPath: /usr/share/nginx/html/errors
-            readOnly: true
-          - name: htpasswd-secret-volume
-            mountPath: /etc/nginx/secrets
-            readOnly: true
-        livenessProbe:
-          tcpSocket: { port: http }
-          initialDelaySeconds: 10
-          periodSeconds: 15
-        readinessProbe:
-          httpGet: { path: /, port: http, scheme: HTTP }
-          initialDelaySeconds: 5
-          periodSeconds: 10
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        - name: lua-scripts
+          mountPath: /etc/nginx/lua
+        - name: robots-txt
+          mountPath: /etc/nginx/robots.txt
+          subPath: robots.txt
+        # Mount the .htpasswd secret file
+        - name: nginx-auth-secret
+          mountPath: /etc/nginx/secrets
+          readOnly: true
       volumes:
-        - name: nginx-config-volume
-          configMap:
-            name: nginx-config
-        - name: dhparam-volume
-          configMap:
-            name: dhparam-config
-        - name: error-pages-volume
-          configMap:
-            name: nginx-error-pages
-        - name: tls-secret-volume
-          secret:
-            secretName: tls-secret # Ensure this Secret exists with tls.crt and tls.key
-        - name: archives-volume
-          persistentVolumeClaim:
-            claimName: archives-pvc
-        - name: log-volume
-          emptyDir: {} # Or a PVC for persistent Nginx logs
-        - name: live-robots-txt-for-serving
-          configMap:
-            name: live-robots-txt-config
-            items:
-              - key: robots.txt # Key in the ConfigMap
-                path: robots.txt # Filename in the mountPath /usr/share/nginx/html/
-        - name: live-robots-txt-for-lua
-          configMap:
-            name: live-robots-txt-config
-            items:
-              - key: robots.txt # Key in the ConfigMap
-                path: robots.txt # Filename in the mountPath /etc/nginx/
-        - name: htpasswd-secret-volume
-          secret:
-            secretName: admin-htpasswd-secret
-            items:
-              - key: .htpasswd
-                path: .htpasswd
+      - name: nginx-config
+        configMap:
+          name: nginx-conf # Assumes a configmap with your nginx.conf exists
+      - name: lua-scripts
+        configMap:
+          name: lua-scripts-config # Assumes a configmap for lua scripts exists
+      - name: robots-txt
+        configMap:
+          name: live-robots-txt-config
+      # Define the volume from the secret you created
+      - name: nginx-auth-secret
+        secret:
+          secretName: nginx-auth

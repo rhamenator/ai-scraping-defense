@@ -22,7 +22,7 @@ spec:
             image: defense_stack_py_base:v0.1.0 # Ensure this is your correct Python base image and tag
             imagePullPolicy: IfNotPresent
             workingDir: /app
-            command: ["python", "rag/train_markov_postgres.py", "/mnt/corpus_data/wikipedia_corpus.txt"]
+            command: ["python", "src/rag/train_markov_postgres.py", "/mnt/corpus_data/wikipedia_corpus.txt"]
             securityContext:
               allowPrivilegeEscalation: false
               runAsUser: 1001

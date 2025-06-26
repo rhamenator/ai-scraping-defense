@@ -9,14 +9,13 @@ from typing import Dict, Union, Tuple, Any, Callable # Added Callable
 import json # For parsing, if needed
 import datetime
 
-# Ensure the admin_ui directory is in the Python path
 # --- Global placeholder for the function that will provide metrics as a dictionary ---
 _get_metrics_dict_func: Callable[[], Dict[str, Union[str, int, float, None]]]
 METRICS_TRULY_AVAILABLE: bool = False
 
 try:
     # Attempt to import the original get_metrics function that might return bytes
-    from metrics import get_metrics as _get_prometheus_metrics_bytes
+    from src.shared.metrics import get_metrics as _get_prometheus_metrics_bytes
     
     def _parse_prometheus_to_dict(prometheus_bytes: bytes) -> Dict[str, Union[str, int, float, None]]:
         """

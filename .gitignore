@@ -28,6 +28,7 @@ MANIFEST
 .secrets/
 ./secrets/
 secrets/
+kubernetes/secrets.yaml
 .htpasswd
 
 # PyInstaller

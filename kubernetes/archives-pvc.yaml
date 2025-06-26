@@ -3,12 +3,10 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: archives-pvc
-  namespace: ai-defense # Ensure this is in the correct namespace
+  namespace: ai-defense
 spec:
   accessModes:
-    - ReadWriteOnce # The archive-rotator writes, Nginx reads.
-                    # For Docker Desktop K8s, RWO is generally fine for this scenario.
+    - ReadWriteOnce # This PVC can be mounted as read-write by a single pod
   resources:
     requests:
-      storage: 500Mi # Adjust size as needed for your archives
-  # storageClassName: "your-storage-class" # Optional
+      storage: 1Gi # Request 1 Gi
