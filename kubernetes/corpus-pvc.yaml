@@ -1,15 +1,15 @@
-# anti-scraping-defense/kubernetes/corpus-pvc.yaml
+# kubernetes/corpus-pvc.yaml
+# Requests persistent storage for the text corpus used for model training.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: corpus-data-pvc
   namespace: ai-defense
 spec:
+  # ReadWriteMany allows the volume to be mounted as read-write by many Nodes.
+  # This is useful if the updater and trainer jobs run on different nodes.
   accessModes:
-    - ReadWriteOnce # Sufficient if CronJobs run sequentially or can share.
-                    # ReadWriteMany might be needed if multiple pods write simultaneously,
-                    # but for this workflow, ReadWriteOnce is usually fine and more widely supported.
+    - ReadWriteMany
   resources:
     requests:
-      storage: 1Gi # Request 1 GB of storage for the corpus. Adjust as needed.
-  # storageClassName: "your-storage-class" # Optional: specify if not using default or need specific type
+      storage: 2Gi

@@ -4,26 +4,19 @@ kind: Service
 metadata:
   name: escalation-engine
   namespace: ai-defense
-  labels:
-    app: escalation-engine
 spec:
   selector:
     app: escalation-engine
   ports:
-    - protocol: TCP
-      port: 8003
-      targetPort: http-escalation
-      name: http
-  type: ClusterIP
-
+  - name: http
+    port: 8003
+    targetPort: 8003
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: escalation-engine
   namespace: ai-defense
-  labels:
-    app: escalation-engine
 spec:
   replicas: 1
   selector:
@@ -34,92 +27,32 @@ spec:
       labels:
         app: escalation-engine
     spec:
-      securityContext: # Pod-level security context
-        runAsNonRoot: true
-        # fsGroup: 1001 # If writing to models-pvc or other shared volumes
       containers:
       - name: escalation-engine
-        image: defense_stack_py_base:v0.1.0
-        imagePullPolicy: IfNotPresent
-        securityContext: # Container-level security context
-          allowPrivilegeEscalation: false
-          runAsUser: 1001
-          capabilities:
-            drop:
-              - "ALL"
-          # readOnlyRootFilesystem: true # If models are read-only and logs go to volume
-        workingDir: /app
-        command: ["uvicorn", "src.escalation.escalation_engine:app", "--host", "0.0.0.0", "--port", "8003", "--workers", "2"]
+        image: your-registry/ai-scraping-defense:latest
+        # Updated command to run the Uvicorn server for the escalation engine.
+        command: ["uvicorn", "src.escalation.escalation_engine:app", "--host", "0.0.0.0", "--port", "8003"]
         ports:
         - containerPort: 8003
-          name: http-escalation
         envFrom:
-          - configMapRef:
-              name: app-config
-        env:
-          - name: EXTERNAL_CLASSIFICATION_API_KEY_FILE
-            value: /run/secrets/external-api/external_api_key.txt
-          - name: IP_REPUTATION_API_KEY_FILE
-            value: /run/secrets/ip-reputation/ip_reputation_api_key.txt
-          - name: REDIS_PASSWORD_FILE
-            value: /run/secrets/redis/redis_password.txt
-          - name: TRAINING_ROBOTS_TXT_PATH
-            value: /app/config/live_robots.txt
+        - configMapRef:
+            name: app-config
+        - secretRef:
+            name: postgres-credentials
+        - secretRef:
+            name: redis-credentials
         resources:
-          requests: { cpu: "500m", memory: "512Mi" }
-          limits: { cpu: "1000m", memory: "1Gi" }
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
         volumeMounts:
-          - name: models-volume
-            mountPath: /app/models # Script might write new models here if retraining in-pod
-            readOnly: false # Set to false if training.py saves models here from this pod
-          - name: live-robots-txt-volume
-            mountPath: /app/config/live_robots.txt
-            subPath: robots.txt
-            readOnly: true
-          - name: log-volume
-            mountPath: /app/logs # App user 1001 needs write access
-          - name: external-api-secret-volume
-            mountPath: /run/secrets/external-api
-            readOnly: true
-          - name: ip-reputation-secret-volume
-            mountPath: /run/secrets/ip-reputation
-            readOnly: true
-          - name: redis-secret-volume
-            mountPath: /run/secrets/redis
-            readOnly: true
-        livenessProbe:
-          httpGet: { path: /health, port: http-escalation }
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        readinessProbe:
-          httpGet: { path: /health, port: http-escalation }
-          initialDelaySeconds: 15
-          periodSeconds: 15
+        - name: models-storage
+          mountPath: /app/models
+          readOnly: true
       volumes:
-        - name: log-volume
-          emptyDir: {}
-        - name: models-volume
-          persistentVolumeClaim:
-            claimName: models-pvc
-        - name: live-robots-txt-volume
-          configMap:
-            name: live-robots-txt-config
-        - name: external-api-secret-volume
-          secret:
-            secretName: external-api-credentials
-            items:
-              - key: external_api_key
-                path: external_api_key.txt
-        - name: ip-reputation-secret-volume
-          secret:
-            secretName: ip-reputation-credentials
-            items:
-              - key: ip_reputation_api_key
-                path: ip_reputation_api_key.txt
-        - name: redis-secret-volume
-          secret:
-            secretName: redis-credentials
-            optional: true
-            items:
-              - key: redis_password.txt
-                path: redis_password.txt
+      - name: models-storage
+        persistentVolumeClaim:
+          claimName: models-pvc

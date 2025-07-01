@@ -4,26 +4,19 @@ kind: Service
 metadata:
   name: tarpit-api
   namespace: ai-defense
-  labels:
-    app: tarpit-api
 spec:
   selector:
     app: tarpit-api
   ports:
-    - protocol: TCP
-      port: 8001
-      targetPort: http-tarpit
-      name: http
-  type: ClusterIP
-
+  - name: http
+    port: 8001
+    targetPort: 8001
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tarpit-api
   namespace: ai-defense
-  labels:
-    app: tarpit-api
 spec:
   replicas: 1
   selector:
@@ -34,78 +27,58 @@ spec:
       labels:
         app: tarpit-api
     spec:
-      securityContext: # Pod-level security context
-        runAsNonRoot: true
-        # fsGroup: 1001 # If app writes to shared volumes and needs group access
       containers:
       - name: tarpit-api
-        # IMPORTANT: Replace with your actual image and tag
-        image: your-registry/ai-defense-python-base:latest
-        imagePullPolicy: IfNotPresent
-        securityContext: # Container-level security context
-          allowPrivilegeEscalation: false
-          runAsUser: 1001
-          capabilities:
-            drop:
-              - "ALL"
-          # readOnlyRootFilesystem: true # If applicable
-        workingDir: /app
-        command: ["uvicorn", "src.tarpit.tarpit_api:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "2"]
+        image: your-registry/ai-scraping-defense:latest
+        command: ["uvicorn", "src.tarpit.tarpit_api:app", "--host", "0.0.0.0", "--port", "8001"]
         ports:
         - containerPort: 8001
-          name: http-tarpit
-        envFrom: # For other non-sensitive config from app-config
-          - configMapRef:
-              name: app-config
-        env:
-          - name: PG_PASSWORD_FILE
-            value: /run/secrets/postgres/pg_password.txt
-          - name: REDIS_PASSWORD_FILE
-            value: /run/secrets/redis/redis_password.txt
-          - name: SYSTEM_SEED # Sourced from the new Secret
-            valueFrom:
-              secretKeyRef:
-                name: system-seed-secret # Name of the Secret object
-                key: SYSTEM_SEED        # Key within the Secret's data
         resources:
-          requests: { cpu: "250m", memory: "256Mi" }
-          limits: { cpu: "750m", memory: "512Mi" }
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        envFrom:
+        - configMapRef:
+            name: app-config
+        env:
+        # Load the PostgreSQL user from the secret
+        - name: PG_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_USER
+        # Load the PostgreSQL password from the secret
+        - name: PG_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_PASSWORD
+        # Load the PostgreSQL database name from the secret
+        - name: PG_DB
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_DB
+        # Load the Redis password from the secret
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-credentials
+              key: REDIS_PASSWORD
+        # Load the system seed from the new secret
+        - name: SYSTEM_SEED
+          valueFrom:
+            secretKeyRef:
+              name: system-seed-secret
+              key: SYSTEM_SEED
         volumeMounts:
-          - name: archives-volume
-            mountPath: /app/fake_archives # Tarpit API only reads these
-            readOnly: true
-          - name: log-volume
-            mountPath: /app/logs # App user 1001 needs write access
-          - name: pg-secret-volume
-            mountPath: /run/secrets/postgres
-            readOnly: true
-          - name: redis-secret-volume
-            mountPath: /run/secrets/redis
-            readOnly: true
-        livenessProbe:
-          httpGet: { path: /health, port: http-tarpit }
-          initialDelaySeconds: 20
-          periodSeconds: 30
-        readinessProbe:
-          httpGet: { path: /health, port: http-tarpit }
-          initialDelaySeconds: 10
-          periodSeconds: 15
+        - name: archives-storage
+          mountPath: /app/archives
+          readOnly: true
       volumes:
-        - name: log-volume
-          emptyDir: {}
-        - name: archives-volume
-          persistentVolumeClaim:
-            claimName: archives-pvc
-        - name: pg-secret-volume
-          secret:
-            secretName: postgres-credentials
-            items:
-              - key: pg_password.txt
-                path: pg_password.txt
-        - name: redis-secret-volume
-          secret:
-            secretName: redis-credentials
-            optional: true # Make this optional if Redis password is not always used
-            items:
-              - key: redis_password.txt
-                path: redis_password.txt
+      - name: archives-storage
+        persistentVolumeClaim:
+          claimName: archives-pvc

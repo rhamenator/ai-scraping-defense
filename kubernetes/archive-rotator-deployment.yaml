@@ -4,8 +4,6 @@ kind: Deployment
 metadata:
   name: archive-rotator
   namespace: ai-defense
-  labels:
-    app: archive-rotator
 spec:
   replicas: 1
   selector:
@@ -16,36 +14,25 @@ spec:
       labels:
         app: archive-rotator
     spec:
-      securityContext: # Pod-level security context
-        runAsNonRoot: true
-        fsGroup: 1001 # Script writes to PVC, ensure group ownership matches runAsUser or is writable by this GID
       containers:
       - name: archive-rotator
-        image: defense_stack_py_base:v0.1.0
-        imagePullPolicy: IfNotPresent
-        securityContext: # Container-level security context
-          allowPrivilegeEscalation: false
-          runAsUser: 1001
-          capabilities:
-            drop:
-              - "ALL"
-          # readOnlyRootFilesystem: false # Needs to write to PVC mount
-        workingDir: /app
+        image: your-registry/ai-scraping-defense:latest
+        # Updated command to run the rotating archive script.
         command: ["python", "src/tarpit/rotating_archive.py"]
         env:
-          - name: DEFAULT_ARCHIVE_DIR
-            value: "/app/fake_archives_on_pvc" # This is the mountPath for the PVC
+        - name: ARCHIVE_DIR
+          value: "/app/archives"
         resources:
-          requests: { cpu: "50m", memory: "64Mi" }
-          limits: { cpu: "250m", memory: "128Mi" }
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
         volumeMounts:
-          - name: archives-volume
-            mountPath: /app/fake_archives_on_pvc # Script writes here
-          - name: log-volume
-            mountPath: /app/logs # Script user 1001 needs write access
+        - name: archives-storage
+          mountPath: /app/archives
       volumes:
-        - name: log-volume
-          emptyDir: {}
-        - name: archives-volume
-          persistentVolumeClaim:
-            claimName: archives-pvc
+      - name: archives-storage
+        persistentVolumeClaim:
+          claimName: archives-pvc

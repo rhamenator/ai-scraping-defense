@@ -1,4 +1,5 @@
 # kubernetes/archives-pvc.yaml
+# Requests persistent storage for the tarpit's rotating archive files.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -6,7 +7,7 @@ metadata:
   namespace: ai-defense
 spec:
   accessModes:
-    - ReadWriteOnce # This PVC can be mounted as read-write by a single pod
+    - ReadWriteOnce
   resources:
     requests:
-      storage: 1Gi # Request 1 Gi
+      storage: 1Gi

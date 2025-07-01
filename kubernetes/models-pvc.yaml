@@ -1,15 +1,15 @@
 # kubernetes/models-pvc.yaml
+# Requests persistent storage for the trained machine learning models.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: models-pvc
-  namespace: ai-defense # Ensure this is in the correct namespace
+  namespace: ai-defense
 spec:
+  # ReadWriteOnce means the volume can be mounted as read-write by a single Node.
   accessModes:
-    - ReadWriteOnce # If only one pod (e.g., training job) writes, and others read.
-                    # Or ReadWriteMany if multiple pods might write/update models,
-                    # but this depends on your StorageClass capabilities.
+    - ReadWriteOnce
   resources:
     requests:
-      storage: 1Gi # Adjust size as needed for your models
-  # storageClassName: "your-storage-class" # Optional: specify if not using default or need specific type
+      # Request 5 GiB of storage.
+      storage: 5Gi

@@ -4,28 +4,21 @@ kind: Service
 metadata:
   name: ai-service
   namespace: ai-defense
-  labels:
-    app: ai-service
 spec:
   selector:
     app: ai-service
   ports:
-    - protocol: TCP
-      port: 8000
-      targetPort: http-aiservice
-      name: http
-  type: ClusterIP
-
+  - name: http
+    port: 8000
+    targetPort: 8000
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ai-service
   namespace: ai-defense
-  labels:
-    app: ai-service
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: ai-service
@@ -34,77 +27,20 @@ spec:
       labels:
         app: ai-service
     spec:
-      securityContext: # Pod-level security context
-        runAsNonRoot: true
-        # fsGroup: 1001 # If app writes to shared volumes and needs group access
       containers:
       - name: ai-service
-        image: my-approved-registry.example.com/defense_stack_py_base:v0.1.0
-        imagePullPolicy: IfNotPresent
-        securityContext: # Container-level security context
-          allowPrivilegeEscalation: false
-          runAsUser: 1001 # Example non-root UID
-          capabilities:
-            drop:
-              - "ALL"
-          # readOnlyRootFilesystem: true # If applicable
-        workingDir: /app
-        command: ["uvicorn", "src.ai_service.ai_webhook:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+        image: your-registry/ai-scraping-defense:latest
+        # Updated command to run the Uvicorn server for the AI webhook.
+        command: ["uvicorn", "src.ai_service.ai_webhook:app", "--host", "0.0.0.0", "--port", "8000"]
         ports:
         - containerPort: 8000
-          name: http-aiservice
         envFrom:
-          - configMapRef:
-              name: app-config
-        env:
-          - name: ALERT_SMTP_PASSWORD_FILE
-            value: /run/secrets/smtp/smtp_password.txt
-          - name: COMMUNITY_BLOCKLIST_API_KEY_FILE
-            value: /run/secrets/community-blocklist/community_blocklist_api_key.txt
-          - name: REDIS_PASSWORD_FILE
-            value: /run/secrets/redis/redis_password.txt
+        - configMapRef:
+            name: app-config
         resources:
-          requests: { cpu: "150m", memory: "256Mi" }
-          limits: { cpu: "500m", memory: "512Mi" }
-        volumeMounts:
-          - name: log-volume
-            mountPath: /app/logs # Assumes app user 1001 can write here
-          - name: smtp-secret-volume
-            mountPath: /run/secrets/smtp
-            readOnly: true
-          - name: community-blocklist-secret-volume
-            mountPath: /run/secrets/community-blocklist
-            readOnly: true
-          - name: redis-secret-volume
-            mountPath: /run/secrets/redis
-            readOnly: true
-        livenessProbe:
-          httpGet: { path: /health, port: http-aiservice }
-          initialDelaySeconds: 20
-          periodSeconds: 30
-        readinessProbe:
-          httpGet: { path: /health, port: http-aiservice }
-          initialDelaySeconds: 10
-          periodSeconds: 15
-      volumes:
-        - name: log-volume
-          emptyDir: {} # User 1001 needs write access if fsGroup not set at pod level and dir not pre-created with perms in image
-        - name: smtp-secret-volume
-          secret:
-            secretName: smtp-credentials
-            items:
-              - key: smtp_password
-                path: smtp_password.txt
-        - name: community-blocklist-secret-volume
-          secret:
-            secretName: community-blocklist-credentials
-            items:
-              - key: community_blocklist_api_key
-                path: community_blocklist_api_key.txt
-        - name: redis-secret-volume
-          secret:
-            secretName: redis-credentials
-            optional: true
-            items:
-              - key: redis_password.txt
-                path: redis_password.txt
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"

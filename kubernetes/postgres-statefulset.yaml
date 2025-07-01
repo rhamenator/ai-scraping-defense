@@ -1,18 +1,20 @@
 # kubernetes/postgres-statefulset.yaml
+# Creates a headless service and a StatefulSet for the PostgreSQL database.
+# A StatefulSet is used for stateful applications, providing stable network IDs and storage.
 apiVersion: v1
 kind: Service
 metadata:
   name: postgres
   namespace: ai-defense
-  labels:
-    app: postgres-markov
 spec:
   ports:
   - port: 5432
     name: postgres
-  clusterIP: None # Headless service for StatefulSet
+  # clusterIP: None makes this a "headless" service, used for service discovery
+  # within the StatefulSet.
+  clusterIP: None
   selector:
-    app: postgres-markov
+    app: postgres
 
 ---
 apiVersion: apps/v1
@@ -21,85 +23,43 @@ metadata:
   name: postgres
   namespace: ai-defense
 spec:
-  serviceName: "postgres" # Must match the headless Service name
+  serviceName: "postgres"
   replicas: 1
   selector:
     matchLabels:
-      app: postgres-markov
+      app: postgres
   template:
     metadata:
       labels:
-        app: postgres-markov
+        app: postgres
     spec:
-      securityContext: # Pod-level security context
-        runAsUser: 70    # UID for postgres user in official image
-        runAsGroup: 70   # GID for postgres user
-        fsGroup: 70      # Ensures data volume is group-writable by postgres user
-      terminationGracePeriodSeconds: 30
       containers:
       - name: postgres
         image: postgres:15-alpine
-        securityContext: # Container-level security context
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop: ["ALL"]
         ports:
         - containerPort: 5432
           name: postgres
-        env:
-        - name: POSTGRES_DB # These are used by the postgres entrypoint script on first run if no data dir
-          valueFrom:
-            configMapKeyRef: { name: app-config, key: PG_DBNAME }
-        - name: POSTGRES_USER
-          valueFrom:
-            configMapKeyRef: { name: app-config, key: PG_USER }
-        - name: PGDATA # Official image uses this to set its data directory
-          value: /var/lib/postgresql/data/pgdata
-        - name: POSTGRES_PASSWORD_FILE # Used by postgres entrypoint for setting password
-          value: /run/secrets/postgres/pg_password.txt
+        envFrom:
+          # Load database credentials from the secret.
+          - secretRef:
+              name: postgres-credentials
         volumeMounts:
-        - name: postgres-persistent-storage # This is the data directory
-          mountPath: /var/lib/postgresql/data # PGDATA is a subpath of this
-        - name: postgres-secret-volume
-          mountPath: /run/secrets/postgres
-          readOnly: true
-        - name: postgres-init-script-volume # Mount the init script here
-          mountPath: /docker-entrypoint-initdb.d # Standard PG init directory
-          readOnly: true
-        resources:
-          requests: { cpu: "500m", memory: "512Mi" }
-          limits: { cpu: "1500m", memory: "1.5Gi" }
-        livenessProbe:
-          exec:
-            command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)", "-q"]
-          initialDelaySeconds: 45 # Increased slightly to allow init script to run on first boot
-          periodSeconds: 15
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          exec:
-            command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)", "-q"]
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
+        # Mount the persistent volume for data storage.
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        # Mount the initialization script.
+        - name: init-db
+          mountPath: /docker-entrypoint-initdb.d
       volumes:
-        - name: postgres-secret-volume
-          secret:
-            secretName: postgres-credentials
-            items:
-              - key: pg_password.txt
-                path: pg_password.txt
-        - name: postgres-init-script-volume # Define the volume for the init script ConfigMap
+        - name: init-db
           configMap:
-            name: postgres-init-script-cm # Name of the ConfigMap created
-            items: # Specify which key from ConfigMap to mount and its path
-              - key: init_markov.sql
-                path: init_markov.sql # This will be /docker-entrypoint-initdb.d/init_markov.sql
+            name: postgres-init-script
+  # Define the volume claim template for persistent storage.
   volumeClaimTemplates:
   - metadata:
-      name: postgres-persistent-storage
+      name: postgres-storage
     spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
-        requests: { storage: "10Gi" } # Adjust storage as needed
+        requests:
+          storage: 10Gi

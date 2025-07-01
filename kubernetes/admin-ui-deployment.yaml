@@ -4,26 +4,19 @@ kind: Service
 metadata:
   name: admin-ui
   namespace: ai-defense
-  labels:
-    app: admin-ui
 spec:
   selector:
     app: admin-ui
   ports:
-    - protocol: TCP
-      port: 5002
-      targetPort: http-admin
-      name: http
-  type: ClusterIP
-
+  - name: http
+    port: 5002
+    targetPort: 5002
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: admin-ui
   namespace: ai-defense
-  labels:
-    app: admin-ui
 spec:
   replicas: 1
   selector:
@@ -34,42 +27,25 @@ spec:
       labels:
         app: admin-ui
     spec:
-      securityContext: # Pod-level security context
-        runAsNonRoot: true
-        # fsGroup: 1001
       containers:
       - name: admin-ui
-        image: defense_stack_py_base:v0.1.0
-        imagePullPolicy: IfNotPresent
-        securityContext: # Container-level security context
-          allowPrivilegeEscalation: false
-          runAsUser: 1001
-          capabilities:
-            drop:
-              - "ALL"
-          # readOnlyRootFilesystem: true
-        workingDir: /app
-        command: ["python", "admin_ui/admin_ui.py"]
+        # IMPORTANT: Replace with your actual container image registry and tag.
+        image: your-registry/ai-scraping-defense:latest
+        # Updated command to run the Flask app from its new path.
+        command: ["python", "src/admin_ui/admin_ui.py"]
         ports:
         - containerPort: 5002
-          name: http-admin
-        envFrom:
-          - configMapRef:
-              name: app-config
         resources:
-          requests: { cpu: "100m", memory: "128Mi" }
-          limits: { cpu: "250m", memory: "256Mi" }
-        volumeMounts:
-          - name: log-volume
-            mountPath: /app/logs # App user 1001 needs write access
-        livenessProbe:
-          tcpSocket: { port: http-admin }
-          initialDelaySeconds: 15
-          periodSeconds: 20
-        readinessProbe:
-          tcpSocket: { port: http-admin }
-          initialDelaySeconds: 5
-          periodSeconds: 10
-      volumes:
-        - name: log-volume
-          emptyDir: {}
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        envFrom:
+        - configMapRef:
+            name: app-config
+        - secretRef:
+            name: admin-ui-credentials
+        - secretRef:
+            name: redis-credentials

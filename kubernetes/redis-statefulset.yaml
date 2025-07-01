@@ -1,11 +1,26 @@
 # kubernetes/redis-statefulset.yaml
+# Creates a headless service and a StatefulSet for the Redis cache.
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: ai-defense
+spec:
+  ports:
+  - port: 6379
+    name: redis
+  clusterIP: None
+  selector:
+    app: redis
+
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: redis
   namespace: ai-defense
 spec:
-  serviceName: redis-headless
+  serviceName: "redis"
   replicas: 1
   selector:
     matchLabels:
@@ -15,83 +30,27 @@ spec:
       labels:
         app: redis
     spec:
-      securityContext: # Pod-level security context
-        runAsUser: 999    # UID for redis user in official image
-        runAsGroup: 999   # GID for redis user
-        fsGroup: 999      # Ensures data volume is group-writable by redis user
-      terminationGracePeriodSeconds: 10
       containers:
       - name: redis
         image: redis:7-alpine
-        securityContext: # Container-level security context
-          allowPrivilegeEscalation: false
-          # runAsNonRoot: true # Effectively true due to Pod's runAsUser
-          capabilities:
-            drop:
-              - "ALL"
-          # readOnlyRootFilesystem: true # Redis needs to write to its data dir / RDB file
-        command:
-          - sh
-          - -c
-          - |
-            PASSWORD_ARG=""
-            if [ -f /run/secrets/redis/redis_password.txt ]; then
-              PASSWORD_ARG="--requirepass $(cat /run/secrets/redis/redis_password.txt)"
-            elif [ -f /run/secrets/redis/password ]; then
-              PASSWORD_ARG="--requirepass $(cat /run/secrets/redis/password)"
-            fi
-            exec redis-server --save 60 1 --loglevel warning $PASSWORD_ARG
+        # Command to start Redis server and require a password.
+        command: ["redis-server", "--requirepass", "$(REDIS_PASSWORD)"]
+        envFrom:
+          # Load the password from the secret.
+          - secretRef:
+              name: redis-credentials
         ports:
         - containerPort: 6379
-          name: redis-port
-        resources:
-          requests: { cpu: "250m", memory: "256Mi" }
-          limits: { cpu: "500m", memory: "512Mi" }
+          name: redis
         volumeMounts:
-        - name: redis-data # This is the data directory
+        - name: redis-data
           mountPath: /data
-        - name: redis-secret-volume
-          mountPath: /run/secrets/redis
-          readOnly: true
-      volumes:
-        - name: redis-secret-volume
-          secret:
-            secretName: redis-credentials
-            optional: true
+  # Define the volume claim template for persistent data (if needed).
   volumeClaimTemplates:
   - metadata:
       name: redis-data
     spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
-        requests: { storage: "1Gi" }
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis
-  namespace: ai-defense
-  labels:
-    app: redis
-spec:
-  ports:
-  - port: 6379
-    targetPort: redis-port
-    name: redis-client
-  selector:
-    app: redis
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis-headless
-  namespace: ai-defense
-spec:
-  ports:
-  - port: 6379
-    name: redis-port
-  clusterIP: None
-  selector:
-    app: redis
+        requests:
+          storage: 2Gi
