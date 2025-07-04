@@ -8,7 +8,6 @@ K8S_DIR="$(dirname "$0")/kubernetes"; mkdir -p "$K8S_DIR"; OUTPUT_FILE="$K8S_DIR
 
 # --- Functions ---
 generate_password() { LC_ALL=C tr -dc 'A-Za-z0-9_!@#$%^&*' < /dev/urandom | head -c "${1:-24}"; }
-generate_password() { LC_ALL=C tr -dc 'A-Za-z0-9_!@#$%^&*' < /dev/urandom | head -c "${1:-24}"; }
 
 # --- Main Logic ---
 echo -e "${CYAN}Generating secrets for Kubernetes...${NC}"
