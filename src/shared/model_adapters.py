@@ -1,13 +1,9 @@
-# shared/model_adapters.py
+# src/shared/model_adapters.py
 from abc import ABC, abstractmethod
 import os
 import logging
 from typing import Any, Dict, List, Optional
 import httpx
-import sys
-
-# --- Refactored Imports ---
-# No longer need sys.path manipulation if PYTHONPATH is set correctly
 
 # Import third-party libraries safely
 try:
@@ -27,7 +23,7 @@ try:
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     ANTHROPIC_AVAILABLE = False
-    
+
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
@@ -35,16 +31,23 @@ except ImportError:
     GEMINI_AVAILABLE = False
 
 try:
-    import ollama
-    OLLAMA_AVAILABLE = True
-except ImportError:
-    OLLAMA_AVAILABLE = False
-
-try:
     import cohere
     COHERE_AVAILABLE = True
 except ImportError:
     COHERE_AVAILABLE = False
+
+try:
+    from mistralai.client import MistralClient
+    from mistralai.models.chat_completion import ChatMessage
+    MISTRAL_AVAILABLE = True
+except ImportError:
+    MISTRAL_AVAILABLE = False
+
+try:
+    import ollama
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    OLLAMA_AVAILABLE = False
 
 try:
     from llama_cpp import Llama
@@ -82,7 +85,6 @@ class BaseModelAdapter(ABC):
 
 # --- Existing Adapters ---
 class SklearnAdapter(BaseModelAdapter):
-    """Adapter for scikit-learn models stored in .joblib files."""
     def _load_model(self):
         if not JOBLIB_AVAILABLE:
             logging.error("joblib library not installed. Cannot load scikit-learn model.")
@@ -94,165 +96,133 @@ class SklearnAdapter(BaseModelAdapter):
             logging.error(f"Failed to load scikit-learn model from {self.model_uri}: {e}")
 
     def predict(self, data: List[Dict[str, Any]], **kwargs) -> Any:
-        if self.model is None:
-            return [[0.0]] 
+        if self.model is None: return [[0.0]]
         return self.model.predict_proba(data)
 
 class MarkovAdapter(BaseModelAdapter):
-    """Adapter for the PostgreSQL-based Markov chain text generator."""
     def _load_model(self):
-        if MARKOV_AVAILABLE:
-            self.model = generate_dynamic_tarpit_page
-        else:
-            logging.error("markov_generator not available.")
+        self.model = generate_dynamic_tarpit_page if MARKOV_AVAILABLE else None
 
     def predict(self, data: Dict[str, Any], **kwargs) -> str:
-        if self.model is None:
-            return "Error: Markov model not available."
+        if self.model is None: return "Error: Markov model not available."
         return self.model()
 
-class HttpModelAdapter(BaseModelAdapter):
-    """Adapter for a generic remote model served over an HTTP API."""
-    def _load_model(self):
-        if not self.model_uri:
-            raise ValueError("MODEL_URI must be set for HttpModelAdapter")
-        self.api_key = self.config.get("api_key")
-
-    def predict(self, data: Any, **kwargs) -> Dict[str, Any]:
-        headers = kwargs.get("headers", {})
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        try:
-            with httpx.Client() as client:
-                response = client.post(self.model_uri, json=data, headers=headers, timeout=20.0)
-                response.raise_for_status()
-                return response.json()
-        except Exception as e:
-            logging.error(f"Failed to call remote model API at {self.model_uri}: {e}")
-            return {"error": "Could not connect to model API"}
-
-# --- LLM VENDOR ADAPTERS ---
+# --- LLM VENDOR ADAPTERS (Refactored for Explicit API Key Handling) ---
 
 class OpenAIAdapter(BaseModelAdapter):
-    """Adapter for OpenAI's GPT models."""
     def _load_model(self):
         if not OPENAI_AVAILABLE:
             logging.error("openai library not installed. OpenAIAdapter is not available.")
             return
-        api_key = self.config.get("api_key")
+        api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            logging.error("api_key not found in config for OpenAIAdapter.")
+            logging.error("OPENAI_API_KEY environment variable not found.")
             return
         self.model = openai.OpenAI(api_key=api_key)
         logging.info("OpenAI client configured successfully.")
 
     def predict(self, data: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
-        if not self.model:
-            return {"error": "OpenAI client not initialized"}
+        if not self.model: return {"error": "OpenAI client not initialized"}
         try:
-            completion = self.model.chat.completions.create(
-                model=self.model_uri,  # e.g., "gpt-4-turbo"
-                messages=data,
-                **kwargs
-            )
-            response_content = completion.choices[0].message.content
-            return {"response": response_content}
+            completion = self.model.chat.completions.create(model=self.model_uri, messages=data, **kwargs)
+            return {"response": completion.choices[0].message.content}
         except Exception as e:
-            logging.error(f"Error during OpenAI prediction: {e}")
-            return {"error": str(e)}
+            logging.error(f"Error during OpenAI prediction: {e}"); return {"error": str(e)}
 
 class AnthropicAdapter(BaseModelAdapter):
-    """Adapter for Anthropic's Claude models."""
     def _load_model(self):
         if not ANTHROPIC_AVAILABLE:
             logging.error("anthropic library not installed. AnthropicAdapter is not available.")
             return
-        api_key = self.config.get("api_key")
+        api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
-            logging.error("api_key not found in config for AnthropicAdapter.")
+            logging.error("ANTHROPIC_API_KEY environment variable not found.")
             return
         self.model = anthropic.Anthropic(api_key=api_key)
         logging.info("Anthropic client configured successfully.")
 
     def predict(self, data: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
-        if not self.model:
-            return {"error": "Anthropic client not initialized"}
+        if not self.model: return {"error": "Anthropic client not initialized"}
         try:
             system_prompt = kwargs.pop("system", "You are a helpful assistant.")
-            message = self.model.messages.create(
-                model=self.model_uri,  # e.g., "claude-3-opus-20240229"
-                system=system_prompt,
-                messages=data,
-                max_tokens=kwargs.get("max_tokens", 1024)
-            )
-            response_content = message.content[0].text
-            return {"response": response_content}
+            message = self.model.messages.create(model=self.model_uri, system=system_prompt, messages=data, max_tokens=kwargs.get("max_tokens", 1024))
+            return {"response": message.content[0].text}
         except Exception as e:
-            logging.error(f"Error during Anthropic prediction: {e}")
-            return {"error": str(e)}
+            logging.error(f"Error during Anthropic prediction: {e}"); return {"error": str(e)}
 
 class GoogleGeminiAdapter(BaseModelAdapter):
-    """Adapter for Google's Gemini models."""
     def _load_model(self):
         if not GEMINI_AVAILABLE:
             logging.error("google-generativeai library not installed. GoogleGeminiAdapter is not available.")
             return
-        api_key = self.config.get("api_key")
+        api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
-            logging.error("api_key not found in config for GoogleGeminiAdapter.")
+            logging.error("GOOGLE_API_KEY environment variable not found.")
             return
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel(self.model_uri) # e.g., "gemini-1.5-flash"
+        self.model = genai.GenerativeModel(self.model_uri)
         logging.info("Google Gemini client configured successfully.")
 
     def predict(self, data: str, **kwargs) -> Dict[str, Any]:
-        if not self.model:
-            return {"error": "Google Gemini client not initialized"}
+        if not self.model: return {"error": "Google Gemini client not initialized"}
         try:
             response = self.model.generate_content(data)
             return {"response": response.text}
         except Exception as e:
-            logging.error(f"Error during Google Gemini prediction: {e}")
-            return {"error": str(e)}
+            logging.error(f"Error during Google Gemini prediction: {e}"); return {"error": str(e)}
 
 class CohereAdapter(BaseModelAdapter):
-    """Adapter for Cohere's models."""
     def _load_model(self):
         if not COHERE_AVAILABLE:
             logging.error("cohere library not installed. CohereAdapter is not available.")
             return
-        api_key = self.config.get("api_key")
+        api_key = os.getenv("COHERE_API_KEY")
         if not api_key:
-            logging.error("api_key not found in config for CohereAdapter.")
+            logging.error("COHERE_API_KEY environment variable not found.")
             return
         self.model = cohere.Client(api_key=api_key)
         logging.info("Cohere client configured successfully.")
 
     def predict(self, data: str, **kwargs) -> Dict[str, Any]:
-        if not self.model:
-            return {"error": "Cohere client not initialized"}
+        if not self.model: return {"error": "Cohere client not initialized"}
         try:
-            response = self.model.chat(
-                model=self.model_uri, # e.g., "command-r-plus"
-                message=data,
-                **kwargs
-            )
+            response = self.model.chat(model=self.model_uri, message=data, **kwargs)
             return {"response": response.text}
         except Exception as e:
-            logging.error(f"Error during Cohere prediction: {e}")
-            return {"error": str(e)}
+            logging.error(f"Error during Cohere prediction: {e}"); return {"error": str(e)}
+
+class MistralAdapter(BaseModelAdapter):
+    def _load_model(self):
+        if not MISTRAL_AVAILABLE:
+            logging.error("mistralai library not installed. MistralAdapter is not available.")
+            return
+        api_key = os.getenv("MISTRAL_API_KEY")
+        if not api_key:
+            logging.error("MISTRAL_API_KEY environment variable not found.")
+            return
+        self.model = MistralClient(api_key=api_key)
+        logging.info("Mistral AI client configured successfully.")
+
+    def predict(self, data: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
+        if not self.model: return {"error": "Mistral AI client not initialized"}
+        try:
+            messages = [ChatMessage(role=msg['role'], content=msg['content']) for msg in data]
+            chat_response = self.model.chat(model=self.model_uri, messages=messages, **kwargs)
+            return {"response": chat_response.choices[0].message.content}
+        except Exception as e:
+            logging.error(f"Error during Mistral AI prediction: {e}"); return {"error": str(e)}
 
 # --- LOCAL & OPEN-SOURCE MODEL ADAPTERS ---
-
 class OllamaAdapter(BaseModelAdapter):
     """Adapter for local models served via Ollama."""
     def _load_model(self):
         if not OLLAMA_AVAILABLE:
             logging.error("ollama library not installed. OllamaAdapter is not available.")
             return
-        host = self.config.get("host") 
+        host = self.config.get("host") # e.g., from MODEL_URI like 'http://localhost:11434'
         try:
             self.model = ollama.Client(host=host)
+            # Check connection by listing models
             self.model.list()
             logging.info(f"Ollama client configured successfully for host: {host or 'default'}")
         except Exception as e:
@@ -263,8 +233,9 @@ class OllamaAdapter(BaseModelAdapter):
         if not self.model:
             return {"error": "Ollama client not initialized or failed to connect"}
         try:
+            # model_uri for ollama is the model name, e.g., "llama3:latest"
             response = self.model.chat(
-                model=self.model_uri, # e.g., "llama3:latest"
+                model=self.model_uri,
                 messages=data,
                 stream=False
             )
@@ -273,7 +244,7 @@ class OllamaAdapter(BaseModelAdapter):
         except Exception as e:
             logging.error(f"Error during Ollama prediction: {e}")
             return {"error": str(e)}
-            
+
 class LlamaCppAdapter(BaseModelAdapter):
     """Adapter for local models running via llama-cpp-python."""
     def _load_model(self):
@@ -281,7 +252,7 @@ class LlamaCppAdapter(BaseModelAdapter):
             logging.error("llama-cpp-python library not installed. LlamaCppAdapter is not available.")
             return
         try:
-            # model_uri is the path to the .gguf file
+            # For this adapter, model_uri is the direct path to the .gguf model file.
             # Config can contain n_gpu_layers, n_ctx, etc.
             self.model = Llama(model_path=self.model_uri, **self.config)
             logging.info(f"llama-cpp-python model loaded successfully from {self.model_uri}")
