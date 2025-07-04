@@ -1,14 +1,15 @@
-# shared/model_provider.py
+# src/shared/model_provider.py
 import os
 import logging
 import sys
 from typing import Optional
 
 # Ensure parent directories are in the path for module resolution
-# This is no longer necessary if PYTHONPATH is set correctly in the environment
-# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from src.shared.model_adapters import SklearnAdapter, MarkovAdapter, HttpModelAdapter, BaseModelAdapter
+from src.shared.model_adapters import (
+    SklearnAdapter, MarkovAdapter, HttpModelAdapter, BaseModelAdapter,
+    OpenAIAdapter, AnthropicAdapter, GoogleGeminiAdapter, CohereAdapter,
+    OllamaAdapter, LlamaCppAdapter, MistralAdapter
+)
 
 # A mapping from the MODEL_TYPE string to the corresponding adapter class.
 # This makes the provider easily extensible with new model types.
@@ -16,6 +17,13 @@ ADAPTER_MAP = {
     "sklearn": SklearnAdapter,
     "markov": MarkovAdapter,
     "http": HttpModelAdapter,
+    "openai": OpenAIAdapter,
+    "anthropic": AnthropicAdapter,
+    "gemini": GoogleGeminiAdapter,
+    "cohere": CohereAdapter,
+    "mistral": MistralAdapter,  # <-- Added Mistral
+    "ollama": OllamaAdapter,
+    "llamacpp": LlamaCppAdapter,
 }
 
 def load_model() -> Optional[BaseModelAdapter]:
@@ -23,11 +31,9 @@ def load_model() -> Optional[BaseModelAdapter]:
     Factory function to load the appropriate model adapter based on environment variables.
 
     Reads the following Environment Variables:
-    - MODEL_TYPE: (Required) The type of model to load (e.g., 'sklearn', 'markov', 'http').
+    - MODEL_TYPE: (Required) The type of model to load (e.g., 'sklearn', 'mistral', 'ollama').
     - MODEL_URI:  (Required) The resource identifier for the model.
-        - For 'sklearn': A file path, e.g., '/app/models/bot_detection_rf_model.joblib'
-        - For 'markov': Not directly used; adapter uses PG_* env vars. A placeholder like 'postgres' is fine.
-        - For 'http': The full URL of the prediction endpoint, e.g., 'https://api.example.com/predict'
+    - Other env vars for API keys (e.g., MISTRAL_API_KEY) are read by the adapter itself.
     """
     model_type = os.getenv("MODEL_TYPE")
     model_uri = os.getenv("MODEL_URI")
@@ -49,7 +55,12 @@ def load_model() -> Optional[BaseModelAdapter]:
         return None
 
     try:
-        # Instantiate and return the chosen adapter
+        # Configuration for the adapter can be passed here if needed,
+        # but for API keys, it's often handled by the adapter reading env vars.
+        # Example: config = {"api_key": os.getenv("MISTRAL_API_KEY")}
+        # return adapter_class(model_uri, config)
+        
+        # For simplicity, we'll let the adapter handle its own config.
         return adapter_class(model_uri)
     except Exception as e:
         logging.error(f"CRITICAL: Failed to instantiate model adapter for type '{model_type}': {e}", exc_info=True)

@@ -1,63 +1,58 @@
-# ==============================================================================
-# AI-SCRAPING-DEFENSE REQUIREMENTS
-#
-# This file lists the Python packages needed to run the project.
-# It is organized by function for clarity.
-#
-# Versioning Strategy:
-# We use the compatible release operator (~=) to ensure stable builds.
-# For example, "fastapi~=0.115" will install the latest 0.115.x version
-# but will not upgrade to 0.116.0, protecting against breaking changes.
-# ==============================================================================
+# **Web Frameworks and Servers**
 
-# --- CORE WEB FRAMEWORK & SERVER ---
-fastapi~=0.115
-uvicorn[standard]~=0.27
-gunicorn~=21.2
-flask~=3.0
-python-multipart~=0.0.9 # For FastAPI form handling
-aiofiles~=23.1         # For async file handling in FastAPI
+fastapi~=0.115  
+uvicorn[standard]~=0.27  
+gunicorn~=21.2  
+flask~=3.0  
+python-multipart~=0.0.9  
+aiofiles~=23.1
 
-# --- DATABASE & CACHE ---
-psycopg2-binary~=2.9
-redis~=5.0             # The official redis client, includes cluster support
+# **Data and Database**
 
-# --- DATA SCIENCE & MACHINE LEARNING ---
-numpy~=1.24
-pandas~=2.0
-joblib~=1.3
-scikit-learn~=1.3      # Explicitly adding scikit-learn for model training
-user-agents~=2.2
+psycopg2-binary~=2.9  
+redis~=5.0
+
+# **Machine Learning and Data Analysis**
+
+# **Added stricter version constraints to help the dependency resolver.**
+
+numpy>=1.24,<2.0  
+pandas>=2.0,<3.0  
+joblib>=1.3,<2.0  
+scikit-learn>=1.3,<2.0  
+user-agents~=2.2  
 schedule~=1.2
 
-# --- UTILITIES & EXTERNAL DATA ---
-httpx~=0.27
-requests~=2.31
-beautifulsoup4~=4.12
-lxml~=4.9
-wikipedia~=1.4         # Replaced deprecated wikipedia-api
+# **HTTP and Web Scraping**
+
+httpx~=0.27  
+requests~=2.31  
+beautifulsoup4~=4.12  
+lxml>=4.9,<6.0 # Allow newer versions compatible with Python 3.13+  
+wikipedia~=1.4  
 prometheus-client~=0.18
 
-# --- KUBERNETES ---
+# **Kubernetes**
+
 kubernetes~=29.0
 
-# --- LLM - CLOUD PROVIDERS ---
-openai~=1.17
-anthropic~=0.25
-google-generativeai~=0.4
-cohere~=5.3
+# **LLM and AI Libraries**
 
-# --- LLM - LOCAL/OPEN SOURCE ---
-ollama~=0.2
-llama-cpp-python~=0.2
-sentence-transformers~=2.7
+# **Added stricter version constraints to avoid conflicts.**
+
+openai>=1.17,<2.0  
+anthropic>=0.25,<1.0  
+google-generativeai>=0.4,<1.0  
+cohere>=5.3,<6.0  
+mistralai>=0.1.4,<1.0
+
+# **Local LLM Libraries**
+
+ollama~=0.2  
+llama-cpp-python~=0.2  
+sentence-transformers~=2.7  
 tiktoken~=0.6
 
-# --- LLM - VECTOR STORES (Optional, for RAG) ---
-# Un-comment these if you are implementing vector search functionality.
-# chromadb~=0.4
-# faiss-cpu~=1.7
-# pymilvus~=2.4
+# **--- Development and Testing Dependencies ---**
 
-# --- TESTING ---
 freezegun~=1.5
