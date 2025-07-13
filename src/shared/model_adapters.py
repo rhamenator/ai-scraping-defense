@@ -77,7 +77,6 @@ class BaseModelAdapter(ABC):
         """Abstract method to make a prediction based on the input data."""
         pass
 
-# --- Existing Adapters ---
 class SklearnAdapter(BaseModelAdapter):
     def _load_model(self):
         if not joblib:
@@ -121,7 +120,6 @@ class HttpModelAdapter(BaseModelAdapter):
             return {"error": "Could not connect to model API"}
 
 # --- LLM VENDOR ADAPTERS ---
-
 class OpenAIAdapter(BaseModelAdapter):
     def _load_model(self):
         if not openai:
@@ -131,8 +129,17 @@ class OpenAIAdapter(BaseModelAdapter):
         if not api_key:
             logging.error("OPENAI_API_KEY environment variable not found.")
             return
-        self.model = openai.OpenAI(api_key=api_key)
-        logging.info("OpenAI client configured successfully.")
+        if not self.model_uri:
+            logging.error("MODEL_URI must be set for OpenAIAdapter")
+            return
+        # Configure the OpenAI client
+        try:
+            self.model = openai.OpenAI(api_key=api_key)
+            logging.info("OpenAI client configured successfully.")
+        except Exception as e:
+            logging.error(f"Failed to configure OpenAI client: {e}")
+            self.model = None
+            return
 
     def predict(self, data: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         if not self.model: return {"error": "OpenAI client not initialized"}
@@ -151,8 +158,16 @@ class AnthropicAdapter(BaseModelAdapter):
         if not api_key:
             logging.error("ANTHROPIC_API_KEY environment variable not found.")
             return
-        self.model = anthropic.Anthropic(api_key=api_key)
-        logging.info("Anthropic client configured successfully.")
+        if not self.model_uri:
+            logging.error("MODEL_URI must be set for AnthropicAdapter")
+            return
+        try:                
+            self.model = anthropic.Anthropic(api_key=api_key)
+            logging.info("Anthropic client configured successfully.")
+        except Exception as e:
+            logging.error(f"Failed to configure Anthropic client: {e}")
+            self.model = None
+            return
 
     def predict(self, data: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         if not self.model: return {"error": "Anthropic client not initialized"}
@@ -172,10 +187,18 @@ class GoogleGeminiAdapter(BaseModelAdapter):
         if not api_key:
             logging.error("GOOGLE_API_KEY environment variable not found.")
             return
-        # FIXED: Suppress Pylance false positive errors for these lines.
-        genai.configure(api_key=api_key)  # type: ignore
-        self.model = genai.GenerativeModel(self.model_uri)  # type: ignore
-        logging.info("Google Gemini client configured successfully.")
+        if not self.model_uri:
+            logging.error("MODEL_URI must be set for GoogleGeminiAdapter")
+            return
+        # Configure the Google Gemini client
+        try:
+            genai.configure(api_key=api_key)    # type: ignore
+            self.model = genai.GenerativeModel(self.model_uri)  # type: ignore
+            logging.info("Google Gemini client configured successfully.")
+        except Exception as e:
+            logging.error(f"Failed to configure Google Gemini client: {e}")
+            self.model = None
+            return
 
     def predict(self, data: str, **kwargs) -> Dict[str, Any]:
         if not self.model: return {"error": "Google Gemini client not initialized"}
@@ -194,8 +217,16 @@ class CohereAdapter(BaseModelAdapter):
         if not api_key:
             logging.error("COHERE_API_KEY environment variable not found.")
             return
-        self.model = cohere.Client(api_key=api_key)
-        logging.info("Cohere client configured successfully.")
+        if not self.model_uri:
+            logging.error("MODEL_URI must be set for CohereAdapter")
+            return
+        # Configure the Cohere client
+        try:
+            self.model = cohere.Client(api_key=api_key)
+            logging.info("Cohere client configured successfully.")
+        except Exception as e:
+            logging.error(f"Failed to configure Cohere client: {e}")
+            self.model = None
 
     def predict(self, data: str, **kwargs) -> Dict[str, Any]:
         if not self.model: return {"error": "Cohere client not initialized"}
@@ -214,8 +245,24 @@ class MistralAdapter(BaseModelAdapter):
         if not api_key:
             logging.error("MISTRAL_API_KEY environment variable not found.")
             return
-        self.model = MistralClient(api_key=api_key)
-        logging.info("Mistral AI client configured successfully.")
+        if not self.model_uri:
+            logging.error("MODEL_URI must be set for MistralAdapter")
+            return
+        # Configure the Mistral client
+        if not ChatMessage:
+            logging.error("ChatMessage class not available. MistralAdapter requires mistralai.client.")
+            return
+        if not self.model_uri.startswith("mistral://"):
+            logging.error("MODEL_URI must start with 'mistral://' for MistralAdapter")
+            return
+        self.model_uri = self.model_uri.replace("mistral://", "")
+        # Initialize the Mistral client with the API key
+        try:
+            self.model = MistralClient(api_key=api_key)
+            logging.info("Mistral AI client configured successfully.")
+        except Exception as e:
+            logging.error(f"Failed to configure Mistral AI client: {e}")
+            self.model = None
 
     def predict(self, data: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         if not self.model or not ChatMessage: return {"error": "Mistral AI client not initialized"}
@@ -270,3 +317,29 @@ class LlamaCppAdapter(BaseModelAdapter):
             return {"response": response['choices'][0]['message']['content']}
         except Exception as e:
             logging.error(f"Error during llama-cpp-python prediction: {e}"); return {"error": str(e)}
+
+# --- Factory Function ---
+def get_model_adapter(model_uri: str, config: Optional[Dict[str, Any]] = None) -> BaseModelAdapter:
+    """Factory function to get the appropriate model adapter based on the model URI."""
+    if model_uri.startswith("http"):
+        return HttpModelAdapter(model_uri, config)
+    elif model_uri.startswith("sklearn://"):
+        return SklearnAdapter(model_uri.replace("sklearn://", ""), config)
+    elif model_uri.startswith("markov://"):
+        return MarkovAdapter(model_uri.replace("markov://", ""), config)
+    elif model_uri.startswith("openai://"):
+        return OpenAIAdapter(model_uri.replace("openai://", ""), config)
+    elif model_uri.startswith("anthropic://"):
+        return AnthropicAdapter(model_uri.replace("anthropic://", ""), config)
+    elif model_uri.startswith("google-gemini://"):
+        return GoogleGeminiAdapter(model_uri.replace("google-gemini://", ""), config)
+    elif model_uri.startswith("cohere://"):
+        return CohereAdapter(model_uri.replace("cohere://", ""), config)
+    elif model_uri.startswith("mistral://"):
+        return MistralAdapter(model_uri.replace("mistral://", ""), config)
+    elif model_uri.startswith("ollama://"):
+        return OllamaAdapter(model_uri.replace("ollama://", ""), config)
+    elif model_uri.startswith("llama-cpp://"):
+        return LlamaCppAdapter(model_uri.replace("llama-cpp://", ""), config)
+    else:
+        raise ValueError(f"Unknown model URI scheme: {model_uri}")
