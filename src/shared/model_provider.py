@@ -1,67 +1,65 @@
 # src/shared/model_provider.py
 import os
 import logging
-import sys
 from typing import Optional
 
-# Ensure parent directories are in the path for module resolution
+# Import all adapter classes from the model_adapters module
 from src.shared.model_adapters import (
-    SklearnAdapter, MarkovAdapter, HttpModelAdapter, BaseModelAdapter,
+    BaseModelAdapter, SklearnAdapter, MarkovAdapter, HttpModelAdapter,
     OpenAIAdapter, AnthropicAdapter, GoogleGeminiAdapter, CohereAdapter,
-    OllamaAdapter, LlamaCppAdapter, MistralAdapter
+    MistralAdapter, OllamaAdapter, LlamaCppAdapter
 )
 
-# A mapping from the MODEL_TYPE string to the corresponding adapter class.
-# This makes the provider easily extensible with new model types.
+# The ADAPTER_MAP now maps the URI scheme (e.g., "openai") to the adapter class.
 ADAPTER_MAP = {
     "sklearn": SklearnAdapter,
     "markov": MarkovAdapter,
     "http": HttpModelAdapter,
+    "https": HttpModelAdapter, # Alias for http
     "openai": OpenAIAdapter,
     "anthropic": AnthropicAdapter,
-    "gemini": GoogleGeminiAdapter,
+    "google-gemini": GoogleGeminiAdapter,
     "cohere": CohereAdapter,
-    "mistral": MistralAdapter,  # <-- Added Mistral
+    "mistral": MistralAdapter,
     "ollama": OllamaAdapter,
     "llamacpp": LlamaCppAdapter,
 }
 
-def load_model() -> Optional[BaseModelAdapter]:
+def get_model_adapter() -> Optional[BaseModelAdapter]:
     """
-    Factory function to load the appropriate model adapter based on environment variables.
-
-    Reads the following Environment Variables:
-    - MODEL_TYPE: (Required) The type of model to load (e.g., 'sklearn', 'mistral', 'ollama').
-    - MODEL_URI:  (Required) The resource identifier for the model.
-    - Other env vars for API keys (e.g., MISTRAL_API_KEY) are read by the adapter itself.
+    Factory function to get the appropriate model adapter based on the MODEL_URI.
+    The URI scheme determines which adapter is loaded.
+    Example URIs:
+    - sklearn:///app/models/bot_detection_rf_model.joblib
+    - openai://gpt-4-turbo
+    - mistral://mistral-large-latest
+    - ollama://llama3
+    - http://my-custom-api.com/predict
     """
-    model_type = os.getenv("MODEL_TYPE")
     model_uri = os.getenv("MODEL_URI")
-    
-    logging.info(f"Attempting to load model of type '{model_type}' from URI '{model_uri}'")
-
-    if not model_type:
-        logging.error("CRITICAL: MODEL_TYPE environment variable is not set. Cannot load model.")
-        return None
-
-    adapter_class = ADAPTER_MAP.get(model_type.lower())
-
-    if not adapter_class:
-        logging.error(f"CRITICAL: Unknown MODEL_TYPE: '{model_type}'. Available types are: {list(ADAPTER_MAP.keys())}")
-        return None
-    
     if not model_uri:
-        logging.error(f"CRITICAL: MODEL_URI environment variable is not set for type '{model_type}'. Cannot load model.")
+        logging.error("CRITICAL: MODEL_URI environment variable is not set. Cannot load model.")
         return None
 
     try:
-        # Configuration for the adapter can be passed here if needed,
-        # but for API keys, it's often handled by the adapter reading env vars.
-        # Example: config = {"api_key": os.getenv("MISTRAL_API_KEY")}
-        # return adapter_class(model_uri, config)
-        
-        # For simplicity, we'll let the adapter handle its own config.
-        return adapter_class(model_uri)
+        # Split the URI into 'scheme' and 'path' parts. e.g., "openai" and "gpt-4-turbo"
+        scheme, path = model_uri.split("://", 1)
+        scheme = scheme.lower()
+    except ValueError:
+        # Handle cases where the URI format is incorrect.
+        logging.error(f"Invalid MODEL_URI format: '{model_uri}'. Must be in 'scheme://path' format.")
+        return None
+
+    # Look up the appropriate adapter class from the map.
+    adapter_class = ADAPTER_MAP.get(scheme)
+    if not adapter_class:
+        logging.error(f"CRITICAL: Unknown model URI scheme: '{scheme}'. Available schemes are: {list(ADAPTER_MAP.keys())}")
+        return None
+
+    logging.info(f"Loading model adapter '{adapter_class.__name__}' for model path '{path}'")
+    try:
+        # Instantiate the chosen adapter, passing the path part of the URI as the model identifier.
+        return adapter_class(path)
     except Exception as e:
-        logging.error(f"CRITICAL: Failed to instantiate model adapter for type '{model_type}': {e}", exc_info=True)
+        logging.error(f"Failed to instantiate model adapter for scheme '{scheme}': {e}", exc_info=True)
         return None
