@@ -1,58 +1,46 @@
-# **Web Frameworks and Servers**
-
-fastapi~=0.115  
-uvicorn[standard]~=0.27  
-gunicorn~=21.2  
-flask~=3.0  
-python-multipart~=0.0.9  
+# Web Frameworks and Servers
+fastapi~=0.115
+uvicorn[standard]~=0.27
+gunicorn~=21.2
+flask~=3.0
+python-multipart~=0.0.9
 aiofiles~=23.1
 
-# **Data and Database**
-
-psycopg2-binary~=2.9  
+# Data and Database
+psycopg2-binary~=2.9
 redis~=5.0
 
-# **Machine Learning and Data Analysis**
-
-# **Added stricter version constraints to help the dependency resolver.**
-
-numpy>=1.24,<2.0  
-pandas>=2.0,<3.0  
-joblib>=1.3,<2.0  
-scikit-learn>=1.3,<2.0  
-user-agents~=2.2  
+# Machine Learning and Data Analysis
+numpy>=1.24,<2.0
+pandas>=2.0,<3.0
+joblib>=1.3,<2.0
+scikit-learn>=1.3,<2.0
+user-agents~=2.2
 schedule~=1.2
 
-# **HTTP and Web Scraping**
-
-httpx~=0.27  
-requests~=2.31  
-beautifulsoup4~=4.12  
-lxml>=4.9,<6.0 # Allow newer versions compatible with Python 3.13+  
-wikipedia~=1.4  
+# HTTP and Web Scraping
+httpx~=0.27
+requests~=2.31
+beautifulsoup4~=4.12
+lxml>=4.9,<6.0
+wikipedia~=1.4
 prometheus-client~=0.18
 
-# **Kubernetes**
-
+# Kubernetes
 kubernetes~=29.0
 
-# **LLM and AI Libraries**
-
-# **Added stricter version constraints to avoid conflicts.**
-
-openai>=1.17,<2.0  
-anthropic>=0.25,<1.0  
-google-generativeai>=0.4,<1.0  
-cohere>=5.3,<6.0  
+# LLM and AI Libraries
+openai>=1.17,<2.0
+anthropic>=0.25,<1.0
+google-genai>=1.0,<2.0
+cohere>=5.3,<6.0
 mistralai>=0.1.4,<1.0
 
-# **Local LLM Libraries**
-
-ollama~=0.2  
-llama-cpp-python~=0.2  
-sentence-transformers~=2.7  
+# Local LLM Libraries
+ollama~=0.2
+llama-cpp-python~=0.2
+sentence-transformers~=2.7
 tiktoken~=0.6
 
-# **--- Development and Testing Dependencies ---**
-
+# --- Development and Testing Dependencies ---
 freezegun~=1.5

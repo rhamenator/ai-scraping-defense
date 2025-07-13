@@ -59,7 +59,16 @@ def get_model_adapter() -> Optional[BaseModelAdapter]:
     logging.info(f"Loading model adapter '{adapter_class.__name__}' for model path '{path}'")
     try:
         # Instantiate the chosen adapter, passing the path part of the URI as the model identifier.
-        return adapter_class(path)
+        # For sklearn, this path will be absolute inside the container, e.g., /app/models/model.joblib
+        # The '///' in the URI (e.g., sklearn:///) is important for correctly parsing file paths.
+        model_path = path
+        if scheme == "sklearn" and path.startswith('/'):
+            model_path = path
+        elif scheme == "sklearn":
+             # This case is for relative paths, but absolute is recommended in containers.
+            model_path = os.path.join("/app", path)
+
+        return adapter_class(model_path)
     except Exception as e:
         logging.error(f"Failed to instantiate model adapter for scheme '{scheme}': {e}", exc_info=True)
         return None

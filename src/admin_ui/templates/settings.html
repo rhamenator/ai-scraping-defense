@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Settings - AI Scraping Defense</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">AI Scraping Defense</h1>
+            <p class="text-gray-600">System Configuration</p>
+            <nav class="mt-4">
+                <a href="/" class="text-blue-600 hover:underline mr-4">Dashboard</a>
+                <a href="/settings" class="text-blue-800 font-semibold mr-4">Settings</a>
+            </nav>
+        </header>
+
+        <main>
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold mb-4">Current System Settings</h2>
+                <p class="text-gray-600 mb-6">
+                    This page displays the current non-sensitive configuration loaded from the environment.
+                    For security, sensitive values like API keys and passwords are not shown here.
+                </p>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border">
+                        <thead class="bg-gray-200">
+                            <tr>
+                                <th class="py-2 px-4 border-b text-left">Setting</th>
+                                <th class="py-2 px-4 border-b text-left">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for key, value in settings.items() %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="py-2 px-4 border-b font-mono text-sm text-gray-700">{{ key }}</td>
+                                <td class="py-2 px-4 border-b font-mono text-sm text-blue-800">{{ value }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h3 class="font-semibold text-lg text-blue-800">How to Change Settings</h3>
+                    <p class="mt-2 text-sm text-blue-700">
+                        <strong>For Local Development:</strong> Modify the values in your <strong>.env</strong> file and restart the services with <code>docker-compose up -d --build</code>.
+                    </p>
+                    <p class="mt-2 text-sm text-blue-700">
+                        <strong>For Kubernetes Production:</strong> Update the values in your <strong>ConfigMap</strong> and <strong>Secret</strong> manifests and re-apply them to your cluster using <code>kubectl apply -f ...</code>.
+                    </p>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

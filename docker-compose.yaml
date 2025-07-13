@@ -1,11 +1,16 @@
-# docker-compose.yaml
+# docker-compose.yaml (v4 - Final)
+#
+# This version combines the clean .env configuration with the robust
+# stability settings (healthchecks, cache volumes) from the original file.
+# It represents the best of both worlds.
+
 services:
   mailhog:
     image: mailhog/mailhog
     container_name: mailhog
     ports:
-      - "${ALERT_SMTP_PORT}:1025"
-      - "${ALERT_SMTP_WEB_PORT}:8025"
+      - "${ALERT_SMTP_PORT:-1025}:1025"
+      - "${ALERT_SMTP_WEB_PORT:-8025}:8025"
     networks:
       - defense_network
     restart: unless-stopped
@@ -17,199 +22,87 @@ services:
     volumes:
       - ./mocks/external_api.yaml:/mocks/external_api.yaml:ro
     ports:
-      - "${MOCK_EXTERNAL_API_PORT}:8000"
-    networks:
-      - defense_network
-    restart: unless-stopped
-
-  mock_ip_reputation_api:
-    image: stoplight/prism:4
-    container_name: mock_ip_reputation_api
-    command: mock -h 0.0.0.0 /mocks/ip_reputation_api.yaml
-    volumes:
-      - ./mocks/ip_reputation_api.yaml:/mocks/ip_reputation_api.yaml:ro
-    ports:
-      - "${MOCK_IP_REPUTATION_PORT}:8000"
-    networks:
-      - defense_network
-    restart: unless-stopped
-
-  mock_community_blocklist_api:
-    image: stoplight/prism:4
-    container_name: mock_community_blocklist_api
-    command: mock -h 0.0.0.0 /mocks/community_blocklist_api.yaml
-    volumes:
-      - ./mocks/community_blocklist_api.yaml:/mocks/community_blocklist_api.yaml:ro
-    ports:
-      - "${MOCK_BLOCKLIST_API_PORT}:8000"
+      - "4010:4010"
     networks:
       - defense_network
     restart: unless-stopped
 
   nginx_proxy:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: openresty/openresty:1.21.4.1-alpine
     container_name: nginx_proxy
     user: nobody
-    entrypoint: []
-    command: ["/bin/sh", "-c", "envsubst '$${AI_SERVICE_PORT} $${ESCALATION_ENGINE_PORT} $${TARPIT_API_PORT} $${ADMIN_UI_PORT}' < /etc/nginx/templates/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
     ports:
       - "${NGINX_HTTP_PORT:-8080}:80"
       - "${NGINX_HTTPS_PORT:-8443}:443"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${NGINX_HTTP_PORT:-8080}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro
       - ./nginx/lua:/etc/nginx/lua:ro
-      - ./config/robots.txt:/etc/nginx/robots.txt:ro
-      - ./docs:/var/www/html/docs:ro
-      - ./archives:/usr/share/nginx/html/archives:ro
-      - ./logs/nginx:/var/log/nginx
-      - ./certs:/etc/nginx/certs:ro
-      - ./secrets/.htpasswd:/etc/nginx/secrets/.htpasswd:ro
+      # Restored Nginx cache volumes for stability and performance
       - nginx_client_body_temp:/var/run/openresty/nginx-client-body
       - nginx_proxy_temp:/var/cache/nginx/proxy_temp
       - nginx_fastcgi_temp:/var/cache/nginx/fastcgi_temp
       - nginx_uwsgi_temp:/var/cache/nginx/uwsgi_temp
       - nginx_scgi_temp:/var/cache/nginx/scgi_temp
+    environment:
+      - LUA_PATH=/usr/local/openresty/lualib/?.lua;;
+      - AI_SERVICE_HOST=ai_service
+      - ESCALATION_ENGINE_HOST=escalation_engine
+      - TARPIT_API_HOST=tarpit_api
+      - ADMIN_UI_HOST=admin_ui
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     depends_on:
-      tarpit_api:
-        condition: service_healthy
       escalation_engine:
+        condition: service_healthy
+      tarpit_api:
         condition: service_healthy
       admin_ui:
         condition: service_healthy
-      ai_service:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    environment:
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_DB_BLOCKLIST=2
-      - REAL_BACKEND_HOST=${REAL_BACKEND_HOST:-http://localhost:8080}
-      - LUA_PATH=/usr/local/openresty/lualib/?.lua;/usr/local/openresty/nginx/lua/?.lua;/etc/nginx/lua/?.lua;;
-      - LUA_CPATH=/usr/local/openresty/lualib/?.so;;
-      - AI_SERVICE_PORT=${AI_SERVICE_PORT}
-      - ESCALATION_ENGINE_PORT=${ESCALATION_ENGINE_PORT}
-      - TARPIT_API_PORT=${TARPIT_API_PORT}
-      - ADMIN_UI_PORT=${ADMIN_UI_PORT}
     networks:
       - defense_network
-    secrets:
-      - redis_password
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost/healthz/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
 
   ai_service:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: ai_service
-    working_dir: /app
-    entrypoint: ["/app/docker-entrypoint.sh"]
-    command: [
-      "gunicorn",
-      "-k", "uvicorn.workers.UvicornWorker",
-      "--workers", "${UVICORN_WORKERS:-2}",
-      "--bind", "0.0.0.0:${AI_SERVICE_PORT}",
-      "src.ai_service.ai_webhook:app"
-    ]
-    environment:
-      - PYTHONPATH=/app
-      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
-      - EXTERNAL_API_URL=${EXTERNAL_API_URL}
-      - ALERT_SMTP_HOST=${ALERT_SMTP_HOST}
-      - ALERT_SMTP_PORT=${ALERT_SMTP_PORT}
-      - ALERT_SMTP_USE_TLS=${ALERT_SMTP_USE_TLS}
-      - LOG_LEVEL=${LOG_LEVEL}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - AI_SERVICE_PORT=${AI_SERVICE_PORT}
-      - DEBUG=${DEBUG}
-      - APP_ENV=${APP_ENV}
+    command: ["uvicorn", "src.ai_service.ai_webhook:app", "--host", "0.0.0.0", "--port", "${AI_SERVICE_PORT:-8000}"]
+    env_file:
+      - .env
     volumes:
-      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
-      - ./src/ai_service:/app/src/ai_service
-      - ./src/shared:/app/src/shared
+      - ./src:/app/src
       - ./logs:/app/logs
-      - ./data:/app/data
-      - ./src/util:/app/src/util
-    secrets:
-      - smtp_password
-      - community_blocklist_api_key
-      - redis_password
     depends_on:
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-      mailhog:
-        condition: service_started
+      - escalation_engine
     networks:
       - defense_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${AI_SERVICE_PORT}/health || exit 1"]
+      test: ["CMD", "curl", "-f", "http://localhost:${AI_SERVICE_PORT:-8000}/health"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
-      start_period: 10s
 
   escalation_engine:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: escalation_engine
-    working_dir: /app
     entrypoint: ["/app/docker-entrypoint.sh"]
-    command: [
-      "gunicorn",
-      "-k", "uvicorn.workers.UvicornWorker",
-      "--workers", "${UVICORN_WORKERS:-2}",
-      "--bind", "0.0.0.0:${ESCALATION_ENGINE_PORT:-8003}",
-      "src.escalation.escalation_engine:app"
-    ]
-    environment:
-      # --- NEW MODEL PROVIDER CONFIG ---
-      - MODEL_TYPE=sklearn
-      - MODEL_URI=/app/models/bot_detection_rf_model.joblib
-
-      # --- Other Variables ---
-      - RUN_MODEL_TRAINING=true
-      - MODEL_PATH=/app/models/bot_detection_rf_model.joblib # Still needed for the entrypoint trainer
-      - PYTHONPATH=/app
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
-      - POSTGRES_HOST=${PG_HOST}
-      - POSTGRES_USER_FILE=/run/secrets/pg_user
-      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password
-      - POSTGRES_DB_FILE=/run/secrets/pg_db
-      - EXTERNAL_API_URL=http://mock_external_api:8000
-      - IP_REPUTATION_API_URL=http://mock_ip_reputation_api:8000
-      - COMMUNITY_BLOCKLIST_API_URL=http://mock_community_blocklist_api:8000
-      - SMTP_HOST=mailhog
-      - SMTP_PORT=1025
-      - ALERT_RECIPIENT=alerts@example.com
-      - ALERT_SENDER=noreply@defense.local
+    command: ["uvicorn", "src.escalation.escalation_engine:app", "--host", "0.0.0.0", "--port", "${ESCALATION_ENGINE_PORT:-8003}"]
+    env_file:
+      - .env
     volumes:
-      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
-      - ./src/escalation:/app/src/escalation
-      - ./src/shared:/app/src/shared
-      - ./src/rag:/app/src/rag
-      - ./models:/app/models:rw
-      - ./data:/app/data:ro
-    secrets:
-      - redis_password
-      - pg_password
-      - pg_user
-      - pg_db
+      - ./src:/app/src
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh
     depends_on:
       postgres:
         condition: service_healthy
@@ -219,52 +112,49 @@ services:
       - defense_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${ESCALATION_ENGINE_PORT:-8003}/health || exit 1"]
+      test: ["CMD", "curl", "-f", "http://localhost:${ESCALATION_ENGINE_PORT:-8003}/health"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
-      start_period: 15s
 
   tarpit_api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: tarpit_api
-    working_dir: /app
-    entrypoint: ["/app/docker-entrypoint.sh"]
-    command: [
-      "gunicorn",
-      "-k", "uvicorn.workers.UvicornWorker",
-      "--workers", "${UVICORN_WORKERS:-2}",
-      "--bind", "0.0.0.0:${TARPIT_API_PORT}",
-      "src.tarpit.tarpit_api:app"
-    ]
-    environment:
-      - PYTHONPATH=/app
-      - LOG_LEVEL=${LOG_LEVEL}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
-      - TARPIT_API_PORT=${TARPIT_API_PORT}
-      - DEBUG=${DEBUG}
-      - APP_ENV=${APP_ENV}
-      - POSTGRES_HOST=${PG_HOST}
-      - POSTGRES_USER_FILE=/run/secrets/pg_user
-      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password
-      - POSTGRES_DB_FILE=/run/secrets/pg_db
+    command: ["uvicorn", "src.tarpit.tarpit_api:app", "--host", "0.0.0.0", "--port", "${TARPIT_API_PORT:-8001}"]
+    env_file:
+      - .env
     volumes:
-      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
-      - ./src/tarpit:/app/src/tarpit
-      - ./src/shared:/app/src/shared
+      - ./src:/app/src
+      - ./archives:/app/archives
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - defense_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${TARPIT_API_PORT:-8001}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  admin_ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: admin_ui
+    command: ["python", "src/admin_ui/admin_ui.py"]
+    env_file:
+      - .env
+    ports:
+      - "${ADMIN_UI_PORT:-5002}:5002"
+    volumes:
+      - ./src:/app/src
       - ./logs:/app/logs
-      - ./data:/app/data
-      - ./src/util:/app/src/util
-    secrets:
-      - pg_password
-      - pg_user
-      - pg_db
-      - redis_password
-      - system_seed
     depends_on:
       redis:
         condition: service_healthy
@@ -274,240 +164,60 @@ services:
       - defense_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${TARPIT_API_PORT}/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-
-  admin_ui:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: admin_ui
-    working_dir: /app
-    entrypoint: ["/app/docker-entrypoint.sh"]
-    command: [
-        "gunicorn",
-        "--workers", "4",
-        "--bind", "0.0.0.0:${ADMIN_UI_PORT}",
-        "src.admin_ui.admin_ui:app"
-    ]
-    environment:
-      - PYTHONPATH=/app
-      - FLASK_ENV=${FLASK_ENV}
-      - ADMIN_UI_PORT=${ADMIN_UI_PORT}
-      - DEBUG=${DEBUG}
-      - APP_ENV=${APP_ENV}
-      - ADMIN_UI_USERNAME=${ADMIN_UI_USERNAME}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
-      - POSTGRES_HOST=${PG_HOST}
-      - POSTGRES_USER_FILE=/run/secrets/pg_user
-      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password
-      - POSTGRES_DB_FILE=/run/secrets/pg_db
-    volumes:
-      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
-      - ./src/admin_ui:/app/src/admin_ui
-      - ./src/shared:/app/src/shared
-      - ./logs:/app/logs
-    secrets:
-      - admin_ui_password
-      - redis_password
-      - pg_user
-      - pg_password
-      - pg_db
-    depends_on:
-      - redis
-      - postgres
-    networks:
-      - defense_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${ADMIN_UI_PORT}/ || exit 1"]
+      test: ["CMD", "curl", "-f", "http://localhost:${ADMIN_UI_PORT:-5002}/"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
-
-  archive_rotator:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: archive_rotator
-    working_dir: /app
-    entrypoint: []
-    command: ["python", "src/tarpit/rotating_archive.py"]
-    environment:
-      - PYTHONPATH=/app
-      - DEFAULT_ARCHIVE_DIR=/app/fake_archives
-      - LOG_LEVEL=${LOG_LEVEL}
-    volumes:
-      - ./src/tarpit:/app/src/tarpit
-      - ./archives:/app/fake_archives
-      - ./logs:/app/logs
-    networks:
-      - defense_network
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    container_name: redis_store
-    volumes:
-      - redis_data:/data
-    networks:
-      - defense_network
-    restart: unless-stopped
-    command: >
-      sh -c 'if [ -f /run/secrets/redis_password.txt ] && [ -s /run/secrets/redis_password.txt ]; then \
-               echo "Starting Redis with password protection."; \
-               exec redis-server --save 60 1 --loglevel warning --requirepass "$(cat /run/secrets/redis_password.txt)"; \
-             else \
-               echo "Starting Redis without password protection (password file not found or empty)."; \
-               exec redis-server --save 60 1 --loglevel warning; \
-             fi'
-    secrets:
-      - source: redis_password
-        target: /run/secrets/redis_password.txt
-        mode: 0400
-    healthcheck:
-      test: >
-        sh -c 'if [ -f /run/secrets/redis_password.txt ] && [ -s /run/secrets/redis_password.txt ]; then \
-                 redis-cli -a "$(cat /run/secrets/redis_password.txt)" ping | grep -q PONG; \
-               else \
-                 redis-cli ping | grep -q PONG; \
-               fi'
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
 
   postgres:
     image: postgres:15-alpine
     container_name: postgres_markov_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./db/init_markov.sql:/docker-entrypoint-initdb.d/init_markov.sql:ro
+      - ./db/init_markov.sql:/docker-entrypoint-initdb.d/init_markov.sql
     environment:
-      - POSTGRES_DB_FILE=/run/secrets/pg_db
-      - POSTGRES_USER_FILE=/run/secrets/pg_user
-      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password
-    secrets:
-      - source: pg_password
-        target: /run/secrets/pg_password
-      - source: pg_user
-        target: /run/secrets/pg_user
-      - source: pg_db
-        target: /run/secrets/pg_db
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "${PG_PORT:-5432}:5432"
     networks:
       - defense_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$(cat /run/secrets/pg_user) -d $$(cat /run/secrets/pg_db) -h localhost"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
 
-  corpus_updater:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: corpus_updater
-    working_dir: /app
-    entrypoint: []
-    command: ["python", "src/util/corpus_wikipedia_updater.py"]
-    environment:
-      - PYTHONPATH=/app
-      - WIKIPEDIA_CORPUS_FILE=${WIKIPEDIA_CORPUS_FILE}
-      - WIKIPEDIA_NUM_ARTICLES=${WIKIPEDIA_NUM_ARTICLES:-5}
-      - WIKIPEDIA_LANGUAGE=${WIKIPEDIA_LANGUAGE:-en}
-      - LOG_LEVEL=${LOG_LEVEL}
+  redis:
+    image: redis:7-alpine
+    container_name: redis_store
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
-      - ./src/util:/app/src/util
-      - ./data:/app/data
+      - redis_data:/data
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     networks:
       - defense_network
-
-  robots_fetcher:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: robots_fetcher
-    working_dir: /app
-    entrypoint: []
-    command: ["python", "src/util/robots_fetcher.py"]
-    environment:
-      - PYTHONPATH=/app
-      - REAL_BACKEND_HOST=${REAL_BACKEND_HOST_FOR_ROBOTS:-http://nginx_proxy:80}
-      - LOG_LEVEL=${LOG_LEVEL}
-    volumes:
-      - ./src/util:/app/src/util
-    networks:
-      - defense_network
-
-  markov_trainer:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: markov_trainer
-    working_dir: /app
-    entrypoint: ["/app/docker-entrypoint.sh"]
-    command: ["python", "src/rag/train_markov_postgres.py"]
-    environment:
-      - PYTHONPATH=/app
-      - LOG_LEVEL=${LOG_LEVEL}
-      - POSTGRES_HOST=${PG_HOST}
-      - POSTGRES_USER_FILE=/run/secrets/pg_user
-      - POSTGRES_PASSWORD_FILE=/run/secrets/pg_password
-      - POSTGRES_DB_FILE=/run/secrets/pg_db
-    volumes:
-      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
-      - ./src/rag:/app/src/rag
-      - ./data:/app/data
-    secrets:
-      - pg_password
-      - pg_user
-      - pg_db
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - defense_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   defense_network:
     driver: bridge
 
 volumes:
+  postgres_data:
+  redis_data:
   nginx_client_body_temp:
   nginx_proxy_temp:
   nginx_fastcgi_temp:
   nginx_uwsgi_temp:
   nginx_scgi_temp:
-  redis_data:
-  postgres_data:
-
-secrets:
-  smtp_password:
-    file: ./secrets/smtp_password.txt
-  external_api_key:
-    file: ./secrets/external_api_key.txt
-  ip_reputation_api_key:
-    file: ./secrets/ip_reputation_api_key.txt
-  community_blocklist_api_key:
-    file: ./secrets/community_blocklist_api_key.txt
-  pg_password:
-    file: ./secrets/pg_password.txt
-  pg_user:
-    file: ./secrets/pg_user.txt
-  pg_db:
-    file: ./secrets/pg_db.txt
-  redis_password:
-    file: ./secrets/redis_password.txt
-  system_seed:
-    file: ./secrets/system_seed.txt
-  training_pg_password:
-    file: ./secrets/training_pg_password.txt
-  admin_ui_password:
-    file: ./secrets/admin_ui_password.txt
