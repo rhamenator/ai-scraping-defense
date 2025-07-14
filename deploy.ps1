@@ -1,69 +1,88 @@
 <#
 .SYNOPSIS
-    Automates the deployment of the AI Scraping Defense system to a Kubernetes cluster.
+    Deploys the entire AI Scraping Defense stack to the configured Kubernetes cluster.
+
 .DESCRIPTION
-    This PowerShell script ensures that all Kubernetes resources are created in the
-    correct order to prevent dependency issues. It is designed to be run from a
-    Windows environment where kubectl is installed and configured.
-.NOTES
-    Author: Your Name
-    Date: 2025-06-19
+    This script applies the manifests in a logical order to ensure dependencies
+    like namespaces and secrets are created before the applications that use them.
 #>
 
-# Stop the script immediately if any command fails.
+# --- Script Configuration ---
 $ErrorActionPreference = "Stop"
+$Namespace = "ai-defense"
+$K8sDir = Join-Path $PSScriptRoot "kubernetes"
 
-try {
-    Write-Host "🚀 Starting deployment to Kubernetes..." -ForegroundColor Green
+Write-Host "--- Starting Kubernetes Deployment for AI Scraping Defense ---" -ForegroundColor Yellow
+Write-Host "Target Namespace: $Namespace"
+Write-Host "Manifests Directory: $K8sDir"
+Write-Host ""
 
-    # Step 1: Apply the Namespace
-    # The namespace must be created first, as all other resources will be placed within it.
-    Write-Host "1. Applying namespace..." -ForegroundColor Cyan
-    kubectl apply -f kubernetes\namespace.yaml
+# --- Deployment Steps ---
 
-    # Step 2: Apply Configurations and Secrets
-    # These resources contain configuration data and secrets that other services depend on.
-    Write-Host "2. Applying ConfigMaps and Secrets..." -ForegroundColor Cyan
-    kubectl apply -f kubernetes\configmap.yaml
-    kubectl apply -f kubernetes\secrets.yaml
-    kubectl apply -f kubernetes\postgres-init-script-cm.yaml
+# Step 1: Apply the Namespace first
+Write-Host "Step 1: Applying Namespace..." -ForegroundColor Cyan
+kubectl apply -f (Join-Path $K8sDir "namespace.yaml")
+Write-Host "Namespace applied."
+Write-Host ""
 
-    # Step 3: Apply Persistent Volume Claims (PVCs)
-    # PVCs request storage from the cluster. Stateful applications will claim these volumes.
-    Write-Host "3. Applying PersistentVolumeClaims..." -ForegroundColor Cyan
-    kubectl apply -f kubernetes\archives-pvc.yaml
-    kubectl apply -f kubernetes\corpus-pvc.yaml
-    kubectl apply -f kubernetes\models-pvc.yaml
-
-    # Step 4: Apply Stateful Backing Services (Databases, etc.)
-    # These are the core stateful applications like Postgres and Redis.
-    Write-Host "4. Applying stateful services..." -ForegroundColor Cyan
-    kubectl apply -f kubernetes\postgres-statefulset.yaml
-    kubectl apply -f kubernetes\redis-statefulset.yaml
-
-    # Step 5: Apply Application Deployments
-    # These are the stateless application services that make up the system.
-    Write-Host "5. Applying application deployments..." -ForegroundColor Cyan
-    kubectl apply -f kubernetes\admin-ui-deployment.yaml
-    kubectl apply -f kubernetes\ai-service-deployment.yaml
-    kubectl apply -f kubernetes\archive-rotator-deployment.yaml
-    kubectl apply -f kubernetes\escalation-engine-deployment.yaml
-    kubectl apply -f kubernetes\nginx-deployment.yaml
-    kubectl apply -f kubernetes\tarpit-api-deployment.yaml
-
-    # Step 6: Apply Jobs and CronJobs
-    # These are batch jobs or scheduled tasks.
-    Write-Host "6. Applying jobs and cronjobs..." -ForegroundColor Cyan
-    kubectl apply -f kubernetes\corpus-updater-cronjob.yaml
-    kubectl apply -f kubernetes\markov-model-trainer.yaml
-    kubectl apply -f kubernetes\robots-fetcher-cronjob.yaml
-
-    Write-Host "✅ Deployment complete. All resources have been applied to the 'ai-defense' namespace." -ForegroundColor Green
+# Step 2: Apply all configurations and secrets.
+Write-Host "Step 2: Applying ConfigMaps and Secrets..." -ForegroundColor Cyan
+Write-Host "Applying generic app configuration..."
+kubectl apply -f (Join-Path $K8sDir "configmap.yaml")
+Write-Host "Applying PostgreSQL init script..."
+kubectl apply -f (Join-Path $K8sDir "postgres-init-script-cm.yaml")
+Write-Host "Applying all generated secrets..."
+# This assumes you have already run Generate-Secrets.ps1 to create this file.
+$secretsFile = Join-Path $K8sDir "secrets.yaml"
+if (Test-Path $secretsFile) {
+    kubectl apply -f $secretsFile
 }
-catch {
-    Write-Host "❌ Deployment failed." -ForegroundColor Red
-    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
-    # Exit with a non-zero status code to indicate failure
+else {
+    Write-Error "ERROR: kubernetes\secrets.yaml not found. Please run Generate-Secrets.ps1 first."
     exit 1
 }
+Write-Host "Configurations and Secrets applied."
+Write-Host ""
 
+# Step 3: Apply Persistent Volume Claims for storage.
+Write-Host "Step 3: Applying Persistent Volume Claims (PVCs)..." -ForegroundColor Cyan
+kubectl apply -f (Join-Path $K8sDir "archives-pvc.yaml")
+kubectl apply -f (Join-Path $K8sDir "corpus-pvc.yaml")
+kubectl apply -f (Join-Path $K8sDir "models-pvc.yaml")
+Write-Host "PVCs applied."
+Write-Host ""
+
+# Step 4: Apply the stateful services (Database and Cache).
+Write-Host "Step 4: Applying Stateful Services (PostgreSQL, Redis)..." -ForegroundColor Cyan
+kubectl apply -f (Join-Path $K8sDir "postgres-statefulset.yaml")
+kubectl apply -f (Join-Path $K8sDir "redis-statefulset.yaml")
+Write-Host "Stateful services applied."
+Write-Host ""
+
+# Step 5: Apply the main application deployments.
+Write-Host "Step 5: Applying Application Deployments..." -ForegroundColor Cyan
+kubectl apply -f (Join-Path $K8sDir "admin-ui-deployment.yaml")
+kubectl apply -f (Join-Path $K8sDir "ai-service-deployment.yaml")
+kubectl apply -f (Join-Path $K8sDir "escalation-engine-deployment.yaml")
+kubectl apply -f (Join-Path $K8sDir "tarpit-api-deployment.yaml")
+kubectl apply -f (Join-Path $K8sDir "archive-rotator-deployment.yaml")
+Write-Host "Application Deployments applied."
+Write-Host ""
+
+# Step 6: Apply the CronJobs for scheduled tasks.
+Write-Host "Step 6: Applying CronJobs..." -ForegroundColor Cyan
+kubectl apply -f (Join-Path $K8sDir "corpus-updater-cronjob.yaml")
+kubectl apply -f (Join-Path $K8sDir "markov-model-trainer.yaml")
+kubectl apply -f (Join-Path $K8sDir "robots-fetcher-cronjob.yaml")
+Write-Host "CronJobs applied."
+Write-Host ""
+
+# Step 7: Apply the Nginx ingress proxy.
+Write-Host "Step 7: Applying Nginx Ingress Proxy..." -ForegroundColor Cyan
+kubectl apply -f (Join-Path $K8sDir "nginx-deployment.yaml")
+Write-Host "Nginx Ingress Proxy applied."
+Write-Host ""
+
+Write-Host "--- Deployment Complete ---" -ForegroundColor Green
+Write-Host "To monitor the status of your pods, run:"
+Write-Host "kubectl get pods -n $Namespace -w"

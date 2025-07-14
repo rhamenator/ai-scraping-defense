@@ -1,69 +1,93 @@
-# AI Scraping Defense Stack
+# AI Scraping Defense
 
-## *This system is a work-in-progress and not yet ready for release*
+This project provides a multi-layered, microservice-based defense system against sophisticated AI-powered web scrapers and malicious bots.
 
-This system combats scraping by unauthorized AI bots targeting FOSS or documentation sites. It employs a multi-layered defense strategy including real-time detection, tarpitting, honeypots, and behavioral analysis with optional AI/LLM integration for sophisticated threat assessment.
+## Key Features
 
-## Features
+- **Layered Defense:** Uses a combination of Nginx, Lua, and a suite of Python microservices for defense in depth.
+- **Intelligent Analysis:** Employs heuristics, a machine learning model, and optional LLM integration to analyze suspicious traffic.
+- **Model Agnostic:** A flexible adapter pattern allows for easy integration with various ML models and LLM providers (OpenAI, Mistral, Cohere, etc.).
+- **Active Countermeasures:** Includes a "Tarpit API" to actively waste the resources of confirmed bots.
+- **Containerized:** Fully containerized with Docker and ready for deployment on Kubernetes.
 
-This project employs a multi-layered defense strategy:
+## Getting Started (Local Development)
 
-* **Edge Filtering (Nginx + Lua):** Real-time filtering based on User-Agent, headers, and IP blocklists. Includes rate limiting. The Lua scripts now use a dynamically updated `robots.txt` (fetched periodically from the protected backend) to check compliance for known benign bots.
-* **IP Blocklisting (Redis + Nginx + AI Service):** Confirmed malicious IPs (identified by various system components) are added as individual keys with TTLs to a Redis database (DB 2) and blocked efficiently at the edge by Nginx.
-* **Tarpit API (FastAPI + PostgreSQL):**
-  * Serves endlessly deep, slow-streaming fake content pages to waste bot resources.
-  * Uses **PostgreSQL-backed Markov chains** for persistent and scalable fake text generation. The corpus for this is now **dynamically updated periodically by fetching content from Wikipedia**.
-  * Generates **deterministic content and links** based on URL hash and a system seed, creating a stable maze.
-  * Implements a **configurable hop limit** tracked per IP in Redis (DB 4) to prevent excessive resource use, blocking IPs that exceed the limit.
-* **Escalation Engine (FastAPI):** Processes suspicious requests redirected from the Tarpit or Nginx. Applies heuristic scoring (including frequency analysis via Redis DB 3), uses a trained Random Forest model, optionally checks **IP reputation** (configurable), and can trigger further analysis (e.g., via local LLM or external APIs). It now also uses the dynamically updated `robots.txt` for its logic.
-* **AI Service (FastAPI):** Receives escalation webhooks, manages the Redis blocklist (DB 2), optionally reports blocked IPs to **community blocklists** (configurable), and handles configurable alerting (Slack, SMTP, Webhook).
-* **Admin UI (Flask):** Real-time metrics dashboard visualizing system activity.
-* **Dynamic `robots.txt` Management:** A Kubernetes CronJob (`robots-fetcher-cronjob.yaml`) periodically fetches `robots.txt` from the `REAL_BACKEND_HOST`, storing it in a ConfigMap (`live-robots-txt-config`) for use by Nginx and other services.
-* **Dynamic Wikipedia Corpus Generation:** A Kubernetes CronJob (`corpus-updater-cronjob.yaml`) periodically fetches content from Wikipedia, saving it to a PersistentVolumeClaim (`corpus-data-pvc`).
-* **PostgreSQL Markov Training (Automated):** A Kubernetes CronJob (`markov-model-trainer.yaml`) periodically retrains the PostgreSQL Markov database using the dynamically updated corpus from the PVC.
-* **Kubernetes Deployment:**
-  * Comprehensive Kubernetes manifests provided for deploying the entire stack.
-  * All resources are deployed into a dedicated namespace (default: `ai-defense`).
-  * Utilizes `PersistentVolumeClaims` for corpus data (`corpus-data-pvc`), ML models (`models-pvc`), and ZIP archives (`archives-pvc`).
-  * Includes `securityContext` settings for Deployments, StatefulSets, and CronJobs to enhance security by adhering to the principle of least privilege.
-  * RBAC is configured for CronJobs needing to interact with Kubernetes resources (e.g., the `robots.txt` fetcher updating a ConfigMap).
-* **Email Entropy Analysis:** Utility script (`rag/email_entropy_scanner.py`) to score email addresses for detecting potentially bot-generated accounts.
-* **JavaScript ZIP Honeypots:** Dynamically generated and rotated ZIP archives (`archive-rotator-deployment.yaml`) containing decoy JavaScript files.
-* **ML Model Training:** Includes scripts (`rag/training.py`) to parse logs, label data, extract features, and train a Random Forest classifier.
-* **Dockerized Stack:** Entire system orchestrated using Docker Compose for local development and testing.
-* **Secrets Management:** Supports Docker secrets and Kubernetes Secrets for sensitive configurations.
-* **Separate Deployment Ready:** Nginx configuration supports running the anti-scrape stack separately from the protected web application using `REAL_BACKEND_HOST`.
+This setup uses Docker Compose to orchestrate all the necessary services on your local machine.
 
-## Getting Started
+### Prerequisites
 
-### See [docs/getting_started.md](docs/getting_started.md) for detailed instructions using Docker Compose
+- Docker and Docker Compose
+- Python 3.10+
+- A shell environment (Bash for Linux/macOS, PowerShell for Windows)
 
-### For Kubernetes deployments, see [docs/kubernetes_deployment.md](docs/kubernetes_deployment.md)
+### Setup Instructions
 
-### Accessing Services (Default Ports)
+1. **Clone the Repository:**
 
-*(Note: Ports might differ in Kubernetes depending on Service type and Ingress configuration)*
+    ```bash
+    git clone [https://github.com/your-username/ai-scraping-defense.git](https://github.com/your-username/ai-scraping-defense.git)
+    cd ai-scraping-defense
+    ```
 
-* **Main Website / Docs:** `http://localhost/` (or `https://localhost/` if HTTPS configured)
-* **Tarpit Endpoint (Internal):** Accessed via Nginx redirect (`/api/tarpit`)
-* **Admin UI:** `http://localhost/admin/` (or `https://localhost/admin/`)
+2. **Create Environment File:**
+    Copy the example environment file to create your local configuration.
 
-## Architecture
+    ```bash
+    cp .env.example .env
+    ```
 
-See [`docs/architecture.md`](docs/architecture.md) for a detailed diagram and component overview.
+    Open the `.env` file and review the default settings. You do not need to change anything to get started, but this is where you would add your API keys later.
 
-## Contributing
+3. **Set Up Python Virtual Environment:**
+    Run the setup script to create a virtual environment and install all Python dependencies.
 
-Contributions are welcome! Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines.
+    *On Linux or macOS:*
 
-## License
+    ```bash
+    sudo bash ./reset_venv.sh
+    ```
 
-This project is licensed under the terms of the GPL-3.0 license. See [`LICENSE`](LICENSE) for the full text and [`license_summary.md`](license_summary.md) for a summary.
+    *On Windows (in a PowerShell terminal as Administrator):*
 
-## Security
+    ```powershell
+    .\reset_venv.ps1
+    ```
 
-Please report any security vulnerabilities according to the policy outlined in [`SECURITY.md`](SECURITY.md).
+4. **Generate Secrets:**
+    Run the secret generation script. This will create passwords for the database, admin UI, etc., and store them in the `.env` file for Docker Compose to use.
 
-## Ethics & Usage
+    *On Linux or macOS:*
 
-This system is intended for defensive purposes only. Use responsibly and ethically. Ensure compliance with relevant laws and regulations in your jurisdiction. See [`docs/legal_compliance.md`](docs/legal_compliance.md) and [`docs/privacy_policy.md`](docs/privacy_policy.md).
+    ```bash
+    bash ./generate-secrets.sh
+    ```
+
+    *On Windows (in a PowerShell terminal):*
+
+    ```powershell
+    .\Generate-Secrets.ps1
+    ```
+
+    **Important:** The script will print the generated credentials to the console. Copy these and save them in a secure password manager.
+
+5. **Launch the Stack:**
+    Build and start all the services using Docker Compose.
+
+    ```bash
+    docker-compose up --build -d
+    ```
+
+6. **Access the Services:**
+    - **Admin UI:** `http://localhost:5002`
+    - **Your Application (via proxy):** `http://localhost:8080`
+
+## Project Structure
+
+- `src/`: Contains all Python source code for the microservices.
+- `kubernetes/`: Contains all Kubernetes manifests for production deployment.
+- `nginx/`: Nginx and Lua configuration files.
+- `docs/`: Project documentation, including architecture and data flows.
+- `test/`: Unit tests for the Python services.
+- `.env.example`: Template for local development configuration.
+- `docker-compose.yaml`: Orchestrates the services for local development.
+- `Dockerfile`: A single Dockerfile used to build the base image for all Python services.

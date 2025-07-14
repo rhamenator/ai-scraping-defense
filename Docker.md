@@ -1,64 +1,36 @@
-# Running with Docker
+# **Docker Strategy**
 
-This project is fully containerized and can be run locally using Docker Compose. The stack includes multiple Python-based services, Redis, and PostgreSQL, each with its own Dockerfile and specific configuration.
+This project leverages Docker for containerization, ensuring a consistent and reproducible environment for both local development and production deployment. Our strategy has been refactored to follow modern best practices.
 
-## Requirements
+## **The Core Principle: A Single Base Image**
 
-- **Docker** and **Docker Compose** installed on your system.
-- The project uses **Python 3.11-slim** as the base image for all Python services (as specified in the Dockerfiles).
-- A `requirements.txt` file is required for dependency installation in each service directory.
-- For persistent data (Redis, Postgres), uncomment the `volumes` sections in the `docker-compose.yml` if you want to retain data between runs.
+Instead of creating a separate, complex Dockerfile for each microservice, we use a single Dockerfile located in the root of the project.
 
-## Environment Variables
+**File:** Dockerfile
 
-- Default credentials for Postgres are set in the compose file:
-  - `POSTGRES_USER=postgres`
-  - `POSTGRES_PASSWORD=postgres`
-  - `POSTGRES_DB=markov`
-- For additional configuration (e.g., API keys, SMTP settings), use `.env` files in the root or service directories as needed. Uncomment the `env_file` lines in the compose file to enable this.
-- **Secrets** (API keys, passwords) should be managed via Docker secrets or environment variables and are not included in the images by default.
+This file's only responsibility is to create a lean, optimized base image for all Python services. It performs the following steps:
 
-## Build and Run Instructions
+1. Starts from the official python:3.11-slim image.  
+2. Sets up the working directory and PYTHONPATH.  
+3. Copies and installs all dependencies from requirements.txt.  
+4. Copies the entire src/ directory into the image.  
+5. Copies the docker-entrypoint.sh script for services that need it.
 
-1. **Clone the repository** and ensure you are in the project root directory.
-2. **Build and start the stack:**
+This approach significantly reduces build times and ensures that all Python services run in an identical, consistent environment.
 
-   ```sh
-   docker compose up --build
-   ```
+## **Local Development with Docker Compose**
 
-   This will build all service images and start the containers as defined in `docker-compose.yml`.
+For local development, we use docker-compose.yaml to orchestrate the entire application stack.
 
-3. **Access the services:**
+**File:** docker-compose.yaml
 
-   - **Admin UI:** [http://localhost:5002/](http://localhost:5002/)
-   - **Tarpit API:** [http://localhost:8001/](http://localhost:8001/)
-   - **AI Service:** [http://localhost:8000/](http://localhost:8000/)
-   - **Escalation Engine:** [http://localhost:8003/](http://localhost:8003/)
-   - **Redis:** [localhost:6379](localhost:6379)
-   - **PostgreSQL:** [localhost:5432](localhost:5432)
-   - **RAG** and **Util** services do not expose ports by default (used for batch jobs/scripts).
+Key features of our Docker Compose setup:
 
-4. **Special Configuration:**
-   - The stack is designed to run all services on a shared `backend` Docker network.
-   - For local development, you may need to provide `.env` files or Docker secrets for sensitive configuration (see the `secrets/` directory for examples of required keys/passwords).
-   - The Nginx edge filtering and Lua scripts require a dynamically updated `robots.txt`, managed via Kubernetes CronJob in production. For local Docker use, ensure `config/robots.txt` is present and up to date.
-   - If you want to persist Redis or Postgres data, uncomment the `volumes` sections in the compose file.
+* **Service Definitions:** Each microservice (e.g., ai\_service, escalation\_engine), data store (redis, postgres), and third-party tool (mailhog) is defined as a service.  
+* **Image Reusability:** All Python services use the same build configuration, pointing to the root Dockerfile. The specific application to run is determined by the command key for each service.  
+* **Configuration via .env:** The compose file is kept clean by loading all environment variables (ports, passwords, API keys) from a .env file. This separates configuration from orchestration.  
+* **Live Reloading:** The volumes key is used to mount the local src directory directly into the containers (./src:/app/src). This allows you to edit your Python code on your host machine and see the changes immediately without rebuilding the image.
 
-5. **Rebuilding Images:**
-   - If you change dependencies or code, re-run `docker compose up --build` to rebuild the images.
+## **Production Deployment**
 
-## Exposed Ports (per service)
-
-| Service           | Port  |
-|-------------------|-------|
-| Admin UI          | 5002  |
-| Tarpit API        | 8001  |
-| AI Service        | 8000  |
-| Escalation Engine | 8003  |
-| Redis             | 6379  |
-| PostgreSQL        | 5432  |
-
-> **Note:** RAG and Util services do not expose ports by default; they are intended for internal batch processing.
-
-For more detailed setup and advanced configuration, see [`docs/getting_started.md`](docs/getting_started.md).
+While Docker Compose is used for development, the ultimate goal is deployment to a container orchestrator like Kubernetes. The Docker image built by the root Dockerfile is platform-agnostic and can be pushed to any container registry (Docker Hub, GHCR, etc.) for use in production Kubernetes manifests.

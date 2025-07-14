@@ -1,121 +1,160 @@
 # System Architecture
 
-This document provides a high-level overview of how the components in the AI Scraping Defense Stack interact.
+The AI Scraping Defense system is designed as a distributed, microservice-based architecture. This design promotes scalability, resilience, and separation of concerns. The system is composed of several key components orchestrated by Docker Compose for local development and Kubernetes for production.
 
----
+## Core Components
 
-## 🧱 Component Overview & Data Flow
+- **Nginx Proxy:** The public-facing entry point for all traffic. It uses Lua scripting for high-performance initial request filtering, such as checking against a blocklist in Redis. Suspicious requests are asynchronously forwarded to the AI Service for deeper analysis.
 
-The system employs a layered and automated approach:
+- **Python Services:** A collection of specialized microservices that form the "brain" of the system. All Python services are built from a single, unified `Dockerfile` to ensure consistency and reduce build times.
 
-1. **Dynamic Configuration Update (Kubernetes CronJobs - Background):**
-    * **Robots.txt Fetcher (`robots-fetcher-cronjob.yaml`):** Periodically runs `util/robots_fetcher.py`. This script fetches `/robots.txt` from the `REAL_BACKEND_HOST` (your actual application). The fetched content is stored in a Kubernetes ConfigMap (`live-robots-txt-config`).
-    * **Wikipedia Corpus Updater (`corpus-updater-cronjob.yaml`):** Periodically runs `util/corpus_wikipedia_updater.py`. This script fetches content from random Wikipedia pages and saves/appends it to a text file on a PersistentVolumeClaim (`corpus-data-pvc`).
+  - **AI Service:** A simple webhook that receives suspicious request data from Nginx and queues it for analysis by the Escalation Engine.
+  - **Escalation Engine:** The central analysis component. It runs a multi-stage pipeline to score requests, using heuristics, a machine learning model, and optionally a powerful LLM for a final verdict.
+  - **Tarpit API:** Provides a set of "tarpits" (e.g., zip bombs, slow responses, nonsensical data) designed to waste the resources of confirmed malicious bots.
+  - **Admin UI:** A Flask-based web interface for monitoring system metrics, viewing the blocklist, and managing basic settings.
 
-2. **Edge Filtering (Nginx + Lua):** Incoming requests first hit Nginx.
-    * Lua scripts (`check_blocklist.lua`, `detect_bot.lua`) perform initial checks:
-        * **Blocklist Check:** IP is checked against the Redis blocklist (DB 2). Blocked IPs get a 403 response immediately.
-        * **Heuristics & `robots.txt`:** Basic request heuristics (User-Agent, headers) are evaluated. For known benign bots, compliance with rules from the dynamically updated `live-robots-txt-config` (mounted into Nginx) is checked.
-    * Requests deemed safe and compliant are proxied to the real backend application (defined by `REAL_BACKEND_HOST`).
-    * Suspicious requests or benign bots violating `robots.txt` rules are internally redirected to the Tarpit API.
+- **Data Stores:**
+  - **Redis:** An in-memory data store used for high-speed operations like caching, managing the IP blocklist, and tracking request frequencies.
+  - **PostgreSQL:** A relational database used for storing the persistent data needed for the Markov chain text generator.
 
-3. **Tarpit & Escalation:**
-    * **Tarpit API (FastAPI - `tarpit-api-deployment.yaml`):** Receives redirected requests.
-        * Logs the hit and flags the IP visit (Redis DB 1).
-        * Checks a hop counter for the IP (Redis DB 4). If the configured limit (`TAR_PIT_MAX_HOPS`) is exceeded, it triggers an immediate block by adding the IP to Redis DB 2 and returns a 403.
-        * If the hop limit is not exceeded, it sends request metadata to the Escalation Engine.
-        * Generates deterministic fake page content (using Markov chains from PostgreSQL - see step 6) and links.
-        * Streams the fake page slowly back to the client.
-    * **Escalation Engine (FastAPI - `escalation-engine-deployment.yaml`):** Analyzes metadata from the Tarpit API.
-        * Performs frequency analysis using Redis DB 3.
-        * Applies heuristic scoring and runs a pre-trained Random Forest model (loaded from `models-pvc`).
-        * Uses rules from the dynamically updated `live-robots-txt-config` for its analysis.
-        * Optionally calls external IP reputation services or local/external classification APIs.
-        * If the request is deemed malicious, it forwards details to the AI Service webhook.
+- **Background Jobs:**
+  - **Corpus Updater & Markov Trainer:** Cron jobs that periodically fetch new text data and retrain the Markov model to keep the tarpit content fresh.
+  - **Archive Rotator:** A simple service that manages the "zip bomb" archives used by the Tarpit API.
 
-4. **AI Service & Actions (FastAPI - `ai-service-deployment.yaml`):** Receives confirmed malicious request data.
-    * Adds the offending IP address to the Redis blocklist (DB 2) with a configurable TTL.
-    * Optionally reports the IP to configured community blocklists.
-    * Dispatches alerts via configured methods (Slack, SMTP, Webhook).
+## Architecture Diagram
 
-5. **Monitoring & Background Tasks (Deployments):**
-    * **Admin UI (Flask - `admin-ui-deployment.yaml`):** Fetches and displays real-time metrics.
-    * **Archive Rotator (`archive-rotator-deployment.yaml`):** Periodically generates new JS ZIP honeypots and saves them to `archives-pvc`. Nginx serves these archives from the same PVC.
-
-6. **Markov Model Training (Kubernetes CronJob - Background):**
-    * **Markov Model Trainer (`markov-model-trainer.yaml`):** Periodically runs `rag/train_markov_postgres.py`. This script reads the updated corpus from `corpus-data-pvc` (populated by the Wikipedia updater) and (re)trains/populates the Markov chain data in the PostgreSQL database.
-
----
-
-### Mermaid Diagram
+This diagram illustrates the high-level relationships between the system's components. It's perfect for providing a visual overview in a presentation.
 
 ```mermaid
-flowchart TD
-    subgraph "User Interaction & Edge"
-        A["Web Clients or Bots"] -- HTTP/S Request --> B(NGINX Port 80/443);
-        B -- Uses rules from --> LiveRobotsTxtConfigMap["ConfigMap (live-robots.txt)"];
-        B -- Checks --> C{"Blocklist Check (Lua + Redis DB 2)"};
-        C -- Blocked --> D[Return 403];
-        C -- Not Blocked --> E{"Heuristic & robots.txt Check (Lua)"};
-        E -- Passed (to REAL_BACKEND_HOST) --> G["Proxy Pass"];
-        E -- Suspicious/Violating --> F["Internal Redirect /api/tarpit"];
+graph TD
+    subgraph "User / Bot Traffic"
+        direction LR
+        User[<font size=5>👤</font><br>User]
+        Bot[<font size=5>🤖</font><br>Bot]
     end
 
-    subgraph "Real Application"
-        G -- Proxied To --> RealApp["Your Web Application (REAL_BACKEND_HOST)"];
-        RealApp -- Serves /robots.txt --> RobotsFetcherCronJob;
-    end
-
-    subgraph "Tarpit & Escalation Pipeline"
-        F --> H(Tarpit API - FastAPI);
-        H -- Logs Hit --> Logs["Runtime Logs"];
-        H -- Flags IP --> RedisDB1[(Redis DB 1 Tarpit Flags)];
-        H -- Reads/Updates Hop Count --> RedisDB4[(Redis DB 4 Hop Counts)];
-        H -- Updates --> MetricsStore[(Metrics Store)];
-        H -- Hop Limit Exceeded --> BLOCK[Add IP to Redis DB 2];
-        BLOCK --> D;
-        H -- Hop Limit OK, POST Metadata --> L(Escalation Engine - FastAPI);
-        L -- Uses rules from --> LiveRobotsTxtConfigMap;
-        H -- Reads Markov Chain --> PGDB[(PostgreSQL Markov DB)];
-
-        L -- Uses/Updates --> RedisDB3[(Redis DB 3 Freq Tracking)];
-        L -- Updates --> MetricsStore;
-        L -- If Malicious --> M(AI Service - FastAPI);
-    end
-
-    subgraph "AI Service & Actions"
-        M -- Adds IP --> RedisDB2[(Redis DB 2 Blocklist Set)];
-        M -- Updates --> MetricsStore;
-        M -- Sends Alerts --> P{"Alert Dispatcher"};
-        P -- Configured Method --> Q[External Systems: Slack, Email, SIEM];
-    end
-
-    subgraph "Monitoring"
-        MetricsStore -- Provides Data --> MetricsEndpoint["/admin/metrics Endpoint"];
-        Y(Admin UI - Flask) -- Fetches --> MetricsEndpoint;
-        Y --> Z[Admin Dashboard];
-    end
-
-    subgraph "Background & Training Tasks (Kubernetes CronJobs)"
-        RobotsFetcherCronJob["Robots.txt Fetcher CronJob (util/robots_fetcher.py)"] -- Updates --> LiveRobotsTxtConfigMap;
+    subgraph "Defense System"
+        direction TB
+        Nginx[<font size=5>🛡️</font><br>Nginx Proxy w/ Lua]
         
-        CorpusUpdaterCronJob["Wikipedia Corpus Updater CronJob (util/corpus_wikipedia_updater.py)"] -- Writes to --> CorpusPVC[("PVC (corpus-data-pvc) for Wikipedia Corpus")];
-        
-        MarkovTrainerCronJob["Markov Model Trainer CronJob (rag/train_markov_postgres.py)"] -- Reads from --> CorpusPVC;
-        MarkovTrainerCronJob -- Populates/Updates --> PGDB;
+        subgraph "Analysis & Logic (Python Microservices)"
+            direction LR
+            AIService[AI Service Webhook]
+            EscalationEngine[<font size=5>🧠</font><br>Escalation Engine]
+            AdminUI[<font size=5>📊</font><br>Admin UI]
+        end
 
-        RFTraining["RF Training (rag/training.py - manual or future job)"] -- Reads --> Logs;
-        RFTraining -- Saves --> ModelsPVC[("PVC (models-pvc) for ML Models")];
-        L -- Loads model from --> ModelsPVC;
+        subgraph "Countermeasures"
+            TarpitAPI[<font size=5>🕸️</font><br>Tarpit API]
+        end
 
-        ArchiveRotator["Archive Rotator (Deployment - tarpit/rotating_archive.py)"] -- Manages --> ArchivesPVC[("PVC (archives-pvc) for ZIP Archives")];
-        B -- Serves archives from --> ArchivesPVC;
+        subgraph "Data & State Stores"
+            direction LR
+            Redis[<font size=5>⚡</font><br>Redis<br>(Blocklist, Cache)]
+            Postgres[<font size=5>🐘</font><br>PostgreSQL<br>(Markov Data)]
+        end
+    end
+    
+    subgraph "External Services"
+        LLM[<font size=5>☁️</font><br>LLM APIs<br>(OpenAI, Mistral, etc.)]
     end
 
-    classDef cronjob fill:#cde,stroke:#333,stroke-width:1px;
-    class RobotsFetcherCronJob,CorpusUpdaterCronJob,MarkovTrainerCronJob cronjob;
-    classDef pvc fill:#ead,stroke:#333,stroke-width:1px;
-    class CorpusPVC,ModelsPVC,ArchivesPVC pvc;
-    classDef configmap fill:#fdc,stroke:#333,stroke-width:1px;
-    class LiveRobotsTxtConfigMap configmap;
-'''
+    User -- "Legitimate Request" --> Nginx
+    Bot -- "Suspicious Request" --> Nginx
+    
+    Nginx -- "Block Immediately" --> Bot
+    Nginx -- "Forward for Analysis" --> AIService
+    Nginx -- "Serve Content" --> User
+    Nginx -- "Redirect to Tarpit" --> Bot
+
+    AIService -- "Queues Request" --> EscalationEngine
+    EscalationEngine -- "Reads/Writes" --> Redis
+    EscalationEngine -- "Reads" --> Postgres
+    EscalationEngine -- "Calls for Final Verdict" --> LLM
+    EscalationEngine -- "Updates" --> AdminUI
+
+    AdminUI -- "Manages" --> Redis
+
+    TarpitAPI -- "Reads" --> Postgres
+end
+```
+
+## Real-time Request Processing Flow
+
+```mermaid
+graph TD
+    User[User] -->|Legitimate Request| Nginx
+    Bot[Bot] -->|Suspicious Request| Nginx
+
+    Nginx -->|Block Immediately| Bot
+    Nginx -->|Forward for Analysis| AIService
+    Nginx -->|Serve Content| User
+    Nginx -->|Redirect to Tarpit| Bot
+
+    AIService -->|Queues Request| EscalationEngine
+    EscalationEngine -->|Reads/Writes| Redis
+    EscalationEngine -->|Reads| Postgres
+    EscalationEngine -->|Calls for Final Verdict| LLM
+    EscalationEngine -->|Updates| AdminUI
+
+    AdminUI -->|Manages| Redis
+
+    TarpitAPI -->|Reads| Postgres
+end
+```
+
+## Key Data Flows
+
+```mermaid
+graph TD
+    subgraph "User / Bot Traffic"
+        direction LR
+        User[<font size=5>👤</font><br>User]
+        Bot[<font size=5>🤖</font><br>Bot]
+    end
+
+    subgraph "Defense System"
+        direction TB
+        Nginx[<font size=5>🛡️</font><br>Nginx Proxy w/ Lua]
+
+        subgraph "Analysis & Logic (Python Microservices)"
+            direction LR
+            AIService[AI Service Webhook]
+            EscalationEngine[<font size=5>🧠</font><br>Escalation Engine]
+            AdminUI[<font size=5>📊</font><br>Admin UI]
+        end
+
+        subgraph "Countermeasures"
+            TarpitAPI[<font size=5>🕸️</font><br>Tarpit API]
+        end
+
+        subgraph "Data & State Stores"
+            direction LR
+            Redis[<font size=5>⚡</font><br>Redis<br>(Blocklist, Cache)]
+            Postgres[<font size=5>🐘</font><br>PostgreSQL<br>(Markov Data)]
+        end
+    end
+
+    subgraph "External Services"
+        LLM[<font size=5>☁️</font><br>LLM APIs<br>(OpenAI, Mistral, etc.)]
+    end
+
+    User -- "Legitimate Request" --> Nginx
+    Bot -- "Suspicious Request" --> Nginx
+
+    Nginx -- "Block Immediately" --> Bot
+    Nginx -- "Forward for Analysis" --> AIService
+    Nginx -- "Serve Content" --> User
+    Nginx -- "Redirect to Tarpit" --> Bot
+
+    AIService -- "Queues Request" --> EscalationEngine
+    EscalationEngine -- "Reads/Writes" --> Redis
+    EscalationEngine -- "Reads" --> Postgres
+    EscalationEngine -- "Calls for Final Verdict" --> LLM
+    EscalationEngine -- "Updates" --> AdminUI
+
+    AdminUI -- "Manages" --> Redis
+
+    TarpitAPI -- "Reads" --> Postgres
+end
+```

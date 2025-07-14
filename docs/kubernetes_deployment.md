@@ -1,219 +1,125 @@
 # Kubernetes Deployment Guide
 
-This guide provides instructions for deploying the AI Scraping Defense Stack on a Kubernetes cluster using the provided manifest files located in the `/kubernetes` directory. This guide assumes you are using version 0.0.4 or later of the stack.
+This guide outlines the steps to deploy the AI Scraping Defense stack to a Kubernetes cluster.
 
-## 0. Before You Begin: Clone the Repository
+## Prerequisites
 
-If you haven't already, clone the project repository to your local machine:
+- A running Kubernetes cluster.  
+- `kubectl` configured to communicate with your cluster.  
+- A container registry (e.g., Docker Hub, Google Container Registry, GitHub Container Registry) to store your built Docker image.
 
-```bash
-git clone [https://github.com/rhamenator/ai-scraping-defense.git](https://github.com/rhamenator/ai-scraping-defense.git) # Or your fork
-cd ai-scraping-defense
+## Deployment Steps
+
+### 1. Build and Push the Docker Image
+
+If you are using Docker Hub, you can log in with:
+
+``` bash
+docker login
 ```
 
-Ensure your `Dockerfile.txt` is renamed to `Dockerfile` in the project root.
+The project uses a single `Dockerfile` in the root directory to build a base image for all Python services.
 
-## 1. Prerequisites
+```bash  
+# Replace 'your-registry/your-repo' with your actual container registry path  
+export IMAGE_NAME="your-registry/your-repo/ai-scraping-defense:latest"
+# Build the image  
+docker build -t $IMAGE_NAME .
+# Push the image to your registry  
+docker push $IMAGE_NAME
+```
 
-* **Kubernetes Cluster:** Access to a functioning Kubernetes cluster (e.g., Minikube, Kind, k3s, Docker Desktop Kubernetes, or a managed cloud provider cluster like GKE, EKS, AKS). Version 1.21+ recommended.
-* **`kubectl`:** The Kubernetes command-line tool, configured to interact with your cluster. ([Install kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/))
-* **Persistent Storage:** Your cluster must have a default StorageClass configured, or you need to define one and update the `PersistentVolumeClaim` definitions if needed. Persistent storage is required for PostgreSQL, Redis, model storage, honeypot archives, and the dynamic corpus.
-* **Docker Image Registry:** You need a container image registry (like Docker Hub, Google Artifact Registry, Amazon ECR, GitHub Container Registry, Harbor, etc.) accessible by your Kubernetes cluster.
-* **Base64 utility:** For encoding secret values (usually available by default on Linux/macOS).
-* **Text Editor:** For modifying configuration files.
+This command builds the Docker image and tags it with the specified name. Ensure you have logged in to your container registry before pushing the image.
 
-## 2. Overview of Kubernetes Manifests
+### **2. Update Deployment Manifests**
 
-The `/kubernetes` directory contains YAML manifests for deploying each component within the `ai-defense` namespace. Key resources include:
+You must update all the Kubernetes Deployment and CronJob manifests in the kubernetes/ directory to use the image you just pushed.
 
-* **Namespace:** All resources are deployed into the `ai-defense` namespace.
-* **`kubernetes/configmap.yaml`:** Defines non-sensitive configuration. `SYSTEM_SEED` is now managed via a Secret.
-* **`kubernetes/secrets.yaml`:** Defines structures for sensitive data (API keys, passwords, `SYSTEM_SEED`). **You MUST populate this with your actual secrets.**
-* **`kubernetes/postgres-init-script-cm.yaml` (New):** A ConfigMap you will create to hold the `init_markov.sql` script for automatic PostgreSQL schema initialization.
-* **PersistentVolumeClaims (PVCs):**
-  * `kubernetes/archives-pvc.yaml` (defines `archives-pvc`)
-  * `kubernetes/corpus-pvc.yaml` (defines `corpus-data-pvc`)
-  * `kubernetes/models-pvc.yaml` (defines `models-pvc`)
-  * The PVCs for PostgreSQL (`postgres-persistent-storage`) and Redis (`redis-data`) are defined within their respective StatefulSet YAML files.
-* **StatefulSets:**
-  * `kubernetes/redis-statefulset.yaml`
-  * `kubernetes/postgres-statefulset.yaml` (now includes automated schema initialization using `postgres-init-script-cm.yaml`)
-* **Deployments:** For all stateless services (`nginx`, `tarpit-api`, `escalation-engine`, `ai-service`, `admin-ui`, `archive-rotator`).
-* **CronJobs:**
-  * `kubernetes/corpus-updater-cronjob.yaml` (for dynamic Wikipedia corpus)
-  * `kubernetes/robots-fetcher-cronjob.yaml` (for dynamic `robots.txt`)
-  * `kubernetes/markov-model-trainer.yaml` (for training PostgreSQL Markov model from the corpus)
-* **Services:** For exposing applications within the cluster or externally (Nginx).
-* **RBAC:** `kubernetes/robots-fetcher-cronjob.yaml` includes necessary ServiceAccount, Role, and RoleBinding.
+Search for the image: key in all *.yaml files inside kubernetes/ and replace the placeholder value (e.g., your-registry/ai-scraping-defense:latest) with the $IMAGE_NAME you defined above.
 
-## 3. Configuration Steps
+### **3. Generate and Apply Secrets**
 
-1. **Build and Push Docker Images:**
-    * The stack uses two primary custom Docker images:
-        * One for all Python services (placeholder: `your-registry/ai-defense-python-base:latest`).
-        * One for Nginx (placeholder: `your-registry/ai-defense-nginx:latest`).
-    * Build your images using the provided `Dockerfile` from the project root.
+The application's secrets (passwords, API keys) are managed via a single secrets.yaml file, which should **never** be committed to version control.
 
-        ```bash
-        # Example for Python base image (replace with your actual registry and desired tag)
-        docker build -t your-registry/your-username/ai-defense-python-base:v0.0.4 .
-        docker push your-registry/your-username/ai-defense-python-base:v0.0.4
+First, run the secret generation script:
 
-        # Example for Nginx image (if you have a separate Dockerfile.nginx or build stage)
-        # For simplicity, the main Dockerfile can be structured to produce both, or you can have two.
-        # If using the same Dockerfile and just changing the CMD/ENTRYPOINT for Nginx service,
-        # you might use the same Python base image and override command in nginx-deployment.yaml,
-        # or build a dedicated Nginx image.
-        # Assuming a dedicated Nginx image:
-        # docker build -f Dockerfile.nginx -t your-registry/your-username/ai-defense-nginx:v0.0.4 .
-        # docker push your-registry/your-username/ai-defense-nginx:v0.0.4
-        ```
+- **On Linux/macOS:** bash ./generate-secrets.sh  
+- **On Windows:** .Generate-Secrets.ps1
 
-    * **Update Kubernetes Manifests with Your Image URIs:**
-        Go through all `*-deployment.yaml` and `*-cronjob.yaml` files in the `kubernetes/` directory. In each file, find the `spec.template.spec.containers[0].image` (or similar path for CronJobs) field. Replace the placeholder image URIs:
-        * `your-registry/ai-defense-python-base:latest` with your actual Python base image URI (e.g., `docker.io/yourusername/ai-defense-python-base:v0.0.4`).
-        * `your-registry/ai-defense-nginx:latest` with your actual Nginx image URI.
-        * **It is highly recommended to use specific version tags (like `v0.0.4`) instead of `latest` for production and reproducible deployments.**
+This creates a kubernetes/secrets.yaml file with securely generated, base64-encoded values.
 
-2. **Prepare Secrets (`kubernetes/secrets.yaml`):**
-    * Open `kubernetes/secrets.yaml`.
-    * **`SYSTEM_SEED` (in `system-seed-secret`):** This is critical. Generate a strong, unique random string, base64 encode it, and replace the placeholder value.
+**IMPORTANT:** Before applying, open kubernetes/secrets.yaml and replace the placeholder API keys (e.g., YOUR_BASE64_ENCODED_OPENAI_API_KEY) with your actual, base64-encoded keys if you plan to use those services.
 
-        ```bash
-        echo -n 'YOUR_VERY_SECURE_AND_RANDOM_SYSTEM_SEED_STRING' | base64
-        ```
+Now, apply the secrets manifest to your cluster:
 
-    * **Other Secrets:** Similarly, for `smtp-credentials`, `external-api-credentials`, `ip-reputation-credentials`, `community-blocklist-credentials`, `postgres-credentials`, and `redis-credentials`, replace the placeholder `data` values with your actual base64-encoded secrets.
+``` bash or PowerShell
+kubectl apply -f kubernetes/secrets.yaml
+```
 
-3. **Review ConfigMap (`kubernetes/configmap.yaml`):**
-    * Open `kubernetes/configmap.yaml`.
-    * **`REAL_BACKEND_HOST`**: Ensure this points to the correct internal Kubernetes service name and port of your actual web application that Nginx should proxy legitimate traffic to (e.g., `http://my-app-service.ai-defense.svc.cluster.local:8080`).
-    * Review other settings (Tarpit, Redis, PostgreSQL, Alerting, External APIs, etc.) and adjust if necessary. `SYSTEM_SEED` is no longer in this file.
+### **4. Deploy the Application**
 
-4. **Create PostgreSQL Init Script ConfigMap (`kubernetes/postgres-init-script-cm.yaml`):**
-    * Create a new file named `kubernetes/postgres-init-script-cm.yaml`.
-    * Paste the ConfigMap definition (containing your `db/init_markov.sql` content) into this file, as provided in the previous instructions. This script will be used to automatically initialize the PostgreSQL schema.
+The Kubernetes manifests are organized in the kubernetes/ directory. Each service, database, and configuration is defined in its own YAML file.
+You can deploy the entire stack by applying all the manifest files in the kubernetes/ directory. It's best practice to apply them in a logical order.
 
-5. **PersistentVolumeClaims (PVCs):**
-    * Review the storage requests in:
-        * `kubernetes/archives-pvc.yaml` (`archives-pvc`)
-        * `kubernetes/corpus-pvc.yaml` (`corpus-data-pvc`)
-        * `kubernetes/models-pvc.yaml` (`models-pvc`)
-        * The `volumeClaimTemplates` sections within `kubernetes/postgres-statefulset.yaml` (for `postgres-persistent-storage`) and `kubernetes/redis-statefulset.yaml` (for `redis-data`).
-    * Adjust `spec.resources.requests.storage` if needed. If your cluster doesn't use a default StorageClass, you might need to specify a `storageClassName` in the PVC specs.
+This deployment can be accomplished by running:
 
-## 4. Deployment Steps
+```bash
+sudo bash ./kubernetes/deploy.sh
+```
 
-Ensure `kubectl` is configured for your target Kubernetes cluster.
+```PowerShell
+# This must be run in an administrator PowerShell terminal
+.\kubernetes\deploy.ps1
+```
 
-1. **Create Namespace:**
+or by running `kubectl apply -f` for each file individually. You can also use a tool like `kustomize` to manage the deployment if you prefer a more structured approach.
 
-    ```bash
-    kubectl create namespace ai-defense
-    ```
+If you are manually applying `kubectl apply -f` to each file, it should be done in the correct order. Here’s a recommended sequence:
 
-2. **Apply ConfigMaps:**
+``` bash or PowerShell
+# 1. Create the namespace
+kubectl apply -f kubernetes/namespace.yaml
 
-    ```bash
-    kubectl apply -f kubernetes/configmap.yaml -n ai-defense
-    kubectl apply -f kubernetes/postgres-init-script-cm.yaml -n ai-defense
-    ```
+# 2. Create the ConfigMap and Persistent Volume Claims
+kubectl apply -f kubernetes/configmap.yaml
+kubectl apply -f kubernetes/archives-pvc.yaml
+kubectl apply -f kubernetes/corpus-pvc.yaml
+kubectl apply -f kubernetes/models-pvc.yaml
 
-3. **Apply Secrets:**
+# 3. Deploy the stateful services (Database and Cache)
+kubectl apply -f kubernetes/postgres-statefulset.yaml
+kubectl apply -f kubernetes/redis-statefulset.yaml
 
-    ```bash
-    kubectl apply -f kubernetes/secrets.yaml -n ai-defense
-    ```
+# 4. Deploy the application microservices
+kubectl apply -f kubernetes/admin-ui-deployment.yaml
+kubectl apply -f kubernetes/ai-service-deployment.yaml
+kubectl apply -f kubernetes/escalation-engine-deployment.yaml
+kubectl apply -f kubernetes/tarpit-api-deployment.yaml
+kubectl apply -f kubernetes/archive-rotator-deployment.yaml
 
-4. **Apply PersistentVolumeClaims (standalone ones):**
+# 5. Deploy the CronJobs
+kubectl apply -f kubernetes/corpus-updater-cronjob.yaml
+kubectl apply -f kubernetes/markov-model-trainer.yaml
+kubectl apply -f kubernetes/robots-fetcher-cronjob.yaml
 
-    ```bash
-    kubectl apply -f kubernetes/archives-pvc.yaml -n ai-defense
-    kubectl apply -f kubernetes/corpus-pvc.yaml -n ai-defense
-    kubectl apply -f kubernetes/models-pvc.yaml -n ai-defense
-    ```
+# 6. Deploy the Nginx ingress proxy
+kubectl apply -f kubernetes/nginx-deployment.yaml
+```
 
-    *(PVCs for PostgreSQL and Redis are created automatically by their StatefulSets).*
+### 5. **Verify the Deployment**
 
-5. **Apply StatefulSets (Redis & PostgreSQL):**
+Check the status of your pods to ensure everything is running correctly:
 
-    ```bash
-    kubectl apply -f kubernetes/redis-statefulset.yaml -n ai-defense
-    kubectl apply -f kubernetes/postgres-statefulset.yaml -n ai-defense
-    ```
+```bash or PowerShell
+kubectl get pods -n ai-defense -w
+```
 
-    Monitor their creation and wait for them to become ready:
+Once all pods are in the Running state, you can find the external IP address of your Nginx service to access the application:
 
-    ```bash
-    kubectl get pods -n ai-defense -l app=redis -w
-    kubectl get pods -n ai-defense -l app=postgres-markov -w
-    ```
+```bash or PowerShell
+kubectl get svc -n ai-defense nginx-proxy  
+```
 
-    PostgreSQL will run the `init_markov.sql` script automatically on its first startup if the persistent volume is empty.
+### 6. **Access the Application**
 
-6. **Apply Deployments:**
-    *(Ensure you have updated the `image:` fields in these files first!)*
-
-    ```bash
-    kubectl apply -f kubernetes/ai-service-deployment.yaml -n ai-defense
-    kubectl apply -f kubernetes/escalation-engine-deployment.yaml -n ai-defense
-    kubectl apply -f kubernetes/tarpit-api-deployment.yaml -n ai-defense
-    kubectl apply -f kubernetes/admin-ui-deployment.yaml -n ai-defense
-    kubectl apply -f kubernetes/archive-rotator-deployment.yaml -n ai-defense
-    kubectl apply -f kubernetes/nginx-deployment.yaml -n ai-defense
-    ```
-
-7. **Apply CronJobs:**
-    *(Ensure you have updated the `image:` fields in these files first!)*
-
-    ```bash
-    kubectl apply -f kubernetes/robots-fetcher-cronjob.yaml -n ai-defense
-    kubectl apply -f kubernetes/corpus-updater-cronjob.yaml -n ai-defense
-    kubectl apply -f kubernetes/markov-model-trainer.yaml -n ai-defense
-    ```
-
-8. **Verify Pods, Services, and CronJobs:**
-
-    ```bash
-    kubectl get pods -n ai-defense
-    kubectl get services -n ai-defense
-    kubectl get cronjobs -n ai-defense
-    ```
-
-    Ensure all pods transition to the `Running` state. Check logs for any startup errors: `kubectl logs <pod-name> -n ai-defense -c <container-name-if-multiple>`.
-
-## 5. Accessing Services
-
-* **Nginx (Main Entry Point):** If the `nginx` service in `kubernetes/nginx-deployment.yaml` is of type `LoadBalancer`, your cloud provider will provision an external IP. Find it with:
-
-    ```bash
-    kubectl get svc nginx -n ai-defense
-    ```
-
-    If it's `NodePort`, access via `<NodeIP>:<NodePort>`. For production environments, using an **Ingress** controller is highly recommended for managing external access, TLS termination, and host-based routing.
-* **Admin UI:** Typically accessed via Nginx (e.g., `http://<nginx-external-ip>/admin/`).
-* Other services are usually type `ClusterIP` and are accessed internally within the Kubernetes cluster using their service names (e.g., `http://tarpit-api.ai-defense.svc.cluster.local:8001`).
-
-## 6. Testing & Verification
-
-* Follow similar testing steps as outlined in the Docker Compose `docs/getting_started.md`, but use the Kubernetes Nginx external IP/hostname.
-* Check CronJob execution:
-
-    ```bash
-    kubectl get jobs -n ai-defense # Lists jobs created by CronJobs
-    kubectl logs job/<job-name> -n ai-defense # View logs for a specific job
-    ```
-
-* Inspect ConfigMaps updated by CronJobs (e.g., `kubectl get configmap live-robots-txt-config -n ai-defense -o yaml`).
-* Verify data in PVCs if necessary (e.g., by exec-ing into a pod that mounts them and listing directory contents).
-
-## 7. Production Considerations
-
-* **Ingress Controller:** Essential for robust external access management.
-* **Resource Requests/Limits:** Fine-tune CPU and memory in all manifests based on observed performance and load.
-* **Horizontal Pod Autoscaling (HPA):** Configure for stateless services (Nginx, Python APIs) if needed.
-* **Monitoring & Logging:** Integrate with cluster-wide monitoring (e.g., Prometheus, Grafana) and logging solutions (e.g., EFK, Loki).
-* **Backup Strategy:** Implement robust backups for PostgreSQL data and other critical persistent data.
-* **Security Contexts & Network Policies:** Continuously review and refine. Implement Kubernetes NetworkPolicies to restrict pod-to-pod communication to only what's necessary.
-* **Image Security:** Regularly scan your custom Docker images for vulnerabilities.
-* **Secrets Management:** Consider more advanced secrets management solutions like HashiCorp Vault or cloud provider KMS for production.
+Open your web browser and navigate to the external IP address of the Nginx service. You should see the admin UI of the AI Scraping Defense application. The instructions for accessing the application are in getting_started.md.
