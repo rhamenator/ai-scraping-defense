@@ -27,8 +27,7 @@ This diagram illustrates the high-level relationships between the system's compo
 
 ```mermaid
 graph TD
-    subgraph "User / Bot Traffic"
-        direction LR
+    subgraph "User / Bot Traffic" direction LR
         User[<font size=5>👤</font><br>User]
         Bot[<font size=5>🤖</font><br>Bot]
     end
