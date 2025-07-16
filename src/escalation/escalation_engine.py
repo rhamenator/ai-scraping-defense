@@ -17,6 +17,7 @@ import sys
 # --- Refactored Imports ---
 from src.shared.model_provider import load_model
 from src.shared.redis_client import get_redis_connection
+from src.shared.config import get_secret
 
 # --- Setup Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -90,12 +91,10 @@ LOCAL_LLM_API_URL = os.getenv("LOCAL_LLM_API_URL")
 LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL")
 LOCAL_LLM_TIMEOUT = float(os.getenv("LOCAL_LLM_TIMEOUT", 45.0))
 EXTERNAL_API_URL = os.getenv("EXTERNAL_CLASSIFICATION_API_URL") if os.getenv("EXTERNAL_CLASSIFICATION_API_URL") else os.getenv("EXTERNAL_API_URL")
-EXTERNAL_API_KEY_FILE = os.getenv("EXTERNAL_CLASSIFICATION_API_KEY_FILE", "/run/secrets/external_api_key.txt")
 EXTERNAL_API_TIMEOUT = float(os.getenv("EXTERNAL_API_TIMEOUT", 15.0))
 
 ENABLE_IP_REPUTATION = os.getenv("ENABLE_IP_REPUTATION", "false").lower() == "true"
 IP_REPUTATION_API_URL = os.getenv("IP_REPUTATION_API_URL")
-IP_REPUTATION_API_KEY_FILE = os.getenv("IP_REPUTATION_API_KEY_FILE", "/run/secrets/ip_reputation_api_key.txt")
 IP_REPUTATION_TIMEOUT = float(os.getenv("IP_REPUTATION_TIMEOUT", 10.0))
 IP_REPUTATION_MALICIOUS_SCORE_BONUS = float(os.getenv("IP_REPUTATION_MALICIOUS_SCORE_BONUS", 0.3))
 IP_REPUTATION_MIN_MALICIOUS_THRESHOLD = float(os.getenv("IP_REPUTATION_MIN_MALICIOUS_THRESHOLD", 50))
@@ -123,16 +122,9 @@ KNOWN_BENIGN_CRAWLERS_UAS_ENV = os.getenv("KNOWN_BENIGN_CRAWLERS_UAS", 'googlebo
 KNOWN_BENIGN_CRAWLERS_UAS = [ua.strip() for ua in KNOWN_BENIGN_CRAWLERS_UAS_ENV.split(',') if ua.strip()]
 
 
-# --- Load Secrets (Preserved) ---
-def load_secret(file_path: Optional[str]) -> Optional[str]:
-    if file_path and os.path.exists(file_path):
-        try:
-            with open(file_path, 'r') as f: return f.read().strip()
-        except Exception as e: logger.error(f"Failed to read secret from {file_path}: {e}")
-    return None
-
-EXTERNAL_API_KEY = load_secret(EXTERNAL_API_KEY_FILE)
-IP_REPUTATION_API_KEY = load_secret(IP_REPUTATION_API_KEY_FILE)
+# --- Load Secrets ---
+EXTERNAL_API_KEY = get_secret("EXTERNAL_CLASSIFICATION_API_KEY_FILE")
+IP_REPUTATION_API_KEY = get_secret("IP_REPUTATION_API_KEY_FILE")
 
 # --- Setup Clients & Load Resources ---
 # The manual joblib loading and redis pool have been replaced by these abstractions.

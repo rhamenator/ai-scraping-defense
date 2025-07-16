@@ -81,7 +81,7 @@ BLOCKLIST_TTL_SECONDS = int(os.getenv("BLOCKLIST_TTL_SECONDS", 86400))
 
 # --- THIS IS THE SOLE REFACTORING CHANGE ---
 # Replaced the manual Redis Connection Pools with calls to the centralized client.
-from shared.redis_client import get_redis_connection
+from src.shared.redis_client import get_redis_connection
 redis_hops = get_redis_connection(db_number=REDIS_DB_TAR_PIT_HOPS)
 redis_blocklist = get_redis_connection(db_number=REDIS_DB_BLOCKLIST)
 

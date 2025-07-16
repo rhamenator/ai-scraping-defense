@@ -21,7 +21,6 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         self.client = TestClient(app)
         # Patch all key functions and module-level objects to isolate the endpoint logic
         self.patchers = {
-            'load_secret': patch('escalation.escalation_engine.load_secret'),
             'load_robots_txt': patch('escalation.escalation_engine.load_robots_txt'),
             'get_redis_connection': patch('escalation.escalation_engine.get_redis_connection'),
             # Correctly patch the module-level variable, not the function that creates it
