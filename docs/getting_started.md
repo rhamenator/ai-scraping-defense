@@ -28,12 +28,12 @@ Copy the template to create your own local .env file:
 
 ``` bash
 # On Linux or macOS
-cp .env.example .env
+cp sample.env .env
 ```
 
 ``` PowerShell
 # On Windows (in a PowerShell terminal)
-Copy-Item .env.example .env
+Copy-Item sample.env .env
 ```
 
 Now, open the .env file in your code editor. For now, you can leave the default values as they are. This is where you would add your real API keys for services like OpenAI or Mistral when you're ready to use them.
