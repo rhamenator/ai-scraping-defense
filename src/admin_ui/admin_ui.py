@@ -48,7 +48,7 @@ def block_ip():
     
     ip = json_data.get('ip')
     if not ip:
-        return jsonify({"error": "Invalid request, missing 'ip' key in JSON"}), 400
+        return jsonify({"error": "Invalid request, missing ip"}), 400
         
     redis_conn = get_redis_connection()
     if not redis_conn:

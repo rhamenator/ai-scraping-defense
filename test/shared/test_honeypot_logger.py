@@ -9,7 +9,7 @@ import importlib # Required for reloading the module
 
 # Import the module to test.
 # We will reload it in specific tests to check its import-time setup.
-from shared import honeypot_logger 
+from src.shared import honeypot_logger
 
 class TestJsonFormatter(unittest.TestCase):
     def test_format_log_record(self):

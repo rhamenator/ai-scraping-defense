@@ -8,7 +8,7 @@ import shutil
 import random
 import logging
 
-from tarpit import js_zip_generator
+from src.tarpit import js_zip_generator
 
 class TestJsZipGeneratorComprehensive(unittest.TestCase):
 

@@ -10,9 +10,9 @@ import os
 # Add the project root to the path to help static analysis tools find the modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from escalation import escalation_engine
+from src.escalation import escalation_engine
 # Correctly import only the existing classes from the module
-from escalation.escalation_engine import app, RequestMetadata, ValidationError
+from src.escalation.escalation_engine import app, RequestMetadata, ValidationError
 
 class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
 

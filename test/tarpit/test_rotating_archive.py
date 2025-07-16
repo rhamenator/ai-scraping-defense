@@ -5,7 +5,7 @@ import os
 import time
 import tempfile
 import shutil
-from tarpit import rotating_archive
+from src.tarpit import rotating_archive
 import importlib
 
 class TestRotatingArchiveComprehensive(unittest.TestCase):

@@ -9,12 +9,13 @@ from typing import Optional, Any
 # We only check for the library's existence here to set a flag.
 # The actual imports will happen inside the functions that need them.
 try:
-    # We import a high-level name to check for installation.
-    import kubernetes
+    from kubernetes import config as k8s_config, client
     KUBE_AVAILABLE = True
-except ImportError:
+    K8sApiException = client.exceptions.ApiException
+except Exception:  # pragma: no cover - kubernetes may not be installed
     KUBE_AVAILABLE = False
-    # Define a dummy exception for type consistency in the except block below
+    k8s_config = None
+    client = None
     class K8sApiException(Exception):
         def __init__(self, status=0):
             self.status = status

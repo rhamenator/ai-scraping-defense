@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock, AsyncMock, ANY
 from fastapi.testclient import TestClient
 import httpx
 
-from tarpit.tarpit_api import app
+from src.tarpit.tarpit_api import app
 
 class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
 

@@ -8,7 +8,7 @@ import importlib # For reloading the module to test __main__
 
 # Import the module to test
 # Ensure that the 'tarpit' package is discoverable in PYTHONPATH
-from tarpit import markov_generator
+from src.tarpit import markov_generator
 
 # Helper to reset module-level globals for test isolation
 def reset_markov_generator_globals():

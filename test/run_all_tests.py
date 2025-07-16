@@ -14,8 +14,7 @@ def main():
         sys.path.insert(0, project_root)
     src_path = os.path.join(project_root, 'src')
     if src_path not in sys.path:
-        # Append rather than prepend so that test packages like 'admin_ui'
-        # in the test directory take precedence over the actual code packages
+        # Append so test packages with the same name override source packages
         # during discovery.
         sys.path.append(src_path)
 
