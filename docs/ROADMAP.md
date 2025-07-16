@@ -39,3 +39,6 @@ Larger-scale improvements and broader adoption:
 
 If you're interested in contributing to one of these features, check out the open **Issues** on GitHub and follow the guidelines in `CONTRIBUTING.md`.
 
+* **Feature Requests** – Open a new issue with your idea or enhancement request.
+* **Bug Reports** – Report any issues you encounter to help improve the stack.
+* **Code Contributions** – Submit pull requests for bug fixes or new features, following the coding standards outlined in `CONTRIBUTING.md`.
