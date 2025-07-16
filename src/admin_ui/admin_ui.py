@@ -4,6 +4,40 @@ import asyncio
 from flask import Flask, render_template, jsonify, request
 from src.shared.redis_client import get_redis_connection
 from src.shared.metrics import get_metrics
+import re
+
+# Flag to indicate if metrics collection is actually available. Tests patch this
+# to simulate metrics being disabled.
+METRICS_TRULY_AVAILABLE = True
+
+
+def _parse_prometheus_metrics(text: str) -> dict:
+    """Convert Prometheus text format into a dictionary."""
+    metrics: dict[str, float] = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        name, value = parts[0], parts[-1]
+        try:
+            metrics[name] = float(value)
+        except ValueError:
+            continue
+    return metrics
+
+
+def _get_metrics_dict() -> dict:
+    raw = get_metrics()
+    if isinstance(raw, bytes):
+        raw = raw.decode()
+    return _parse_prometheus_metrics(raw)
+
+
+# Exposed for tests so they can patch the behaviour
+_get_metrics_dict_func = _get_metrics_dict
 
 app = Flask(__name__)
 
@@ -14,12 +48,19 @@ def index():
 
 @app.route('/metrics')
 def metrics_endpoint():
-    """Provides the current metrics as Prometheus-formatted text."""
+    """Return metrics in JSON form for the admin dashboard."""
+    if not METRICS_TRULY_AVAILABLE:
+        return jsonify({"error": "Metrics module not available"}), 503
+
     try:
-        metrics_data = get_metrics()
-        return metrics_data, 200, {'Content-Type': 'text/plain; version=0.0.4'}
-    except Exception as e:
-        return str(e), 500
+        metrics_dict = _get_metrics_dict_func()
+    except Exception as exc:  # pragma: no cover - defensive
+        return jsonify({"error": str(exc)}), 500
+
+    if isinstance(metrics_dict, dict) and metrics_dict.get("error"):
+        return jsonify(metrics_dict), 500
+
+    return jsonify(metrics_dict), 200
 
 @app.route('/blocklist', methods=['GET'])
 def get_blocklist():
@@ -48,7 +89,7 @@ def block_ip():
     
     ip = json_data.get('ip')
     if not ip:
-        return jsonify({"error": "Invalid request, missing 'ip' key in JSON"}), 400
+        return jsonify({"error": "Invalid request, missing ip"}), 400
         
     redis_conn = get_redis_connection()
     if not redis_conn:
@@ -66,7 +107,7 @@ def unblock_ip():
         
     ip = json_data.get('ip')
     if not ip:
-        return jsonify({"error": "Invalid request, missing 'ip' key in JSON"}), 400
+        return jsonify({"error": "Invalid request, missing ip"}), 400
         
     redis_conn = get_redis_connection()
     if not redis_conn:

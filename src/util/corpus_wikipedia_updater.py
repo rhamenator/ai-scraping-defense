@@ -39,17 +39,18 @@ def clean_text(text: str) -> str:
     text = re.sub(r'\{\{.*?\}\}', '', text, flags=re.DOTALL)
     text = re.sub(r'<ref.*?</ref>', '', text, flags=re.DOTALL)
     text = re.sub(r'\[\[File:.*?\]\]', '', text, flags=re.DOTALL)
-    text = re.sub(r'', '', text, flags=re.DOTALL)
-    
+
     # Remove section headers
-    text = re.sub(r'==+[^=]+==+', '', text)
-    
-    # Remove bold/italic markup and list markers
-    text = text.replace("'''", "").replace("''", "").replace("* ", "")
-    
-    # Normalize whitespace
-    text = ' '.join(text.split())
-    
+    text = re.sub(r'^==+[^=]+==+\s*', '', text, flags=re.MULTILINE)
+
+    # Remove bold/italic markup and leading list markers
+    text = text.replace("'''", "").replace("''", "")
+    text = re.sub(r'^\*\s*', '', text, flags=re.MULTILINE)
+
+    # Replace newlines with spaces and collapse excessive spaces (but keep pairs)
+    text = text.replace('\n', ' ')
+    text = re.sub(r' {3,}', '  ', text)
+
     return text.strip()
 
 
