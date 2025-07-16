@@ -55,10 +55,11 @@ def remove_ip_flag(ip_address: str):
         try:
             r.delete(f"ip_flag:{ip_address}")
             logging.info(f"Removed flag for IP: {ip_address}")
+            return True
         except Exception as e:
             logging.error(f"Failed to remove flag for IP {ip_address} in Redis: {e}")
-
-
+            return False
+    return False
 if __name__ == '__main__':
     # Example usage for direct testing of this module.
     print("Running IP Flagger example...")

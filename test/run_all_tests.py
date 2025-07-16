@@ -8,9 +8,16 @@ def main():
     # Get the project root directory (the parent of the 'test' directory)
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     
-    # Add the project root to the path, so imports like 'from src.admin_ui' work.
+    # Add the project root and 'src' directory to the path so imports like
+    # 'from tarpit import markov_generator' or 'from src.admin_ui' work.
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
+    src_path = os.path.join(project_root, 'src')
+    if src_path not in sys.path:
+        # Append rather than prepend so that test packages like 'admin_ui'
+        # in the test directory take precedence over the actual code packages
+        # during discovery.
+        sys.path.append(src_path)
 
     print(f"Project root added to path: {project_root}")
     print("Discovering tests...")
