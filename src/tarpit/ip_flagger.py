@@ -5,7 +5,7 @@ utility from the 'shared' module.
 """
 import sys
 import logging
-from shared.redis_client import get_redis_connection
+from src.shared.redis_client import get_redis_connection
 
 # Configure logging for this module
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

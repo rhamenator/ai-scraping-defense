@@ -2,7 +2,6 @@
 # Receives webhook events, logs, blocklists via Redis (with TTL), optionally reports to community lists, and sends alerts.
 
 from flask import Flask, jsonify, request
-from fastapi import Request
 from pydantic import BaseModel, Field, ValidationError
 from typing import Dict, Any, Literal, Optional, Union
 import datetime
@@ -10,6 +9,8 @@ import pprint
 import os
 import redis
 from redis.exceptions import ConnectionError, RedisError
+from src.shared.config import get_secret
+from src.shared.redis_client import get_redis_connection as shared_get_redis_connection
 import json
 import httpx 
 import smtplib 
@@ -66,8 +67,8 @@ ALERT_SLACK_WEBHOOK_URL = os.getenv("ALERT_SLACK_WEBHOOK_URL")
 ALERT_SMTP_HOST = os.getenv("ALERT_SMTP_HOST", "mailhog")
 ALERT_SMTP_PORT = int(os.getenv("ALERT_SMTP_PORT", 587))
 ALERT_SMTP_USER = os.getenv("ALERT_SMTP_USER")
-ALERT_SMTP_PASSWORD = None # Populated by load_secret below
 ALERT_SMTP_PASSWORD_FILE = os.getenv("ALERT_SMTP_PASSWORD_FILE", "/run/secrets/smtp_password")
+ALERT_SMTP_PASSWORD = None  # Populated below
 ALERT_SMTP_USE_TLS = os.getenv("ALERT_SMTP_USE_TLS", "true").lower() == "true"
 ALERT_EMAIL_FROM = os.getenv("ALERT_EMAIL_FROM", ALERT_SMTP_USER)
 ALERT_EMAIL_TO = os.getenv("ALERT_EMAIL_TO")
@@ -77,7 +78,7 @@ ENABLE_COMMUNITY_REPORTING = os.getenv("ENABLE_COMMUNITY_REPORTING", "false").lo
 COMMUNITY_BLOCKLIST_REPORT_URL = os.getenv("COMMUNITY_BLOCKLIST_REPORT_URL")
 COMMUNITY_BLOCKLIST_API_KEY_FILE = os.getenv("COMMUNITY_BLOCKLIST_API_KEY_FILE", "/run/secrets/community_blocklist_api_key")
 COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = float(os.getenv("COMMUNITY_BLOCKLIST_REPORT_TIMEOUT", 10.0))
-COMMUNITY_BLOCKLIST_API_KEY = None # Populated by load_secret
+COMMUNITY_BLOCKLIST_API_KEY = None  # Populated below
 
 LOG_DIR = "/app/logs"
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
@@ -88,27 +89,26 @@ COMMUNITY_REPORT_LOG_FILE = os.path.join(LOG_DIR, "community_report.log")
 os.makedirs(LOG_DIR, exist_ok=True)
 
 # --- Load Secrets ---
-def load_secret(file_path: Optional[str]) -> Optional[str]:
-    if file_path and os.path.exists(file_path):
-        try:
-            with open(file_path, 'r') as f: return f.read().strip()
-        except Exception as e: logger.error(f"Failed to read secret from {file_path}: {e}")
-    return None
-
-ALERT_SMTP_PASSWORD = load_secret(ALERT_SMTP_PASSWORD_FILE)
-COMMUNITY_BLOCKLIST_API_KEY = load_secret(COMMUNITY_BLOCKLIST_API_KEY_FILE)
+ALERT_SMTP_PASSWORD = get_secret("ALERT_SMTP_PASSWORD_FILE")
+COMMUNITY_BLOCKLIST_API_KEY = get_secret("COMMUNITY_BLOCKLIST_API_KEY_FILE")
 
 # --- Setup Clients & Validate Config ---
 BLOCKLISTING_ENABLED = False
 redis_client_blocklist = None
 try:
-    redis_pool_blocklist = redis.ConnectionPool(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB_BLOCKLIST, decode_responses=True)
-    redis_client_blocklist = redis.Redis(connection_pool=redis_pool_blocklist)
-    redis_client_blocklist.ping()
-    BLOCKLISTING_ENABLED = True
-    logger.info(f"Connected to Redis for blocklisting at {REDIS_HOST}:{REDIS_PORT}, DB: {REDIS_DB_BLOCKLIST}")
-except ConnectionError as e: logger.error(f"Redis connection failed for Blocklisting: {e}. Blocklisting disabled.")
-except Exception as e: logger.error(f"Unexpected error connecting to Redis for Blocklisting: {e}. Blocklisting disabled.")
+    redis_client_blocklist = shared_get_redis_connection(db_number=REDIS_DB_BLOCKLIST)
+    if redis_client_blocklist:
+        redis_client_blocklist.ping()
+        BLOCKLISTING_ENABLED = True
+        logger.info(
+            f"Connected to Redis for blocklisting at {REDIS_HOST}:{REDIS_PORT}, DB: {REDIS_DB_BLOCKLIST}"
+        )
+    else:
+        logger.error("Redis connection for blocklisting returned None. Blocklisting disabled.")
+except ConnectionError as e:
+    logger.error(f"Redis connection failed for Blocklisting: {e}. Blocklisting disabled.")
+except Exception as e:
+    logger.error(f"Unexpected error connecting to Redis for Blocklisting: {e}. Blocklisting disabled.")
 
 if ALERT_METHOD == "smtp" and not ALERT_SMTP_PASSWORD and ALERT_SMTP_USER:
      logger.warning("SMTP alerting configured but SMTP password is not set.")
