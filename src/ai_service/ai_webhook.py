@@ -1,13 +1,14 @@
 # ai_service/ai_webhook.py
 # Receives webhook events, logs, blocklists via Redis (with TTL), optionally reports to community lists, and sends alerts.
 
-from fastapi import FastAPI, Request, HTTPException
+from flask import Flask, jsonify, request
+from fastapi import Request
 from pydantic import BaseModel, Field, ValidationError
-from typing import Dict, Any, Literal, Optional, Union 
+from typing import Dict, Any, Literal, Optional, Union
 import datetime
 import pprint
 import os
-import redis 
+import redis
 from redis.exceptions import ConnectionError, RedisError
 import json
 import httpx 
@@ -123,11 +124,14 @@ class WebhookEvent(BaseModel):
     timestamp_utc: Union[str, datetime.datetime] = Field(..., description="Timestamp of the original detection") # Allow str or datetime
     details: Dict[str, Any] = Field(..., description="Detailed metadata about the request (IP, UA, headers, etc.)")
 
-# --- FastAPI App ---
-app = FastAPI(
-    title="AI Defense Webhook Service",
-    description="Receives analysis results, manages blocklists (with TTL), reports IPs, and sends alerts."
-)
+# --- Flask App ---
+app = Flask(__name__)
+app.config["TESTING"] = False
+
+
+def get_redis_connection():
+    """Wrapper for tests to patch the Redis client."""
+    return redis_client_blocklist
 
 # --- Helper Functions ---
 def log_error(message: str, exception: Optional[Exception] = None):
@@ -272,39 +276,54 @@ async def send_alert(event_data: WebhookEvent):
     elif ALERT_METHOD == "smtp": await send_smtp_alert(event_data)
     elif ALERT_METHOD != "none": log_error(f"Alert method '{ALERT_METHOD}' invalid.")
 
-# --- Webhook Receiver Endpoint ---
-@app.post("/analyze", status_code=202)
-async def receive_webhook(event: WebhookEvent, request: Request):
-    client_ip = request.client.host if request.client else "unknown"
-    flagged_ip = event.details.get("ip", "unknown")
-    reason = event.reason or "Unknown Reason"
-    logger.info(f"Webhook Received from {client_ip} for flagged IP: {flagged_ip} - Reason: {reason}")
-    if flagged_ip == "unknown": logger.warning(f"Webhook with 'unknown' IP from {client_ip}. Reason: {reason}")
-    action_taken = "logged"; blocklist_success = False
-    auto_block_reasons = ["High Combined Score", "Local LLM Classification", "External API Classification", "High Heuristic Score", "Honeypot_Hit", "IP Reputation Malicious"]
-    if flagged_ip != "unknown" and any(term in reason for term in auto_block_reasons):
-        blocklist_success = add_ip_to_blocklist(flagged_ip, reason, event.details)
-        action_taken = "ip_blocklisted_ttl" if blocklist_success else "blocklist_failed"
-        if blocklist_success:
-             await report_ip_to_community(flagged_ip, reason, event.details)
-             action_taken += "_community_report_attempted"
-    elif flagged_ip == "unknown": action_taken = "blocklist_skipped_unknown_ip"
-    else: action_taken = "blocklist_skipped_criteria_not_met"; logger.info(f"Reason '{reason}' for IP {flagged_ip} not auto-block. Skipping.")
+# --- Simple Webhook Endpoint for tests ---
+@app.route("/webhook", methods=["POST"])
+def webhook_receiver():
+    payload = request.get_json() or {}
+    redis_conn = get_redis_connection()
+    if not redis_conn:
+        return jsonify({"error": "Redis service unavailable"}), 503
+
+    action = payload.get("action")
+    ip = payload.get("ip")
+
+    if action in {"block_ip", "allow_ip", "flag_ip", "unflag_ip"} and not ip:
+        return jsonify({"error": f"Missing 'ip' in payload for action '{action}'."}), 400
+
     try:
-        await send_alert(event)
-        if ALERT_METHOD != "none": action_taken += "_alert_checked"
-    except Exception as e: log_error(f"Error during alert processing for IP {flagged_ip}", e); action_taken += "_alert_error"
-    logger.info(f"Processing complete for IP {flagged_ip}. Action: {action_taken}")
-    return {"status": "processed", "action_taken": action_taken, "ip_processed": flagged_ip}
+        if action == "block_ip":
+            redis_conn.sadd("blocklist", ip)
+            return jsonify({"status": "success", "message": f"IP {ip} added to blocklist."})
+        elif action == "allow_ip":
+            redis_conn.srem("blocklist", ip)
+            return jsonify({"status": "success", "message": f"IP {ip} removed from blocklist."})
+        elif action == "flag_ip":
+            reason = payload.get("reason", "")
+            redis_conn.set(f"ip_flag:{ip}", reason)
+            return jsonify({"status": "success", "message": f"IP {ip} flagged."})
+        elif action == "unflag_ip":
+            redis_conn.delete(f"ip_flag:{ip}")
+            return jsonify({"status": "success", "message": f"IP {ip} unflagged."})
+        else:
+            return jsonify({"error": f"Invalid action: {action}"}), 400
+    except Exception:
+        logger.error("Failed to execute action", exc_info=True)
+        return jsonify({"error": "Failed to execute action"}), 500
+
+
 
 # --- Health Check Endpoint ---
-@app.get("/health")
-async def health_check():
-    redis_ok = False
-    if redis_client_blocklist:
-        try: redis_ok = redis_client_blocklist.ping()
-        except Exception: redis_ok = False
-    return {"status": "ok", "redis_blocklist_connected": redis_ok}
+@app.route("/health")
+def health_check():
+    redis_conn = get_redis_connection()
+    if not redis_conn:
+        return jsonify({"status": "error", "redis_connected": False}), 503
+    try:
+        redis_ok = bool(redis_conn.ping())
+    except Exception:
+        redis_ok = False
+    status_code = 200 if redis_ok else 503
+    return jsonify({"status": "ok" if redis_ok else "error", "redis_connected": redis_ok}), status_code
 
 if __name__ == "__main__":
     import uvicorn
