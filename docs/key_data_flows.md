@@ -58,5 +58,5 @@ sequenceDiagram
     E->>+R: SADD blocklist, <Bot_IP>
     R-->>-E: OK
     E-->>B: 403 Forbidden (Blocked)
-end
+    Note over B: Bot is blocked on next request
 ```
