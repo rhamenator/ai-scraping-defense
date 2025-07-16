@@ -88,6 +88,6 @@ This setup uses Docker Compose to orchestrate all the necessary services on your
 - `nginx/`: Nginx and Lua configuration files.
 - `docs/`: Project documentation, including architecture and data flows.
 - `test/`: Unit tests for the Python services.
-- `.env.example`: Template for local development configuration.
+- `sample.env`: Template for local development configuration.
 - `docker-compose.yaml`: Orchestrates the services for local development.
 - `Dockerfile`: A single Dockerfile used to build the base image for all Python services.
