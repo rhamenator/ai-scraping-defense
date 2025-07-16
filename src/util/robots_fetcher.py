@@ -9,16 +9,18 @@ from typing import Optional, Any
 # We only check for the library's existence here to set a flag.
 # The actual imports will happen inside the functions that need them.
 try:
-    # Import the Kubernetes config and client at module load so tests can patch
     from kubernetes import config as k8s_config, client as k8s_client
+    from kubernetes.client.rest import ApiException as ImportedK8sApiException
+
     client = k8s_client
-    from kubernetes.client.rest import ApiException as K8sApiException
     KUBE_AVAILABLE = True
-except ImportError:
+    K8sApiException = ImportedK8sApiException
+except Exception:  # pragma: no cover - kubernetes may not be installed
     KUBE_AVAILABLE = False
     k8s_config = None
     k8s_client = None
     client = None
+
     class K8sApiException(Exception):
         def __init__(self, status=0):
             self.status = status

@@ -30,10 +30,15 @@ _db_cursor = None
 def _get_pg_password():
     """Loads password from secret file."""
     try:
-        with open(PG_PASSWORD_FILE, 'r') as f:
+        if not os.path.exists(PG_PASSWORD_FILE):
+            raise FileNotFoundError(f"Password file {PG_PASSWORD_FILE} not found")
+
+        with open(PG_PASSWORD_FILE, "r") as f:
             return f.read().strip()
     except Exception as e:
-        logger.error(f"Failed to read PostgreSQL password from {PG_PASSWORD_FILE}: {e}")
+        logger.error(
+            f"Failed to read PostgreSQL password from {PG_PASSWORD_FILE}: {e}"
+        )
         return None
 
 def _get_db_connection():
@@ -288,14 +293,14 @@ def generate_dynamic_tarpit_page():
     logger.debug("Dynamic tarpit page content generated.")
     return html_structure
 
-# Example Usage (if run directly - requires DB connection details in env)
-# if __name__ == "__main__":
-#    print("--- Generating Sample Tarpit Page (requires DB connection) ---")
-#    # Seed random for predictable output during test
-#    random.seed("test_seed_123")
-#    dynamic_html = generate_dynamic_tarpit_page()
-#    print("\n--- Generated HTML ---")
-#    print(dynamic_html)
-#    if _db_conn:
-#        _db_conn.close()
-#        print("Database connection closed.")
+
+if __name__ == "__main__":
+    print("--- Generating Sample Tarpit Page (requires DB connection) ---")
+    # Seed random for predictable output during test
+    random.seed("test_seed_123")
+    dynamic_html = generate_dynamic_tarpit_page()
+    print("\n--- Generated HTML ---")
+    print(dynamic_html)
+    if _db_conn:
+        _db_conn.close()
+        print("Database connection closed.")

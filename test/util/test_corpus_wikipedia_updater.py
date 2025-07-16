@@ -9,7 +9,7 @@ import shutil
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from util import corpus_wikipedia_updater
+from src.util import corpus_wikipedia_updater
 # Import the actual exceptions from the library for mocking
 from wikipedia.exceptions import DisambiguationError, PageError
 
@@ -21,8 +21,8 @@ class TestWikipediaCorpusUpdater(unittest.TestCase):
         
         # Patch the wikipedia library and the output file path
         self.patches = {
-            'wikipedia': patch('util.corpus_wikipedia_updater.wikipedia'),
-            'CORPUS_OUTPUT_FILE': patch('util.corpus_wikipedia_updater.CORPUS_OUTPUT_FILE', self.corpus_file)
+            'wikipedia': patch('src.util.corpus_wikipedia_updater.wikipedia'),
+            'CORPUS_OUTPUT_FILE': patch('src.util.corpus_wikipedia_updater.CORPUS_OUTPUT_FILE', self.corpus_file)
         }
         self.mocks = {name: patcher.start() for name, patcher in self.patches.items()}
 
@@ -69,7 +69,7 @@ class TestWikipediaCorpusUpdater(unittest.TestCase):
         mock_good_page = MagicMock(content="Good content " * 100, categories=["Technology"])
         mock_wiki.page.side_effect = [DisambiguationError(title="Disambiguation Page", may_refer_to=[]), mock_good_page]
 
-        with self.assertLogs('util.corpus_wikipedia_updater', level='WARNING') as cm:
+        with self.assertLogs('src.util.corpus_wikipedia_updater', level='WARNING') as cm:
             articles = corpus_wikipedia_updater.fetch_random_wikipedia_articles(num_articles=1)
             self.assertIn("Skipping 'Disambiguation Page'", cm.output[0])
 
@@ -88,7 +88,7 @@ class TestWikipediaCorpusUpdater(unittest.TestCase):
         
         mock_wiki.page.return_value = mock_page
         
-        with self.assertLogs('util.corpus_wikipedia_updater', level='DEBUG') as cm:
+        with self.assertLogs('src.util.corpus_wikipedia_updater', level='DEBUG') as cm:
             articles = corpus_wikipedia_updater.fetch_random_wikipedia_articles(num_articles=1)
             # This should try again since the first was skipped, so we mock a second good return
             mock_wiki.random.return_value = "Good Article"

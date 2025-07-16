@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 from redis.exceptions import RedisError, ConnectionError
 import logging
 
-from tarpit import ip_flagger
+from src.tarpit import ip_flagger
 import importlib
 
 class TestIPFlaggerComprehensive(unittest.TestCase):

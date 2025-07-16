@@ -22,7 +22,7 @@ except ImportError:
     client = MagicMock()
     config = MagicMock()
 
-from util import robots_fetcher
+from src.util import robots_fetcher
 
 class MockResponse:
     def __init__(self, text, status_code):
@@ -37,10 +37,10 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
     def setUp(self):
         # Patch external dependencies
         self.patches = {
-            'requests.get': patch('util.robots_fetcher.requests.get'),
-            'k8s_config.load_incluster_config': patch('util.robots_fetcher.k8s_config.load_incluster_config'),
-            'k8s_client.CoreV1Api': patch('util.robots_fetcher.client.CoreV1Api'),
-            'logger': patch('util.robots_fetcher.logger')
+            'requests.get': patch('src.util.robots_fetcher.requests.get'),
+            'k8s_config.load_incluster_config': patch('src.util.robots_fetcher.k8s_config.load_incluster_config'),
+            'k8s_client.CoreV1Api': patch('src.util.robots_fetcher.client.CoreV1Api'),
+            'logger': patch('src.util.robots_fetcher.logger')
         }
         self.mocks = {name: p.start() for name, p in self.patches.items()}
         
@@ -109,9 +109,9 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
         self.mock_k8s_api.patch_namespaced_config_map.assert_not_called()
 
     @unittest.skipIf(not KUBE_AVAILABLE, "Kubernetes library not installed")
-    @patch('util.robots_fetcher.get_kubernetes_api')
-    @patch('util.robots_fetcher.fetch_robots_txt')
-    @patch('util.robots_fetcher.update_configmap')
+    @patch('src.util.robots_fetcher.get_kubernetes_api')
+    @patch('src.util.robots_fetcher.fetch_robots_txt')
+    @patch('src.util.robots_fetcher.update_configmap')
     def test_main_flow_in_cluster(self, mock_update_cm, mock_fetch, mock_get_api):
         """Test the main execution logic when running inside a Kubernetes cluster."""
         mock_get_api.return_value = self.mock_k8s_api
@@ -119,7 +119,7 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
         
         with patch.dict(os.environ, {'KUBERNETES_SERVICE_HOST': 'yes', 'TARGET_URL': 'http://target.com'}):
             # Use runpy to correctly execute the main block of the script
-            runpy.run_module('util.robots_fetcher', run_name='__main__')
+            runpy.run_module('src.util.robots_fetcher', run_name='__main__')
         
         mock_get_api.assert_called_once_with()
         mock_fetch.assert_called_once_with('http://target.com')
@@ -134,7 +134,7 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
             self.mocks['requests.get'].return_value = MockResponse("local content", 200)
 
             # Use runpy to correctly execute the main block of the script
-            runpy.run_module('util.robots_fetcher', run_name='__main__')
+            runpy.run_module('src.util.robots_fetcher', run_name='__main__')
 
             mock_file.assert_called_with(ANY, 'w', encoding='utf-8')
             mock_file().write.assert_called_once_with("local content")

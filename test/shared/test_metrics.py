@@ -2,7 +2,7 @@
 import unittest
 from unittest.mock import patch
 from prometheus_client import CollectorRegistry, generate_latest
-from shared import metrics
+from src.shared import metrics
 import importlib
 
 class TestMetricsComprehensive(unittest.TestCase):
@@ -13,7 +13,7 @@ class TestMetricsComprehensive(unittest.TestCase):
         We will patch the REGISTRY object in the metrics module.
         """
         self.registry = CollectorRegistry()
-        self.registry_patcher = patch('shared.metrics.REGISTRY', self.registry)
+        self.registry_patcher = patch('src.shared.metrics.REGISTRY', self.registry)
         self.registry_patcher.start()
         # Reload the module to redefine metrics on our new patched registry
         importlib.reload(metrics)

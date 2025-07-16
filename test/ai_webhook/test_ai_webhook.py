@@ -1,7 +1,7 @@
 # test/ai_webhook/test_ai_webhook.py
 import unittest
 from unittest.mock import patch, MagicMock
-from ai_service import ai_webhook
+from src.ai_service import ai_webhook
 import json
 
 class TestAIWebhookComprehensive(unittest.TestCase):
@@ -13,7 +13,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
         # The function is imported from shared.redis_client into the ai_webhook module.
         # Therefore, we must patch it where it is used.
-        self.redis_client_patcher = patch('ai_service.ai_webhook.get_redis_connection')
+        self.redis_client_patcher = patch('src.ai_service.ai_webhook.get_redis_connection')
         self.mock_get_redis = self.redis_client_patcher.start()
         self.mock_redis_client = MagicMock()
         self.mock_get_redis.return_value = self.mock_redis_client
@@ -90,7 +90,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json['error'], 'Redis service unavailable')
 
-    @patch('ai_service.ai_webhook.logger.error')
+    @patch('src.ai_service.ai_webhook.logger.error')
     def test_webhook_receiver_redis_command_fails(self, mock_logger_error):
         """Test that a 500 error is returned if a Redis command fails."""
         self.mock_redis_client.sadd.side_effect = Exception("Redis command failed")

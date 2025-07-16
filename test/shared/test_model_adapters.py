@@ -11,13 +11,17 @@ import httpx
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 # Import the actual classes from the module
-from shared.model_adapters import SklearnAdapter, MarkovAdapter, HttpModelAdapter
+from src.shared.model_adapters import (
+    SklearnAdapter,
+    MarkovAdapter,
+    HttpModelAdapter,
+)
 
 class TestModelAdaptersComprehensive(unittest.TestCase):
 
     def setUp(self):
         # This setup will be used for patching joblib in the SklearnAdapter test
-        self.joblib_patcher = patch('shared.model_adapters.joblib.load')
+        self.joblib_patcher = patch('src.shared.model_adapters.joblib.load')
         self.mock_joblib_load = self.joblib_patcher.start()
 
     def tearDown(self):
@@ -45,7 +49,7 @@ class TestModelAdaptersComprehensive(unittest.TestCase):
         """Test SklearnAdapter returns a default value if the model failed to load."""
         self.mock_joblib_load.side_effect = FileNotFoundError
         
-        with self.assertLogs('shared.model_adapters', level='ERROR') as cm:
+        with self.assertLogs('src.shared.model_adapters', level='ERROR') as cm:
             adapter = SklearnAdapter(model_uri="/bad/path/model.joblib")
             self.assertIn("model file not found", cm.output[0])
         
@@ -56,9 +60,9 @@ class TestModelAdaptersComprehensive(unittest.TestCase):
     def test_markov_adapter_success(self):
         """Test the MarkovAdapter successfully calls the generator function."""
         # The MarkovAdapter's model is a function, so we patch that function
-        with patch('shared.model_adapters.generate_dynamic_tarpit_page', return_value="<p>Generated Text</p>") as mock_generate:
+        with patch('src.shared.model_adapters.generate_dynamic_tarpit_page', return_value="<p>Generated Text</p>") as mock_generate:
             # Re-import the module within the patch context if MARKOV_AVAILABLE is set at import time
-            with patch('shared.model_adapters.MARKOV_AVAILABLE', True):
+            with patch('src.shared.model_adapters.MARKOV_AVAILABLE', True):
                  adapter = MarkovAdapter(model_uri="N/A") # URI is not used for this adapter
                  result = adapter.predict({}) # Data is not used
                  
@@ -67,12 +71,12 @@ class TestModelAdaptersComprehensive(unittest.TestCase):
 
     def test_markov_adapter_unavailable(self):
         """Test MarkovAdapter's behavior when the generator module is not available."""
-        with patch('shared.model_adapters.MARKOV_AVAILABLE', False):
+        with patch('src.shared.model_adapters.MARKOV_AVAILABLE', False):
             adapter = MarkovAdapter(model_uri="N/A")
             result = adapter.predict({})
             self.assertEqual(result, "Error: Markov model not available.")
 
-    @patch('shared.model_adapters.httpx.Client')
+    @patch('src.shared.model_adapters.httpx.Client')
     def test_http_adapter_success(self, mock_http_client):
         """Test the HttpModelAdapter for a successful API call."""
         mock_response = MagicMock()
@@ -94,7 +98,7 @@ class TestModelAdaptersComprehensive(unittest.TestCase):
         self.assertIn("Authorization", mock_client_instance.post.call_args[1]['headers'])
         self.assertEqual(mock_client_instance.post.call_args[1]['headers']['Authorization'], "Bearer test-key")
 
-    @patch('shared.model_adapters.httpx.Client')
+    @patch('src.shared.model_adapters.httpx.Client')
     def test_http_adapter_api_error(self, mock_http_client):
         """Test the HttpModelAdapter when the remote API returns an error status."""
         mock_response = MagicMock(spec=httpx.Response)
@@ -109,7 +113,7 @@ class TestModelAdaptersComprehensive(unittest.TestCase):
         
         adapter = HttpModelAdapter(model_uri="http://model-api/predict")
         
-        with self.assertLogs('shared.model_adapters', level='ERROR') as cm:
+        with self.assertLogs('src.shared.model_adapters', level='ERROR') as cm:
             result = adapter.predict({})
             self.assertIn("HTTP error 500", cm.output[0])
         
