@@ -64,11 +64,17 @@
     <div class="container">
         <h1>Admin Dashboard</h1>
         <p>Real-time metrics for the AI Scraping Defense system.</p>
-        <div id="error-message"></div>
-        <div id="metrics-display" class="metrics-grid">
-            <p>Loading metrics...</p>
+        <div id="metrics-container">
+            <div id="error-message"></div>
+            <div id="metrics-display" class="metrics-grid">
+                <p>Loading metrics...</p>
+            </div>
+            <div id="last-updated">Last updated: Never</div>
         </div>
-        <div id="last-updated">Last updated: Never</div>
+
+        <div id="blocklist-container"></div>
+
+        <div id="manual-ip-block"></div>
     </div>
 
     <script>

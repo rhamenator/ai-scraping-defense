@@ -9,13 +9,18 @@ from typing import Optional, Any
 # We only check for the library's existence here to set a flag.
 # The actual imports will happen inside the functions that need them.
 try:
-    from kubernetes import config as k8s_config, client
+    from kubernetes import config as k8s_config, client as k8s_client
+    from kubernetes.client.rest import ApiException as ImportedK8sApiException
+
+    client = k8s_client
     KUBE_AVAILABLE = True
-    K8sApiException = client.exceptions.ApiException
+    K8sApiException = ImportedK8sApiException
 except Exception:  # pragma: no cover - kubernetes may not be installed
     KUBE_AVAILABLE = False
     k8s_config = None
+    k8s_client = None
     client = None
+
     class K8sApiException(Exception):
         def __init__(self, status=0):
             self.status = status
@@ -61,7 +66,6 @@ def get_kubernetes_api() -> "Optional[Any]":
     """Initializes and returns the Kubernetes CoreV1Api client."""
     if not KUBE_AVAILABLE: return None
 
-    from kubernetes import config as k8s_config, client
     try:
         k8s_config.load_incluster_config()
         logging.info("Loaded in-cluster Kubernetes configuration.")
@@ -72,18 +76,15 @@ def get_kubernetes_api() -> "Optional[Any]":
         except k8s_config.ConfigException:
             logging.error("Could not configure Kubernetes client.")
             return None
-    return client.CoreV1Api()
+    return k8s_client.CoreV1Api()
 
 def update_configmap(api: Any, content: str):
     """Creates or updates a ConfigMap in Kubernetes."""
     if not KUBE_AVAILABLE: return
-    
-    from kubernetes import client
-    from kubernetes.client.rest import ApiException as K8sApiException
 
-    body = client.V1ConfigMap(
+    body = k8s_client.V1ConfigMap(
         api_version="v1", kind="ConfigMap",
-        metadata=client.V1ObjectMeta(name=CONFIGMAP_NAME),
+        metadata=k8s_client.V1ObjectMeta(name=CONFIGMAP_NAME),
         data={"robots.txt": content}
     )
     try:
