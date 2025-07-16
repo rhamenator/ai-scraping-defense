@@ -28,32 +28,32 @@ This sequence diagram illustrates the interaction between the components during 
 
 ```mermaid
 sequenceDiagram
-    participant B as Bot
-    participant N as Nginx Proxy
-    participant R as Redis
-    participant A as AI Service
-    participant E as Escalation Engine
-    participant L as LLM API
-    
+    participant B as 👾 Bot
+    participant N as 🛡️ Nginx Proxy
+    participant R as ⚡ Redis
+    participant A as 🧩 AI Service
+    participant E as 🧠 Escalation Engine
+    participant L as ☁️ LLM API
+
     B->>+N: Makes Suspicious Request
     N->>+R: Check IP in Blocklist
     R-->>-N: IP Not Found
-    
+
     Note over N: Request seems suspicious
     N-->>B: (Proxies request to backend)
     N->>+A: Forward Request Metadata
     A-->>-N: 200 OK (Acknowledged)
-    
+
     A->>+E: Escalate for Analysis
     E-->>-A: 200 OK (Accepted)
-    
+
     E->>+R: Analyze Request Frequency
     R-->>-E: Frequency Data
-    
+
     Note over E: Heuristics & ML Model Score is high
     E->>+L: Request Final Verdict
     L-->>-E: Response: "is_bot: true"
-    
+
     Note over E: Bot confirmed. Add to blocklist.
     E->>+R: SADD blocklist, <Bot_IP>
     R-->>-E: OK

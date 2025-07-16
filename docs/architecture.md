@@ -29,39 +29,39 @@ This diagram illustrates the high-level relationships between the system's compo
 graph TD
     subgraph "User / Bot Traffic"
         direction LR
-        User[<font size=5>👤</font><br>User]
-        Bot[<font size=5>🤖</font><br>Bot]
+        User["👤 User"]
+        Bot["🤖 Bot"]
     end
 
     subgraph "Defense System"
         direction TB
-        Nginx[<font size=5>🛡️</font><br>Nginx Proxy w/ Lua]
+        Nginx["🛡️ Nginx Proxy w/ Lua"]
         
         subgraph "Analysis & Logic (Python Microservices)"
             direction LR
-            AIService[AI Service Webhook]
-            EscalationEngine[<font size=5>🧠</font><br>Escalation Engine]
-            AdminUI[<font size=5>📊</font><br>Admin UI]
+            AIService["AI Service Webhook"]
+            EscalationEngine["🧠 Escalation Engine"]
+            AdminUI["📊 Admin UI"]
         end
 
         subgraph "Countermeasures"
-            TarpitAPI[<font size=5>🕸️</font><br>Tarpit API]
+            TarpitAPI["🕸️ Tarpit API"]
         end
 
         subgraph "Data & State Stores"
             direction LR
-            Redis[<font size=5>⚡</font><br>Redis<br>(Blocklist, Cache)]
-            Postgres[<font size=5>🐘</font><br>PostgreSQL<br>(Markov Data)]
+            Redis["⚡ Redis\n(Blocklist, Cache)"]
+            Postgres["🐘 PostgreSQL\n(Markov Data)"]
         end
     end
     
     subgraph "External Services"
-        LLM[<font size=5>☁️</font><br>LLM APIs<br>(OpenAI, Mistral, etc.)]
+        LLM["☁️ LLM APIs\n(OpenAI, Mistral, etc.)"]
     end
 
     User -- "Legitimate Request" --> Nginx
     Bot -- "Suspicious Request" --> Nginx
-    
+
     Nginx -- "Block Immediately" --> Bot
     Nginx -- "Forward for Analysis" --> AIService
     Nginx -- "Serve Content" --> User
@@ -76,15 +76,69 @@ graph TD
     AdminUI -- "Manages" --> Redis
 
     TarpitAPI -- "Reads" --> Postgres
-end
 ```
 
 ## Real-time Request Processing Flow
 
 ```mermaid
 graph TD
-    User[User] -->|Legitimate Request| Nginx
-    Bot[Bot] -->|Suspicious Request| Nginx
+    User["👤 User"] -->|Legitimate Request| Nginx
+    Bot["🤖 Bot"] -->|Suspicious Request| Nginx
+
+    Nginx["🛡️ Nginx Proxy w/ Lua"] -->|Block Immediately| Bot
+    Nginx -->|Forward for Analysis| AIService["AI Service Webhook"]
+    Nginx -->|Serve Content| User
+    Nginx -->|Redirect to Tarpit| Bot
+
+    AIService -->|Queues Request| EscalationEngine["🧠 Escalation Engine"]
+    EscalationEngine -->|Reads/Writes| Redis["⚡ Redis\n(Blocklist, Cache)"]
+    EscalationEngine -->|Reads| Postgres["🐘 PostgreSQL\n(Markov Data)"]
+    EscalationEngine -->|Calls for Final Verdict| LLM["☁️ LLM APIs\n(OpenAI, Mistral, etc.)"]
+    EscalationEngine -->|Updates| AdminUI["📊 Admin UI"]
+
+    AdminUI -->|Manages| Redis
+
+    TarpitAPI["🕸️ Tarpit API"] -->|Reads| Postgres
+```
+
+## Key Data Flows
+
+```mermaid
+graph TD
+    subgraph "User / Bot Traffic"
+        direction LR
+        User["👤 User"]
+        Bot["🤖 Bot"]
+    end
+
+    subgraph "Defense System"
+        direction TB
+        Nginx["🛡️ Nginx Proxy w/ Lua"]
+
+        subgraph "Analysis & Logic (Python Microservices)"
+            direction LR
+            AIService["AI Service Webhook"]
+            EscalationEngine["🧠 Escalation Engine"]
+            AdminUI["📊 Admin UI"]
+        end
+
+        subgraph "Countermeasures"
+            TarpitAPI["🕸️ Tarpit API"]
+        end
+
+        subgraph "Data & State Stores"
+            direction LR
+            Redis["⚡ Redis\n(Blocklist, Cache)"]
+            Postgres["🐘 PostgreSQL\n(Markov Data)"]
+        end
+    end
+
+    subgraph "External Services"
+        LLM["☁️ LLM APIs\n(OpenAI, Mistral, etc.)"]
+    end
+
+    User -->|Legitimate Request| Nginx
+    Bot -->|Suspicious Request| Nginx
 
     Nginx -->|Block Immediately| Bot
     Nginx -->|Forward for Analysis| AIService
@@ -100,61 +154,4 @@ graph TD
     AdminUI -->|Manages| Redis
 
     TarpitAPI -->|Reads| Postgres
-end
-```
-
-## Key Data Flows
-
-```mermaid
-graph TD
-    subgraph "User / Bot Traffic"
-        direction LR
-        User[<font size=5>👤</font><br>User]
-        Bot[<font size=5>🤖</font><br>Bot]
-    end
-
-    subgraph "Defense System"
-        direction TB
-        Nginx[<font size=5>🛡️</font><br>Nginx Proxy w/ Lua]
-
-        subgraph "Analysis & Logic (Python Microservices)"
-            direction LR
-            AIService[AI Service Webhook]
-            EscalationEngine[<font size=5>🧠</font><br>Escalation Engine]
-            AdminUI[<font size=5>📊</font><br>Admin UI]
-        end
-
-        subgraph "Countermeasures"
-            TarpitAPI[<font size=5>🕸️</font><br>Tarpit API]
-        end
-
-        subgraph "Data & State Stores"
-            direction LR
-            Redis[<font size=5>⚡</font><br>Redis<br>(Blocklist, Cache)]
-            Postgres[<font size=5>🐘</font><br>PostgreSQL<br>(Markov Data)]
-        end
-    end
-
-    subgraph "External Services"
-        LLM[<font size=5>☁️</font><br>LLM APIs<br>(OpenAI, Mistral, etc.)]
-    end
-
-    User -- "Legitimate Request" --> Nginx
-    Bot -- "Suspicious Request" --> Nginx
-
-    Nginx -- "Block Immediately" --> Bot
-    Nginx -- "Forward for Analysis" --> AIService
-    Nginx -- "Serve Content" --> User
-    Nginx -- "Redirect to Tarpit" --> Bot
-
-    AIService -- "Queues Request" --> EscalationEngine
-    EscalationEngine -- "Reads/Writes" --> Redis
-    EscalationEngine -- "Reads" --> Postgres
-    EscalationEngine -- "Calls for Final Verdict" --> LLM
-    EscalationEngine -- "Updates" --> AdminUI
-
-    AdminUI -- "Manages" --> Redis
-
-    TarpitAPI -- "Reads" --> Postgres
-end
 ```
