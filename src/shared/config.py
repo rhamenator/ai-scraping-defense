@@ -52,6 +52,22 @@ APP_ENV = os.getenv("APP_ENV", "production")
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
+# Optional Cloud Features
+ENABLE_GLOBAL_CDN = os.getenv("ENABLE_GLOBAL_CDN", "false").lower() == "true"
+CLOUD_CDN_PROVIDER = os.getenv("CLOUD_CDN_PROVIDER", "cloudflare")
+CLOUD_CDN_API_TOKEN = os.getenv("CLOUD_CDN_API_TOKEN") or get_secret("CLOUD_CDN_API_TOKEN_FILE")
+
+ENABLE_DDOS_PROTECTION = os.getenv("ENABLE_DDOS_PROTECTION", "false").lower() == "true"
+DDOS_PROTECTION_PROVIDER_URL = os.getenv("DDOS_PROTECTION_PROVIDER_URL")
+DDOS_PROTECTION_API_KEY = os.getenv("DDOS_PROTECTION_API_KEY") or get_secret("DDOS_PROTECTION_API_KEY_FILE")
+
+ENABLE_MANAGED_TLS = os.getenv("ENABLE_MANAGED_TLS", "false").lower() == "true"
+TLS_PROVIDER = os.getenv("TLS_PROVIDER", "certbot")
+TLS_EMAIL = os.getenv("TLS_EMAIL")
+
+ENABLE_WAF = os.getenv("ENABLE_WAF", "false").lower() == "true"
+WAF_RULES_PATH = os.getenv("WAF_RULES_PATH", "/etc/nginx/waf_rules.conf")
+
 def get_config() -> Dict[str, Any]:
     """Returns all configuration as a dictionary"""
     return {k: v for k, v in globals().items() 

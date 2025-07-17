@@ -11,6 +11,7 @@ This project provides a multi-layered, microservice-based defense system against
 - **Rate Limiting:** Basic per-IP request limits via Nginx to slow abusive clients.
 - **Community Blocklist:** Optional daemon to sync IPs from a shared blocklist service.
 - **Containerized:** Fully containerized with Docker and ready for deployment on Kubernetes.
+- **Optional Cloud Integrations:** Toggle CDN caching, DDoS mitigation, managed TLS, and a Web Application Firewall using environment variables.
 
 ## Getting Started (Local Development)
 
