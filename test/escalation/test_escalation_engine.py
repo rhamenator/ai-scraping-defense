@@ -1,6 +1,7 @@
 # test/escalation/escalation_engine.test.py
 import unittest
 from unittest.mock import patch, MagicMock, AsyncMock
+import httpx
 import datetime
 import json
 from fastapi.testclient import TestClient
@@ -160,6 +161,93 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(data['is_bot_decision']) 
         self.mocks['trigger_captcha_challenge'].assert_called_once()
         self.mocks['forward_to_webhook'].assert_not_called()
+
+    async def test_escalate_endpoint_invalid_ip(self):
+        """IP addresses that can't be parsed should return 400."""
+        response = self.client.post(
+            "/escalate",
+            json={"timestamp": "2023-01-01T12:00:00Z", "ip": "not-an-ip", "source": "test", "method": "GET"},
+            headers={"X-API-Key": "testkey"}
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Invalid IP address")
+        self.mocks['check_ip_reputation'].assert_not_called()
+
+    async def test_escalate_endpoint_missing_api_key(self):
+        """Requests without the required API key should be rejected."""
+        with patch('src.escalation.escalation_engine.ESCALATION_API_KEY', 'testkey'):
+            response = self.client.post(
+                "/escalate",
+                json={"timestamp": "2023-01-01T12:00:00Z", "ip": "7.7.7.7", "source": "test", "method": "GET"}
+            )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["detail"], "Unauthorized")
+
+    async def test_escalate_endpoint_incorrect_api_key(self):
+        """Requests with an incorrect API key should be rejected."""
+        with patch('src.escalation.escalation_engine.ESCALATION_API_KEY', 'testkey'):
+            response = self.client.post(
+                "/escalate",
+                json={"timestamp": "2023-01-01T12:00:00Z", "ip": "8.8.8.8", "source": "test", "method": "GET"},
+                headers={"X-API-Key": "wrong"}
+            )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["detail"], "Unauthorized")
+
+
+class TestExternalServiceFunctions(unittest.IsolatedAsyncioTestCase):
+    """Direct tests for IP reputation and external classification helpers."""
+
+    async def test_check_ip_reputation_timeout(self):
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value.get.side_effect = httpx.TimeoutException("timeout")
+        with patch('escalation.escalation_engine.httpx.AsyncClient', return_value=mock_client), \
+             patch('escalation.escalation_engine.ENABLE_IP_REPUTATION', True), \
+             patch('escalation.escalation_engine.IP_REPUTATION_API_URL', 'http://api'): \
+            result = await escalation_engine.check_ip_reputation('1.1.1.1')
+
+        self.assertIsNone(result)
+
+    async def test_check_ip_reputation_json_error(self):
+        mock_client = AsyncMock()
+        fake_response = MagicMock()
+        fake_response.raise_for_status.return_value = None
+        fake_response.json.side_effect = json.JSONDecodeError('bad', 'doc', 0)
+        fake_response.text = 'bad json'
+        mock_client.__aenter__.return_value.get.return_value = fake_response
+        with patch('escalation.escalation_engine.httpx.AsyncClient', return_value=mock_client), \
+             patch('escalation.escalation_engine.ENABLE_IP_REPUTATION', True), \
+             patch('escalation.escalation_engine.IP_REPUTATION_API_URL', 'http://api'):
+            result = await escalation_engine.check_ip_reputation('2.2.2.2')
+
+        self.assertIsNone(result)
+
+    async def test_classify_with_external_api_timeout(self):
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value.post.side_effect = httpx.TimeoutException("timeout")
+        metadata = RequestMetadata(timestamp="2023-01-01T12:00:00Z", ip="3.3.3.3", source="test", method="GET")
+        with patch('escalation.escalation_engine.httpx.AsyncClient', return_value=mock_client), \
+             patch('escalation.escalation_engine.EXTERNAL_API_URL', 'http://api'):
+            result = await escalation_engine.classify_with_external_api(metadata)
+
+        self.assertIsNone(result)
+
+    async def test_classify_with_external_api_json_error(self):
+        mock_client = AsyncMock()
+        fake_response = MagicMock()
+        fake_response.raise_for_status.return_value = None
+        fake_response.json.side_effect = json.JSONDecodeError('bad', 'doc', 0)
+        fake_response.text = 'bad json'
+        mock_client.__aenter__.return_value.post.return_value = fake_response
+        metadata = RequestMetadata(timestamp="2023-01-01T12:00:00Z", ip="4.4.4.4", source="test", method="GET")
+        with patch('escalation.escalation_engine.httpx.AsyncClient', return_value=mock_client), \
+             patch('escalation.escalation_engine.EXTERNAL_API_URL', 'http://api'):
+            result = await escalation_engine.classify_with_external_api(metadata)
+
+        self.assertIsNone(result)
 
 if __name__ == '__main__':
     unittest.main()
