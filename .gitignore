@@ -129,6 +129,7 @@ archives/
 # Miscellaneous
 *.DS_Store
 chats/
+old/
 
 # Temporary files
 *~
