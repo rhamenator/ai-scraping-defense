@@ -92,6 +92,7 @@ This setup uses Docker Compose to orchestrate all the necessary services on your
 - `docker-compose.yaml`: Orchestrates the services for local development.
 - `Dockerfile`: A single Dockerfile used to build the base image for all Python services.
 - `markov-train-rs/`: Rust utility for loading Markov training data into PostgreSQL.
+- `jszip-rs/`: Rust implementation of the fake JavaScript archive generator.
 
 ## Markov Training Utility (Rust)
 
@@ -113,3 +114,15 @@ Provide the path to a corpus file:
 ```
 
 Ensure the database credentials are available through environment variables or a password file as described above.
+
+## JS ZIP Generator (Rust)
+
+`jszip-rs` provides an optional Rust backend for generating the large fake JavaScript archives used by the tarpit. It can be built with Cargo similar to `markov-train-rs`:
+
+```bash
+cd jszip-rs
+cargo build --release
+```
+The build requires Python development headers (e.g. `python3-dev` on Debian-based systems) so that PyO3 can link against `libpython`.
+
+The resulting `jszip_rs` Python module will be used automatically if available.
