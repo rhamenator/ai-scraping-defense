@@ -7,8 +7,11 @@ import datetime
 import os
 
 # --- Configuration ---
-HONEYPOT_LOG_FILE = "/app/logs/honeypot_hits.log" # Ensure /app/logs is mounted volume
-os.makedirs(os.path.dirname(HONEYPOT_LOG_FILE), exist_ok=True) # Create log dir if needed
+HONEYPOT_LOG_FILE = globals().get(
+    "HONEYPOT_LOG_FILE",
+    os.getenv("HONEYPOT_LOG_FILE", "/app/logs/honeypot_hits.log"),
+)
+os.makedirs(os.path.dirname(HONEYPOT_LOG_FILE), exist_ok=True)
 
 # --- Logger Setup ---
 

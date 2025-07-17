@@ -87,6 +87,7 @@ ALERT_LOG_FILE = os.path.join(LOG_DIR, "alert_events.log")
 ERROR_LOG_FILE = os.path.join(LOG_DIR, "aiservice_errors.log")
 COMMUNITY_REPORT_LOG_FILE = os.path.join(LOG_DIR, "community_report.log")
 os.makedirs(LOG_DIR, exist_ok=True)
+WEBHOOK_API_KEY = os.getenv("WEBHOOK_API_KEY")
 
 # --- Load Secrets ---
 ALERT_SMTP_PASSWORD = get_secret("ALERT_SMTP_PASSWORD_FILE")
@@ -279,8 +280,10 @@ async def send_alert(event_data: WebhookEvent):
 # --- Simple Webhook Endpoint for tests ---
 @app.route("/webhook", methods=["POST"])
 def webhook_receiver():
-    api_key_required = os.getenv("WEBHOOK_API_KEY")
-    if api_key_required and request.headers.get("X-API-Key") != api_key_required:
+    if WEBHOOK_API_KEY is None:
+        logger.error("WEBHOOK_API_KEY not configured; rejecting request")
+        return jsonify({"error": "Server misconfigured"}), 503
+    if request.headers.get("X-API-Key") != WEBHOOK_API_KEY:
         return jsonify({"error": "Unauthorized"}), 401
     payload = request.get_json() or {}
     redis_conn = get_redis_connection()

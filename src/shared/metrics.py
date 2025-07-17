@@ -126,24 +126,44 @@ def example_timed_request_handler():
     time.sleep(0.1)
 
 def observe_histogram_metric(metric_instance, value, labels=None):
-    if labels: metric_instance.labels(**labels).observe(value)
-    else: metric_instance.observe(value)
+    if not isinstance(metric_instance, Histogram):
+        raise TypeError("observe_histogram_metric requires a Histogram")
+    if labels:
+        metric_instance.labels(**labels).observe(value)
+    else:
+        metric_instance.observe(value)
 
 def increment_counter_metric(metric_instance, labels=None):
-    if labels: metric_instance.labels(**labels).inc()
-    else: metric_instance.inc()
+    if not isinstance(metric_instance, Counter):
+        raise TypeError("increment_counter_metric requires a Counter")
+    if labels:
+        metric_instance.labels(**labels).inc()
+    else:
+        metric_instance.inc()
 
 def set_gauge_metric(metric_instance, value, labels=None):
-    if labels: metric_instance.labels(**labels).set(value)
-    else: metric_instance.set(value)
+    if not isinstance(metric_instance, Gauge):
+        raise TypeError("set_gauge_metric requires a Gauge")
+    if labels:
+        metric_instance.labels(**labels).set(value)
+    else:
+        metric_instance.set(value)
 
 def increment_gauge_metric(metric_instance, labels=None):
-    if labels: metric_instance.labels(**labels).inc()
-    else: metric_instance.inc()
+    if not isinstance(metric_instance, Gauge):
+        raise TypeError("increment_gauge_metric requires a Gauge")
+    if labels:
+        metric_instance.labels(**labels).inc()
+    else:
+        metric_instance.inc()
 
 def decrement_gauge_metric(metric_instance, labels=None):
-    if labels: metric_instance.labels(**labels).dec()
-    else: metric_instance.dec()
+    if not isinstance(metric_instance, Gauge):
+        raise TypeError("decrement_gauge_metric requires a Gauge")
+    if labels:
+        metric_instance.labels(**labels).dec()
+    else:
+        metric_instance.dec()
 
 def get_metrics():
     return generate_latest(REGISTRY)
