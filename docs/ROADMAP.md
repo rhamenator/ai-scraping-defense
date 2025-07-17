@@ -13,6 +13,7 @@ These features and enhancements are prioritized for near-term development:
 * **Improved Admin UI** – Expand dashboard analytics for better visibility into bot trends and blocked traffic.  
 * **Better IP Reputation Handling** – Enhance integrations with public/community blocklists for real-time threat assessment.
 * **Community Blocklist Sync** – Periodically pull shared threat data and populate the local Redis blocklist.
+* **Blocklist Sync Daemon** – Background process to keep the Redis blocklist up to date.
 * **Automated Testing Suite** – Develop a suite of test cases to validate detection mechanisms and tarpitting responses.  
 * **Refined Markov Chain Tarpit** – Optimize PostgreSQL-backed deterministic content generation for better bot engagement.
 
