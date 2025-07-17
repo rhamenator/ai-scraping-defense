@@ -18,7 +18,10 @@ os.makedirs(os.path.dirname(HONEYPOT_LOG_FILE), exist_ok=True)
 # Create a specific logger instance
 honeypot_logger = logging.getLogger('honeypot_logger')
 honeypot_logger.setLevel(logging.INFO)
-honeypot_logger.propagate = False # Prevent duplicating logs to root logger
+honeypot_logger.propagate = False  # Prevent duplicating logs to root logger
+# Ensure attribute exists for tests that patch logging.getLogger
+if not hasattr(honeypot_logger, 'handlers'):
+    honeypot_logger.handlers = []
 
 # Create a JSON formatter
 class JsonFormatter(logging.Formatter):

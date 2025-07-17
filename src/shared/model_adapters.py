@@ -104,7 +104,7 @@ class HttpModelAdapter(BaseModelAdapter):
         # For this adapter, the model_uri is the full URL.
         if not self.model_uri:
             raise ValueError("MODEL_URI must be set for HttpModelAdapter")
-        self.api_key = os.getenv("EXTERNAL_API_KEY")
+        self.api_key = self.config.get("api_key") or os.getenv("EXTERNAL_API_KEY")
 
     def predict(self, data: Any, **kwargs) -> Dict[str, Any]:
         headers = kwargs.get("headers", {})
@@ -116,6 +116,10 @@ class HttpModelAdapter(BaseModelAdapter):
                 response = client.post(self.model_uri, json=data, headers=headers, timeout=20.0)
                 response.raise_for_status()
                 return response.json()
+        except httpx.HTTPStatusError as e:
+            status = e.response.status_code
+            logging.error(f"HTTP error {status} calling remote model API")
+            return {"error": f"Model API returned status {status}"}
         except Exception as e:
             logging.error(f"Failed to call remote model API at {self.model_uri}: {e}")
             return {"error": "Could not connect to model API"}

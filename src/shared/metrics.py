@@ -85,7 +85,11 @@ ESCALATION_WEBHOOK_ERRORS_REQUEST = Counter('escalation_webhook_errors_request_t
 ESCALATION_WEBHOOK_ERRORS_UNEXPECTED = Counter('escalation_webhook_errors_unexpected_total', 'Total unexpected errors sending escalation webhooks.', registry=REGISTRY)
 
 CAPTCHA_CHALLENGES_TRIGGERED = Counter('captcha_challenges_triggered_total', 'Total CAPTCHA challenges triggered.', registry=REGISTRY)
-ESCALATION_REQUESTS_RECEIVED = Counter('escalation_requests_received_total', 'Total requests received by escalation engine.', registry=REGISTRY)
+ESCALATION_REQUESTS_RECEIVED = Counter(
+    'escalation_requests_received_total',
+    'Total number of requests received by the escalation engine',
+    registry=REGISTRY,
+)
 
 BOTS_DETECTED_IP_REPUTATION = Counter('bots_detected_ip_reputation_total', 'Total bots detected primarily by IP reputation.', registry=REGISTRY)
 BOTS_DETECTED_HIGH_SCORE = Counter('bots_detected_high_score_total', 'Total bots detected by high combined score.', registry=REGISTRY)
