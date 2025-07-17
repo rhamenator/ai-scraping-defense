@@ -10,6 +10,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+try:
+    from jszip_rs import generate_realistic_filename as rs_generate_filename
+    from jszip_rs import create_fake_js_zip as rs_create_zip
+    RUST_ENABLED = True
+    logger.info("jszip_rs module loaded; using Rust implementation where possible.")
+except Exception as e:
+    RUST_ENABLED = False
+    logger.warning(f"Could not import jszip_rs: {e}. Falling back to Python implementation.")
+
 # --- Configuration ---
 DEFAULT_ARCHIVE_DIR = "/app/fake_archives" # Should match volume mount in docker-compose
 NUM_FAKE_FILES = 15
@@ -38,6 +47,11 @@ def generate_random_string(length):
 
 def generate_realistic_filename():
     """Generates a somewhat plausible JS filename."""
+    if RUST_ENABLED:
+        try:
+            return rs_generate_filename()
+        except Exception as e:
+            logger.warning(f"jszip_rs error generating filename: {e}; using Python fallback")
     prefix = random.choice(FILENAME_PREFIXES)
     suffix = random.choice(FILENAME_SUFFIXES)
     random_hash = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -45,6 +59,11 @@ def generate_realistic_filename():
 
 def create_fake_js_zip(output_dir=DEFAULT_ARCHIVE_DIR, num_files=NUM_FAKE_FILES):
     """Creates a ZIP archive with fake JS files."""
+    if RUST_ENABLED:
+        try:
+            return rs_create_zip(output_dir, num_files)
+        except Exception as e:
+            logger.warning(f"jszip_rs error creating archive: {e}; falling back to Python implementation")
     try:
         os.makedirs(output_dir, exist_ok=True)
     except Exception as e:
