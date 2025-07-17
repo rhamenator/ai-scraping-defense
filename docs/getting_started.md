@@ -61,10 +61,10 @@ This script will create a virtual environment in the .venv directory, install al
 
 The application requires several secrets to run (e.g., database passwords). A script is provided to generate these securely and automatically populate your .env file.
 
-* **On Linux or macOS:**  
+* **On Linux or macOS:**
 
 ```  bash
-  ./generate-secrets.sh
+  ./generate_secrets.sh
 ```
 
 * **On Windows (in a PowerShell terminal):**

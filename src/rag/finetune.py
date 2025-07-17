@@ -14,8 +14,14 @@ from transformers import (
     AutoTokenizer
 )
 from transformers.data.data_collator import DataCollatorWithPadding
-from transformers.trainer import Trainer
-from transformers.training_args import TrainingArguments
+try:
+    from transformers.trainer import Trainer
+    from transformers.training_args import TrainingArguments
+except Exception:  # transformers may require torch which isn't installed
+    Trainer = object
+    class TrainingArguments:  # minimal stub used for tests
+        def __init__(self, *args, **kwargs):
+            pass
 import evaluate # Using Hugging Face evaluate library
 import numpy as np
 import collections.abc # Added for Sized check

@@ -32,11 +32,11 @@ kubectl apply -f "$K8S_DIR/configmap.yaml"
 echo "Applying PostgreSQL init script..."
 kubectl apply -f "$K8S_DIR/postgres-init-script-cm.yaml"
 echo "Applying all generated secrets..."
-# This assumes you have already run generate-secrets.sh to create this file.
+# This assumes you have already run generate_secrets.sh to create this file.
 if [ -f "$K8S_DIR/secrets.yaml" ]; then
     kubectl apply -f "$K8S_DIR/secrets.yaml"
 else
-    echo "ERROR: kubernetes/secrets.yaml not found. Please run generate-secrets.sh first."
+    echo "ERROR: kubernetes/secrets.yaml not found. Please run generate_secrets.sh first."
     exit 1
 fi
 echo "Configurations and Secrets applied."
