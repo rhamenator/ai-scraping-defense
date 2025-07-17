@@ -302,11 +302,12 @@ async def check_ip_reputation(ip: str) -> Optional[Dict[str, Any]]:
 
 # --- Pydantic Models (Preserved) ---
 class RequestMetadata(BaseModel):
-    timestamp: Union[str, datetime.datetime] 
+    timestamp: Union[str, datetime.datetime]
     ip: str
     user_agent: Optional[str] = None
     referer: Optional[str] = None
     path: Optional[str] = None
+    method: Optional[str] = None
     headers: Optional[Dict[str, str]] = None
     source: str
 
@@ -323,15 +324,30 @@ def run_heuristic_and_model_analysis(metadata: RequestMetadata, ip_rep_result: O
     if isinstance(log_entry_dict.get('timestamp'), datetime.datetime): 
         log_entry_dict['timestamp'] = log_entry_dict['timestamp'].isoformat()
 
-    ua = (metadata.user_agent or "").lower(); path = metadata.path or ''; 
+    ua = (metadata.user_agent or "").lower()
+    path = metadata.path or ''
+    headers = metadata.headers or {}
+    method = (metadata.method or headers.get('x-original-method') or headers.get('method') or 'GET').upper()
+
     is_known_benign = any(good in ua for good in KNOWN_BENIGN_CRAWLERS_UAS)
-    if any(bad in ua for bad in KNOWN_BAD_UAS) and not is_known_benign: rule_score += 0.7
-    if not metadata.user_agent: rule_score += 0.5
-    if is_path_disallowed(path) and not is_known_benign: rule_score += 0.6
-    if frequency_features.get('count', 0) > 60 : rule_score += 0.3
-    elif frequency_features.get('count', 0) > 30 : rule_score += 0.1
-    if frequency_features.get('time_since', -1.0) != -1.0 and frequency_features.get('time_since', -1.0) < 0.3: rule_score += 0.2
-    if is_known_benign: rule_score -= 0.5
+    if any(bad in ua for bad in KNOWN_BAD_UAS) and not is_known_benign:
+        rule_score += 0.7
+    if not metadata.user_agent:
+        rule_score += 0.5
+    if is_path_disallowed(path) and not is_known_benign:
+        rule_score += 0.6
+    if method not in {"GET", "HEAD"}:
+        rule_score += 0.2
+    if 'accept-language' not in {k.lower() for k in headers.keys()}:
+        rule_score += 0.1
+    if frequency_features.get('count', 0) > 60:
+        rule_score += 0.3
+    elif frequency_features.get('count', 0) > 30:
+        rule_score += 0.1
+    if frequency_features.get('time_since', -1.0) != -1.0 and frequency_features.get('time_since', -1.0) < 0.3:
+        rule_score += 0.2
+    if is_known_benign:
+        rule_score -= 0.5
     rule_score = max(0.0, min(1.0, rule_score))
 
     # --- THIS IS THE PRIMARY CHANGE ---
@@ -368,15 +384,21 @@ async def classify_with_local_llm_api(metadata: RequestMetadata) -> Optional[boo
     if not LOCAL_LLM_API_URL or not LOCAL_LLM_MODEL: return None
     increment_counter_metric(LOCAL_LLM_CHECKS_RUN)
     logger.info(f"Attempting classification for IP {metadata.ip} using local LLM API ({LOCAL_LLM_MODEL})...")
-    prompt = f"Analyze: IP={metadata.ip}, UA={metadata.user_agent or 'N/A'}, Path={metadata.path or 'N/A'}. Classify: MALICIOUS_BOT, BENIGN_CRAWLER, or HUMAN." 
-    api_payload = { "model": LOCAL_LLM_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": 0.1, "stream": False }
+    safe_metadata = metadata.model_dump()
+    try:
+        prompt_json = json.dumps(safe_metadata, ensure_ascii=False)
+    except Exception:
+        prompt_json = json.dumps({"ip": metadata.ip, "path": metadata.path})
+    prompt = f"Analyze the following request JSON and classify as MALICIOUS_BOT, BENIGN_CRAWLER, or HUMAN: {prompt_json}"
+    api_payload = {"model": LOCAL_LLM_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": 0.1, "stream": False}
     response = None
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(LOCAL_LLM_API_URL, json=api_payload, timeout=LOCAL_LLM_TIMEOUT)
             response.raise_for_status(); result = response.json()
             content = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip().upper()
-            logger.info(f"Local LLM API response for {metadata.ip}: '{content}'")
+            safe_content = content.replace("\n", " ")[:200]
+            logger.info(f"Local LLM API response for {metadata.ip}: '{safe_content}'")
             if "MALICIOUS_BOT" in content: return True
             elif "HUMAN" in content or "BENIGN_CRAWLER" in content: return False
             else: logger.warning(f"Unexpected classification LLM ({metadata.ip}): '{content}'"); increment_counter_metric(LOCAL_LLM_ERRORS_UNEXPECTED_RESPONSE); return None
