@@ -41,12 +41,14 @@ except ImportError as e:
 
 try:
     # Uses the corrected ip_flagger with the renamed function
-    from .ip_flagger import flag_suspicious_ip
+    from .ip_flagger import flag_suspicious_ip, is_ip_flagged
     FLAGGING_AVAILABLE = True
     logger.debug("IP Flagger imported.")
 except ImportError as e:
     logger.warning(f"Could not import ip_flagger: {e}. IP Flagging disabled.")
     def flag_suspicious_ip(ip_address: str, reason: str) -> bool:
+        return False
+    def is_ip_flagged(ip_address: str) -> bool:
         return False
     FLAGGING_AVAILABLE = False
 
@@ -151,23 +153,26 @@ async def tarpit_handler(request: Request, path: str = ""):
 
     if HOP_LIMIT_ENABLED and client_ip != "unknown" and redis_hops:
         try:
-            hop_key = f"tarpit:hops:{client_ip}"
-            pipe = redis_hops.pipeline()
-            pipe.incr(hop_key)
-            pipe.expire(hop_key, TAR_PIT_HOP_WINDOW_SECONDS)
-            results = pipe.execute()
-            current_hop_count = results[0]
+            if not is_ip_flagged(client_ip):
+                logger.debug(f"IP {client_ip} not flagged; hop count not enforced")
+            else:
+                hop_key = f"tarpit:hops:{client_ip}"
+                pipe = redis_hops.pipeline()
+                pipe.incr(hop_key)
+                pipe.expire(hop_key, TAR_PIT_HOP_WINDOW_SECONDS)
+                results = pipe.execute()
+                current_hop_count = results[0]
 
-            logger.debug(f"IP {client_ip} tarpit hop count: {current_hop_count}/{TAR_PIT_MAX_HOPS}")
+                logger.debug(f"IP {client_ip} tarpit hop count: {current_hop_count}/{TAR_PIT_MAX_HOPS}")
 
-            if current_hop_count > TAR_PIT_MAX_HOPS:
-                logger.warning(f"Tarpit hop limit ({TAR_PIT_MAX_HOPS}) exceeded for IP: {client_ip}. Blocking IP.")
-                block_reason = f"Tarpit hop limit exceeded ({current_hop_count} hits in {TAR_PIT_HOP_WINDOW_SECONDS}s)"
-                trigger_ip_block(client_ip, block_reason)
-                return HTMLResponse(
-                    content="<html><head><title>Forbidden</title></head><body>Access Denied.</body></html>",
-                    status_code=403
-                )
+                if current_hop_count > TAR_PIT_MAX_HOPS:
+                    logger.warning(f"Tarpit hop limit ({TAR_PIT_MAX_HOPS}) exceeded for IP: {client_ip}. Blocking IP.")
+                    block_reason = f"Tarpit hop limit exceeded ({current_hop_count} hits in {TAR_PIT_HOP_WINDOW_SECONDS}s)"
+                    trigger_ip_block(client_ip, block_reason)
+                    return HTMLResponse(
+                        content="<html><head><title>Forbidden</title></head><body>Access Denied.</body></html>",
+                        status_code=403
+                    )
         except RedisError as e:
             logger.error(f"Redis error during hop limit check for IP {client_ip}: {e}")
         except Exception as e:
@@ -197,6 +202,7 @@ async def tarpit_handler(request: Request, path: str = ""):
         "ip": client_ip,
         "user_agent": user_agent,
         "referer": referer,
+        "method": http_method,
         "path": requested_path,
         "headers": sanitize_headers(dict(request.headers)),
         "source": "tarpit_api",
