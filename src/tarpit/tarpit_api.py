@@ -30,14 +30,20 @@ except ImportError as e:
     HONEYPOT_LOGGING_AVAILABLE = False
 
 try:
-    from .markov_generator import generate_dynamic_tarpit_page
+    from tarpit_rs import generate_dynamic_tarpit_page
     GENERATOR_AVAILABLE = True
-    logger.debug("PostgreSQL Markov generator imported.")
+    logger.debug("Rust Markov generator imported.")
 except ImportError as e:
-    logger.warning(f"Could not import markov_generator: {e}. Dynamic content generation disabled.")
-    def generate_dynamic_tarpit_page() -> str:
-        return "<html><body>Tarpit Error</body></html>"
-    GENERATOR_AVAILABLE = False
+    logger.warning(f"Could not import tarpit_rs: {e}. Falling back to Python implementation.")
+    try:
+        from .markov_generator import generate_dynamic_tarpit_page
+        GENERATOR_AVAILABLE = True
+        logger.debug("Python Markov generator imported as fallback.")
+    except ImportError as e2:
+        logger.warning(f"Could not import markov_generator: {e2}. Dynamic content generation disabled.")
+        def generate_dynamic_tarpit_page() -> str:
+            return "<html><body>Tarpit Error</body></html>"
+        GENERATOR_AVAILABLE = False
 
 try:
     # Uses the corrected ip_flagger with the renamed function
