@@ -10,9 +10,11 @@ import sys
 # --- Import the generator script ---
 try:
     from js_zip_generator import create_fake_js_zip, DEFAULT_ARCHIVE_DIR
-except ImportError:
-    print("ERROR: Could not import create_fake_js_zip from js_zip_generator.py. Ensure it's in the same directory or PYTHONPATH.")
-    sys.exit(1)
+except ImportError as e:
+    # Raise a clearer error so importing modules (like tests) fail gracefully
+    raise ImportError(
+        "js_zip_generator.py is required for rotating_archive but could not be found"
+    ) from e
 
 # --- Configuration ---
 ARCHIVE_DIR = DEFAULT_ARCHIVE_DIR

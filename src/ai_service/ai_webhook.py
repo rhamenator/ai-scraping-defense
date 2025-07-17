@@ -279,6 +279,9 @@ async def send_alert(event_data: WebhookEvent):
 # --- Simple Webhook Endpoint for tests ---
 @app.route("/webhook", methods=["POST"])
 def webhook_receiver():
+    api_key_required = os.getenv("WEBHOOK_API_KEY")
+    if api_key_required and request.headers.get("X-API-Key") != api_key_required:
+        return jsonify({"error": "Unauthorized"}), 401
     payload = request.get_json() or {}
     redis_conn = get_redis_connection()
     if not redis_conn:
