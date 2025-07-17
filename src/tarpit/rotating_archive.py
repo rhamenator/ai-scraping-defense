@@ -9,7 +9,7 @@ import sys
 
 # --- Import the generator script ---
 try:
-    from js_zip_generator import create_fake_js_zip, DEFAULT_ARCHIVE_DIR
+    from .js_zip_generator import create_fake_js_zip, DEFAULT_ARCHIVE_DIR
 except ImportError as e:
     # Raise a clearer error so importing modules (like tests) fail gracefully
     raise ImportError(

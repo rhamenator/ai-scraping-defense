@@ -77,6 +77,7 @@ HOP_LIMIT_ENABLED = TAR_PIT_MAX_HOPS > 0
 REDIS_DB_TAR_PIT_HOPS = int(os.getenv("REDIS_DB_TAR_PIT_HOPS", 4))
 REDIS_DB_BLOCKLIST = int(os.getenv("REDIS_DB_BLOCKLIST", 2))
 BLOCKLIST_TTL_SECONDS = int(os.getenv("BLOCKLIST_TTL_SECONDS", 86400))
+ENABLE_TARPIT_CATCH_ALL = os.getenv("ENABLE_TARPIT_CATCH_ALL", "false").lower() == "true"
 
 
 # --- THIS IS THE SOLE REFACTORING CHANGE ---
@@ -126,6 +127,8 @@ def trigger_ip_block(ip: str, reason: str):
 # --- API Endpoints (Preserved from your original file) ---
 @app.get("/tarpit/{path:path}", response_class=StreamingResponse, status_code=200)
 async def tarpit_handler(request: Request, path: str = ""):
+    if not ENABLE_TARPIT_CATCH_ALL and path:
+        raise HTTPException(status_code=404)
     client_ip = request.client.host if request.client else "unknown"
     user_agent = request.headers.get("user-agent", "unknown")
     referer = request.headers.get("referer", "-")

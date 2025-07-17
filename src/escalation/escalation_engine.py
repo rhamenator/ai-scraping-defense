@@ -15,7 +15,8 @@ import logging
 import sys
 
 # --- Refactored Imports ---
-from src.shared.model_provider import load_model
+from src.shared.model_provider import get_model_adapter
+from src.shared.decision_db import record_decision
 from src.shared.redis_client import get_redis_connection
 from src.shared.config import get_secret
 
@@ -131,7 +132,7 @@ IP_REPUTATION_API_KEY = get_secret("IP_REPUTATION_API_KEY_FILE")
 model_adapter = None
 MODEL_LOADED = False
 try:
-    model_adapter = load_model()
+    model_adapter = get_model_adapter()
     if model_adapter and model_adapter.model:
         MODEL_LOADED = True
         logger.info(f"Model adapter '{os.getenv('MODEL_TYPE')}' loaded successfully.")
@@ -494,8 +495,15 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
                         status_code=500, media_type="application/json")
 
 
+    timestamp = datetime.datetime.utcnow().isoformat() + "Z"
+    try:
+        record_decision(ip_under_test, metadata_req.source, final_score, is_bot_decision, action_taken, timestamp)
+    except Exception as e:
+        logger.error(f"Failed to record decision for IP {ip_under_test}: {e}", exc_info=True)
+
     log_msg = f"IP={ip_under_test}, Source={metadata_req.source}, Score={final_score:.3f}, Decision={is_bot_decision}, Action={action_taken}"
-    if ip_rep_result: log_msg += f", IPRepMalicious={ip_rep_result.get('is_malicious')}, IPRepScore={ip_rep_result.get('score')}"
+    if ip_rep_result:
+        log_msg += f", IPRepMalicious={ip_rep_result.get('is_malicious')}, IPRepScore={ip_rep_result.get('score')}"
     logger.info(f"Escalation Complete: {log_msg}")
     return {"status": "processed", "action": action_taken, "is_bot_decision": is_bot_decision, "score": round(final_score, 3)}
 

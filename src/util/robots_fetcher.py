@@ -27,6 +27,7 @@ except Exception:  # pragma: no cover - kubernetes may not be installed
 
 # --- Logging and Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 REAL_BACKEND_HOST = os.getenv("REAL_BACKEND_HOST", "http://example.com")
 CONFIGMAP_NAME = os.getenv("ROBOTS_CONFIGMAP_NAME", "live-robots-txt-config")
 CONFIGMAP_NAMESPACE = os.getenv("KUBERNETES_NAMESPACE", "default")
@@ -40,7 +41,7 @@ def get_default_robots_txt() -> str:
 def fetch_robots_txt(url: Optional[str]) -> str:
     """Fetches the robots.txt file from the given base URL."""
     if not url:
-        logging.error("No URL provided to fetch robots.txt.")
+        logger.error("No URL provided to fetch robots.txt.")
         return get_default_robots_txt()
     if not url.startswith(('http://', 'https://')):
         url = f"http://{url}"
@@ -49,17 +50,17 @@ def fetch_robots_txt(url: Optional[str]) -> str:
         parsed_url = urlparse(url)
         robots_url = urlunparse((parsed_url.scheme, parsed_url.netloc, 'robots.txt', '', '', ''))
     except ValueError:
-        logging.error(f"Invalid URL provided: {url}")
+        logger.error(f"Invalid URL provided: {url}")
         return get_default_robots_txt()
 
-    logging.info(f"Attempting to fetch robots.txt from: {robots_url}")
+    logger.info(f"Attempting to fetch robots.txt from: {robots_url}")
     try:
         response = requests.get(robots_url, headers={'User-Agent': FETCHER_USER_AGENT}, timeout=10)
         response.raise_for_status()
-        logging.info("Successfully fetched robots.txt.")
+        logger.info("Successfully fetched robots.txt.")
         return response.text
     except requests.exceptions.RequestException as e:
-        logging.error(f"Failed to fetch robots.txt from {robots_url}: {e}. Falling back to default.")
+        logger.error(f"Failed to fetch robots.txt from {robots_url}: {e}. Falling back to default.")
         return get_default_robots_txt()
 
 def get_kubernetes_api() -> "Optional[Any]":
@@ -68,13 +69,13 @@ def get_kubernetes_api() -> "Optional[Any]":
 
     try:
         k8s_config.load_incluster_config()
-        logging.info("Loaded in-cluster Kubernetes configuration.")
+        logger.info("Loaded in-cluster Kubernetes configuration.")
     except k8s_config.ConfigException:
         try:
             k8s_config.load_kube_config()
-            logging.info("Loaded local kube-config file.")
+            logger.info("Loaded local kube-config file.")
         except k8s_config.ConfigException:
-            logging.error("Could not configure Kubernetes client.")
+            logger.error("Could not configure Kubernetes client.")
             return None
     return k8s_client.CoreV1Api()
 
@@ -89,29 +90,29 @@ def update_configmap(api: Any, content: str):
     )
     try:
         api.patch_namespaced_config_map(name=CONFIGMAP_NAME, namespace=CONFIGMAP_NAMESPACE, body=body)
-        logging.info(f"Successfully patched ConfigMap '{CONFIGMAP_NAME}'.")
+        logger.info(f"Successfully patched ConfigMap '{CONFIGMAP_NAME}'.")
     except K8sApiException as e:
         if e.status == 404:
             try:
                 api.create_namespaced_config_map(namespace=CONFIGMAP_NAMESPACE, body=body)
-                logging.info(f"Successfully created ConfigMap '{CONFIGMAP_NAME}'.")
+                logger.info(f"Successfully created ConfigMap '{CONFIGMAP_NAME}'.")
             except K8sApiException as e_create:
-                logging.error(f"Failed to create ConfigMap: {e_create}")
+                logger.error(f"Failed to create ConfigMap: {e_create}")
         else:
-            logging.error(f"Failed to patch ConfigMap: {e}")
+            logger.error(f"Failed to patch ConfigMap: {e}")
 
 if __name__ == "__main__":
-    logging.info("Robots.txt Fetcher script started.")
+    logger.info("Robots.txt Fetcher script started.")
     robots_content = fetch_robots_txt(REAL_BACKEND_HOST)
 
     if KUBE_AVAILABLE and os.environ.get('KUBERNETES_SERVICE_HOST'):
-        logging.info("Running inside Kubernetes. Attempting to update ConfigMap.")
+        logger.info("Running inside Kubernetes. Attempting to update ConfigMap.")
         kube_api = get_kubernetes_api()
         if kube_api:
             update_configmap(kube_api, robots_content)
     else:
-        logging.info("Not in Kubernetes or library unavailable. Skipping ConfigMap update.")
+        logger.info("Not in Kubernetes or library unavailable. Skipping ConfigMap update.")
         print("\n--- Fetched Robots.txt Content ---")
         print(robots_content)
     
-    logging.info("Robots.txt Fetcher script finished.")
+    logger.info("Robots.txt Fetcher script finished.")
