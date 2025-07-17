@@ -33,7 +33,7 @@ This setup uses Docker Compose to orchestrate all the necessary services on your
     Copy the example environment file to create your local configuration.
 
     ```bash
-    cp .env.example .env
+    cp sample.env .env
     ```
 
     Open the `.env` file and review the default settings. You do not need to change anything to get started, but this is where you would add your API keys later.
@@ -59,7 +59,7 @@ This setup uses Docker Compose to orchestrate all the necessary services on your
     *On Linux or macOS:*
 
     ```bash
-    bash ./generate-secrets.sh
+    bash ./generate_secrets.sh
     ```
 
     *On Windows (in a PowerShell terminal):*
