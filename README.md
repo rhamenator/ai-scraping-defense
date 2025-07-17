@@ -91,3 +91,25 @@ This setup uses Docker Compose to orchestrate all the necessary services on your
 - `sample.env`: Template for local development configuration.
 - `docker-compose.yaml`: Orchestrates the services for local development.
 - `Dockerfile`: A single Dockerfile used to build the base image for all Python services.
+- `markov-train-rs/`: Rust utility for loading Markov training data into PostgreSQL.
+
+## Markov Training Utility (Rust)
+
+`markov-train-rs` is a small command-line application that reads a text corpus and populates the Markov chain tables in PostgreSQL. The program uses the same environment variables as the Python script (`PG_HOST`, `PG_PORT`, `PG_DBNAME`, `PG_USER`, and `PG_PASSWORD_FILE`).
+
+### Building
+
+```bash
+cd markov-train-rs
+cargo build --release
+```
+
+### Running
+
+Provide the path to a corpus file:
+
+```bash
+./target/release/markov-train-rs path/to/corpus.txt
+```
+
+Ensure the database credentials are available through environment variables or a password file as described above.
