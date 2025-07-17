@@ -19,9 +19,17 @@ COPY requirements.txt constraints.txt ./
 # -c constraints.txt is used to enforce specific versions for dependencies if needed.
 RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
+# Install Rust toolchain for building the tarpit-rs crate
+RUN apt-get update && apt-get install -y --no-install-recommends cargo && rm -rf /var/lib/apt/lists/*
+
 # Copy the entire 'src' directory from the host into the container at /app/src.
 # This brings all your application source code into the image.
 COPY src/ /app/src/
+COPY tarpit-rs/ /app/tarpit-rs/
+
+# Build the Rust crate and place the resulting shared library where Python can import it
+RUN cd /app/tarpit-rs && cargo build --release && \
+    cp target/release/libtarpit_rs.so /app/tarpit_rs.so
 
 # Copy the entrypoint script into the container and make it executable.
 # This script often contains logic to wait for dependencies (like databases)
