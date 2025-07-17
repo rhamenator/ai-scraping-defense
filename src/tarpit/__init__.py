@@ -1,5 +1,8 @@
 from . import ip_flagger, js_zip_generator, markov_generator, rotating_archive, tarpit_api
-import tarpit_rs
+try:
+    import tarpit_rs
+except Exception:  # pragma: no cover - optional dependency
+    tarpit_rs = None
 try:
     import jszip_rs
 except Exception:  # pragma: no cover - optional dependency
