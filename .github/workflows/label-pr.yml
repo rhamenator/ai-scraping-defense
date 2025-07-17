@@ -1,5 +1,8 @@
 name: "Auto Label Pull Requests"
 
+permissions:
+  pull-requests: write
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]
