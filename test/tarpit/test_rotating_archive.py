@@ -16,10 +16,10 @@ class TestRotatingArchiveComprehensive(unittest.TestCase):
         
         # Patch the module's constants to use our temporary directory and settings
         self.patches = {
-            'ARCHIVE_DIR': patch('tarpit.rotating_archive.ARCHIVE_DIR', self.test_dir),
-            'ARCHIVE_PATTERN': patch('tarpit.rotating_archive.ARCHIVE_PATTERN', os.path.join(self.test_dir, "assets_*.zip")),
-            'MAX_ARCHIVES_TO_KEEP': patch('tarpit.rotating_archive.MAX_ARCHIVES_TO_KEEP', 3),
-            'create_fake_js_zip': patch('tarpit.rotating_archive.create_fake_js_zip')
+            'ARCHIVE_DIR': patch('src.tarpit.rotating_archive.ARCHIVE_DIR', self.test_dir),
+            'ARCHIVE_PATTERN': patch('src.tarpit.rotating_archive.ARCHIVE_PATTERN', os.path.join(self.test_dir, "assets_*.zip")),
+            'MAX_ARCHIVES_TO_KEEP': patch('src.tarpit.rotating_archive.MAX_ARCHIVES_TO_KEEP', 3),
+            'create_fake_js_zip': patch('src.tarpit.rotating_archive.create_fake_js_zip')
         }
         self.mocks = {name: patcher.start() for name, patcher in self.patches.items()}
         
@@ -95,7 +95,7 @@ class TestRotatingArchiveComprehensive(unittest.TestCase):
         self.assertFalse(os.listdir(self.test_dir)) # Nothing actually gets created because of the mock
 
     @patch('os.remove', side_effect=OSError("Permission denied"))
-    @patch('tarpit.rotating_archive.logger.error')
+    @patch('src.tarpit.rotating_archive.logger.error')
     def test_rotate_archives_handles_deletion_error(self, mock_logger_error, mock_os_remove):
         """Test that an error during file deletion is logged and handled."""
         self._create_dummy_files(count=5, start_time_offset=1000)

@@ -15,14 +15,12 @@ class TestJsZipGeneratorComprehensive(unittest.TestCase):
     def setUp(self):
         """Create a temporary directory for generated ZIP files."""
         self.test_dir = tempfile.mkdtemp()
-        # Suppress logging to keep test output clean, we will capture it with assertLogs
-        logging.disable(logging.CRITICAL)
+        # Logging will be captured with assertLogs when needed
 
 
     def tearDown(self):
         """Remove the temporary directory and re-enable logging."""
         shutil.rmtree(self.test_dir)
-        logging.disable(logging.NOTSET)
 
     def test_generate_realistic_filename(self):
         """Test that the generated filename is plausible and varied."""
@@ -71,7 +69,7 @@ class TestJsZipGeneratorComprehensive(unittest.TestCase):
     def test_create_fake_js_zip_handles_zip_exception(self, mock_zipfile):
         """Test that exceptions during ZIP file creation are handled gracefully."""
         # Use the string name of the logger to capture logs
-        with self.assertLogs('tarpit.js_zip_generator', level='ERROR') as cm:
+        with self.assertLogs('src.tarpit.js_zip_generator', level='ERROR') as cm:
             zip_path = js_zip_generator.create_fake_js_zip(output_dir=self.test_dir)
             self.assertIsNone(zip_path)
             self.assertIn("Failed to create zip file", cm.output[0])
@@ -81,7 +79,7 @@ class TestJsZipGeneratorComprehensive(unittest.TestCase):
         """Test that an error creating the output directory is handled."""
         non_existent_dir = os.path.join(self.test_dir, "subdir", "subsubdir")
         # Use the string name of the logger to capture logs
-        with self.assertLogs('tarpit.js_zip_generator', level='ERROR') as cm:
+        with self.assertLogs('src.tarpit.js_zip_generator', level='ERROR') as cm:
             zip_path = js_zip_generator.create_fake_js_zip(output_dir=non_existent_dir)
             self.assertIsNone(zip_path)
             self.assertIn("Failed to create output directory", cm.output[0])

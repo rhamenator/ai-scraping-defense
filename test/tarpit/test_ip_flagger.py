@@ -13,17 +13,14 @@ class TestIPFlaggerComprehensive(unittest.TestCase):
         """Set up mock Redis connection for each test."""
         # Reload the module to clear any cached clients
         importlib.reload(ip_flagger)
-        self.get_redis_patcher = patch('tarpit.ip_flagger.get_redis_connection')
+        self.get_redis_patcher = patch('src.tarpit.ip_flagger.get_redis_connection')
         self.mock_get_redis = self.get_redis_patcher.start()
         self.mock_redis_client = MagicMock()
         self.mock_get_redis.return_value = self.mock_redis_client
-        # Suppress logging output to the console during tests to keep the test output clean
-        logging.disable(logging.CRITICAL)
 
     def tearDown(self):
         """Stop the patcher and re-enable logging."""
         self.get_redis_patcher.stop()
-        logging.disable(logging.NOTSET)
 
     def test_flag_suspicious_ip_success(self):
         """Test that a suspicious IP is successfully flagged in Redis."""
@@ -38,7 +35,7 @@ class TestIPFlaggerComprehensive(unittest.TestCase):
         """Test that flagging fails gracefully if Redis connection is unavailable."""
         self.mock_get_redis.return_value = None
         
-        with self.assertLogs('tarpit.ip_flagger', level='ERROR') as cm:
+        with self.assertLogs('src.tarpit.ip_flagger', level='ERROR') as cm:
             result = ip_flagger.flag_suspicious_ip("8.8.8.8", "Test Reason")
             self.assertFalse(result)
             self.assertIn("Redis unavailable", cm.output[0])
@@ -47,7 +44,7 @@ class TestIPFlaggerComprehensive(unittest.TestCase):
         """Test that flagging fails gracefully on a Redis command error."""
         self.mock_redis_client.set.side_effect = RedisError("Command failed")
         
-        with self.assertLogs('tarpit.ip_flagger', level='ERROR') as cm:
+        with self.assertLogs('src.tarpit.ip_flagger', level='ERROR') as cm:
             result = ip_flagger.flag_suspicious_ip("8.8.8.8", "Test Reason")
             self.assertFalse(result)
             self.assertIn("Failed to flag IP", cm.output[0])
@@ -68,7 +65,7 @@ class TestIPFlaggerComprehensive(unittest.TestCase):
     def test_is_ip_flagged_redis_unavailable(self):
         """Test that checking an IP returns False if Redis is unavailable."""
         self.mock_get_redis.return_value = None
-        with self.assertLogs('tarpit.ip_flagger', level='ERROR') as cm:
+        with self.assertLogs('src.tarpit.ip_flagger', level='ERROR') as cm:
             result = ip_flagger.is_ip_flagged("9.9.9.9")
             self.assertFalse(result)
             self.assertIn("Redis unavailable", cm.output[0])
@@ -83,7 +80,7 @@ class TestIPFlaggerComprehensive(unittest.TestCase):
     def test_remove_ip_flag_redis_command_error(self):
         """Test graceful failure when removing an IP flag throws an error."""
         self.mock_redis_client.delete.side_effect = ConnectionError("Connection lost")
-        with self.assertLogs('tarpit.ip_flagger', level='ERROR') as cm:
+        with self.assertLogs('src.tarpit.ip_flagger', level='ERROR') as cm:
             result = ip_flagger.remove_ip_flag("8.8.8.8")
             self.assertFalse(result)
             self.assertIn("Failed to remove IP flag", cm.output[0])
