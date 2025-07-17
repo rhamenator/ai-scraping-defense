@@ -19,6 +19,8 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         """Set up test client and patch external dependencies."""
         self.client = TestClient(app)
+        self.env = patch.dict(os.environ, {"ESCALATION_API_KEY": "testkey"})
+        self.env.start()
         # Patch all key functions and module-level objects to isolate the endpoint logic
         self.patchers = {
             'load_robots_txt': patch('escalation.escalation_engine.load_robots_txt'),
@@ -46,6 +48,7 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         """Stop all patches."""
         for patcher in self.patchers.values():
             patcher.stop()
+        self.env.stop()
 
     def test_request_metadata_validation(self):
         """Test RequestMetadata Pydantic model validation."""
@@ -83,7 +86,7 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
     async def test_escalate_endpoint_human_low_score(self):
         """Test a request classified as human with a low score."""
         with patch('escalation.escalation_engine.run_heuristic_and_model_analysis', return_value=0.1):
-            response = self.client.post("/escalate", json={"timestamp": "2023-01-01T12:00:00Z", "ip": "1.1.1.1", "source": "test"})
+            response = self.client.post("/escalate", json={"timestamp": "2023-01-01T12:00:00Z", "ip": "1.1.1.1", "source": "test"}, headers={"X-API-Key": "testkey"})
         
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -94,7 +97,7 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
     async def test_escalate_endpoint_bot_high_score_webhook(self):
         """Test a bot request with a high score that triggers a webhook."""
         with patch('escalation.escalation_engine.run_heuristic_and_model_analysis', return_value=0.95):
-            response = self.client.post("/escalate", json={"timestamp": "2023-01-01T12:00:00Z", "ip": "2.2.2.2", "source": "test"})
+            response = self.client.post("/escalate", json={"timestamp": "2023-01-01T12:00:00Z", "ip": "2.2.2.2", "source": "test"}, headers={"X-API-Key": "testkey"})
         
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -108,7 +111,7 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         """Test a request that is immediately blocked by IP reputation."""
         self.mocks['check_ip_reputation'].return_value = {"is_malicious": True, "score": 99}
         with patch('escalation.escalation_engine.ENABLE_IP_REPUTATION', True):
-            response = self.client.post("/escalate", json={"timestamp": "2023-01-01T12:00:00Z", "ip": "3.3.3.3", "source": "test"})
+            response = self.client.post("/escalate", json={"timestamp": "2023-01-01T12:00:00Z", "ip": "3.3.3.3", "source": "test"}, headers={"X-API-Key": "testkey"})
         
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -121,7 +124,7 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         self.mocks['classify_with_local_llm_api'].return_value = True # Returns boolean True for bot
         with patch('escalation.escalation_engine.ENABLE_LOCAL_LLM_CLASSIFICATION', True), \
              patch('escalation.escalation_engine.run_heuristic_and_model_analysis', return_value=0.6): # Borderline score
-            response = self.client.post("/escalate", json={"timestamp": "2023-01-01T12:00:00Z", "ip": "4.4.4.4", "source": "test"})
+            response = self.client.post("/escalate", json={"timestamp": "2023-01-01T12:00:00Z", "ip": "4.4.4.4", "source": "test"}, headers={"X-API-Key": "testkey"})
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -133,7 +136,7 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         self.mocks['classify_with_external_api'].return_value = False # Returns boolean False for human
         with patch('escalation.escalation_engine.ENABLE_EXTERNAL_API_CLASSIFICATION', True), \
              patch('escalation.escalation_engine.run_heuristic_and_model_analysis', return_value=0.7):
-            response = self.client.post("/escalate", json={"timestamp": "2023-01-01T12:00:00Z", "ip": "5.5.5.5", "source": "test"})
+            response = self.client.post("/escalate", json={"timestamp": "2023-01-01T12:00:00Z", "ip": "5.5.5.5", "source": "test"}, headers={"X-API-Key": "testkey"})
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -146,7 +149,7 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
              patch('escalation.escalation_engine.CAPTCHA_SCORE_THRESHOLD_LOW', 0.6), \
              patch('escalation.escalation_engine.CAPTCHA_SCORE_THRESHOLD_HIGH', 0.8), \
              patch('escalation.escalation_engine.run_heuristic_and_model_analysis', return_value=0.65):
-            response = self.client.post("/escalate", json={"timestamp": "2023-01-01T12:00:00Z", "ip": "6.6.6.6", "source": "test"})
+            response = self.client.post("/escalate", json={"timestamp": "2023-01-01T12:00:00Z", "ip": "6.6.6.6", "source": "test"}, headers={"X-API-Key": "testkey"})
 
         self.assertEqual(response.status_code, 200)
         data = response.json()

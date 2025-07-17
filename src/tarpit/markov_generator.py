@@ -8,6 +8,7 @@ import string
 import datetime
 import logging
 import hashlib
+import html
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +215,7 @@ def generate_markov_text_from_db(sentences=DEFAULT_SENTENCES_PER_PAGE):
             else:
                  break # Stop if stuck late or explicitly got empty string
 
-        current_paragraph.append(next_word)
+        current_paragraph.append(html.escape(next_word))
         word_count += 1
 
         # Shift history
@@ -254,7 +255,9 @@ def generate_dynamic_tarpit_page():
         # Create somewhat readable link text from the path
         try:
             link_text = link.split('/')[-1].split('.')[0].replace('_', ' ').replace('-', ' ').capitalize()
-            if not link_text: link_text = "Resource Link"
+            if not link_text:
+                link_text = "Resource Link"
+            link_text = html.escape(link_text)
         except:
             link_text = "Link" # Fallback
         link_html += f'    <li><a href="{link}">{link_text}</a></li>\n'
@@ -263,6 +266,7 @@ def generate_dynamic_tarpit_page():
     # 3. Assemble HTML
     # Use a slightly different title/structure for variety
     page_title = " ".join(word.capitalize() for word in generate_random_page_name(random.randint(2,4)).split())
+    page_title = html.escape(page_title)
     html_structure = f"""<!DOCTYPE html>
 <html lang="en">
 <head>

@@ -87,6 +87,14 @@ local function is_path_disallowed(path_to_check, rules)
   return false
 end
 
+-- Sanitize strings before logging to mitigate log injection
+local function sanitize_for_log(value)
+  if not value then return "-" end
+  value = tostring(value)
+  value = string.gsub(value, "[\r\n]", "")
+  return value
+end
+
 -- Get request details
 local headers = ngx.req.get_headers()
 local user_agent = headers["User-Agent"]
@@ -95,7 +103,9 @@ local request_method = ngx.req.get_method()
 local request_uri = ngx.var.request_uri or "/" -- Ensure URI is never nil
 local real_backend_host = os.getenv("REAL_BACKEND_HOST") -- For proxying allowed requests
 
-ngx.log(ngx.DEBUG, "[BOT CHECK] IP: ", remote_addr, ", UA: ", user_agent, ", URI: ", request_uri)
+ngx.log(ngx.DEBUG, "[BOT CHECK] IP: ", sanitize_for_log(remote_addr),
+       ", UA: ", sanitize_for_log(user_agent),
+       ", URI: ", sanitize_for_log(request_uri))
 
 -- 1. Check if it's a known benign bot
 local is_benign, benign_pattern = contains_string(user_agent, benign_bots)
