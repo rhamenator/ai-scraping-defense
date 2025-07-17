@@ -8,6 +8,8 @@ This project provides a multi-layered, microservice-based defense system against
 - **Intelligent Analysis:** Employs heuristics, a machine learning model, and optional LLM integration to analyze suspicious traffic.
 - **Model Agnostic:** A flexible adapter pattern allows for easy integration with various ML models and LLM providers (OpenAI, Mistral, Cohere, etc.).
 - **Active Countermeasures:** Includes a "Tarpit API" to actively waste the resources of confirmed bots.
+- **Rate Limiting:** Basic per-IP request limits via Nginx to slow abusive clients.
+- **Community Blocklist:** Optional daemon to sync IPs from a shared blocklist service.
 - **Containerized:** Fully containerized with Docker and ready for deployment on Kubernetes.
 
 ## Getting Started (Local Development)

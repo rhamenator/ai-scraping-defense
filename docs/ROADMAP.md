@@ -9,9 +9,11 @@ The AI Scraping Defense Stack is in its early stages, providing a containerized 
 These features and enhancements are prioritized for near-term development:
 
 * **Expanded ML Heuristics** – Improve the trained **Random Forest model** for better bot detection accuracy.  
-* **Adaptive Rate-Limiting** – Implement dynamic rate limits based on historical request patterns.  
+* **Adaptive Rate-Limiting** – Basic per-IP rate limiting implemented via Nginx `limit_req`.
 * **Improved Admin UI** – Expand dashboard analytics for better visibility into bot trends and blocked traffic.  
-* **Better IP Reputation Handling** – Enhance integrations with public/community blocklists for real-time threat assessment.  
+* **Better IP Reputation Handling** – Enhance integrations with public/community blocklists for real-time threat assessment.
+* **Community Blocklist Sync** – Periodically pull shared threat data and populate the local Redis blocklist.
+* **Blocklist Sync Daemon** – Background process to keep the Redis blocklist up to date.
 * **Automated Testing Suite** – Develop a suite of test cases to validate detection mechanisms and tarpitting responses.  
 * **Refined Markov Chain Tarpit** – Optimize PostgreSQL-backed deterministic content generation for better bot engagement.
 
