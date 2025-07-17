@@ -155,3 +155,14 @@ graph TD
 
     TarpitAPI -->|Reads| Postgres
 ```
+
+## Optional Cloud Integrations
+
+The stack can integrate with external services for enhanced protection. Each integration is controlled via environment variables and is disabled by default:
+
+- **Global CDN (`ENABLE_GLOBAL_CDN`)** – Connects to a provider such as Cloudflare for worldwide edge caching.
+- **DDoS Mitigation (`ENABLE_DDOS_PROTECTION`)** – Reports suspicious traffic to a third-party anti-DDoS service.
+- **Managed TLS (`ENABLE_MANAGED_TLS`)** – Automatically requests and renews TLS certificates.
+- **Web Application Firewall (`ENABLE_WAF`)** – Applies additional request filtering using customizable rules.
+
+These features are optional so deployments remain lightweight when cloud services are unavailable.
