@@ -4,6 +4,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 import datetime
 import json
 from fastapi.testclient import TestClient
+import httpx
 import sys
 import os
 
@@ -94,6 +95,69 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data['action'], 'classified_human_low_score')
         self.assertFalse(data['is_bot_decision'])
         self.mocks['forward_to_webhook'].assert_not_called()
+
+    async def test_escalate_invalid_ip_address(self):
+        """IP validation should reject malformed addresses."""
+        payload = {"timestamp": "2023-01-01T12:00:00Z", "ip": "999.999.999.999", "source": "test", "method": "GET"}
+        response = self.client.post("/escalate", json=payload, headers={"X-API-Key": "testkey"})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Invalid IP address", response.text)
+
+    async def test_escalate_missing_or_bad_api_key(self):
+        """Requests without the correct API key should be unauthorized."""
+        payload = {"timestamp": "2023-01-01T12:00:00Z", "ip": "1.1.1.1", "source": "test", "method": "GET"}
+        with patch("src.escalation.escalation_engine.ESCALATION_API_KEY", "testkey"):
+            resp_missing = self.client.post("/escalate", json=payload)
+            self.assertEqual(resp_missing.status_code, 401)
+            resp_wrong = self.client.post("/escalate", json=payload, headers={"X-API-Key": "wrong"})
+            self.assertEqual(resp_wrong.status_code, 401)
+
+    async def test_check_ip_reputation_timeout_and_json_error(self):
+        """Timeouts and JSON decode failures should return None."""
+        metadata_url = "http://example.com"
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value.get.side_effect = httpx.TimeoutException("timeout")
+        with patch("src.escalation.escalation_engine.httpx.AsyncClient", return_value=mock_client), \
+             patch("src.escalation.escalation_engine.IP_REPUTATION_API_URL", metadata_url), \
+             patch("src.escalation.escalation_engine.ENABLE_IP_REPUTATION", True):
+            result_timeout = await escalation_engine.check_ip_reputation("1.1.1.1")
+            self.assertIsNone(result_timeout)
+
+        bad_json_response = MagicMock()
+        bad_json_response.raise_for_status.return_value = None
+        bad_json_response.json.side_effect = json.JSONDecodeError("err", "", 0)
+        bad_json_response.text = "<html>oops</html>"
+        mock_client2 = AsyncMock()
+        mock_client2.__aenter__.return_value.get.return_value = bad_json_response
+        with patch("src.escalation.escalation_engine.httpx.AsyncClient", return_value=mock_client2), \
+             patch("src.escalation.escalation_engine.IP_REPUTATION_API_URL", metadata_url), \
+             patch("src.escalation.escalation_engine.ENABLE_IP_REPUTATION", True):
+            result_json = await escalation_engine.check_ip_reputation("1.1.1.1")
+            self.assertIsNone(result_json)
+
+    async def test_classify_with_external_api_timeout_and_json_error(self):
+        """External API classification should handle timeouts and JSON errors."""
+        meta = escalation_engine.RequestMetadata(timestamp="2023-01-01T00:00:00Z", ip="1.1.1.1", source="test", method="GET")
+        api_url = "http://example.com/api"
+        # Timeout case
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value.post.side_effect = httpx.TimeoutException("timeout")
+        with patch("src.escalation.escalation_engine.httpx.AsyncClient", return_value=mock_client), \
+             patch("src.escalation.escalation_engine.EXTERNAL_API_URL", api_url):
+            result_timeout = await escalation_engine.classify_with_external_api(meta)
+            self.assertIsNone(result_timeout)
+
+        # Bad JSON case
+        bad_resp = MagicMock()
+        bad_resp.raise_for_status.return_value = None
+        bad_resp.json.side_effect = json.JSONDecodeError("err", "", 0)
+        bad_resp.text = "<html>oops</html>"
+        mock_client2 = AsyncMock()
+        mock_client2.__aenter__.return_value.post.return_value = bad_resp
+        with patch("src.escalation.escalation_engine.httpx.AsyncClient", return_value=mock_client2), \
+             patch("src.escalation.escalation_engine.EXTERNAL_API_URL", api_url):
+            result_json = await escalation_engine.classify_with_external_api(meta)
+            self.assertIsNone(result_json)
 
     async def test_escalate_endpoint_bot_high_score_webhook(self):
         """Test a bot request with a high score that triggers a webhook."""
