@@ -282,11 +282,10 @@ async def send_alert(event_data: WebhookEvent):
 # --- Simple Webhook Endpoint for tests ---
 @app.route("/webhook", methods=["POST"])
 def webhook_receiver():
-    if WEBHOOK_API_KEY is None:
-        logger.error("WEBHOOK_API_KEY not configured; rejecting request")
-        return jsonify({"error": "Server misconfigured"}), 503
-    if request.headers.get("X-API-Key") != WEBHOOK_API_KEY:
-        return jsonify({"error": "Unauthorized"}), 401
+    """Handle blocklist/flag actions from the escalation engine tests."""
+    if WEBHOOK_API_KEY is not None:
+        if request.headers.get("X-API-Key") != WEBHOOK_API_KEY:
+            return jsonify({"error": "Unauthorized"}), 401
     payload = request.get_json() or {}
     redis_conn = get_redis_connection()
     if not redis_conn:
