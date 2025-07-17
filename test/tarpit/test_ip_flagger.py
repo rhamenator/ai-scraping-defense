@@ -24,12 +24,13 @@ class TestIPFlaggerComprehensive(unittest.TestCase):
 
     def test_flag_suspicious_ip_success(self):
         """Test that a suspicious IP is successfully flagged in Redis."""
-        self.mock_redis_client.set.return_value = True
+        self.mock_redis_client.incr.return_value = 1
         result = ip_flagger.flag_suspicious_ip("8.8.8.8", "Test Reason: High frequency")
-        
+
         self.assertTrue(result)
         self.mock_get_redis.assert_called_once_with(db_number=ip_flagger.REDIS_DB_FLAGGED_IPS)
-        self.mock_redis_client.set.assert_called_once_with("ip_flag:8.8.8.8", "Test Reason: High frequency")
+        self.mock_redis_client.setex.assert_called_once_with("ip_flag:8.8.8.8", ip_flagger.FLAGGED_IP_TTL_SECONDS, "Test Reason: High frequency")
+        self.mock_redis_client.expire.assert_called_once()
 
     def test_flag_suspicious_ip_redis_connection_fails(self):
         """Test that flagging fails gracefully if Redis connection is unavailable."""
@@ -42,8 +43,8 @@ class TestIPFlaggerComprehensive(unittest.TestCase):
 
     def test_flag_suspicious_ip_redis_command_error(self):
         """Test that flagging fails gracefully on a Redis command error."""
-        self.mock_redis_client.set.side_effect = RedisError("Command failed")
-        
+        self.mock_redis_client.incr.side_effect = RedisError("Command failed")
+
         with self.assertLogs('src.tarpit.ip_flagger', level='ERROR') as cm:
             result = ip_flagger.flag_suspicious_ip("8.8.8.8", "Test Reason")
             self.assertFalse(result)
@@ -72,10 +73,11 @@ class TestIPFlaggerComprehensive(unittest.TestCase):
             
     def test_remove_ip_flag_success(self):
         """Test successfully removing an IP flag."""
-        self.mock_redis_client.delete.return_value = 1 # 1 key deleted
+        self.mock_redis_client.delete.return_value = 1
         result = ip_flagger.remove_ip_flag("8.8.8.8")
         self.assertTrue(result)
-        self.mock_redis_client.delete.assert_called_once_with("ip_flag:8.8.8.8")
+        self.mock_redis_client.delete.assert_any_call("ip_flag:8.8.8.8")
+        self.mock_redis_client.delete.assert_any_call(f"{ip_flagger.FLAG_COUNT_PREFIX}8.8.8.8")
         
     def test_remove_ip_flag_redis_command_error(self):
         """Test graceful failure when removing an IP flag throws an error."""

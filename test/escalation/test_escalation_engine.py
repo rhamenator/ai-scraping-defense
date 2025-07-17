@@ -23,6 +23,7 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         self.client = TestClient(app)
         self.env = patch.dict(os.environ, {"ESCALATION_API_KEY": "testkey"})
         self.env.start()
+        sys.modules['escalation.escalation_engine'] = escalation_engine
         # Patch all key functions and module-level objects to isolate the endpoint logic
         self.patchers = {
             'load_robots_txt': patch('escalation.escalation_engine.load_robots_txt'),
@@ -37,7 +38,7 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
             'trigger_captcha_challenge': patch('escalation.escalation_engine.trigger_captcha_challenge', new_callable=AsyncMock)
         }
         self.mocks = {name: patcher.start() for name, patcher in self.patchers.items()}
-        
+
         # Default mock behaviors
         self.mocks['get_redis_connection'].return_value = MagicMock()
         self.mocks['check_ip_reputation'].return_value = None
@@ -45,6 +46,14 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         self.mocks['classify_with_local_llm_api'].return_value = None
         self.mocks['classify_with_external_api'].return_value = None
         self.mocks['trigger_captcha_challenge'].return_value = True # Assume captcha is "passed" if triggered
+
+        # Ensure fingerprint tracking uses a mock redis client
+        self.mocks['redis_fingerprints'] = MagicMock()
+        escalation_engine.redis_client_fingerprints = self.mocks['redis_fingerprints']
+        escalation_engine.FINGERPRINT_TRACKING_ENABLED = True
+        self.mocks['redis_fingerprints'].scard.return_value = 1
+        self.mocks['redis_fingerprints'].sadd.return_value = 1
+        self.mocks['redis_fingerprints'].expire.return_value = True
 
     def tearDown(self):
         """Stop all patches."""
