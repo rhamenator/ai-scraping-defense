@@ -21,6 +21,14 @@ from src.shared.decision_db import record_decision
 from src.shared.redis_client import get_redis_connection
 from src.shared.config import get_secret
 
+try:
+    from frequency_rs import get_realtime_frequency_features as rs_get_freq
+    FREQUENCY_RS_AVAILABLE = True
+    logger.info("frequency_rs module loaded successfully.")
+except Exception as e:
+    FREQUENCY_RS_AVAILABLE = False
+    logger.warning(f"Could not import frequency_rs: {e}. Using Python fallback.")
+
 # --- Setup Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -241,10 +249,11 @@ def extract_features(log_entry_dict: Dict[str, Any], freq_features: Dict[str, An
     features['time_since_last_sec'] = freq_features.get('time_since', -1.0)
     return features
 
-# --- Real-time Frequency Calculation (Preserved) ---
-def get_realtime_frequency_features(ip: str) -> dict:
+# --- Real-time Frequency Calculation ---
+def _get_realtime_frequency_features_py(ip: str) -> dict:
     features = {'count': 0, 'time_since': -1.0}
-    if not FREQUENCY_TRACKING_ENABLED or not ip or not redis_client_freq: return features
+    if not FREQUENCY_TRACKING_ENABLED or not ip or not redis_client_freq:
+        return features
     try:
         now_unix = time.time(); window_start_unix = now_unix - FREQUENCY_WINDOW_SECONDS
         now_ms_str = f"{now_unix:.6f}"; redis_key = f"{FREQUENCY_KEY_PREFIX}{ip}"
@@ -252,25 +261,40 @@ def get_realtime_frequency_features(ip: str) -> dict:
         pipe.zremrangebyscore(redis_key, '-inf', f'({window_start_unix}')
         pipe.zadd(redis_key, {now_ms_str: now_unix})
         pipe.zcount(redis_key, window_start_unix, now_unix)
-        pipe.zrange(redis_key, -2, -1, withscores=True) 
-        pipe.expire(redis_key, FREQUENCY_TRACKING_TTL) 
+        pipe.zrange(redis_key, -2, -1, withscores=True)
+        pipe.expire(redis_key, FREQUENCY_TRACKING_TTL)
         results = pipe.execute()
-        
+
         current_count = results[2] if len(results) > 2 and isinstance(results[2], int) else 0
-        features['count'] = max(0, current_count -1) 
+        features['count'] = max(0, current_count - 1)
 
         recent_entries = results[3] if len(results) > 3 and isinstance(results[3], list) else []
-        if len(recent_entries) > 1: 
+        if len(recent_entries) > 1:
             last_ts_score = float(recent_entries[-2][1])
             time_diff = now_unix - last_ts_score
             features['time_since'] = round(time_diff, 3)
-        elif len(recent_entries) == 1 and current_count == 1: 
-            features['time_since'] = -1.0 
-        
+        elif len(recent_entries) == 1 and current_count == 1:
+            features['time_since'] = -1.0
     except Exception as e:
         logger.warning(f"Redis error during frequency check for IP {ip}: {e}")
         increment_counter_metric(REDIS_ERRORS_FREQUENCY)
     return features
+
+def get_realtime_frequency_features(ip: str) -> dict:
+    if FREQUENCY_RS_AVAILABLE and FREQUENCY_TRACKING_ENABLED and ip:
+        try:
+            count, time_since = rs_get_freq(
+                ip,
+                REDIS_DB_FREQUENCY,
+                FREQUENCY_WINDOW_SECONDS,
+                FREQUENCY_KEY_PREFIX,
+                FREQUENCY_TRACKING_TTL,
+            )
+            return {'count': int(count), 'time_since': float(time_since)}
+        except Exception as e:
+            logger.warning(f"frequency_rs error for IP {ip}: {e}; falling back to Python implementation")
+            increment_counter_metric(REDIS_ERRORS_FREQUENCY)
+    return _get_realtime_frequency_features_py(ip)
 
 # --- IP Reputation Check (Preserved) ---
 async def check_ip_reputation(ip: str) -> Optional[Dict[str, Any]]:

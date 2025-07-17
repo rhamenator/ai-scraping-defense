@@ -26,10 +26,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends cargo && rm -rf
 # This brings all your application source code into the image.
 COPY src/ /app/src/
 COPY tarpit-rs/ /app/tarpit-rs/
+COPY frequency-rs/ /app/frequency-rs/
 
-# Build the Rust crate and place the resulting shared library where Python can import it
+# Build the Rust crates and place the resulting shared libraries where Python can import them
 RUN cd /app/tarpit-rs && cargo build --release && \
-    cp target/release/libtarpit_rs.so /app/tarpit_rs.so
+    cp target/release/libtarpit_rs.so /app/tarpit_rs.so && \
+    cd /app/frequency-rs && cargo build --release && \
+    cp target/release/libfrequency_rs.so /app/frequency_rs.so
 
 # Copy the entrypoint script into the container and make it executable.
 # This script often contains logic to wait for dependencies (like databases)
