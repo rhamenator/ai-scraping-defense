@@ -9,6 +9,7 @@ from src.shared.redis_client import get_redis_connection
 
 # Configure logging for this module
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Define the specific Redis database number for flagged IPs.
 REDIS_DB_FLAGGED_IPS = 3
@@ -23,11 +24,12 @@ def flag_suspicious_ip(ip_address: str, reason: str = "Suspicious activity"):
     if r:
         try:
             r.set(f"ip_flag:{ip_address}", reason)
-            logging.info(f"Flagged IP: {ip_address} for reason: {reason}")
+            logger.info(f"Flagged IP: {ip_address} for reason: {reason}")
             return True
         except Exception as e:
-            logging.error(f"Failed to flag IP {ip_address} in Redis: {e}")
+            logger.error(f"Failed to flag IP {ip_address} in Redis: {e}")
             return False
+    logger.error("Redis unavailable. Cannot flag IP.")
     return False
 
 
@@ -41,8 +43,9 @@ def is_ip_flagged(ip_address: str) -> bool:
             # FIX: r.exists() returns an int (0 or 1), not a bool. Cast it.
             return bool(r.exists(f"ip_flag:{ip_address}"))
         except Exception as e:
-            logging.error(f"Failed to check IP {ip_address} in Redis: {e}")
+            logger.error(f"Failed to check IP {ip_address} in Redis: {e}")
             return False
+    logger.error("Redis unavailable. Cannot check IP.")
     return False
 
 
@@ -54,11 +57,12 @@ def remove_ip_flag(ip_address: str):
     if r:
         try:
             r.delete(f"ip_flag:{ip_address}")
-            logging.info(f"Removed flag for IP: {ip_address}")
+            logger.info(f"Removed flag for IP: {ip_address}")
             return True
         except Exception as e:
-            logging.error(f"Failed to remove flag for IP {ip_address} in Redis: {e}")
+            logger.error(f"Failed to remove IP flag for {ip_address}: {e}")
             return False
+    logger.error("Redis unavailable. Cannot remove IP flag.")
     return False
 if __name__ == '__main__':
     # Example usage for direct testing of this module.

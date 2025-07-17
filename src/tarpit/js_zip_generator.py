@@ -6,6 +6,9 @@ import os
 import random
 import string
 import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 # --- Configuration ---
 DEFAULT_ARCHIVE_DIR = "/app/fake_archives" # Should match volume mount in docker-compose
@@ -42,12 +45,16 @@ def generate_realistic_filename():
 
 def create_fake_js_zip(output_dir=DEFAULT_ARCHIVE_DIR, num_files=NUM_FAKE_FILES):
     """Creates a ZIP archive with fake JS files."""
-    os.makedirs(output_dir, exist_ok=True)
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+    except Exception as e:
+        logger.error(f"Failed to create output directory {output_dir}: {e}")
+        return None
 
     timestamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
     zip_filename = os.path.join(output_dir, f"assets_{timestamp}.zip")
 
-    print(f"Creating fake JS archive: {zip_filename}")
+    logger.info(f"Creating fake JS archive: {zip_filename}")
 
     try:
         with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -84,11 +91,11 @@ def create_fake_js_zip(output_dir=DEFAULT_ARCHIVE_DIR, num_files=NUM_FAKE_FILES)
                 zipf.writestr(fake_filename, content)
                 # print(f"  Added: {fake_filename} ({len(content)/1024:.1f} KB)")
 
-        print(f"Successfully created {zip_filename} with {num_files} fake files.")
+        logger.info(f"Successfully created {zip_filename} with {num_files} fake files.")
         return zip_filename
 
     except Exception as e:
-        print(f"ERROR: Failed to create ZIP file {zip_filename}: {e}")
+        logger.error(f"Failed to create zip file {zip_filename}: {e}")
         # Clean up partially created file if error occurs
         if os.path.exists(zip_filename):
             try:

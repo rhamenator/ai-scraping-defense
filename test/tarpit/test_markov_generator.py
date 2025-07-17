@@ -60,8 +60,8 @@ class TestMarkovGenerator(unittest.TestCase):
 
 
     # --- Test _get_db_connection ---
-    @patch("tarpit.markov_generator._get_pg_password", return_value="test_password")
-    @patch("tarpit.markov_generator.psycopg2.connect")
+    @patch("src.tarpit.markov_generator._get_pg_password", return_value="test_password")
+    @patch("src.tarpit.markov_generator.psycopg2.connect")
     def test_get_db_connection_success_new_connection(self, mock_psycopg2_connect, mock_get_pass):
         mock_conn_instance = MagicMock()
         mock_cursor_instance = MagicMock()
@@ -79,7 +79,7 @@ class TestMarkovGenerator(unittest.TestCase):
         self.assertEqual(markov_generator._db_conn, mock_conn_instance)
         self.assertEqual(markov_generator._db_cursor, mock_cursor_instance)
 
-    @patch("tarpit.markov_generator._get_pg_password", return_value="test_password")
+    @patch("src.tarpit.markov_generator._get_pg_password", return_value="test_password")
     def test_get_db_connection_reuse_existing(self, mock_get_pass):
         # Simulate an existing connection
         mock_existing_conn = MagicMock(closed=False) # Ensure conn.closed is False
@@ -87,13 +87,13 @@ class TestMarkovGenerator(unittest.TestCase):
         markov_generator._db_conn = mock_existing_conn
         markov_generator._db_cursor = mock_existing_cursor
 
-        with patch("tarpit.markov_generator.psycopg2.connect") as mock_psycopg2_connect_new:
+        with patch("src.tarpit.markov_generator.psycopg2.connect") as mock_psycopg2_connect_new:
             conn, cursor = markov_generator._get_db_connection()
             self.assertEqual(conn, mock_existing_conn)
             self.assertEqual(cursor, mock_existing_cursor)
             mock_psycopg2_connect_new.assert_not_called() # Should not create a new connection
 
-    @patch("tarpit.markov_generator._get_pg_password", return_value=None) # Password unavailable
+    @patch("src.tarpit.markov_generator._get_pg_password", return_value=None) # Password unavailable
     @patch.object(markov_generator.logger, 'error')
     def test_get_db_connection_no_password(self, mock_logger_error, mock_get_pass):
         conn, cursor = markov_generator._get_db_connection()
@@ -101,8 +101,8 @@ class TestMarkovGenerator(unittest.TestCase):
         self.assertIsNone(cursor)
         mock_logger_error.assert_any_call("PostgreSQL password not available. Cannot connect.")
 
-    @patch("tarpit.markov_generator._get_pg_password", return_value="test_password")
-    @patch("tarpit.markov_generator.psycopg2.connect", side_effect=psycopg2.OperationalError("DB connection failed"))
+    @patch("src.tarpit.markov_generator._get_pg_password", return_value="test_password")
+    @patch("src.tarpit.markov_generator.psycopg2.connect", side_effect=psycopg2.OperationalError("DB connection failed"))
     @patch.object(markov_generator.logger, 'error')
     def test_get_db_connection_operational_error(self, mock_logger_error, mock_psycopg2_connect, mock_get_pass):
         conn, cursor = markov_generator._get_db_connection()
@@ -128,7 +128,7 @@ class TestMarkovGenerator(unittest.TestCase):
         self.assertEqual(name_s1, name_s2)
 
     # --- Test generate_fake_links ---
-    @patch("tarpit.markov_generator.generate_random_page_name")
+    @patch("src.tarpit.markov_generator.generate_random_page_name")
     def test_generate_fake_links(self, mock_gen_page_name):
         mock_gen_page_name.side_effect = lambda length=10: "randomname"[:length] # Predictable "random" names
         
@@ -141,7 +141,7 @@ class TestMarkovGenerator(unittest.TestCase):
             self.assertTrue(link.endswith((".html", ".js", ".json", ".xml", ".csv", ".css")))
 
     # --- Test get_word_id ---
-    @patch("tarpit.markov_generator._get_db_connection")
+    @patch("src.tarpit.markov_generator._get_db_connection")
     def test_get_word_id_success(self, mock_get_conn):
         mock_cursor = MagicMock()
         mock_cursor.fetchone.return_value = (123,) # Simulate word found
@@ -151,7 +151,7 @@ class TestMarkovGenerator(unittest.TestCase):
         self.assertEqual(word_id, 123)
         mock_cursor.execute.assert_called_once_with("SELECT id FROM words WHERE word = %s", ("testword",))
 
-    @patch("tarpit.markov_generator._get_db_connection")
+    @patch("src.tarpit.markov_generator._get_db_connection")
     def test_get_word_id_not_found_returns_empty_id(self, mock_get_conn):
         mock_cursor = MagicMock()
         mock_cursor.fetchone.return_value = None # Simulate word not found
@@ -160,13 +160,13 @@ class TestMarkovGenerator(unittest.TestCase):
         word_id = markov_generator.get_word_id("unknownword")
         self.assertEqual(word_id, 1) # Should return EMPTY_WORD_ID (1)
 
-    @patch("tarpit.markov_generator._get_db_connection", return_value=(None, None)) # DB connection fails
+    @patch("src.tarpit.markov_generator._get_db_connection", return_value=(None, None)) # DB connection fails
     def test_get_word_id_db_connection_fails(self, mock_get_conn):
         word_id = markov_generator.get_word_id("anyword")
         self.assertEqual(word_id, 1) # Should default to EMPTY_WORD_ID
 
     # --- Test get_next_word_from_db ---
-    @patch("tarpit.markov_generator._get_db_connection")
+    @patch("src.tarpit.markov_generator._get_db_connection")
     @patch("random.choices") # To control probabilistic selection
     def test_get_next_word_from_db_success(self, mock_random_choices, mock_get_conn):
         mock_cursor = MagicMock()
@@ -186,7 +186,7 @@ class TestMarkovGenerator(unittest.TestCase):
             k=1
         )
 
-    @patch("tarpit.markov_generator._get_db_connection")
+    @patch("src.tarpit.markov_generator._get_db_connection")
     def test_get_next_word_from_db_no_results(self, mock_get_conn):
         mock_cursor = MagicMock()
         mock_cursor.fetchall.return_value = [] # No sequence found
@@ -195,7 +195,7 @@ class TestMarkovGenerator(unittest.TestCase):
         next_word = markov_generator.get_next_word_from_db(10, 20)
         self.assertIsNone(next_word)
 
-    @patch("tarpit.markov_generator._get_db_connection")
+    @patch("src.tarpit.markov_generator._get_db_connection")
     @patch.object(markov_generator.logger, 'error')
     def test_get_next_word_from_db_query_error(self, mock_logger_error, mock_get_conn):
         mock_cursor = MagicMock()
@@ -211,9 +211,9 @@ class TestMarkovGenerator(unittest.TestCase):
 
 
     # --- Test generate_markov_text_from_db ---
-    @patch("tarpit.markov_generator._get_db_connection")
-    @patch("tarpit.markov_generator.get_next_word_from_db")
-    @patch("tarpit.markov_generator.get_word_id")
+    @patch("src.tarpit.markov_generator._get_db_connection")
+    @patch("src.tarpit.markov_generator.get_next_word_from_db")
+    @patch("src.tarpit.markov_generator.get_word_id")
     @patch("random.randint", return_value=1) # Generate 1 sentence * 1 word = 1 word max
     def test_generate_markov_text_from_db_simple(self, mock_rand_int, mock_get_id, mock_get_next_word, mock_get_conn):
         mock_cursor = MagicMock()
@@ -238,15 +238,15 @@ class TestMarkovGenerator(unittest.TestCase):
         self.assertGreaterEqual(mock_get_id.call_count, 4)
 
 
-    @patch("tarpit.markov_generator._get_db_connection", return_value=(None, None)) # DB fails
+    @patch("src.tarpit.markov_generator._get_db_connection", return_value=(None, None)) # DB fails
     def test_generate_markov_text_db_unavailable(self, mock_get_conn):
         text = markov_generator.generate_markov_text_from_db()
         self.assertEqual(text, "<p>Content generation unavailable.</p>")
 
     # --- Test generate_dynamic_tarpit_page ---
-    @patch("tarpit.markov_generator.generate_markov_text_from_db", return_value="<p>Mocked Markov Text.</p>")
-    @patch("tarpit.markov_generator.generate_fake_links", return_value=['/tarpit/fake/link1.html'])
-    @patch("tarpit.markov_generator.generate_random_page_name", return_value="mockpage")
+    @patch("src.tarpit.markov_generator.generate_markov_text_from_db", return_value="<p>Mocked Markov Text.</p>")
+    @patch("src.tarpit.markov_generator.generate_fake_links", return_value=['/tarpit/fake/link1.html'])
+    @patch("src.tarpit.markov_generator.generate_random_page_name", return_value="mockpage")
     def test_generate_dynamic_tarpit_page_structure(self, mock_gen_name, mock_gen_links, mock_gen_text):
         # Assume random is seeded externally as per tarpit_api.py's usage
         html = markov_generator.generate_dynamic_tarpit_page()

@@ -6,6 +6,9 @@ import glob
 import time
 import schedule # Using 'schedule' library for easy job scheduling
 import sys
+import logging
+
+logger = logging.getLogger(__name__)
 
 # --- Import the generator script ---
 try:
@@ -54,7 +57,7 @@ def rotate_archives():
                 os.remove(old_archive)
                 print(f"  Deleted old archive: {old_archive}")
             except OSError as e:
-                print(f"ERROR: Failed to delete old archive {old_archive}: {e}")
+                logger.error(f"Failed to delete old archive {old_archive}: {e}")
     else:
         print(f"Found {len(existing_archives)} archives. No old archives to delete.")
 
