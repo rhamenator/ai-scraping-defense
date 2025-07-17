@@ -10,9 +10,10 @@ import json
 import numpy as np
 from urllib.parse import urlparse
 import re
-import asyncio 
+import asyncio
 import logging
 import sys
+import ipaddress
 
 # --- Refactored Imports ---
 from src.shared.model_provider import get_model_adapter
@@ -80,6 +81,7 @@ except ImportError:
 # --- Configuration (Preserved) ---
 ESCALATION_THRESHOLD = float(os.getenv("ESCALATION_THRESHOLD", 0.8))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+ESCALATION_API_KEY = os.getenv("ESCALATION_API_KEY")
 
 try:
     from user_agents import parse as ua_parse; UA_PARSER_AVAILABLE = True
@@ -435,8 +437,16 @@ async def trigger_captcha_challenge(metadata: RequestMetadata) -> bool:
 @app.post("/escalate")
 async def handle_escalation(metadata_req: RequestMetadata, request: Request):
     client_ip = request.client.host if request.client else "unknown"
+    if ESCALATION_API_KEY and request.headers.get("X-API-Key") != ESCALATION_API_KEY:
+        logger.warning(f"Unauthorized escalation attempt from {client_ip}")
+        raise HTTPException(status_code=401, detail="Unauthorized")
     increment_counter_metric(ESCALATION_REQUESTS_RECEIVED)
     ip_under_test = metadata_req.ip
+    try:
+        ipaddress.ip_address(ip_under_test)
+    except ValueError:
+        logger.warning(f"Invalid IP provided to escalation endpoint: {ip_under_test}")
+        raise HTTPException(status_code=400, detail="Invalid IP address")
     action_taken = "analysis_complete"; is_bot_decision: Optional[bool] = None; final_score = -1.0
 
     try:

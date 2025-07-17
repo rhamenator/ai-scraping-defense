@@ -9,6 +9,7 @@ import datetime
 import sys
 import logging
 import hashlib
+from typing import Dict
 # The direct 'redis' import is no longer needed as the client handles it.
 from redis.exceptions import ConnectionError, RedisError
 
@@ -109,7 +110,9 @@ def trigger_ip_block(ip: str, reason: str):
         return False
     try:
         key = f"blocklist:{ip}"
-        result = redis_blocklist.set(key, reason, ex=BLOCKLIST_TTL_SECONDS)
+        if redis_blocklist.exists(key):
+            logger.info(f"IP {ip} already in blocklist. TTL refreshed")
+        result = redis_blocklist.setex(key, BLOCKLIST_TTL_SECONDS, reason)
         if result:
             logger.warning(f"BLOCKED IP {ip} for {BLOCKLIST_TTL_SECONDS}s. Reason: {reason}")
             return True
@@ -122,6 +125,17 @@ def trigger_ip_block(ip: str, reason: str):
     except Exception as e:
          logger.error(f"Unexpected error while blocking IP {ip}: {e}", exc_info=True)
          return False
+
+
+SENSITIVE_HEADERS = {"authorization", "cookie", "set-cookie"}
+
+def sanitize_headers(headers: Dict[str, str]) -> Dict[str, str]:
+    sanitized: Dict[str, str] = {}
+    for k, v in headers.items():
+        if k.lower() in SENSITIVE_HEADERS:
+            continue
+        sanitized[k] = str(v).replace("\n", " ").replace("\r", " ")
+    return sanitized
 
 
 # --- API Endpoints (Preserved from your original file) ---
@@ -161,7 +175,14 @@ async def tarpit_handler(request: Request, path: str = ""):
 
 
     logger.info(f"TAR_PIT HIT: Path={requested_path}, IP={client_ip}, UA='{user_agent}'")
-    honeypot_details = {"ip": client_ip, "user_agent": user_agent, "method": http_method, "path": requested_path, "referer": referer, "headers": dict(request.headers)}
+    honeypot_details = {
+        "ip": client_ip,
+        "user_agent": user_agent,
+        "method": http_method,
+        "path": requested_path,
+        "referer": referer,
+        "headers": sanitize_headers(dict(request.headers)),
+    }
     if HONEYPOT_LOGGING_AVAILABLE:
         try: log_honeypot_hit(honeypot_details)
         except Exception as e: logger.error(f"Error logging honeypot hit: {e}", exc_info=True)
@@ -171,7 +192,15 @@ async def tarpit_handler(request: Request, path: str = ""):
         except Exception as e: logger.error(f"Error flagging IP {client_ip}: {e}", exc_info=True)
 
     timestamp_iso = datetime.datetime.utcnow().isoformat() + "Z"
-    metadata = {"timestamp": timestamp_iso, "ip": client_ip, "user_agent": user_agent, "referer": referer, "path": requested_path, "headers": dict(request.headers), "source": "tarpit_api"}
+    metadata = {
+        "timestamp": timestamp_iso,
+        "ip": client_ip,
+        "user_agent": user_agent,
+        "referer": referer,
+        "path": requested_path,
+        "headers": sanitize_headers(dict(request.headers)),
+        "source": "tarpit_api",
+    }
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(ESCALATION_ENDPOINT, json=metadata, timeout=5.0)

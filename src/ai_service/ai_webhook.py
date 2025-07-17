@@ -159,6 +159,8 @@ def add_ip_to_blocklist(ip_address: str, reason: str, event_details: Optional[di
     try:
         block_key = f"{BLOCKLIST_KEY_PREFIX}{ip_address}"
         block_metadata = json.dumps({ "reason": reason, "timestamp_utc": datetime.datetime.utcnow().isoformat() + "Z", "user_agent": event_details.get('user_agent', 'N/A') if event_details else 'N/A' })
+        if redis_client_blocklist.exists(block_key):
+            logger.info(f"IP {ip_address} already in blocklist. TTL refreshed")
         redis_client_blocklist.setex(block_key, BLOCKLIST_TTL_SECONDS, block_metadata)
         logger.info(f"Added/Refreshed IP {ip_address} to Redis blocklist (Key: {block_key}) with TTL {BLOCKLIST_TTL_SECONDS}s. Reason: {reason}")
         log_event(BLOCK_LOG_FILE, "BLOCKLIST_ADD_TTL", { "ip_address": ip_address, "reason": reason, "ttl_seconds": BLOCKLIST_TTL_SECONDS, "details": event_details })
