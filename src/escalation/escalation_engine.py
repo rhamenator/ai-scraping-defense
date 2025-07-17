@@ -14,6 +14,7 @@ import asyncio
 import logging
 import sys
 import ipaddress
+import hashlib
 
 # --- Refactored Imports ---
 from src.shared.model_provider import get_model_adapter
@@ -24,6 +25,14 @@ from src.shared.config import get_secret
 # --- Setup Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+try:
+    from frequency_rs import get_realtime_frequency_features as rs_get_freq
+    FREQUENCY_RS_AVAILABLE = True
+    logger.info("frequency_rs module loaded successfully.")
+except Exception as e:
+    FREQUENCY_RS_AVAILABLE = False
+    logger.warning(f"Could not import frequency_rs: {e}. Using Python fallback.")
 
 # --- Metrics Import (Preserved from your original file) ---
 try:
@@ -110,9 +119,14 @@ CAPTCHA_VERIFICATION_URL = os.getenv("CAPTCHA_VERIFICATION_URL")
 ROBOTS_TXT_PATH = os.getenv("TRAINING_ROBOTS_TXT_PATH", "/app/config/robots.txt") 
 
 REDIS_DB_FREQUENCY = int(os.getenv("REDIS_DB_FREQUENCY", 3))
-FREQUENCY_WINDOW_SECONDS = int(os.getenv("FREQUENCY_WINDOW_SECONDS", 300)) 
+FREQUENCY_WINDOW_SECONDS = int(os.getenv("FREQUENCY_WINDOW_SECONDS", 300))
 FREQUENCY_KEY_PREFIX = "freq:"
 FREQUENCY_TRACKING_TTL = FREQUENCY_WINDOW_SECONDS + 60
+
+# Browser fingerprint tracking configuration
+REDIS_DB_FINGERPRINTS = int(os.getenv("REDIS_DB_FINGERPRINTS", 5))
+FINGERPRINT_WINDOW_SECONDS = int(os.getenv("FINGERPRINT_WINDOW_SECONDS", 604800))
+FINGERPRINT_REUSE_THRESHOLD = int(os.getenv("FINGERPRINT_REUSE_THRESHOLD", 3))
 
 HEURISTIC_THRESHOLD_LOW = 0.3
 HEURISTIC_THRESHOLD_MEDIUM = 0.6
@@ -145,6 +159,9 @@ except Exception as e:
 
 redis_client_freq = get_redis_connection(db_number=REDIS_DB_FREQUENCY)
 FREQUENCY_TRACKING_ENABLED = bool(redis_client_freq)
+
+redis_client_fingerprints = get_redis_connection(db_number=REDIS_DB_FINGERPRINTS)
+FINGERPRINT_TRACKING_ENABLED = bool(redis_client_fingerprints)
 
 # Robots.txt loading (Preserved)
 disallowed_paths = set()
@@ -239,12 +256,15 @@ def extract_features(log_entry_dict: Dict[str, Any], freq_features: Dict[str, An
     
     features[f'req_freq_{FREQUENCY_WINDOW_SECONDS}s'] = freq_features.get('count', 0)
     features['time_since_last_sec'] = freq_features.get('time_since', -1.0)
+    if 'fingerprint_reuse_count' in log_entry_dict:
+        features['fingerprint_reuse_count'] = log_entry_dict['fingerprint_reuse_count']
     return features
 
-# --- Real-time Frequency Calculation (Preserved) ---
-def get_realtime_frequency_features(ip: str) -> dict:
+# --- Real-time Frequency Calculation ---
+def _get_realtime_frequency_features_py(ip: str) -> dict:
     features = {'count': 0, 'time_since': -1.0}
-    if not FREQUENCY_TRACKING_ENABLED or not ip or not redis_client_freq: return features
+    if not FREQUENCY_TRACKING_ENABLED or not ip or not redis_client_freq:
+        return features
     try:
         now_unix = time.time(); window_start_unix = now_unix - FREQUENCY_WINDOW_SECONDS
         now_ms_str = f"{now_unix:.6f}"; redis_key = f"{FREQUENCY_KEY_PREFIX}{ip}"
@@ -252,25 +272,66 @@ def get_realtime_frequency_features(ip: str) -> dict:
         pipe.zremrangebyscore(redis_key, '-inf', f'({window_start_unix}')
         pipe.zadd(redis_key, {now_ms_str: now_unix})
         pipe.zcount(redis_key, window_start_unix, now_unix)
-        pipe.zrange(redis_key, -2, -1, withscores=True) 
-        pipe.expire(redis_key, FREQUENCY_TRACKING_TTL) 
+        pipe.zrange(redis_key, -2, -1, withscores=True)
+        pipe.expire(redis_key, FREQUENCY_TRACKING_TTL)
         results = pipe.execute()
-        
+
         current_count = results[2] if len(results) > 2 and isinstance(results[2], int) else 0
-        features['count'] = max(0, current_count -1) 
+        features['count'] = max(0, current_count - 1)
 
         recent_entries = results[3] if len(results) > 3 and isinstance(results[3], list) else []
-        if len(recent_entries) > 1: 
+        if len(recent_entries) > 1:
             last_ts_score = float(recent_entries[-2][1])
             time_diff = now_unix - last_ts_score
             features['time_since'] = round(time_diff, 3)
-        elif len(recent_entries) == 1 and current_count == 1: 
-            features['time_since'] = -1.0 
-        
+        elif len(recent_entries) == 1 and current_count == 1:
+            features['time_since'] = -1.0
     except Exception as e:
         logger.warning(f"Redis error during frequency check for IP {ip}: {e}")
         increment_counter_metric(REDIS_ERRORS_FREQUENCY)
     return features
+
+def get_realtime_frequency_features(ip: str) -> dict:
+    if FREQUENCY_RS_AVAILABLE and FREQUENCY_TRACKING_ENABLED and ip:
+        try:
+            count, time_since = rs_get_freq(
+                ip,
+                REDIS_DB_FREQUENCY,
+                FREQUENCY_WINDOW_SECONDS,
+                FREQUENCY_KEY_PREFIX,
+                FREQUENCY_TRACKING_TTL,
+            )
+            return {'count': int(count), 'time_since': float(time_since)}
+        except Exception as e:
+            logger.warning(f"frequency_rs error for IP {ip}: {e}; falling back to Python implementation")
+            increment_counter_metric(REDIS_ERRORS_FREQUENCY)
+    return _get_realtime_frequency_features_py(ip)
+
+# --- Browser Fingerprint Tracking ---
+def compute_browser_fingerprint(metadata: "RequestMetadata") -> str:
+    ua = (metadata.user_agent or "").lower()
+    headers = metadata.headers or {}
+    parts = [
+        ua,
+        (headers.get('accept-language') or '').lower(),
+        (headers.get('accept') or '').lower(),
+        (headers.get('sec-ch-ua') or '').lower(),
+        (headers.get('sec-fetch-site') or '').lower(),
+    ]
+    fp_raw = "|".join(parts)
+    return hashlib.sha256(fp_raw.encode('utf-8')).hexdigest()
+
+def track_fingerprint(fingerprint: str, ip: str) -> int:
+    if not FINGERPRINT_TRACKING_ENABLED or not fingerprint or not redis_client_fingerprints:
+        return 1
+    try:
+        key = f"fp:{fingerprint}"
+        redis_client_fingerprints.sadd(key, ip)
+        redis_client_fingerprints.expire(key, FINGERPRINT_WINDOW_SECONDS)
+        return int(redis_client_fingerprints.scard(key))
+    except Exception as e:
+        logger.error(f"Redis error during fingerprint tracking for IP {ip}: {e}")
+        return 1
 
 # --- IP Reputation Check (Preserved) ---
 async def check_ip_reputation(ip: str) -> Optional[Dict[str, Any]]:
@@ -328,6 +389,12 @@ def run_heuristic_and_model_analysis(metadata: RequestMetadata, ip_rep_result: O
     path = metadata.path or ''
     headers = metadata.headers or {}
     method = (metadata.method or headers.get('x-original-method') or headers.get('method') or 'GET').upper()
+
+    fingerprint = compute_browser_fingerprint(metadata)
+    fp_count = track_fingerprint(fingerprint, metadata.ip)
+    log_entry_dict['fingerprint_reuse_count'] = fp_count
+    if fp_count > FINGERPRINT_REUSE_THRESHOLD:
+        rule_score += 0.2
 
     is_known_benign = any(good in ua for good in KNOWN_BENIGN_CRAWLERS_UAS)
     if any(bad in ua for bad in KNOWN_BAD_UAS) and not is_known_benign:

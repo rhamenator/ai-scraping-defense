@@ -1,0 +1,20 @@
+[package]
+name = "jszip-rs"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[lib]
+name = "jszip_rs"
+# Include an rlib for unit tests in addition to the Python extension module
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.21", features = ["abi3-py37", "extension-module", "auto-initialize"] }
+zip = "0.6"
+rand = "0.8"
+chrono = "0.4"
+tempfile = "3"
+
+[build-dependencies]
+pyo3-build-config = { version = "0.21", features = ["resolve-config"] }

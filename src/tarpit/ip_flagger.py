@@ -5,6 +5,7 @@ utility from the 'shared' module.
 """
 import sys
 import logging
+import os
 from src.shared.redis_client import get_redis_connection
 
 # Configure logging for this module
@@ -14,6 +15,16 @@ logger = logging.getLogger(__name__)
 # Define the specific Redis database number for flagged IPs.
 REDIS_DB_FLAGGED_IPS = 3
 
+# TTL for flagged IP entries (seconds). Defaults to 7 days.
+FLAGGED_IP_TTL_SECONDS = int(os.getenv("FLAGGED_IP_TTL_SECONDS", 604800))
+
+# Number of times an IP can be flagged before it becomes a repeat offender.
+# Repeat offenders are stored without a TTL (permanent until manually removed).
+REPEAT_OFFENDER_THRESHOLD = int(os.getenv("REPEAT_OFFENDER_THRESHOLD", 3))
+
+# Internal counter key prefix for tracking how many times an IP was flagged.
+FLAG_COUNT_PREFIX = "ip_flag_count:"
+
 def flag_suspicious_ip(ip_address: str, reason: str = "Suspicious activity"):
     """
     Flags an IP address by setting a key in Redis.
@@ -21,16 +32,30 @@ def flag_suspicious_ip(ip_address: str, reason: str = "Suspicious activity"):
     (Formerly flag_ip)
     """
     r = get_redis_connection(db_number=REDIS_DB_FLAGGED_IPS)
-    if r:
-        try:
-            r.set(f"ip_flag:{ip_address}", reason)
-            logger.info(f"Flagged IP: {ip_address} for reason: {reason}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to flag IP {ip_address} in Redis: {e}")
-            return False
-    logger.error("Redis unavailable. Cannot flag IP.")
-    return False
+    if not r:
+        logger.error("Redis unavailable. Cannot flag IP.")
+        return False
+
+    try:
+        count_key = f"{FLAG_COUNT_PREFIX}{ip_address}"
+        # Increment how many times this IP has been flagged
+        flag_count = r.incr(count_key)
+        r.expire(count_key, FLAGGED_IP_TTL_SECONDS)
+
+        flag_key = f"ip_flag:{ip_address}"
+        if flag_count > REPEAT_OFFENDER_THRESHOLD:
+            # Repeat offenders are stored without expiration
+            r.set(flag_key, reason)
+        else:
+            r.setex(flag_key, FLAGGED_IP_TTL_SECONDS, reason)
+
+        logger.info(
+            f"Flagged IP: {ip_address} (count={flag_count}) for reason: {reason}"
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Failed to flag IP {ip_address} in Redis: {e}")
+        return False
 
 
 def is_ip_flagged(ip_address: str) -> bool:
@@ -54,16 +79,18 @@ def remove_ip_flag(ip_address: str):
     Removes a flag from an IP address by deleting the key.
     """
     r = get_redis_connection(db_number=REDIS_DB_FLAGGED_IPS)
-    if r:
-        try:
-            r.delete(f"ip_flag:{ip_address}")
-            logger.info(f"Removed flag for IP: {ip_address}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to remove IP flag for {ip_address}: {e}")
-            return False
-    logger.error("Redis unavailable. Cannot remove IP flag.")
-    return False
+    if not r:
+        logger.error("Redis unavailable. Cannot remove IP flag.")
+        return False
+
+    try:
+        r.delete(f"ip_flag:{ip_address}")
+        r.delete(f"{FLAG_COUNT_PREFIX}{ip_address}")
+        logger.info(f"Removed flag for IP: {ip_address}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to remove IP flag for {ip_address}: {e}")
+        return False
 if __name__ == '__main__':
     # Example usage for direct testing of this module.
     print("Running IP Flagger example...")

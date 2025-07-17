@@ -51,7 +51,7 @@ except ImportError:
 
 # Local module import
 try:
-    from src.tarpit.markov_generator import generate_dynamic_tarpit_page
+    from tarpit_rs import generate_dynamic_tarpit_page
     MARKOV_AVAILABLE = True
 except ImportError:
     MARKOV_AVAILABLE = False
