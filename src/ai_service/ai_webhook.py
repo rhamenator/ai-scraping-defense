@@ -2,13 +2,14 @@
 # Receives webhook events, logs, blocklists via Redis (with TTL), optionally reports to community lists, and sends alerts.
 """Webhook receiver and blocklist manager.
 
-This module implements the Flask application responsible for ingesting
+This module implements the FastAPI application responsible for ingesting
 webhook events from various detection points. Events may trigger IP
 blocklisting in Redis, optional reporting to community services and alert
 notifications through webhooks, Slack or SMTP email.
 """
 
-from flask import Flask, jsonify, request
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional, Union
 import datetime
@@ -139,9 +140,8 @@ class WebhookEvent(BaseModel):
     details: Dict[str, Any] = Field(..., description="Detailed metadata about the request (IP, UA, headers, etc.)")
 
 
-# --- Flask App ---
-app = Flask(__name__)
-app.config["TESTING"] = False
+# --- FastAPI App ---
+app = FastAPI()
 
 
 def get_redis_connection():
@@ -430,56 +430,57 @@ async def send_alert(event_data: WebhookEvent):
 # --- Simple Webhook Endpoint for tests ---
 
 
-@app.route("/webhook", methods=["POST"])
-def webhook_receiver():
+@app.post("/webhook")
+async def webhook_receiver(request: Request):
     """Handle blocklist/flag actions from the escalation engine tests."""
-    if WEBHOOK_API_KEY is not None:
-        if request.headers.get("X-API-Key") != WEBHOOK_API_KEY:
-            return jsonify({"error": "Unauthorized"}), 401
-    payload = request.get_json() or {}
+    if WEBHOOK_API_KEY is not None and request.headers.get("X-API-Key") != WEBHOOK_API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    payload = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
     redis_conn = get_redis_connection()
     if not redis_conn:
-        return jsonify({"error": "Redis service unavailable"}), 503
+        raise HTTPException(status_code=503, detail="Redis service unavailable")
 
     action = payload.get("action")
     ip = payload.get("ip")
 
     if action in {"block_ip", "allow_ip", "flag_ip", "unflag_ip"} and not ip:
-        return jsonify({"error": f"Missing 'ip' in payload for action '{action}'."}), 400
+        raise HTTPException(status_code=400, detail=f"Missing 'ip' in payload for action '{action}'.")
 
     try:
         if action == "block_ip":
             redis_conn.sadd("blocklist", ip)
-            return jsonify({"status": "success", "message": f"IP {ip} added to blocklist."})
+            return {"status": "success", "message": f"IP {ip} added to blocklist."}
         elif action == "allow_ip":
             redis_conn.srem("blocklist", ip)
-            return jsonify({"status": "success", "message": f"IP {ip} removed from blocklist."})
+            return {"status": "success", "message": f"IP {ip} removed from blocklist."}
         elif action == "flag_ip":
             reason = payload.get("reason", "")
             redis_conn.set(f"ip_flag:{ip}", reason)
-            return jsonify({"status": "success", "message": f"IP {ip} flagged."})
+            return {"status": "success", "message": f"IP {ip} flagged."}
         elif action == "unflag_ip":
             redis_conn.delete(f"ip_flag:{ip}")
-            return jsonify({"status": "success", "message": f"IP {ip} unflagged."})
+            return {"status": "success", "message": f"IP {ip} unflagged."}
         else:
-            return jsonify({"error": f"Invalid action: {action}"}), 400
+            raise HTTPException(status_code=400, detail=f"Invalid action: {action}")
+    except HTTPException:
+        raise
     except Exception:
         logger.error("Failed to execute action", exc_info=True)
-        return jsonify({"error": "Failed to execute action"}), 500
+        raise HTTPException(status_code=500, detail="Failed to execute action")
 
 
 # --- Health Check Endpoint ---
-@app.route("/health")
-def health_check():
+@app.get("/health")
+async def health_check():
     redis_conn = get_redis_connection()
     if not redis_conn:
-        return jsonify({"status": "error", "redis_connected": False}), 503
+        return JSONResponse({"status": "error", "redis_connected": False}, status_code=503)
     try:
         redis_ok = bool(redis_conn.ping())
     except Exception:
         redis_ok = False
     status_code = 200 if redis_ok else 503
-    return jsonify({"status": "ok" if redis_ok else "error", "redis_connected": redis_ok}), status_code
+    return JSONResponse({"status": "ok" if redis_ok else "error", "redis_connected": redis_ok}, status_code=status_code)
 
 
 if __name__ == "__main__":
@@ -490,7 +491,7 @@ if __name__ == "__main__":
 
     logger.info("--- AI Service / Webhook Receiver Starting ---")
     # ... (startup logging remains the same) ...
-    uvicorn.run("ai_webhook:app", host="0.0.0.0", port=port, workers=workers, log_level=log_level, reload=False)
+    uvicorn.run("src.ai_service.ai_webhook:app", host="0.0.0.0", port=port, workers=workers, log_level=log_level, reload=False)
     logger.info("--- AI Service / Webhook Receiver Started ---")
 # Note: The above code is designed to be run as a FastAPI application.
 # It should be run with a WSGI server like Uvicorn or Gunicorn.
