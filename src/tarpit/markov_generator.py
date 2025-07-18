@@ -298,9 +298,9 @@ def generate_dynamic_tarpit_page():
     return html_structure
 
 
-if __name__ == "__main__":
+def _run_as_script() -> None:
+    """Helper to execute the module's main block. Exposed for tests."""
     print("--- Generating Sample Tarpit Page (requires DB connection) ---")
-    # Seed random for predictable output during test
     random.seed("test_seed_123")
     dynamic_html = generate_dynamic_tarpit_page()
     print("\n--- Generated HTML ---")
@@ -308,3 +308,7 @@ if __name__ == "__main__":
     if _db_conn:
         _db_conn.close()
         print("Database connection closed.")
+
+
+if __name__ == "__main__":
+    _run_as_script()

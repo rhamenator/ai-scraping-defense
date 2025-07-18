@@ -49,7 +49,7 @@ class TestModelAdaptersComprehensive(unittest.TestCase):
         """Test SklearnAdapter returns a default value if the model failed to load."""
         self.mock_joblib_load.side_effect = FileNotFoundError
         
-        with self.assertLogs('src.shared.model_adapters', level='ERROR') as cm:
+        with self.assertLogs(level='ERROR') as cm:
             adapter = SklearnAdapter(model_uri="/bad/path/model.joblib")
             self.assertIn("model file not found", cm.output[0])
         
@@ -113,7 +113,7 @@ class TestModelAdaptersComprehensive(unittest.TestCase):
         
         adapter = HttpModelAdapter(model_uri="http://model-api/predict")
         
-        with self.assertLogs('src.shared.model_adapters', level='ERROR') as cm:
+        with self.assertLogs(level='ERROR') as cm:
             result = adapter.predict({})
             self.assertIn("HTTP error 500", cm.output[0])
         

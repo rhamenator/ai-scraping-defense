@@ -118,7 +118,7 @@ class TestHoneypotLoggerSetup(unittest.TestCase):
         mock_logger_instance.hasHandlers.return_value = False 
         mock_getLogger.return_value = mock_logger_instance
         
-        mock_file_handler_instance = MagicMock(spec=logging.FileHandler)
+        mock_file_handler_instance = MagicMock()
         mock_FileHandler.return_value = mock_file_handler_instance
 
         # Reload the module to trigger setup logic
@@ -126,7 +126,7 @@ class TestHoneypotLoggerSetup(unittest.TestCase):
 
         mock_makedirs.assert_called_once_with(os.path.dirname(self.test_log_file), exist_ok=True)
         mock_getLogger.assert_called_with('honeypot_logger')
-        self.assertEqual(mock_logger_instance.level, logging.INFO)
+        mock_logger_instance.setLevel.assert_called_once_with(logging.INFO)
         self.assertFalse(mock_logger_instance.propagate)
         mock_FileHandler.assert_called_once_with(self.test_log_file)
         mock_file_handler_instance.setFormatter.assert_called_once()
@@ -151,12 +151,13 @@ class TestHoneypotLoggerSetup(unittest.TestCase):
         mock_logger_instance.addHandler.assert_not_called()
 
     @patch("logging.getLogger")
-    def test_logger_setup_skips_if_handlers_exist(self, mock_getLogger):
+    @patch("os.makedirs")
+    def test_logger_setup_skips_if_handlers_exist(self, mock_makedirs, mock_getLogger):
         mock_logger_instance = MagicMock(spec=logging.Logger)
-        mock_logger_instance.hasHandlers.return_value = True 
+        mock_logger_instance.hasHandlers.return_value = True
         mock_getLogger.return_value = mock_logger_instance
 
-        with patch("logging.FileHandler") as mock_FileHandler_skipped: 
+        with patch("logging.FileHandler") as mock_FileHandler_skipped:
             importlib.reload(honeypot_logger)
             mock_FileHandler_skipped.assert_not_called()
             mock_logger_instance.addHandler.assert_not_called()

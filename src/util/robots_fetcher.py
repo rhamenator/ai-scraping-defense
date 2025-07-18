@@ -32,6 +32,7 @@ REAL_BACKEND_HOST = os.getenv("REAL_BACKEND_HOST", "http://example.com")
 CONFIGMAP_NAME = os.getenv("ROBOTS_CONFIGMAP_NAME", "live-robots-txt-config")
 CONFIGMAP_NAMESPACE = os.getenv("KUBERNETES_NAMESPACE", "default")
 FETCHER_USER_AGENT = "RobotsTxtFetcher/1.5 (AI-Scraping-Defense-Stack)"
+ROBOTS_OUTPUT_FILE = os.getenv("ROBOTS_OUTPUT_FILE", "robots.txt")
 
 # --- Core Functions ---
 def get_default_robots_txt() -> str:
@@ -101,9 +102,11 @@ def update_configmap(api: Any, content: str):
         else:
             logger.error(f"Failed to patch ConfigMap: {e}")
 
-if __name__ == "__main__":
+def _run_as_script() -> None:
+    """Helper to execute the module's main block. Exposed for tests."""
     logger.info("Robots.txt Fetcher script started.")
-    robots_content = fetch_robots_txt(REAL_BACKEND_HOST)
+    target_url = os.getenv('TARGET_URL', REAL_BACKEND_HOST)
+    robots_content = fetch_robots_txt(target_url)
 
     if KUBE_AVAILABLE and os.environ.get('KUBERNETES_SERVICE_HOST'):
         logger.info("Running inside Kubernetes. Attempting to update ConfigMap.")
@@ -112,7 +115,13 @@ if __name__ == "__main__":
             update_configmap(kube_api, robots_content)
     else:
         logger.info("Not in Kubernetes or library unavailable. Skipping ConfigMap update.")
+        with open(ROBOTS_OUTPUT_FILE, 'w', encoding='utf-8') as f:
+            f.write(robots_content)
         print("\n--- Fetched Robots.txt Content ---")
         print(robots_content)
-    
+
     logger.info("Robots.txt Fetcher script finished.")
+
+
+if __name__ == "__main__":
+    _run_as_script()

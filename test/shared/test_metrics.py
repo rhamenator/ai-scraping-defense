@@ -13,15 +13,12 @@ class TestMetricsComprehensive(unittest.TestCase):
         We will patch the REGISTRY object in the metrics module.
         """
         self.registry = CollectorRegistry()
-        self.registry_patcher = patch('src.shared.metrics.REGISTRY', self.registry)
-        self.registry_patcher.start()
-        # Reload the module to redefine metrics on our new patched registry
-        importlib.reload(metrics)
+        # Patch CollectorRegistry at the source to ensure all metrics use the custom registry
+        with patch('prometheus_client.CollectorRegistry', return_value=self.registry):
+            importlib.reload(metrics)
 
     def tearDown(self):
-        """Stop the patch to clean up."""
-        self.registry_patcher.stop()
-        # Restore the original module state
+        """Reload the metrics module to restore the default registry."""
         importlib.reload(metrics)
 
     def test_increment_counter_metric(self):
@@ -53,7 +50,7 @@ class TestMetricsComprehensive(unittest.TestCase):
     def test_observe_histogram_metric(self):
         """Test the histogram observe helper function."""
         histo = metrics.REQUEST_LATENCY
-        labels = {'endpoint': '/data'}
+        labels = {'method': 'GET', 'endpoint': '/data'}
         metrics.observe_histogram_metric(histo, 0.1, labels=labels)
         metrics.observe_histogram_metric(histo, 0.2, labels=labels)
         metrics.observe_histogram_metric(histo, 0.3, labels=labels)

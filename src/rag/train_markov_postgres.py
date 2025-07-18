@@ -85,8 +85,9 @@ def tokenize_text(text):
     text = re.sub(r"[^\w\s'-]", '', text) # Remove other punctuation
     # Basic split and lowercase
     words = text.lower().split()
-    # Filter out empty strings
-    return [word for word in words if word]
+    # Strip leading/trailing apostrophes or hyphens
+    cleaned = [re.sub(r"^[-']+|[-']+$", '', w) for w in words]
+    return [w for w in cleaned if w]
 
 def get_word_id(cursor, word_cache, word):
     """Gets the ID for a word, inserting it if it doesn't exist."""

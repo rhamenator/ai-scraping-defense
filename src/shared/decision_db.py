@@ -4,6 +4,9 @@ from contextlib import contextmanager
 
 DB_PATH = os.getenv("DECISIONS_DB_PATH", "/app/data/decisions.db")
 
+# Ensure the directory for the database exists so connecting does not fail
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS decisions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
