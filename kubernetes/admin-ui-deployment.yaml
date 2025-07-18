@@ -31,7 +31,7 @@ spec:
       - name: admin-ui
         # IMPORTANT: Replace with your actual container image registry and tag.
         image: your-registry/ai-scraping-defense:latest
-        # Updated command to run the Flask app from its new path.
+        # Command to run the FastAPI admin UI.
         command: ["python", "src/admin_ui/admin_ui.py"]
         ports:
         - containerPort: 5002

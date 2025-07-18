@@ -2,7 +2,6 @@
 fastapi~=0.115
 uvicorn[standard]~=0.27
 gunicorn~=21.2
-flask~=3.0
 
 # Data and Database
 psycopg2-binary~=2.9
