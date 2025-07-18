@@ -72,8 +72,8 @@ def _get_pg_password(password_file_path: str) -> Optional[str]:
             try:
                 with open(path, 'r') as f:
                     return f.read().strip()
-            except Exception as e:
-                print(f"Warning: Failed to read PostgreSQL password from {path}: {e}")
+            except Exception:
+                print("Warning: Failed to read PostgreSQL password from one of the configured paths.")
                 continue
     print(f"Error: PostgreSQL password file not found at specified path or fallbacks: {password_file_path}")
     return None
