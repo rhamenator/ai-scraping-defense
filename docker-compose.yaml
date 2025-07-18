@@ -42,6 +42,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro
       - ./nginx/lua:/etc/nginx/lua:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
       # Restored Nginx cache volumes for stability and performance
       - nginx_client_body_temp:/var/run/openresty/nginx-client-body
       - nginx_proxy_temp:/var/cache/nginx/proxy_temp
@@ -56,6 +57,9 @@ services:
       - ADMIN_UI_HOST=admin_ui
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - ENABLE_HTTPS=${ENABLE_HTTPS}
+      - TLS_CERT_PATH=${TLS_CERT_PATH}
+      - TLS_KEY_PATH=${TLS_KEY_PATH}
     depends_on:
       escalation_engine:
         condition: service_healthy
