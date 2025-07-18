@@ -76,16 +76,28 @@ This setup uses Docker Compose to orchestrate all the necessary services on your
 
     **Important:** The script will print the generated credentials to the console. Copy these and save them in a secure password manager.
 
-5. **Launch the Stack:**
+5. **Enable HTTPS (Optional):**
+    Edit the `.env` file to set `ENABLE_HTTPS=true` and provide paths to your TLS certificate and key.
+
+    ```bash
+    ENABLE_HTTPS=true
+    TLS_CERT_PATH=./nginx/certs/tls.crt
+    TLS_KEY_PATH=./nginx/certs/tls.key
+    ```
+
+    Make sure the certificate files exist at those paths or update them accordingly.
+
+6. **Launch the Stack:**
     Build and start all the services using Docker Compose.
 
     ```bash
     docker-compose up --build -d
     ```
 
-6. **Access the Services:**
+7. **Access the Services:**
     - **Admin UI:** `http://localhost:5002`
     - **Your Application (via proxy):** `http://localhost:8080`
+    - **HTTPS (if enabled):** `https://localhost:8443`
 
 ## Project Structure
 
