@@ -1,7 +1,7 @@
 # Web Frameworks and Servers
 fastapi~=0.115
 uvicorn[standard]~=0.27
-gunicorn~=21.2
+gunicorn~=23.0
 
 # Data and Database
 psycopg2-binary~=2.9
