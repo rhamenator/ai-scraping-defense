@@ -8,6 +8,7 @@ This project provides a multi-layered, microservice-based defense system against
 - **Intelligent Analysis:** Employs heuristics, a machine learning model, and optional LLM integration to analyze suspicious traffic.
 - **Model Agnostic:** A flexible adapter pattern allows for easy integration with various ML models and LLM providers (OpenAI, Mistral, Cohere, etc.).
 - **Active Countermeasures:** Includes a "Tarpit API" to actively waste the resources of confirmed bots.
+- **End-User Verification:** Optional reCAPTCHA challenge service logs successful verifications for training data.
 - **Rate Limiting:** Basic per-IP request limits via Nginx to slow abusive clients.
 - **Community Blocklist:** Optional daemon to sync IPs from a shared blocklist service.
 - **Containerized:** Fully containerized with Docker and ready for deployment on Kubernetes.
@@ -40,6 +41,8 @@ This setup uses Docker Compose to orchestrate all the necessary services on your
     ```
 
     Open the `.env` file and review the default settings. You do not need to change anything to get started, but this is where you would add your API keys later.
+    To enable the CAPTCHA verification service, populate `CAPTCHA_SECRET` with your reCAPTCHA secret key.
+    Tarpit behavior can be tuned with `TARPIT_MAX_HOPS` and `TARPIT_HOP_WINDOW_SECONDS` to automatically block clients that spend too much time in the tarpit.
 
 3. **Set Up Python Virtual Environment:**
     Run the setup script to create a virtual environment and install all Python dependencies.

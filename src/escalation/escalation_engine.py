@@ -104,6 +104,8 @@ LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL")
 LOCAL_LLM_TIMEOUT = float(os.getenv("LOCAL_LLM_TIMEOUT", 45.0))
 EXTERNAL_API_URL = os.getenv("EXTERNAL_CLASSIFICATION_API_URL") if os.getenv("EXTERNAL_CLASSIFICATION_API_URL") else os.getenv("EXTERNAL_API_URL")
 EXTERNAL_API_TIMEOUT = float(os.getenv("EXTERNAL_API_TIMEOUT", 15.0))
+ENABLE_LOCAL_LLM_CLASSIFICATION = os.getenv("ENABLE_LOCAL_LLM_CLASSIFICATION", "true").lower() == "true"
+ENABLE_EXTERNAL_API_CLASSIFICATION = os.getenv("ENABLE_EXTERNAL_API_CLASSIFICATION", "true").lower() == "true"
 
 ENABLE_IP_REPUTATION = os.getenv("ENABLE_IP_REPUTATION", "false").lower() == "true"
 IP_REPUTATION_API_URL = os.getenv("IP_REPUTATION_API_URL")
@@ -115,6 +117,8 @@ ENABLE_CAPTCHA_TRIGGER = os.getenv("ENABLE_CAPTCHA_TRIGGER", "false").lower() ==
 CAPTCHA_SCORE_THRESHOLD_LOW = float(os.getenv("CAPTCHA_SCORE_THRESHOLD_LOW", 0.2))
 CAPTCHA_SCORE_THRESHOLD_HIGH = float(os.getenv("CAPTCHA_SCORE_THRESHOLD_HIGH", 0.5))
 CAPTCHA_VERIFICATION_URL = os.getenv("CAPTCHA_VERIFICATION_URL")
+CAPTCHA_SECRET = get_secret("CAPTCHA_SECRET_FILE") or os.getenv("CAPTCHA_SECRET")
+CAPTCHA_SUCCESS_LOG = os.getenv("CAPTCHA_SUCCESS_LOG", "/app/logs/captcha_success.log")
 
 ROBOTS_TXT_PATH = os.getenv("TRAINING_ROBOTS_TXT_PATH", "/app/config/robots.txt") 
 
@@ -502,25 +506,74 @@ async def classify_with_external_api(metadata: RequestMetadata) -> Optional[bool
     except Exception as e: logger.error(f"Unexpected error external API for IP {metadata.ip}: {e}", exc_info=True); increment_counter_metric(EXTERNAL_API_ERRORS_UNEXPECTED); return None
 
 async def forward_to_webhook(payload: Dict[str, Any], reason: str):
-    if not WEBHOOK_URL: return
+    """Send a prepared webhook payload."""
+    if not WEBHOOK_URL:
+        return
     increment_counter_metric(ESCALATION_WEBHOOKS_SENT)
-    serializable_payload = {};
-    try: serializable_payload = json.loads(json.dumps(payload, default=str))
-    except Exception as e: logger.error(f"Failed to serialize payload for webhook (IP: {payload.get('ip')}): {e}"); serializable_payload = {"ip": payload.get("ip", "unknown"), "error": "Payload serialization failed"}
-    webhook_payload = { "event_type": "suspicious_activity_detected", "reason": reason, "timestamp_utc": datetime.datetime.utcnow().isoformat()+"Z", "details": serializable_payload }
-    headers = {'Content-Type': 'application/json'}
+    headers = {"Content-Type": "application/json"}
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(WEBHOOK_URL, headers=headers, json=webhook_payload, timeout=10.0)
-            response.raise_for_status()
-            logger.info(f"Webhook forwarded successfully for IP {payload.get('ip')}")
-    except httpx.RequestError as exc: logger.error(f"Error forwarding to webhook {WEBHOOK_URL} for IP {payload.get('ip')}: {exc}"); increment_counter_metric(ESCALATION_WEBHOOK_ERRORS_REQUEST)
-    except Exception as e: logger.error(f"Unexpected error during webhook forwarding for IP {payload.get('ip')}: {e}", exc_info=True); increment_counter_metric(ESCALATION_WEBHOOK_ERRORS_UNEXPECTED)
+            resp = await client.post(WEBHOOK_URL, headers=headers, json=payload, timeout=10.0)
+            resp.raise_for_status()
+            ip_log = payload.get("details", {}).get("ip", payload.get("ip"))
+            logger.info(f"Webhook forwarded successfully for IP {ip_log}")
+    except httpx.RequestError as exc:
+        logger.error(f"Error forwarding to webhook {WEBHOOK_URL} for IP {payload.get('ip')}: {exc}")
+        increment_counter_metric(ESCALATION_WEBHOOK_ERRORS_REQUEST)
+    except Exception as e:
+        logger.error(f"Unexpected error during webhook forwarding for IP {payload.get('ip')}: {e}", exc_info=True)
+        increment_counter_metric(ESCALATION_WEBHOOK_ERRORS_UNEXPECTED)
+
+def build_webhook_payload(metadata: Dict[str, Any], reason: str) -> Dict[str, Any]:
+    """Create a standard webhook payload from request metadata."""
+    try:
+        serializable = json.loads(json.dumps(metadata, default=str))
+    except Exception as e:
+        logger.error(f"Failed to serialize payload for webhook (IP: {metadata.get('ip')}): {e}")
+        serializable = {"ip": metadata.get("ip", "unknown"), "error": "Payload serialization failed"}
+    return {
+        "event_type": "suspicious_activity_detected",
+        "reason": reason,
+        "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+        "details": serializable,
+    }
 
 async def trigger_captcha_challenge(metadata: RequestMetadata) -> bool:
-    logger.info(f"CAPTCHA Triggered (Placeholder) for IP {metadata.ip}.")
+    """Verify a reCAPTCHA token if provided and log the outcome."""
     increment_counter_metric(CAPTCHA_CHALLENGES_TRIGGERED)
-    return True
+    token = None
+    if metadata.headers:
+        token = metadata.headers.get("x-captcha-token")
+    if not token:
+        logger.info(f"CAPTCHA challenge issued for IP {metadata.ip}; awaiting token")
+        return False
+    if not CAPTCHA_SECRET:
+        logger.error("CAPTCHA secret not configured")
+        return False
+    verify_payload = {"secret": CAPTCHA_SECRET, "response": token, "remoteip": metadata.ip}
+    url = CAPTCHA_VERIFICATION_URL or "https://www.google.com/recaptcha/api/siteverify"
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, data=verify_payload, timeout=10.0)
+            resp.raise_for_status()
+            result = resp.json()
+            success = bool(result.get("success"))
+    except Exception as e:
+        logger.error(f"Error verifying CAPTCHA for IP {metadata.ip}: {e}", exc_info=True)
+        return False
+    if success:
+        try:
+            os.makedirs(os.path.dirname(CAPTCHA_SUCCESS_LOG), exist_ok=True)
+            with open(CAPTCHA_SUCCESS_LOG, "a") as f:
+                f.write(
+                    f"{datetime.datetime.now(datetime.timezone.utc).isoformat()},{metadata.ip}\n"
+                )
+        except Exception as e:
+            logger.error(f"Failed to log CAPTCHA success: {e}")
+        logger.info(f"CAPTCHA verified for IP {metadata.ip}")
+    else:
+        logger.info(f"CAPTCHA failed for IP {metadata.ip}")
+    return success
 
 # --- API Endpoint (/escalate) (Preserved) ---
 @app.post("/escalate")
@@ -546,7 +599,11 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
                  logger.info(f"IP {ip_under_test} flagged by IP Reputation. Escalating directly.")
                  is_bot_decision = True; action_taken = "webhook_triggered_ip_reputation"; 
                  increment_counter_metric(BOTS_DETECTED_IP_REPUTATION)
-                 await forward_to_webhook(metadata_req.model_dump(mode='json'), f"IP Reputation Malicious (Score: {ip_rep_result.get('score', 'N/A')})")
+                 payload = build_webhook_payload(
+                     metadata_req.model_dump(mode='json'),
+                     f"IP Reputation Malicious (Score: {ip_rep_result.get('score', 'N/A')})"
+                 )
+                 await forward_to_webhook(payload, "IP Reputation Malicious")
 
         if is_bot_decision is None: 
             final_score = run_heuristic_and_model_analysis(metadata_req, ip_rep_result)
@@ -554,35 +611,49 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
             if final_score >= HEURISTIC_THRESHOLD_HIGH:
                 is_bot_decision = True; action_taken = "webhook_triggered_high_score"
                 increment_counter_metric(BOTS_DETECTED_HIGH_SCORE)
-                await forward_to_webhook(metadata_req.model_dump(mode='json'), f"High Combined Score ({final_score:.3f})")
+                payload = build_webhook_payload(
+                    metadata_req.model_dump(mode='json'),
+                    f"High Combined Score ({final_score:.3f})"
+                )
+                await forward_to_webhook(payload, "High Combined Score")
             elif final_score < CAPTCHA_SCORE_THRESHOLD_LOW:
                  is_bot_decision = False; action_taken = "classified_human_low_score"
                  increment_counter_metric(HUMANS_DETECTED_LOW_SCORE)
             elif ENABLE_CAPTCHA_TRIGGER and CAPTCHA_SCORE_THRESHOLD_LOW <= final_score < CAPTCHA_SCORE_THRESHOLD_HIGH:
-                 await trigger_captcha_challenge(metadata_req)
-                 action_taken = "captcha_triggered"; is_bot_decision = None 
+                await trigger_captcha_challenge(metadata_req)
+                action_taken = "captcha_triggered"; is_bot_decision = None 
             else:
-                 logger.info(f"IP {ip_under_test} requires deeper check (Score: {final_score:.3f}).")
-                 local_llm_result = await classify_with_local_llm_api(metadata_req)
-                 if local_llm_result is True:
-                     is_bot_decision = True; action_taken = "webhook_triggered_local_llm"
-                     increment_counter_metric(BOTS_DETECTED_LOCAL_LLM)
-                     await forward_to_webhook(metadata_req.model_dump(mode='json'), "Local LLM Classification")
-                 elif local_llm_result is False:
-                     is_bot_decision = False; action_taken = "classified_human_local_llm"
-                     increment_counter_metric(HUMANS_DETECTED_LOCAL_LLM)
-                 else:
-                     action_taken = "local_llm_inconclusive"
-                     if EXTERNAL_API_URL:
-                         external_api_result = await classify_with_external_api(metadata_req)
-                         if external_api_result is True:
-                             is_bot_decision = True; action_taken = "webhook_triggered_external_api"
-                             increment_counter_metric(BOTS_DETECTED_EXTERNAL_API)
-                             await forward_to_webhook(metadata_req.model_dump(mode='json'), "External API Classification")
-                         elif external_api_result is False:
-                             is_bot_decision = False; action_taken = "classified_human_external_api"
-                             increment_counter_metric(HUMANS_DETECTED_EXTERNAL_API)
-                         else: action_taken = "external_api_inconclusive"
+                logger.info(f"IP {ip_under_test} requires deeper check (Score: {final_score:.3f}).")
+                local_llm_result = None
+                if ENABLE_LOCAL_LLM_CLASSIFICATION:
+                    local_llm_result = await classify_with_local_llm_api(metadata_req)
+                if local_llm_result is True:
+                    is_bot_decision = True; action_taken = "webhook_triggered_local_llm"
+                    increment_counter_metric(BOTS_DETECTED_LOCAL_LLM)
+                    payload = build_webhook_payload(
+                        metadata_req.model_dump(mode='json'),
+                        "Local LLM Classification",
+                    )
+                    await forward_to_webhook(payload, "Local LLM Classification")
+                elif local_llm_result is False:
+                    is_bot_decision = False; action_taken = "classified_human_local_llm"
+                    increment_counter_metric(HUMANS_DETECTED_LOCAL_LLM)
+                else:
+                    action_taken = "local_llm_inconclusive"
+                    if ENABLE_EXTERNAL_API_CLASSIFICATION:
+                        external_api_result = await classify_with_external_api(metadata_req)
+                        if external_api_result is True:
+                            is_bot_decision = True; action_taken = "webhook_triggered_external_api"
+                            increment_counter_metric(BOTS_DETECTED_EXTERNAL_API)
+                            payload = build_webhook_payload(
+                                metadata_req.model_dump(mode='json'),
+                                "External API Classification",
+                            )
+                            await forward_to_webhook(payload, "External API Classification")
+                        elif external_api_result is False:
+                            is_bot_decision = False; action_taken = "classified_human_external_api"
+                            increment_counter_metric(HUMANS_DETECTED_EXTERNAL_API)
+                        else: action_taken = "external_api_inconclusive"
     
     except ValidationError as e:
         logger.error(f"Invalid request payload received from {client_ip}: {e.errors()}") 
@@ -594,7 +665,7 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
                         status_code=500, media_type="application/json")
 
 
-    timestamp = datetime.datetime.utcnow().isoformat() + "Z"
+    timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     try:
         record_decision(ip_under_test, metadata_req.source, final_score, is_bot_decision, action_taken, timestamp)
     except Exception as e:

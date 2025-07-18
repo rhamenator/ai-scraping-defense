@@ -42,3 +42,7 @@ llama-cpp-python~=0.2
 # --- Development and Testing Dependencies ---
 freezegun~=1.5
 maturin>=1.5,<2.0
+wheel
+pytest~=8.2
+flake8~=7.0
+black~=24.4

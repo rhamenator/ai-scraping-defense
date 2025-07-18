@@ -18,13 +18,18 @@ os.makedirs(os.path.dirname(HONEYPOT_LOG_FILE), exist_ok=True)
 # Create a specific logger instance
 honeypot_logger = logging.getLogger('honeypot_logger')
 honeypot_logger.setLevel(logging.INFO)
-honeypot_logger.propagate = False # Prevent duplicating logs to root logger
+honeypot_logger.propagate = False  # Prevent duplicating logs to root logger
+# Ensure attribute exists for tests that patch logging.getLogger
+if not hasattr(honeypot_logger, 'handlers'):
+    honeypot_logger.handlers = []
 
 # Create a JSON formatter
 class JsonFormatter(logging.Formatter):
     def format(self, record):
         log_record = {
-            'timestamp': datetime.datetime.utcfromtimestamp(record.created).isoformat() + 'Z',
+            'timestamp': datetime.datetime.fromtimestamp(
+                record.created, datetime.timezone.utc
+            ).isoformat().replace('+00:00', 'Z'),
             'level': record.levelname,
             'message': record.getMessage(),
             # Add extra context passed to the logger

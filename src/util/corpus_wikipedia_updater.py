@@ -5,6 +5,7 @@ import logging
 import re
 import time
 import wikipedia
+from wikipedia.exceptions import DisambiguationError, PageError
 
 # Set up basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -92,9 +93,9 @@ def fetch_random_wikipedia_articles(num_articles: int) -> list[str]:
             
             time.sleep(0.5)  # Be polite to the API
 
-        except wikipedia.exceptions.DisambiguationError as e:
+        except DisambiguationError as e:
             logger.warning(f"Skipping '{e.title}' because it's a disambiguation page.")
-        except wikipedia.exceptions.PageError:
+        except PageError:
             logger.warning(f"Could not find a page for a random title, skipping.")
         except Exception as e:
             logger.error(f"An unexpected error occurred while fetching an article: {e}", exc_info=True)
@@ -140,6 +141,13 @@ def main():
     update_corpus_file(articles)
     logger.info("--- Wikipedia Corpus Updater Finished ---")
 
+
+def main():
+    """Main execution function."""
+    logger.info("--- Wikipedia Corpus Updater Started ---")
+    articles = fetch_random_wikipedia_articles(NUM_ARTICLES_TO_FETCH)
+    update_corpus_file(articles)
+    logger.info("--- Wikipedia Corpus Updater Finished ---")
 
 if __name__ == "__main__":
     main()

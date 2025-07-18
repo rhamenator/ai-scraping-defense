@@ -40,7 +40,11 @@ class TestJsonFormatter(unittest.TestCase):
         formatted_json_str = formatter.format(record)
         formatted_data = json.loads(formatted_json_str)
 
-        expected_timestamp = datetime.datetime.utcfromtimestamp(record.created).isoformat() + 'Z'
+        expected_timestamp = (
+            datetime.datetime.fromtimestamp(record.created, datetime.timezone.utc)
+            .isoformat()
+            .replace('+00:00', 'Z')
+        )
         
         self.assertEqual(formatted_data['timestamp'], expected_timestamp)
         self.assertEqual(formatted_data['level'], 'INFO')

@@ -6,7 +6,8 @@ from src.util import community_blocklist_sync
 SYNC_INTERVAL_SECONDS = int(os.getenv("COMMUNITY_BLOCKLIST_SYNC_INTERVAL", "3600"))
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
 
 async def run_sync_loop(stop_event: asyncio.Event | None = None) -> None:
     """Run the community blocklist sync task periodically."""
@@ -21,6 +22,7 @@ async def run_sync_loop(stop_event: asyncio.Event | None = None) -> None:
             await asyncio.wait_for(stop_event.wait(), timeout=SYNC_INTERVAL_SECONDS)
         except asyncio.TimeoutError:
             continue
+
 
 if __name__ == "__main__":
     try:

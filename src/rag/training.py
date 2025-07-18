@@ -195,15 +195,19 @@ def is_path_disallowed(path_to_check: str) -> bool:
 
 def load_feedback_data() -> Tuple[set, set]:
     """Loads honeypot and CAPTCHA success IPs."""
-    # (This function is simplified but functionally equivalent to your original)
     honeypot_triggers: set[str] = set()
     captcha_successes: set[str] = set()
-    
+
     try:
         with open(HONEYPOT_HIT_LOG, 'r') as f:
             for line in f:
-                try: honeypot_triggers.add(json.loads(line).get('details', {}).get('ip'))
-                except: continue
+                try:
+                    data = json.loads(line)
+                    ip = data.get('ip') or data.get('details', {}).get('ip')
+                    if ip:
+                        honeypot_triggers.add(ip)
+                except Exception:
+                    continue
         print(f"Loaded {len(honeypot_triggers)} IPs from {HONEYPOT_HIT_LOG}")
     except FileNotFoundError:
         print(f"Warning: {HONEYPOT_HIT_LOG} not found.")
@@ -211,20 +215,46 @@ def load_feedback_data() -> Tuple[set, set]:
     try:
         with open(CAPTCHA_SUCCESS_LOG, 'r') as f:
             for line in f:
-                try: captcha_successes.add(line.strip().split(',')[1].strip())
-                except: continue
+                try:
+                    if line.strip().startswith('{'):
+                        data = json.loads(line)
+                        if data.get('result') == 'success':
+                            captcha_successes.add(data.get('ip'))
+                    else:
+                        # Fallback CSV: timestamp,ip
+                        parts = line.strip().split(',')
+                        if len(parts) > 1:
+                            captcha_successes.add(parts[1].strip())
+                except Exception:
+                    continue
         print(f"Loaded {len(captcha_successes)} IPs from {CAPTCHA_SUCCESS_LOG}")
     except FileNotFoundError:
         print(f"Warning: {CAPTCHA_SUCCESS_LOG} not found.")
-        
+
     return honeypot_triggers, captcha_successes
 
 # --- Labeling ---
 def assign_labels_and_scores(df: pd.DataFrame, honeypot_triggers: set, captcha_successes: set) -> pd.DataFrame:
-    """Applies your original, sophisticated scoring logic to the DataFrame."""
+    """Applies scoring logic and labels entries."""
     print("Assigning labels and scores to the dataset...")
-    
-    # Helper function to apply your logic to each row
+
+    # If required feature columns are missing, compute them from basics
+    if 'ua_is_known_bad' not in df.columns:
+        ua_lower = df['user_agent'].fillna('').str.lower()
+        df['ua_length'] = df['user_agent'].str.len()
+        df['ua_is_empty'] = (df['ua_length'] == 0).astype(int)
+        df['ua_is_known_bad'] = ua_lower.apply(lambda x: 1 if any(b in x for b in KNOWN_BAD_UAS) else 0)
+        df['ua_is_known_benign_crawler'] = ua_lower.apply(lambda x: 1 if any(g in x for g in KNOWN_BENIGN_CRAWLERS_UAS) else 0)
+
+    if 'path_disallowed' not in df.columns:
+        df['path'] = df['path'].fillna('')
+        df['path_disallowed'] = df['path'].apply(is_path_disallowed).astype(int)
+
+    if 'referer_is_empty' not in df.columns:
+        df['referer'] = df['referer'].fillna('')
+        df['referer_is_empty'] = (df['referer'] == '') .astype(int)
+
+    # Helper function to apply the scoring logic
     def calculate_score(row):
         score, reasons = 0.5, []
         ua_lower = row['user_agent'].lower()
@@ -316,7 +346,16 @@ def save_data_for_finetuning(df: pd.DataFrame, train_file: str, eval_file: str, 
         print("No high-confidence data to save for fine-tuning.")
         return
         
-    train_df, eval_df = train_test_split(finetune_df, test_size=eval_ratio, random_state=42, stratify=finetune_df['label'])
+    class_counts = finetune_df['label'].value_counts()
+    if len(finetune_df) < 2 or class_counts.min() < 2:
+        train_df, eval_df = finetune_df, finetune_df.iloc[0:0]
+    else:
+        train_df, eval_df = train_test_split(
+            finetune_df,
+            test_size=eval_ratio,
+            random_state=42,
+            stratify=finetune_df['label'],
+        )
 
     def write_jsonl(data: pd.DataFrame, file_path: str):
         if not file_path: return
@@ -325,7 +364,10 @@ def save_data_for_finetuning(df: pd.DataFrame, train_file: str, eval_file: str, 
             with open(file_path, 'w', encoding='utf-8') as f:
                 for entry in data_to_write:
                     log_data_for_llm = {k: entry[k] for k in entry if k not in ['label', 'bot_score', 'labeling_reasons', 'timestamp']}
-                    output_entry = {"log_data": log_data_for_llm, "label": entry['label']}
+                    output_entry = {
+                        "log_data": json.dumps(log_data_for_llm, default=str),
+                        "label": entry['label'],
+                    }
                     json.dump(output_entry, f, default=str) # Use default=str for datetime etc.
                     f.write('\n')
             print(f"Saved {len(data)} records for fine-tuning to: {file_path}")
