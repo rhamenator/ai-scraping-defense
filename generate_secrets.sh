@@ -22,9 +22,8 @@ NGINX_PASSWORD=$(generate_password 32)
 EXTERNAL_API_KEY="key-for-$(generate_password)"; IP_REPUTATION_API_KEY="key-for-$(generate_password)"; COMMUNITY_BLOCKLIST_API_KEY="key-for-$(generate_password)"; SMTP_PASSWORD=$(generate_password)
 OPENAI_API_KEY="sk-$(generate_password 40)"; ANTHROPIC_API_KEY="sk-ant-$(generate_password 40)"; GOOGLE_API_KEY="AIza$(generate_password 35)"; COHERE_API_KEY="coh-$(generate_password 40)"; MISTRAL_API_KEY="mistral-$(generate_password 40)"
 
-# Create Nginx htpasswd content
-HASH_B64=$(echo -n "$NGINX_PASSWORD" | openssl dgst -sha1 -binary | base64)
-HTPASSWD_FILE_CONTENT="${ADMIN_UI_USERNAME}:{SHA}${HASH_B64}"
+# Create Nginx htpasswd content using bcrypt
+HTPASSWD_FILE_CONTENT=$(htpasswd -nbBC 12 "$ADMIN_UI_USERNAME" "$NGINX_PASSWORD" | tr -d '\n')
 
 # Write YAML to file
 cat > "$OUTPUT_FILE" << EOL
