@@ -41,7 +41,7 @@ def get_pg_password():
             if os.path.exists(alt_path_proj):
                 secret_path = alt_path_proj
             else:
-                 logger.error(f"Password file not found at '{PG_PASSWORD_FILE}', '{alt_path_run}', or '{alt_path_proj}'")
+                 logger.error("Password file could not be found in the expected locations.")
                  return None
     try:
         with open(secret_path, 'r') as f:
