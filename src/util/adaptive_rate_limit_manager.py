@@ -25,7 +25,7 @@ def get_recent_counts(redis_conn, window_seconds: int) -> List[int]:
     start = now - window_seconds
     counts: List[int] = []
     try:
-        for key in redis_conn.keys(f"{FREQUENCY_KEY_PREFIX}*"):
+        for key in redis_conn.scan_iter(match=f"{FREQUENCY_KEY_PREFIX}*"):
             count = redis_conn.zcount(key, start, now)
             if isinstance(count, int):
                 counts.append(count)
