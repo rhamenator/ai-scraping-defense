@@ -1,6 +1,8 @@
 # This GitHub Actions workflow defines the Continuous Integration (CI) and
 # Continuous Deployment (CD) pipeline for the project.
 name: CI-CD Pipeline
+permissions:
+  contents: read
 
 # Controls when the workflow will run
 on:
