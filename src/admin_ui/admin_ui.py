@@ -82,7 +82,9 @@ async def metrics_endpoint():
     try:
         metrics_dict = _get_metrics_dict_func()
     except Exception as exc:  # pragma: no cover - defensive
-        return JSONResponse({"error": str(exc)}, status_code=500)
+        import logging
+        logging.error("An error occurred in the metrics endpoint", exc_info=True)
+        return JSONResponse({"error": "An internal error occurred"}, status_code=500)
 
     if isinstance(metrics_dict, dict) and metrics_dict.get("error"):
         return JSONResponse(metrics_dict, status_code=500)
