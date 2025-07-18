@@ -19,13 +19,15 @@ def get_redis_connection(db_number=0):
             logging.error(f"Redis password file not found at {password_file}")
             return None
     
+    redis_port = int(os.environ.get("REDIS_PORT", 6379))
+
     try:
         r = redis.Redis(
             host=redis_host,
-            port=6379,
+            port=redis_port,
             password=password,
             db=db_number,
-            decode_responses=True # Decode responses to UTF-8 by default
+            decode_responses=True  # Decode responses to UTF-8 by default
         )
         r.ping()
         logging.info(f"Successfully connected to Redis at {redis_host} on DB {db_number}")
