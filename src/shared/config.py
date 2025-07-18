@@ -2,7 +2,6 @@ import os
 from typing import Dict, Any
 
 # In shared/config.py
-import os
 
 def get_secret(file_variable_name: str) -> str | None:
     """Reads a secret from the file path specified in an environment variable."""

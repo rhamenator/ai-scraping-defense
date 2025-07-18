@@ -5,7 +5,6 @@ import httpx
 import datetime
 import json
 from fastapi.testclient import TestClient
-import httpx
 import sys
 import os
 
