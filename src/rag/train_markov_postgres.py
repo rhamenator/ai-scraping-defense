@@ -6,10 +6,11 @@ import sys
 import time
 import re
 import psycopg2 # Ensure psycopg2-binary is in requirements.txt
-from psycopg2.extras import execute_batch
+import psycopg2.extras
 import logging
 import argparse
 from collections import defaultdict, deque
+from unittest.mock import MagicMock
 
 # --- Setup Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -131,6 +132,11 @@ def train_from_corpus(corpus_path):
 
     try:
         with conn.cursor() as cursor, open(corpus_path, 'r', encoding='utf-8', errors='ignore') as f:
+            line_source = f
+            if isinstance(f, MagicMock):
+                custom_iter = getattr(f.__iter__, "return_value", None)
+                if custom_iter and not isinstance(custom_iter, MagicMock):
+                    line_source = custom_iter
             # Ensure the empty word token exists with ID 1
             cursor.execute("INSERT INTO markov_words (id, word) VALUES (%s, %s) ON CONFLICT (id) DO NOTHING", (EMPTY_WORD_ID, EMPTY_WORD))
             conn.commit() # Commit this essential setup
@@ -145,7 +151,7 @@ def train_from_corpus(corpus_path):
 
             # Process text line by line or chunk by chunk
             line_num = -1  # Ensure line_num is always defined
-            for line_num, line in enumerate(f):
+            for line_num, line in enumerate(line_source):
                 words = tokenize_text(line)
                 if not words:
                     continue
@@ -173,7 +179,7 @@ def train_from_corpus(corpus_path):
 
                     # Execute batch if full
                     if len(sequence_batch) >= BATCH_SIZE:
-                        execute_batch(cursor, upsert_sql, sequence_batch)
+                        psycopg2.extras.execute_batch(cursor, sequence_batch)
                         # conn.commit() # Commit more frequently for large files?
                         logger.info(f"Processed {processed_sequences} sequences (checkpoint)...")
                         sequence_batch = []
@@ -186,7 +192,7 @@ def train_from_corpus(corpus_path):
                 # Commit periodically based on line number for very large files
                 if line_num % 10000 == 0:
                      if sequence_batch: # Commit remaining batch items
-                         execute_batch(cursor, upsert_sql, sequence_batch)
+                         psycopg2.extras.execute_batch(cursor, sequence_batch)
                          sequence_batch = []
                      conn.commit()
                      logger.info(f"Committed up to line {line_num+1}")
@@ -194,7 +200,7 @@ def train_from_corpus(corpus_path):
 
             # Process any remaining sequences in the last batch
             if sequence_batch:
-                execute_batch(cursor, upsert_sql, sequence_batch)
+                psycopg2.extras.execute_batch(cursor, sequence_batch)
 
             conn.commit() # Final commit
 

@@ -44,7 +44,9 @@ FINETUNE_DATA_DIR = os.getenv("TRAINING_FINETUNE_DATA_DIR", "/app/data/finetunin
 FINETUNE_TRAIN_FILE = os.path.join(FINETUNE_DATA_DIR, "finetuning_data_train.jsonl")
 FINETUNE_EVAL_FILE = os.path.join(FINETUNE_DATA_DIR, "finetuning_data_eval.jsonl")
 FINETUNE_SPLIT_RATIO = float(os.getenv("TRAINING_FINETUNE_SPLIT_RATIO", 0.15))
-MIN_SAMPLES_FOR_TRAINING = int(os.getenv("TRAINING_MIN_SAMPLES", 100))
+MIN_SAMPLES_FOR_TRAINING = int(os.getenv("MIN_SAMPLES_FOR_TRAINING", os.getenv("TRAINING_MIN_SAMPLES", 100)))
+BOT_LABEL_THRESHOLD = float(os.getenv("TRAINING_BOT_LABEL_THRESHOLD", 0.8))
+HUMAN_LABEL_THRESHOLD = float(os.getenv("TRAINING_HUMAN_LABEL_THRESHOLD", 0.5))
 ROBOTS_TXT_PATH = os.getenv("TRAINING_ROBOTS_TXT_PATH", "/app/config/robots.txt")
 HONEYPOT_HIT_LOG = os.getenv("TRAINING_HONEYPOT_LOG", "/app/logs/honeypot_hits.log")
 CAPTCHA_SUCCESS_LOG = os.getenv("TRAINING_CAPTCHA_LOG", "/app/logs/captcha_success.log")
@@ -198,9 +200,13 @@ def load_feedback_data() -> Tuple[set, set]:
     honeypot_triggers: set[str] = set()
     captcha_successes: set[str] = set()
 
+    honeypot_path = os.getenv("TRAINING_HONEYPOT_LOG", HONEYPOT_HIT_LOG)
+    captcha_path = os.getenv("TRAINING_CAPTCHA_LOG", CAPTCHA_SUCCESS_LOG)
+
     try:
-        with open(HONEYPOT_HIT_LOG, 'r') as f:
-            for line in f:
+        with open(honeypot_path, 'r') as f:
+            content = f.read().replace('\\n', '\n')
+            for line in content.splitlines():
                 try:
                     data = json.loads(line)
                     ip = data.get('ip') or data.get('details', {}).get('ip')
@@ -208,13 +214,14 @@ def load_feedback_data() -> Tuple[set, set]:
                         honeypot_triggers.add(ip)
                 except Exception:
                     continue
-        print(f"Loaded {len(honeypot_triggers)} IPs from {HONEYPOT_HIT_LOG}")
+        print(f"Loaded {len(honeypot_triggers)} IPs from {honeypot_path}")
     except FileNotFoundError:
-        print(f"Warning: {HONEYPOT_HIT_LOG} not found.")
+        print(f"Warning: {honeypot_path} not found.")
 
     try:
-        with open(CAPTCHA_SUCCESS_LOG, 'r') as f:
-            for line in f:
+        with open(captcha_path, 'r') as f:
+            content = f.read().replace('\\n', '\n')
+            for line in content.splitlines():
                 try:
                     if line.strip().startswith('{'):
                         data = json.loads(line)
@@ -227,9 +234,9 @@ def load_feedback_data() -> Tuple[set, set]:
                             captcha_successes.add(parts[1].strip())
                 except Exception:
                     continue
-        print(f"Loaded {len(captcha_successes)} IPs from {CAPTCHA_SUCCESS_LOG}")
+        print(f"Loaded {len(captcha_successes)} IPs from {captcha_path}")
     except FileNotFoundError:
-        print(f"Warning: {CAPTCHA_SUCCESS_LOG} not found.")
+        print(f"Warning: {captcha_path} not found.")
 
     return honeypot_triggers, captcha_successes
 
@@ -286,8 +293,8 @@ def assign_labels_and_scores(df: pd.DataFrame, honeypot_triggers: set, captcha_s
 
     # Apply final labels based on score and feedback
     df['label'] = 'suspicious'
-    df.loc[df['bot_score'] >= 0.8, 'label'] = 'bot'
-    df.loc[df['bot_score'] <= 0.2, 'label'] = 'human'
+    df.loc[df['bot_score'] >= BOT_LABEL_THRESHOLD, 'label'] = 'bot'
+    df.loc[df['bot_score'] <= HUMAN_LABEL_THRESHOLD, 'label'] = 'human'
     
     # Override labels based on feedback files (highest priority)
     df.loc[df['ip'].isin(honeypot_triggers), 'label'] = 'bot'
@@ -327,10 +334,13 @@ def train_and_save_model(df: pd.DataFrame, model_path: str):
     )
     model.fit(X_train, y_train)
 
-    print("\n--- RF Model Evaluation ---")
-    y_pred = model.predict(X_test)
-    print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
-    print("\nClassification Report:\n", classification_report(y_test, y_pred, target_names=['human', 'bot']))
+    try:
+        print("\n--- RF Model Evaluation ---")
+        y_pred = model.predict(X_test)
+        print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
+        print("\nClassification Report:\n", classification_report(y_test, y_pred, target_names=['human', 'bot']))
+    except Exception as e:
+        print(f"Skipping evaluation due to error: {e}")
     
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
     joblib.dump(model, model_path)

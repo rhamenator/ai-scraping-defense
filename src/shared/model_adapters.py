@@ -84,6 +84,8 @@ class SklearnAdapter(BaseModelAdapter):
             # model_uri is the file path, e.g., /app/models/model.joblib
             self.model = joblib.load(self.model_uri)
             logging.info(f"Scikit-learn model loaded from {self.model_uri}")
+        except FileNotFoundError:
+            logging.error("model file not found")
         except Exception as e:
             logging.error(f"Failed to load scikit-learn model: {e}")
 
