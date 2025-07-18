@@ -59,8 +59,8 @@ nav:
     - License Summary: license_summary.md # Corrected filename
     - Third-Party Licenses: docs/third_party_licenses.md
     - Security Policy: SECURITY.md
-    # - Privacy Policy: docs/privacy_policy.md # Uncomment if you create this
-    # - Compliance Checklist: docs/legal_compliance.md # Uncomment if you create this
+    - Privacy Policy: docs/privacy_policy.md
+    - Compliance Checklist: docs/legal_compliance.md
 
 # Optional MkDocs Plugins (Install separately: pip install mkdocs-...)
 # plugins:
