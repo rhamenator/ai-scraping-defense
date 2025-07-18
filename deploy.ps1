@@ -25,8 +25,8 @@ kubectl apply -f (Join-Path $K8sDir "namespace.yaml")
 Write-Host "Namespace applied."
 Write-Host ""
 
-# Step 2: Apply all configurations and secrets.
-Write-Host "Step 2: Applying ConfigMaps and Secrets..." -ForegroundColor Cyan
+# Step 2: Apply all configurations, secrets, and RBAC.
+Write-Host "Step 2: Applying ConfigMaps, Secrets, and RBAC..." -ForegroundColor Cyan
 Write-Host "Applying generic app configuration..."
 kubectl apply -f (Join-Path $K8sDir "configmap.yaml")
 Write-Host "Applying PostgreSQL init script..."
@@ -41,6 +41,8 @@ else {
     Write-Error "ERROR: kubernetes\secrets.yaml not found. Please run Generate-Secrets.ps1 first."
     exit 1
 }
+Write-Host "Applying robots fetcher RBAC..."
+kubectl apply -f (Join-Path $K8sDir "robots-fetcher-rbac.yaml")
 Write-Host "Configurations and Secrets applied."
 Write-Host ""
 
