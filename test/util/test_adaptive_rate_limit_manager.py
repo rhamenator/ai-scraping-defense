@@ -8,7 +8,7 @@ from src.util import adaptive_rate_limit_manager as manager
 class TestAdaptiveRateLimitManager(unittest.TestCase):
     def test_get_recent_counts(self):
         redis = MagicMock()
-        redis.keys.return_value = ["freq:1", "freq:2"]
+        redis.scan_iter.return_value = iter(["freq:1", "freq:2"])
         redis.zcount.side_effect = [5, 8]
         counts = manager.get_recent_counts(redis, 60)
         self.assertEqual(counts, [5, 8])
