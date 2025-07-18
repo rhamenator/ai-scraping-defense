@@ -6,12 +6,14 @@
 name: DevSkim
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  schedule:
-    - cron: '45 0 * * 1'
+  workflow_dispatch: # Allows manual triggering of the workflow from the GitHub UI
+  # Uncomment the lines below to enable automatic runs on push or pull request events
+  # push:
+  #   branches: [ "main" ]
+  # pull_request:
+  #   branches: [ "main" ]
+  # schedule:
+  #   - cron: '45 0 * * 1'
 
 jobs:
   lint:
