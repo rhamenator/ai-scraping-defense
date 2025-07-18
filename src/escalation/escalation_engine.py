@@ -686,7 +686,7 @@ async def get_metrics_endpoint_escalation():
         return Response(content=prometheus_metrics_bytes, media_type="text/plain; version=0.0.4")
     except Exception as e:
         logger.error(f"Error retrieving metrics: {e}", exc_info=True)
-        return Response(content=f"# Error retrieving metrics: {e}\n".encode('utf-8'), media_type="text/plain; version=0.0.4", status_code=500)
+        return Response(content=b"# Error retrieving metrics\n", media_type="text/plain; version=0.0.4", status_code=500)
 
 # --- Health Check Endpoint (Preserved) ---
 @app.get("/health")
