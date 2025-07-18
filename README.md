@@ -42,6 +42,7 @@ This setup uses Docker Compose to orchestrate all the necessary services on your
 
     Open the `.env` file and review the default settings. You do not need to change anything to get started, but this is where you would add your API keys later.
     To enable the CAPTCHA verification service, populate `CAPTCHA_SECRET` with your reCAPTCHA secret key.
+    Tarpit behavior can be tuned with `TARPIT_MAX_HOPS` and `TARPIT_HOP_WINDOW_SECONDS` to automatically block clients that spend too much time in the tarpit.
 
 3. **Set Up Python Virtual Environment:**
     Run the setup script to create a virtual environment and install all Python dependencies.

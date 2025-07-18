@@ -18,20 +18,27 @@ def is_suspicious_username(username: str) -> bool:
     if not username:
         return True # Treat empty username as suspicious
 
-    entropy = calculate_entropy(username)
+    cleaned = username.replace('.', '')
+    entropy = calculate_entropy(cleaned)
     length = len(username)
 
     # Heuristics: high entropy, plus unusual length, high digit ratio, or no vowels
     # Adjust these thresholds based on observed patterns
     digit_ratio = sum(c.isdigit() for c in username) / length
     vowel_count = sum(c in 'aeiou' for c in username.lower())
-    
+
     # Flag as suspicious if entropy is high AND it meets other criteria
     suspicious_pattern = (length > 12 or digit_ratio > 0.5 or vowel_count == 0)
-    high_entropy = entropy > 4.0 
+    high_entropy = entropy > 3.0
 
-    # Consider also flagging very short, high-entropy strings if needed
-    # very_short_suspicious = length < 6 and entropy > 3.0
+    if '.' in username and digit_ratio < 0.5 and vowel_count > 0 and entropy < 4.5:
+        return False
+
+    # Additional simple heuristics
+    if digit_ratio > 0.7 and length > 8:
+        return True
+    if vowel_count == 0 and length >= 10:
+        return True
 
     is_suspicious = high_entropy and suspicious_pattern
     
@@ -58,6 +65,8 @@ def is_suspicious_email(email: str, disposable_list: List[str]) -> bool:
          return True # Should not happen if '@' is present, but belt-and-suspenders
 
     username, domain = parts
+    if domain.startswith('.') or domain.strip() == '':
+        return True
     
     # Check components
     username_suspicious = is_suspicious_username(username)
