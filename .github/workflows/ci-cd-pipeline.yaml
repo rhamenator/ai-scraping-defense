@@ -1,6 +1,8 @@
 # This GitHub Actions workflow defines the Continuous Integration (CI) and
 # Continuous Deployment (CD) pipeline for the project.
 name: CI-CD Pipeline
+permissions:
+  contents: read
 
 # Controls when the workflow will run
 on:
@@ -50,6 +52,9 @@ jobs:
 
   # This job deploys the application to Kubernetes
   deploy:
+    permissions:
+      contents: read
+      deployments: write
     # This job will only run after the 'build_and_test' job completes successfully
     needs: build_and_test
     # This condition ensures the deployment only happens on a direct push to the 'main' branch,
