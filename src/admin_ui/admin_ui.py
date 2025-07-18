@@ -1,4 +1,11 @@
 # src/admin_ui/admin_ui.py
+"""Flask admin interface for monitoring and management.
+
+This module exposes a small Flask application used by the defense stack's
+administrators. It provides endpoints for viewing Prometheus metrics, managing
+IP block lists stored in Redis and adjusting basic settings. The application is
+designed to be run as a standalone service or within Docker.
+"""
 import os
 import asyncio
 from flask import Flask, render_template, jsonify, request

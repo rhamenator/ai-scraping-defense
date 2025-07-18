@@ -1,3 +1,4 @@
+"""Convenience functions for creating Redis connections."""
 import redis
 import os
 import logging

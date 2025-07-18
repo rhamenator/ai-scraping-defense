@@ -1,4 +1,5 @@
 # metrics.py
+"""Prometheus metrics used across services."""
 from prometheus_client import Counter, Histogram, Gauge, CollectorRegistry, generate_latest
 import time
 

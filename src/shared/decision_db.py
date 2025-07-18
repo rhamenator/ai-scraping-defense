@@ -1,3 +1,8 @@
+"""SQLite storage for request decisions.
+
+This module wraps a simple SQLite database used to persist blocklist
+decisions and related metadata for analysis and debugging.
+"""
 import os
 import sqlite3
 from contextlib import contextmanager

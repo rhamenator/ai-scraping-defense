@@ -1,5 +1,6 @@
 # shared/honeypot_logger.py
 # Dedicated logger for honeypot trigger events.
+"""Logging utilities for honeypot hits."""
 
 import logging
 import json
