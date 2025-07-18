@@ -47,7 +47,7 @@ def get_pg_password():
         with open(secret_path, 'r') as f:
             return f.read().strip()
     except Exception as e:
-        logger.error(f"Failed to read PostgreSQL password from {secret_path}: {e}")
+        logger.error(f"Failed to read PostgreSQL password file: {e}")
         return None
 
 def connect_db():
