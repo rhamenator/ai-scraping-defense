@@ -127,7 +127,10 @@ class TestTrainingPipelineComprehensive(unittest.TestCase):
             'bot_score': [0.95, 0.05],
             'labeling_reasons': [['High Freq', 'Bad UA'], ['Low Score']],
             'ip': ['1.1.1.1', '2.2.2.2'], 'user_agent': ['Bot/1.0', 'Mozilla'],
-            'timestamp': [datetime.datetime.utcnow(), datetime.datetime.utcnow()]
+            'timestamp': [
+                datetime.datetime.now(datetime.timezone.utc),
+                datetime.datetime.now(datetime.timezone.utc),
+            ]
         })
         
         training.save_data_for_finetuning(df, self.finetune_train_path, self.finetune_eval_path, 0.5)

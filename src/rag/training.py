@@ -346,7 +346,8 @@ def save_data_for_finetuning(df: pd.DataFrame, train_file: str, eval_file: str, 
         print("No high-confidence data to save for fine-tuning.")
         return
         
-    if len(finetune_df) < 2 or finetune_df['label'].nunique() < 2:
+    class_counts = finetune_df['label'].value_counts()
+    if len(finetune_df) < 2 or class_counts.min() < 2:
         train_df, eval_df = finetune_df, finetune_df.iloc[0:0]
     else:
         train_df, eval_df = train_test_split(
@@ -363,7 +364,10 @@ def save_data_for_finetuning(df: pd.DataFrame, train_file: str, eval_file: str, 
             with open(file_path, 'w', encoding='utf-8') as f:
                 for entry in data_to_write:
                     log_data_for_llm = {k: entry[k] for k in entry if k not in ['label', 'bot_score', 'labeling_reasons', 'timestamp']}
-                    output_entry = {"log_data": log_data_for_llm, "label": entry['label']}
+                    output_entry = {
+                        "log_data": json.dumps(log_data_for_llm, default=str),
+                        "label": entry['label'],
+                    }
                     json.dump(output_entry, f, default=str) # Use default=str for datetime etc.
                     f.write('\n')
             print(f"Saved {len(data)} records for fine-tuning to: {file_path}")

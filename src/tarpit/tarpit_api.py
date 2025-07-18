@@ -202,7 +202,7 @@ async def tarpit_handler(request: Request, path: str = ""):
         try: flag_suspicious_ip(ip_address=client_ip, reason="Tarpit Hit")
         except Exception as e: logger.error(f"Error flagging IP {client_ip}: {e}", exc_info=True)
 
-    timestamp_iso = datetime.datetime.utcnow().isoformat() + "Z"
+    timestamp_iso = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     metadata = {
         "timestamp": timestamp_iso,
         "ip": client_ip,

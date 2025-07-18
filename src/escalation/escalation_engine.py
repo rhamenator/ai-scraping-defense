@@ -534,7 +534,7 @@ def build_webhook_payload(metadata: Dict[str, Any], reason: str) -> Dict[str, An
     return {
         "event_type": "suspicious_activity_detected",
         "reason": reason,
-        "timestamp_utc": datetime.datetime.utcnow().isoformat() + "Z",
+        "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
         "details": serializable,
     }
 
@@ -565,7 +565,9 @@ async def trigger_captcha_challenge(metadata: RequestMetadata) -> bool:
         try:
             os.makedirs(os.path.dirname(CAPTCHA_SUCCESS_LOG), exist_ok=True)
             with open(CAPTCHA_SUCCESS_LOG, "a") as f:
-                f.write(f"{datetime.datetime.utcnow().isoformat()},{metadata.ip}\n")
+                f.write(
+                    f"{datetime.datetime.now(datetime.timezone.utc).isoformat()},{metadata.ip}\n"
+                )
         except Exception as e:
             logger.error(f"Failed to log CAPTCHA success: {e}")
         logger.info(f"CAPTCHA verified for IP {metadata.ip}")
@@ -663,7 +665,7 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
                         status_code=500, media_type="application/json")
 
 
-    timestamp = datetime.datetime.utcnow().isoformat() + "Z"
+    timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     try:
         record_decision(ip_under_test, metadata_req.source, final_score, is_bot_decision, action_taken, timestamp)
     except Exception as e:

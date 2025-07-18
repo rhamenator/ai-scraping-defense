@@ -33,7 +33,9 @@ async def verify_captcha(token: str, ip: str):
         try:
             os.makedirs(os.path.dirname(CAPTCHA_SUCCESS_LOG), exist_ok=True)
             with open(CAPTCHA_SUCCESS_LOG, "a") as f:
-                f.write(f"{datetime.datetime.utcnow().isoformat()},{ip}\n")
+                f.write(
+                    f"{datetime.datetime.now(datetime.timezone.utc).isoformat()},{ip}\n"
+                )
         except Exception as e:
             logger.error(f"Failed to log CAPTCHA success: {e}")
     return {"success": success}

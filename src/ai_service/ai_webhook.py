@@ -136,7 +136,7 @@ def get_redis_connection():
 
 # --- Helper Functions ---
 def log_error(message: str, exception: Optional[Exception] = None):
-    timestamp = datetime.datetime.utcnow().isoformat() + "Z"
+    timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     log_entry = f"{timestamp} - ERROR: {message}"
     if exception: log_entry += f" | Exception: {type(exception).__name__}: {exception}"
     logger.error(log_entry)
@@ -147,7 +147,11 @@ def log_error(message: str, exception: Optional[Exception] = None):
 def log_event(log_file: str, event_type: str, data: dict):
     try:
         serializable_data = json.loads(json.dumps(data, default=str))
-        log_entry = { "timestamp": datetime.datetime.utcnow().isoformat() + "Z", "event_type": event_type, **serializable_data }
+        log_entry = {
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+            "event_type": event_type,
+            **serializable_data,
+        }
         with open(log_file, "a", encoding="utf-8") as f: f.write(json.dumps(log_entry) + "\n")
     except Exception as e: log_error(f"Failed to write to log file {log_file}", e)
 
@@ -158,7 +162,11 @@ def add_ip_to_blocklist(ip_address: str, reason: str, event_details: Optional[di
         return False
     try:
         block_key = f"{BLOCKLIST_KEY_PREFIX}{ip_address}"
-        block_metadata = json.dumps({ "reason": reason, "timestamp_utc": datetime.datetime.utcnow().isoformat() + "Z", "user_agent": event_details.get('user_agent', 'N/A') if event_details else 'N/A' })
+        block_metadata = json.dumps({
+            "reason": reason,
+            "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+            "user_agent": event_details.get('user_agent', 'N/A') if event_details else 'N/A'
+        })
         if redis_client_blocklist.exists(block_key):
             logger.info(f"IP {ip_address} already in blocklist. TTL refreshed")
         redis_client_blocklist.setex(block_key, BLOCKLIST_TTL_SECONDS, block_metadata)

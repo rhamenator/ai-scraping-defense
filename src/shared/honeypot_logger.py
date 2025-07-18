@@ -27,7 +27,9 @@ if not hasattr(honeypot_logger, 'handlers'):
 class JsonFormatter(logging.Formatter):
     def format(self, record):
         log_record = {
-            'timestamp': datetime.datetime.utcfromtimestamp(record.created).isoformat() + 'Z',
+            'timestamp': datetime.datetime.fromtimestamp(
+                record.created, datetime.timezone.utc
+            ).isoformat().replace('+00:00', 'Z'),
             'level': record.levelname,
             'message': record.getMessage(),
             # Add extra context passed to the logger
