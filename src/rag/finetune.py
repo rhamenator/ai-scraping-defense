@@ -73,16 +73,12 @@ def prepare_text_for_model(log_entry):
 
     # Combine headers into a simplified string if available
     headers_str = ""
-    headers_dict = log_entry.get('headers') # Assuming headers are passed in log_data
+    headers_dict = log_entry.get('headers')
     if isinstance(headers_dict, dict):
-         # Selectively include potentially important headers, keep it concise
-         # Example: focus on Accept, Language, Cache-Control, Sec-* headers
-         # Avoid overly long/verbose headers like Cookie
-         important_headers = {
-             k: v for k, v in headers_dict.items()
-             if k.lower() in ['accept', 'accept-language', 'cache-control', 'sec-ch-ua', 'sec-fetch-dest', 'sec-fetch-mode', 'sec-fetch-site']
-         }
-         headers_str = " ".join(f"{k[:15]}={v[:40]}" for k, v in important_headers.items()) # Truncated headers
+         # Include all headers except very common, usually irrelevant ones
+         ignore = {'cookie', 'set-cookie', 'content-length'}
+         filtered = {k: v for k, v in headers_dict.items() if k.lower() not in ignore}
+         headers_str = " ".join(f"{k}={v}" for k, v in filtered.items())
 
     # Format the input text - Experiment with different formats!
     # This format tries to be somewhat structured.
