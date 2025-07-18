@@ -77,7 +77,7 @@ fn get_realtime_frequency_features(ip: String, db: u32, window_seconds: u64, pre
 }
 
 #[pymodule]
-fn frequency_rs(_py: Python, m: &PyModule) -> PyResult<()> {
+fn frequency_rs(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_realtime_frequency_features, m)?)?;
     Ok(())
 }

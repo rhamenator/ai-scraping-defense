@@ -8,7 +8,7 @@ name = "tarpit_rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.21", features = ["extension-module"] }
+pyo3 = { version = "0.24.2", features = ["extension-module"] }
 postgres = "0.19"
 rand = "0.8"
 html-escape = "0.2"

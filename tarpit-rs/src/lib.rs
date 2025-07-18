@@ -148,7 +148,7 @@ fn generate_dynamic_tarpit_page() -> PyResult<String> {
 }
 
 #[pymodule]
-fn tarpit_rs(_py: Python, m: &PyModule) -> PyResult<()> {
+fn tarpit_rs(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(generate_dynamic_tarpit_page, m)?)?;
     Ok(())
 }
