@@ -12,8 +12,7 @@ from src.tarpit import markov_generator
 
 # Helper to reset module-level globals for test isolation
 def reset_markov_generator_globals():
-    markov_generator._db_conn = None
-    markov_generator._db_cursor = None
+    markov_generator._db_pool = None
     # Reset other globals if they were introduced and modified by tests
 
 class TestMarkovGenerator(unittest.TestCase):
@@ -61,12 +60,14 @@ class TestMarkovGenerator(unittest.TestCase):
 
     # --- Test _get_db_connection ---
     @patch("src.tarpit.markov_generator._get_pg_password", return_value="test_password")
-    @patch("src.tarpit.markov_generator.psycopg2.connect")
-    def test_get_db_connection_success_new_connection(self, mock_psycopg2_connect, mock_get_pass):
+    @patch("src.tarpit.markov_generator.pool.SimpleConnectionPool")
+    def test_get_db_connection_success_new_connection(self, mock_pool_cls, mock_get_pass):
+        mock_pool = MagicMock()
         mock_conn_instance = MagicMock()
         mock_cursor_instance = MagicMock()
         mock_conn_instance.cursor.return_value = mock_cursor_instance
-        mock_psycopg2_connect.return_value = mock_conn_instance
+        mock_pool.getconn.return_value = mock_conn_instance
+        mock_pool_cls.return_value = mock_pool
 
         conn, cursor = markov_generator._get_db_connection()
 
@@ -74,24 +75,25 @@ class TestMarkovGenerator(unittest.TestCase):
         self.assertIsNotNone(cursor)
         self.assertEqual(conn, mock_conn_instance)
         self.assertEqual(cursor, mock_cursor_instance)
-        mock_psycopg2_connect.assert_called_once()
-        # Check that the global _db_conn and _db_cursor are set
-        self.assertEqual(markov_generator._db_conn, mock_conn_instance)
-        self.assertEqual(markov_generator._db_cursor, mock_cursor_instance)
+        mock_pool.getconn.assert_called_once()
+        mock_pool_cls.assert_called_once()
+        self.assertEqual(markov_generator._db_pool, mock_pool)
 
     @patch("src.tarpit.markov_generator._get_pg_password", return_value="test_password")
     def test_get_db_connection_reuse_existing(self, mock_get_pass):
-        # Simulate an existing connection
-        mock_existing_conn = MagicMock(closed=False) # Ensure conn.closed is False
-        mock_existing_cursor = MagicMock()
-        markov_generator._db_conn = mock_existing_conn
-        markov_generator._db_cursor = mock_existing_cursor
+        mock_pool = MagicMock()
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_pool.getconn.return_value = mock_conn
+        markov_generator._db_pool = mock_pool
 
-        with patch("src.tarpit.markov_generator.psycopg2.connect") as mock_psycopg2_connect_new:
+        with patch("src.tarpit.markov_generator.pool.SimpleConnectionPool") as mock_pool_cls:
             conn, cursor = markov_generator._get_db_connection()
-            self.assertEqual(conn, mock_existing_conn)
-            self.assertEqual(cursor, mock_existing_cursor)
-            mock_psycopg2_connect_new.assert_not_called() # Should not create a new connection
+            self.assertEqual(conn, mock_conn)
+            self.assertEqual(cursor, mock_cursor)
+            mock_pool_cls.assert_not_called()
+            mock_pool.getconn.assert_called_once()
 
     @patch("src.tarpit.markov_generator._get_pg_password", return_value=None) # Password unavailable
     @patch.object(markov_generator.logger, 'error')
@@ -102,13 +104,14 @@ class TestMarkovGenerator(unittest.TestCase):
         mock_logger_error.assert_any_call("PostgreSQL password not available. Cannot connect.")
 
     @patch("src.tarpit.markov_generator._get_pg_password", return_value="test_password")
-    @patch("src.tarpit.markov_generator.psycopg2.connect", side_effect=psycopg2.OperationalError("DB connection failed"))
+    @patch("src.tarpit.markov_generator.pool.SimpleConnectionPool", side_effect=psycopg2.OperationalError("DB connection failed"))
     @patch.object(markov_generator.logger, 'error')
-    def test_get_db_connection_operational_error(self, mock_logger_error, mock_psycopg2_connect, mock_get_pass):
+    def test_get_db_connection_operational_error(self, mock_logger_error, mock_pool_cls, mock_get_pass):
         conn, cursor = markov_generator._get_db_connection()
         self.assertIsNone(conn)
         self.assertIsNone(cursor)
-        mock_logger_error.assert_any_call("ERROR: Failed to connect to PostgreSQL Markov DB: DB connection failed")
+        mock_pool_cls.assert_called_once()
+        mock_logger_error.assert_any_call("ERROR: Failed to initialize PostgreSQL pool: DB connection failed")
 
 
     # --- Test generate_random_page_name ---
@@ -206,8 +209,8 @@ class TestMarkovGenerator(unittest.TestCase):
         self.assertIsNone(next_word)
         mock_logger_error.assert_called_once()
         self.assertIn("Database error fetching next word", mock_logger_error.call_args[0][0])
-        # Check if _db_conn was reset
-        self.assertIsNone(markov_generator._db_conn)
+        # Check if pool was reset
+        self.assertIsNone(markov_generator._db_pool)
 
 
     # --- Test generate_markov_text_from_db ---
@@ -264,16 +267,16 @@ class TestMarkovGenerator(unittest.TestCase):
     @patch.object(markov_generator, 'generate_dynamic_tarpit_page', return_value="<html></html>")
     @patch('builtins.print')
     @patch('random.seed')
-    @patch.object(markov_generator, '_db_conn') # To check if it's closed
-    def test_main_block_execution(self, mock_db_conn_obj, mock_random_seed, mock_print, mock_gen_page):
+    @patch.object(markov_generator, '_db_pool')
+    def test_main_block_execution(self, mock_db_pool_obj, mock_random_seed, mock_print, mock_gen_page):
         # Simulate the script being run as main
-        # This is complex because of the global _db_conn.
+        # This is complex because of the global connection pool.
         # We need to ensure that if _get_db_connection was called by generate_dynamic_tarpit_page (via its chain),
-        # then _db_conn would be set, and __main__ should close it.
+        # then _db_pool would be set, and __main__ should close it.
         
-        # Simulate _db_conn being set by a previous call if generator needed it
-        mock_conn_for_main = MagicMock()
-        markov_generator._db_conn = mock_conn_for_main # Simulate it was opened
+        # Simulate pool being set by a previous call if generator needed it
+        mock_pool_for_main = MagicMock()
+        markov_generator._db_pool = mock_pool_for_main
 
         # Execute the script logic directly via helper
         markov_generator._run_as_script()
@@ -285,8 +288,8 @@ class TestMarkovGenerator(unittest.TestCase):
         mock_print.assert_any_call("<html></html>")
         
         # Check if the connection (that was simulated as opened) was closed
-        mock_conn_for_main.close.assert_called_once()
-        mock_print.assert_any_call("Database connection closed.")
+        mock_pool_for_main.closeall.assert_called_once()
+        mock_print.assert_any_call("Database connections closed.")
 
 
 if __name__ == '__main__':
