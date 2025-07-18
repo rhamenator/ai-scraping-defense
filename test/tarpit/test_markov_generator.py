@@ -275,18 +275,8 @@ class TestMarkovGenerator(unittest.TestCase):
         mock_conn_for_main = MagicMock()
         markov_generator._db_conn = mock_conn_for_main # Simulate it was opened
 
-        with patch.object(markov_generator, '__name__', '__main__'):
-            # Reloading the module executes its top-level code, including __main__
-            # Need to ensure that _get_db_connection (if called by generate_dynamic_tarpit_page)
-            # uses a mock that sets the global _db_conn.
-            # For simplicity, we'll assume generate_dynamic_tarpit_page is fully mocked
-            # and test the direct calls in __main__.
-            
-            # The import of psycopg2 might happen again on reload.
-            # The _get_db_connection might be called if generate_dynamic_tarpit_page isn't fully self-contained mock.
-            # Let's assume generate_dynamic_tarpit_page is mocked and doesn't trigger DB connection itself.
-            
-            importlib.reload(markov_generator) # This executes the __main__ block
+        # Execute the script logic directly via helper
+        markov_generator._run_as_script()
 
         mock_print.assert_any_call("--- Generating Sample Tarpit Page (requires DB connection) ---")
         mock_random_seed.assert_called_once_with("test_seed_123")

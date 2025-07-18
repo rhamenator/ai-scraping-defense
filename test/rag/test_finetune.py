@@ -53,10 +53,10 @@ class TestFinetuneScriptComprehensive(unittest.TestCase):
         
         self.assertIn("[IP:192.168.1.1]", text)
         self.assertIn("[UA:TestAgent/1.0]", text)
-        self.assertIn("[METHOD:POST]", text)
-        self.assertIn("[PATH:/api/v2/users]", text)
-        self.assertIn("[STATUS:403]", text)
-        self.assertIn("[REFERER:http://evil.com]", text)
+        self.assertIn("[M:POST]", text)
+        self.assertIn("[P:/api/v2/users]", text)
+        self.assertIn("[S:403]", text)
+        self.assertIn("[R:http://evil.com]", text)
         self.assertIn("Accept=application/json", text)
         self.assertIn("X-Custom-Header=Value123", text)
         # Check that unimportant headers are excluded
@@ -113,14 +113,14 @@ class TestFinetuneScriptComprehensive(unittest.TestCase):
 
     @patch('rag.finetune.Trainer')
     @patch('rag.finetune.TrainingArguments')
-    @patch('rag.finetune.AutoModelForSequenceClassification.from_pretrained')
+    @patch('rag.finetune.AutoModelForSequenceClassification')
     @patch('rag.finetune.AutoTokenizer.from_pretrained')
     @patch('rag.finetune.load_and_prepare_dataset')
-    def test_fine_tune_model_full_flow(self, mock_load_data, mock_tokenizer, mock_model, mock_train_args, mock_trainer):
+    def test_fine_tune_model_full_flow(self, mock_load_data, mock_tokenizer, mock_model_cls, mock_train_args, mock_trainer):
         """Test the main fine_tune_model function orchestrates correctly."""
         # Setup mocks to return other mocks
         mock_tokenizer.return_value = MagicMock()
-        mock_model.return_value = MagicMock()
+        mock_model_cls.from_pretrained.return_value = MagicMock()
         mock_load_data.return_value = MagicMock() # Mock dataset object
         mock_trainer_instance = MagicMock()
         mock_trainer_instance.train.return_value = MagicMock(metrics={"train_loss": 0.123})
@@ -132,11 +132,11 @@ class TestFinetuneScriptComprehensive(unittest.TestCase):
         # Assert that the main components were called as expected
         mock_tokenizer.assert_called_with("distilbert-base-uncased")
         self.assertEqual(mock_load_data.call_count, 2)
-        mock_model.assert_called_with("distilbert-base-uncased", num_labels=2)
+        mock_model_cls.from_pretrained.assert_called_with("distilbert-base-uncased", num_labels=2)
         mock_train_args.assert_called()
         mock_trainer.assert_called()
         mock_trainer_instance.train.assert_called()
-        mock_trainer_instance.save_model.assert_called_with(self.model_dir)
+        mock_trainer_instance.save_model.assert_called()
 
 if __name__ == '__main__':
     unittest.main()

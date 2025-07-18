@@ -82,7 +82,7 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
         content = robots_fetcher.fetch_robots_txt("http://example.com")
         self.assertEqual(content, robots_fetcher.get_default_robots_txt())
         self.mocks['logger'].error.assert_called_once()
-        self.assertIn("Request failed", self.mocks['logger'].error.call_args[0][0])
+        self.assertIn("Failed to fetch robots.txt", self.mocks['logger'].error.call_args[0][0])
 
     @unittest.skipIf(not KUBE_AVAILABLE, "Kubernetes library not installed")
     def test_update_configmap_patches_existing(self):
@@ -93,20 +93,20 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
         
         self.mock_k8s_api.patch_namespaced_config_map.assert_called_once()
         body = self.mock_k8s_api.patch_namespaced_config_map.call_args[1]['body']
-        self.assertEqual(body['data']['robots.txt'], "new content")
+        self.assertEqual(body.data['robots.txt'], "new content")
         self.mock_k8s_api.create_namespaced_config_map.assert_not_called()
 
     @unittest.skipIf(not KUBE_AVAILABLE, "Kubernetes library not installed")
     def test_update_configmap_creates_new(self):
         """Test that a new ConfigMap is created if it doesn't exist."""
-        self.mock_k8s_api.read_namespaced_config_map.side_effect = KubeApiException(status=404)
+        self.mock_k8s_api.patch_namespaced_config_map.side_effect = KubeApiException(status=404)
         
         robots_fetcher.update_configmap(self.mock_k8s_api, "new content")
         
         self.mock_k8s_api.create_namespaced_config_map.assert_called_once()
         body = self.mock_k8s_api.create_namespaced_config_map.call_args[1]['body']
         self.assertEqual(body.data['robots.txt'], "new content")
-        self.mock_k8s_api.patch_namespaced_config_map.assert_not_called()
+        self.mock_k8s_api.patch_namespaced_config_map.assert_called_once()
 
     @unittest.skipIf(not KUBE_AVAILABLE, "Kubernetes library not installed")
     @patch('src.util.robots_fetcher.get_kubernetes_api')
@@ -118,8 +118,7 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
         mock_fetch.return_value = "fetched content"
         
         with patch.dict(os.environ, {'KUBERNETES_SERVICE_HOST': 'yes', 'TARGET_URL': 'http://target.com'}):
-            # Use runpy to correctly execute the main block of the script
-            runpy.run_module('src.util.robots_fetcher', run_name='__main__')
+            robots_fetcher._run_as_script()
         
         mock_get_api.assert_called_once_with()
         mock_fetch.assert_called_once_with('http://target.com')
@@ -133,8 +132,7 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
             os.environ['TARGET_URL'] = 'http://localtarget.com'
             self.mocks['requests.get'].return_value = MockResponse("local content", 200)
 
-            # Use runpy to correctly execute the main block of the script
-            runpy.run_module('src.util.robots_fetcher', run_name='__main__')
+            robots_fetcher._run_as_script()
 
             mock_file.assert_called_with(ANY, 'w', encoding='utf-8')
             mock_file().write.assert_called_once_with("local content")

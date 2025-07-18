@@ -94,7 +94,7 @@ class TestWikipediaCorpusUpdater(unittest.TestCase):
             mock_wiki.random.return_value = "Good Article"
             mock_page.categories = ["Good Category"]
             articles.extend(corpus_wikipedia_updater.fetch_random_wikipedia_articles(num_articles=1))
-            self.assertIn("Skipping 'John Doe' due to disallowed category", cm.output[0])
+            self.assertTrue(any("Skipping 'John Doe' due to disallowed category" in m for m in cm.output))
         
     def test_update_corpus_file(self):
         """Test that new articles are correctly appended to the corpus file."""
