@@ -72,7 +72,7 @@ fn create_fake_js_zip(num_files: usize, output_dir: Option<String>) -> PyResult<
 }
 
 #[pymodule]
-fn jszip_rs(_py: Python, m: &PyModule) -> PyResult<()> {
+fn jszip_rs(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(generate_realistic_filename, m)?)?;
     m.add_function(wrap_pyfunction!(create_fake_js_zip, m)?)?;
     Ok(())
