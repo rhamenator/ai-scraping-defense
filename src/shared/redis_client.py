@@ -16,7 +16,7 @@ def get_redis_connection(db_number=0):
             with open(password_file, 'r') as f:
                 password = f.read().strip()
         except FileNotFoundError:
-            logging.error("Redis password file not found.")
+            logging.error(f"Redis password file not found at {password_file}")
             return None
     
     try:
