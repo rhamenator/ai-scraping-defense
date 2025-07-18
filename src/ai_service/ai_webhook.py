@@ -16,7 +16,7 @@ import datetime
 import pprint
 import os
 from redis.exceptions import ConnectionError, RedisError
-from src.shared.config import get_secret
+from src.shared.config import CONFIG
 from src.shared.redis_client import get_redis_connection as shared_get_redis_connection
 import json
 import httpx
@@ -66,43 +66,43 @@ except ImportError:
 logger = logging.getLogger(__name__)  # Use __name__ for module-specific logger
 
 # --- Configuration (remains the same) ---
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-REDIS_DB_BLOCKLIST = int(os.getenv("REDIS_DB_BLOCKLIST", 2))
+REDIS_HOST = CONFIG.REDIS_HOST
+REDIS_PORT = CONFIG.REDIS_PORT
+REDIS_DB_BLOCKLIST = CONFIG.REDIS_DB_BLOCKLIST
 BLOCKLIST_KEY_PREFIX = "blocklist:ip:"
-BLOCKLIST_TTL_SECONDS = int(os.getenv("BLOCKLIST_TTL_SECONDS", 86400))
+BLOCKLIST_TTL_SECONDS = CONFIG.BLOCKLIST_TTL_SECONDS
 
-ALERT_METHOD = os.getenv("ALERT_METHOD", "none").lower()
-ALERT_GENERIC_WEBHOOK_URL = os.getenv("ALERT_GENERIC_WEBHOOK_URL")
-ALERT_SLACK_WEBHOOK_URL = os.getenv("ALERT_SLACK_WEBHOOK_URL")
-ALERT_SMTP_HOST = os.getenv("ALERT_SMTP_HOST", "mailhog")
-ALERT_SMTP_PORT = int(os.getenv("ALERT_SMTP_PORT", 587))
-ALERT_SMTP_USER = os.getenv("ALERT_SMTP_USER")
-ALERT_SMTP_PASSWORD_FILE = os.getenv("ALERT_SMTP_PASSWORD_FILE", "/run/secrets/smtp_password")
-ALERT_SMTP_PASSWORD = None  # Populated below
-ALERT_SMTP_USE_TLS = os.getenv("ALERT_SMTP_USE_TLS", "true").lower() == "true"
-ALERT_EMAIL_FROM = os.getenv("ALERT_EMAIL_FROM", ALERT_SMTP_USER)
-ALERT_EMAIL_TO = os.getenv("ALERT_EMAIL_TO")
-ALERT_MIN_REASON_SEVERITY = os.getenv("ALERT_MIN_REASON_SEVERITY", "Local LLM")
+ALERT_METHOD = CONFIG.ALERT_METHOD
+ALERT_GENERIC_WEBHOOK_URL = CONFIG.ALERT_GENERIC_WEBHOOK_URL
+ALERT_SLACK_WEBHOOK_URL = CONFIG.ALERT_SLACK_WEBHOOK_URL
+ALERT_SMTP_HOST = CONFIG.ALERT_SMTP_HOST
+ALERT_SMTP_PORT = CONFIG.ALERT_SMTP_PORT
+ALERT_SMTP_USER = CONFIG.ALERT_SMTP_USER
+ALERT_SMTP_PASSWORD_FILE = CONFIG.ALERT_SMTP_PASSWORD_FILE
+ALERT_SMTP_PASSWORD = CONFIG.ALERT_SMTP_PASSWORD
+ALERT_SMTP_USE_TLS = CONFIG.ALERT_SMTP_USE_TLS
+ALERT_EMAIL_FROM = CONFIG.ALERT_EMAIL_FROM
+ALERT_EMAIL_TO = CONFIG.ALERT_EMAIL_TO
+ALERT_MIN_REASON_SEVERITY = CONFIG.ALERT_MIN_REASON_SEVERITY
 
-ENABLE_COMMUNITY_REPORTING = os.getenv("ENABLE_COMMUNITY_REPORTING", "false").lower() == "true"
-COMMUNITY_BLOCKLIST_REPORT_URL = os.getenv("COMMUNITY_BLOCKLIST_REPORT_URL")
-COMMUNITY_BLOCKLIST_API_KEY_FILE = os.getenv("COMMUNITY_BLOCKLIST_API_KEY_FILE", "/run/secrets/community_blocklist_api_key")
-COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = float(os.getenv("COMMUNITY_BLOCKLIST_REPORT_TIMEOUT", 10.0))
-COMMUNITY_BLOCKLIST_API_KEY = None  # Populated below
+ENABLE_COMMUNITY_REPORTING = CONFIG.ENABLE_COMMUNITY_REPORTING
+COMMUNITY_BLOCKLIST_REPORT_URL = CONFIG.COMMUNITY_BLOCKLIST_REPORT_URL
+COMMUNITY_BLOCKLIST_API_KEY_FILE = CONFIG.COMMUNITY_BLOCKLIST_API_KEY_FILE
+COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = CONFIG.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT
+COMMUNITY_BLOCKLIST_API_KEY = CONFIG.COMMUNITY_BLOCKLIST_API_KEY
 
 LOG_DIR = "/app/logs"
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+LOG_LEVEL = CONFIG.LOG_LEVEL
 BLOCK_LOG_FILE = os.path.join(LOG_DIR, "block_events.log")
 ALERT_LOG_FILE = os.path.join(LOG_DIR, "alert_events.log")
 ERROR_LOG_FILE = os.path.join(LOG_DIR, "aiservice_errors.log")
 COMMUNITY_REPORT_LOG_FILE = os.path.join(LOG_DIR, "community_report.log")
 os.makedirs(LOG_DIR, exist_ok=True)
-WEBHOOK_API_KEY = os.getenv("WEBHOOK_API_KEY")
+WEBHOOK_API_KEY = CONFIG.WEBHOOK_API_KEY
 
 # --- Load Secrets ---
-ALERT_SMTP_PASSWORD = get_secret("ALERT_SMTP_PASSWORD_FILE")
-COMMUNITY_BLOCKLIST_API_KEY = get_secret("COMMUNITY_BLOCKLIST_API_KEY_FILE")
+ALERT_SMTP_PASSWORD = CONFIG.ALERT_SMTP_PASSWORD
+COMMUNITY_BLOCKLIST_API_KEY = CONFIG.COMMUNITY_BLOCKLIST_API_KEY
 
 # --- Setup Clients & Validate Config ---
 BLOCKLISTING_ENABLED = False
@@ -485,9 +485,9 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("AI_SERVICE_PORT", 8000))
+    port = CONFIG.AI_SERVICE_PORT
     workers = int(os.getenv("UVICORN_WORKERS", 2))
-    log_level = os.getenv("LOG_LEVEL", "info").lower()
+    log_level = CONFIG.LOG_LEVEL.lower()
 
     logger.info("--- AI Service / Webhook Receiver Starting ---")
     # ... (startup logging remains the same) ...

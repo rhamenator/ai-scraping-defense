@@ -1,74 +1,134 @@
-"""Central configuration and secrets helpers."""
+"""Central configuration dataclass and helpers for environment settings."""
+from dataclasses import dataclass, field, asdict
+from typing import Any, Dict, Optional
 import os
-from typing import Dict, Any
 
-# In shared/config.py
 
-def get_secret(file_variable_name: str) -> str | None:
-    """Reads a secret from the file path specified in an environment variable."""
+def get_secret(file_variable_name: str) -> Optional[str]:
+    """Read a secret from the file path specified in an environment variable."""
     file_path = os.environ.get(file_variable_name)
     if file_path and os.path.exists(file_path):
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 return f.read().strip()
-        except IOError as e:
-            print(f"Warning: Could not read secret file at {file_path}: {e}")
+        except IOError as exc:
+            print(f"Warning: Could not read secret file at {file_path}: {exc}")
     return None
 
-# Update how REDIS_PASSWORD is defined to use this new function
-REDIS_PASSWORD = get_secret("REDIS_PASSWORD_FILE")
 
-# Service Ports
-AI_SERVICE_PORT = int(os.getenv("AI_SERVICE_PORT", 8000))
-ESCALATION_ENGINE_PORT = int(os.getenv("ESCALATION_ENGINE_PORT", 8003))
-TARPIT_API_PORT = int(os.getenv("TARPIT_API_PORT", 8005))
-ADMIN_UI_PORT = int(os.getenv("ADMIN_UI_PORT", 5002))
+@dataclass(frozen=True)
+class Config:
+    """Configuration loaded from environment variables once on import."""
 
-# Service URLs
-AI_SERVICE_URL = f"http://ai_service:{AI_SERVICE_PORT}"
-ESCALATION_ENGINE_URL = f"http://escalation_engine:{ESCALATION_ENGINE_PORT}"
-TARPIT_API_URL = f"http://tarpit_api:{TARPIT_API_PORT}"
-ADMIN_UI_URL = f"http://admin_ui:{ADMIN_UI_PORT}"
+    # Service ports
+    AI_SERVICE_PORT: int = field(default_factory=lambda: int(os.getenv("AI_SERVICE_PORT", 8000)))
+    ESCALATION_ENGINE_PORT: int = field(default_factory=lambda: int(os.getenv("ESCALATION_ENGINE_PORT", 8003)))
+    TARPIT_API_PORT: int = field(default_factory=lambda: int(os.getenv("TARPIT_API_PORT", 8005)))
+    ADMIN_UI_PORT: int = field(default_factory=lambda: int(os.getenv("ADMIN_UI_PORT", 5002)))
 
-# Mock API URLs
-EXTERNAL_API_URL = os.getenv("EXTERNAL_API_URL", "http://mock_external_api:8000")
-IP_REPUTATION_API_URL = os.getenv("IP_REPUTATION_API_URL", "http://mock_ip_reputation_api:8000")
-COMMUNITY_BLOCKLIST_API_URL = os.getenv("COMMUNITY_BLOCKLIST_API_URL", "http://mock_community_blocklist_api:8000")
+    # Redis
+    REDIS_HOST: str = field(default_factory=lambda: os.getenv("REDIS_HOST", "redis"))
+    REDIS_PORT: int = field(default_factory=lambda: int(os.getenv("REDIS_PORT", 6379)))
+    REDIS_DB_BLOCKLIST: int = field(default_factory=lambda: int(os.getenv("REDIS_DB_BLOCKLIST", 2)))
+    REDIS_DB_TAR_PIT_HOPS: int = field(default_factory=lambda: int(os.getenv("REDIS_DB_TAR_PIT_HOPS", 4)))
+    REDIS_DB_FREQUENCY: int = field(default_factory=lambda: int(os.getenv("REDIS_DB_FREQUENCY", 3)))
+    REDIS_DB_FINGERPRINTS: int = field(default_factory=lambda: int(os.getenv("REDIS_DB_FINGERPRINTS", 5)))
+    REDIS_PASSWORD: Optional[str] = field(default_factory=lambda: get_secret("REDIS_PASSWORD_FILE"))
 
-# Redis Configuration
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+    # General application settings
+    LOG_LEVEL: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO"))
+    APP_ENV: str = field(default_factory=lambda: os.getenv("APP_ENV", "production"))
+    DEBUG: bool = field(default_factory=lambda: os.getenv("DEBUG", "false").lower() == "true")
 
-# Database Configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@db:5432/ai_defense_db")
+    # Tarpit configuration
+    ESCALATION_ENDPOINT: str = field(default_factory=lambda: os.getenv("ESCALATION_ENDPOINT", "http://escalation_engine:8003/escalate"))
+    TAR_PIT_MIN_DELAY_SEC: float = field(default_factory=lambda: float(os.getenv("TAR_PIT_MIN_DELAY_SEC", 0.6)))
+    TAR_PIT_MAX_DELAY_SEC: float = field(default_factory=lambda: float(os.getenv("TAR_PIT_MAX_DELAY_SEC", 1.2)))
+    SYSTEM_SEED: str = field(default_factory=lambda: os.getenv("SYSTEM_SEED", "default_system_seed_value_change_me"))
+    TAR_PIT_MAX_HOPS: int = field(default_factory=lambda: int(os.getenv("TAR_PIT_MAX_HOPS", 250)))
+    TAR_PIT_HOP_WINDOW_SECONDS: int = field(default_factory=lambda: int(os.getenv("TAR_PIT_HOP_WINDOW_SECONDS", 86400)))
+    BLOCKLIST_TTL_SECONDS: int = field(default_factory=lambda: int(os.getenv("BLOCKLIST_TTL_SECONDS", 86400)))
+    ENABLE_TARPIT_CATCH_ALL: bool = field(default_factory=lambda: os.getenv("ENABLE_TARPIT_CATCH_ALL", "false").lower() == "true")
 
-# AI Model Configuration
-AI_MODEL_NAME = os.getenv("AI_MODEL_NAME", "gpt-3.5-turbo")
-AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", 1500))
-AI_TEMPERATURE = float(os.getenv("AI_TEMPERATURE", 0.7))
+    # AI webhook configuration
+    ALERT_METHOD: str = field(default_factory=lambda: os.getenv("ALERT_METHOD", "none").lower())
+    ALERT_GENERIC_WEBHOOK_URL: Optional[str] = field(default_factory=lambda: os.getenv("ALERT_GENERIC_WEBHOOK_URL"))
+    ALERT_SLACK_WEBHOOK_URL: Optional[str] = field(default_factory=lambda: os.getenv("ALERT_SLACK_WEBHOOK_URL"))
+    ALERT_SMTP_HOST: str = field(default_factory=lambda: os.getenv("ALERT_SMTP_HOST", "mailhog"))
+    ALERT_SMTP_PORT: int = field(default_factory=lambda: int(os.getenv("ALERT_SMTP_PORT", 587)))
+    ALERT_SMTP_USER: Optional[str] = field(default_factory=lambda: os.getenv("ALERT_SMTP_USER"))
+    ALERT_SMTP_PASSWORD_FILE: str = field(default_factory=lambda: os.getenv("ALERT_SMTP_PASSWORD_FILE", "/run/secrets/smtp_password"))
+    ALERT_SMTP_PASSWORD: Optional[str] = field(default_factory=lambda: get_secret("ALERT_SMTP_PASSWORD_FILE"))
+    ALERT_SMTP_USE_TLS: bool = field(default_factory=lambda: os.getenv("ALERT_SMTP_USE_TLS", "true").lower() == "true")
+    ALERT_EMAIL_FROM: Optional[str] = field(default_factory=lambda: os.getenv("ALERT_EMAIL_FROM", os.getenv("ALERT_SMTP_USER")))
+    ALERT_EMAIL_TO: Optional[str] = field(default_factory=lambda: os.getenv("ALERT_EMAIL_TO"))
+    ALERT_MIN_REASON_SEVERITY: str = field(default_factory=lambda: os.getenv("ALERT_MIN_REASON_SEVERITY", "Local LLM"))
+    ENABLE_COMMUNITY_REPORTING: bool = field(default_factory=lambda: os.getenv("ENABLE_COMMUNITY_REPORTING", "false").lower() == "true")
+    COMMUNITY_BLOCKLIST_REPORT_URL: Optional[str] = field(default_factory=lambda: os.getenv("COMMUNITY_BLOCKLIST_REPORT_URL"))
+    COMMUNITY_BLOCKLIST_API_KEY_FILE: str = field(default_factory=lambda: os.getenv("COMMUNITY_BLOCKLIST_API_KEY_FILE", "/run/secrets/community_blocklist_api_key"))
+    COMMUNITY_BLOCKLIST_API_KEY: Optional[str] = field(default_factory=lambda: get_secret("COMMUNITY_BLOCKLIST_API_KEY_FILE"))
+    COMMUNITY_BLOCKLIST_REPORT_TIMEOUT: float = field(default_factory=lambda: float(os.getenv("COMMUNITY_BLOCKLIST_REPORT_TIMEOUT", 10.0)))
+    WEBHOOK_API_KEY: Optional[str] = field(default_factory=lambda: os.getenv("WEBHOOK_API_KEY"))
 
-# Application Settings
-APP_ENV = os.getenv("APP_ENV", "production")
-DEBUG = os.getenv("DEBUG", "false").lower() == "true"
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+    # Escalation engine configuration
+    ESCALATION_THRESHOLD: float = field(default_factory=lambda: float(os.getenv("ESCALATION_THRESHOLD", 0.8)))
+    ESCALATION_API_KEY: Optional[str] = field(default_factory=lambda: os.getenv("ESCALATION_API_KEY"))
+    ESCALATION_WEBHOOK_URL: Optional[str] = field(default_factory=lambda: os.getenv("ESCALATION_WEBHOOK_URL"))
+    LOCAL_LLM_API_URL: Optional[str] = field(default_factory=lambda: os.getenv("LOCAL_LLM_API_URL"))
+    LOCAL_LLM_MODEL: Optional[str] = field(default_factory=lambda: os.getenv("LOCAL_LLM_MODEL"))
+    LOCAL_LLM_TIMEOUT: float = field(default_factory=lambda: float(os.getenv("LOCAL_LLM_TIMEOUT", 45.0)))
+    EXTERNAL_API_URL: Optional[str] = field(default_factory=lambda: os.getenv("EXTERNAL_CLASSIFICATION_API_URL") or os.getenv("EXTERNAL_API_URL"))
+    EXTERNAL_API_KEY: Optional[str] = field(default_factory=lambda: get_secret("EXTERNAL_CLASSIFICATION_API_KEY_FILE"))
+    EXTERNAL_API_TIMEOUT: float = field(default_factory=lambda: float(os.getenv("EXTERNAL_API_TIMEOUT", 15.0)))
+    ENABLE_LOCAL_LLM_CLASSIFICATION: bool = field(default_factory=lambda: os.getenv("ENABLE_LOCAL_LLM_CLASSIFICATION", "true").lower() == "true")
+    ENABLE_EXTERNAL_API_CLASSIFICATION: bool = field(default_factory=lambda: os.getenv("ENABLE_EXTERNAL_API_CLASSIFICATION", "true").lower() == "true")
+    ENABLE_IP_REPUTATION: bool = field(default_factory=lambda: os.getenv("ENABLE_IP_REPUTATION", "false").lower() == "true")
+    IP_REPUTATION_API_URL: Optional[str] = field(default_factory=lambda: os.getenv("IP_REPUTATION_API_URL"))
+    IP_REPUTATION_API_KEY: Optional[str] = field(default_factory=lambda: get_secret("IP_REPUTATION_API_KEY_FILE"))
+    IP_REPUTATION_TIMEOUT: float = field(default_factory=lambda: float(os.getenv("IP_REPUTATION_TIMEOUT", 10.0)))
+    IP_REPUTATION_MALICIOUS_SCORE_BONUS: float = field(default_factory=lambda: float(os.getenv("IP_REPUTATION_MALICIOUS_SCORE_BONUS", 0.3)))
+    IP_REPUTATION_MIN_MALICIOUS_THRESHOLD: float = field(default_factory=lambda: float(os.getenv("IP_REPUTATION_MIN_MALICIOUS_THRESHOLD", 50)))
+    ENABLE_CAPTCHA_TRIGGER: bool = field(default_factory=lambda: os.getenv("ENABLE_CAPTCHA_TRIGGER", "false").lower() == "true")
+    CAPTCHA_SCORE_THRESHOLD_LOW: float = field(default_factory=lambda: float(os.getenv("CAPTCHA_SCORE_THRESHOLD_LOW", 0.2)))
+    CAPTCHA_SCORE_THRESHOLD_HIGH: float = field(default_factory=lambda: float(os.getenv("CAPTCHA_SCORE_THRESHOLD_HIGH", 0.5)))
+    CAPTCHA_VERIFICATION_URL: Optional[str] = field(default_factory=lambda: os.getenv("CAPTCHA_VERIFICATION_URL"))
+    CAPTCHA_SECRET: Optional[str] = field(default_factory=lambda: get_secret("CAPTCHA_SECRET_FILE") or os.getenv("CAPTCHA_SECRET"))
+    CAPTCHA_SUCCESS_LOG: str = field(default_factory=lambda: os.getenv("CAPTCHA_SUCCESS_LOG", "/app/logs/captcha_success.log"))
+    TRAINING_ROBOTS_TXT_PATH: str = field(default_factory=lambda: os.getenv("TRAINING_ROBOTS_TXT_PATH", "/app/config/robots.txt"))
+    FREQUENCY_WINDOW_SECONDS: int = field(default_factory=lambda: int(os.getenv("FREQUENCY_WINDOW_SECONDS", 300)))
+    FINGERPRINT_WINDOW_SECONDS: int = field(default_factory=lambda: int(os.getenv("FINGERPRINT_WINDOW_SECONDS", 604800)))
+    FINGERPRINT_REUSE_THRESHOLD: int = field(default_factory=lambda: int(os.getenv("FINGERPRINT_REUSE_THRESHOLD", 3)))
+    KNOWN_BAD_UAS: str = field(default_factory=lambda: os.getenv("KNOWN_BAD_UAS", "python-requests,curl,wget,scrapy,java/,ahrefsbot,semrushbot,mj12bot,dotbot,petalbot,bytespider,gptbot,ccbot,claude-web,google-extended,dataprovider,purebot,scan,masscan,zgrab,nmap"))
+    KNOWN_BENIGN_CRAWLERS_UAS: str = field(default_factory=lambda: os.getenv("KNOWN_BENIGN_CRAWLERS_UAS", "googlebot,bingbot,slurp,duckduckbot,baiduspider,yandexbot,googlebot-image"))
 
-# Optional Cloud Features
-ENABLE_GLOBAL_CDN = os.getenv("ENABLE_GLOBAL_CDN", "false").lower() == "true"
-CLOUD_CDN_PROVIDER = os.getenv("CLOUD_CDN_PROVIDER", "cloudflare")
-CLOUD_CDN_API_TOKEN = os.getenv("CLOUD_CDN_API_TOKEN") or get_secret("CLOUD_CDN_API_TOKEN_FILE")
+    MODEL_TYPE: Optional[str] = field(default_factory=lambda: os.getenv("MODEL_TYPE"))
 
-ENABLE_DDOS_PROTECTION = os.getenv("ENABLE_DDOS_PROTECTION", "false").lower() == "true"
-DDOS_PROTECTION_PROVIDER_URL = os.getenv("DDOS_PROTECTION_PROVIDER_URL")
-DDOS_PROTECTION_API_KEY = os.getenv("DDOS_PROTECTION_API_KEY") or get_secret("DDOS_PROTECTION_API_KEY_FILE")
+    def as_dict(self) -> Dict[str, Any]:
+        """Return configuration values as a dictionary."""
+        cfg = asdict(self)
+        cfg.update({
+            "AI_SERVICE_URL": self.AI_SERVICE_URL,
+            "ESCALATION_ENGINE_URL": self.ESCALATION_ENGINE_URL,
+            "TARPIT_API_URL": self.TARPIT_API_URL,
+            "ADMIN_UI_URL": self.ADMIN_UI_URL,
+        })
+        return cfg
 
-ENABLE_MANAGED_TLS = os.getenv("ENABLE_MANAGED_TLS", "false").lower() == "true"
-TLS_PROVIDER = os.getenv("TLS_PROVIDER", "certbot")
-TLS_EMAIL = os.getenv("TLS_EMAIL")
+    def __post_init__(self):
+        object.__setattr__(self, "AI_SERVICE_URL", f"http://ai_service:{self.AI_SERVICE_PORT}")
+        object.__setattr__(self, "ESCALATION_ENGINE_URL", f"http://escalation_engine:{self.ESCALATION_ENGINE_PORT}")
+        object.__setattr__(self, "TARPIT_API_URL", f"http://tarpit_api:{self.TARPIT_API_PORT}")
+        object.__setattr__(self, "ADMIN_UI_URL", f"http://admin_ui:{self.ADMIN_UI_PORT}")
 
-ENABLE_WAF = os.getenv("ENABLE_WAF", "false").lower() == "true"
-WAF_RULES_PATH = os.getenv("WAF_RULES_PATH", "/etc/nginx/waf_rules.conf")
+
+# Instantiate configuration once
+CONFIG = Config()
+
+# Populate module level constants for backward compatibility
+for _k, _v in CONFIG.as_dict().items():
+    globals()[_k] = _v
+
 
 def get_config() -> Dict[str, Any]:
-    """Returns all configuration as a dictionary"""
-    return {k: v for k, v in globals().items() 
-            if not k.startswith('_') and k.isupper()}
+    """Return all configuration as a dictionary."""
+    return CONFIG.as_dict()
