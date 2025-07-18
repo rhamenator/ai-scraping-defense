@@ -13,9 +13,9 @@ import html
 logger = logging.getLogger(__name__)
 
 # --- Configuration ---
-DEFAULT_SENTENCES_PER_PAGE = 15
-FAKE_LINK_COUNT = 7 # Increased link count for maze effect
-FAKE_LINK_DEPTH = 3 # Max directory depth for fake links
+DEFAULT_SENTENCES_PER_PAGE = int(os.getenv("DEFAULT_SENTENCES_PER_PAGE", 15))
+FAKE_LINK_COUNT = int(os.getenv("FAKE_LINK_COUNT", 7))  # Increased link count for maze effect
+FAKE_LINK_DEPTH = int(os.getenv("FAKE_LINK_DEPTH", 3))  # Max directory depth for fake links
 MIN_WORDS_FOR_NEXT = 2 # Need at least 2 words history for state_size=2 model
 
 # --- Database Connection (Assuming sync psycopg2 for simplicity) ---
