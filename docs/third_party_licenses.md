@@ -13,7 +13,6 @@ This project utilizes various open-source components and libraries. We gratefull
 | **GoAccess**                | MIT             | [https://github.com/allinurl/goaccess](https://github.com/allinurl/goaccess)                  |
 | **Ubuntu** (Base Image)     | Various Open Src| [https://ubuntu.com/licensing](https://ubuntu.com/licensing)                                  |
 | **--- Python Packages ---** |                 |                                                                                               |
-| Flask                       | BSD-3-Clause    | [https://github.com/pallets/flask](https://github.com/pallets/flask)                          |
 | FastAPI                     | MIT             | [https://github.com/tiangolo/fastapi](https://github.com/tiangolo/fastapi)                    |
 | Uvicorn                     | BSD-3-Clause    | [https://github.com/encode/uvicorn](https://github.com/encode/uvicorn)                        |
 | Requests                    | Apache-2.0      | [https://github.com/psf/requests](https://github.com/psf/requests)                            |

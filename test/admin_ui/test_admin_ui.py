@@ -2,24 +2,25 @@
 import unittest
 import json
 from unittest.mock import patch, MagicMock
-from src.admin_ui.admin_ui import app
+from fastapi.testclient import TestClient
+from src.admin_ui import admin_ui
 
 class TestAdminUIComprehensive(unittest.TestCase):
 
     def setUp(self):
-        """Set up the test client for the Flask app."""
-        app.config['TESTING'] = True
-        self.client = app.test_client()
+        """Set up the test client for the FastAPI app."""
+        self.client = TestClient(admin_ui.app)
 
     def test_index_route_success(self):
         """Test the main dashboard page serves HTML correctly and contains key elements."""
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'AI Scraping Defense - Admin Dashboard', response.data)
-        self.assertIn(b'id="metrics-container"', response.data)
-        self.assertIn(b'id="blocklist-container"', response.data)
-        self.assertIn(b'id="manual-ip-block"', response.data)
-        self.assertIn(b'admin.js', response.data)
+        content = response.content
+        self.assertIn(b'AI Scraping Defense - Admin Dashboard', content)
+        self.assertIn(b'id="metrics-container"', content)
+        self.assertIn(b'id="blocklist-container"', content)
+        self.assertIn(b'id="manual-ip-block"', content)
+        self.assertIn(b'admin.js', content)
 
     @patch('src.admin_ui.admin_ui._get_metrics_dict_func')
     def test_metrics_endpoint_success(self, mock_get_metrics_dict):
@@ -35,7 +36,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
             response = self.client.get('/metrics')
         
         self.assertEqual(response.status_code, 200)
-        data = response.get_json()
+        data = response.json()
         self.assertEqual(data['requests_total{method="GET"}'], 150.0)
         self.assertEqual(data['bots_detected_total'], 25.0)
 
@@ -44,7 +45,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         """Test the /metrics endpoint when the metrics module is flagged as unavailable."""
         response = self.client.get('/metrics')
         self.assertEqual(response.status_code, 503)
-        data = response.get_json()
+        data = response.json()
         self.assertEqual(data.get('error'), 'Metrics module not available')
 
     @patch('src.admin_ui.admin_ui._get_metrics_dict_func', return_value={'error': 'Parsing failed'})
@@ -54,7 +55,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
             response = self.client.get('/metrics')
         
         self.assertEqual(response.status_code, 500)
-        data = response.get_json()
+        data = response.json()
         self.assertIn('error', data)
         self.assertEqual(data['error'], 'Parsing failed')
 
@@ -67,7 +68,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
         response = self.client.get('/blocklist')
         self.assertEqual(response.status_code, 200)
-        data = response.get_json()
+        data = response.json()
         self.assertIn('1.1.1.1', data)
         self.assertIn('2.2.2.2', data)
         self.assertEqual(len(data), 2)
@@ -77,7 +78,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         """Test the /blocklist endpoint when Redis is unavailable."""
         response = self.client.get('/blocklist')
         self.assertEqual(response.status_code, 503)
-        self.assertEqual(response.json, {'error': 'Redis service unavailable'})
+        self.assertEqual(response.json(), {'error': 'Redis service unavailable'})
 
     @patch('src.admin_ui.admin_ui.get_redis_connection')
     def test_block_ip_success(self, mock_get_redis):
@@ -86,9 +87,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
         mock_redis_instance.sadd.return_value = 1 # Simulate adding a new member
         mock_get_redis.return_value = mock_redis_instance
 
-        response = self.client.post('/block', data=json.dumps({'ip': '3.3.3.3'}), content_type='application/json')
+        response = self.client.post('/block', json={'ip': '3.3.3.3'})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json, {'status': 'success', 'ip': '3.3.3.3'})
+        self.assertEqual(response.json(), {'status': 'success', 'ip': '3.3.3.3'})
         mock_redis_instance.sadd.assert_called_once_with('blocklist', '3.3.3.3')
 
     @patch('src.admin_ui.admin_ui.get_redis_connection')
@@ -98,16 +99,16 @@ class TestAdminUIComprehensive(unittest.TestCase):
         mock_redis_instance.srem.return_value = 1 # Simulate removing a member
         mock_get_redis.return_value = mock_redis_instance
 
-        response = self.client.post('/unblock', data=json.dumps({'ip': '1.1.1.1'}), content_type='application/json')
+        response = self.client.post('/unblock', json={'ip': '1.1.1.1'})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json, {'status': 'success', 'ip': '1.1.1.1'})
+        self.assertEqual(response.json(), {'status': 'success', 'ip': '1.1.1.1'})
         mock_redis_instance.srem.assert_called_once_with('blocklist', '1.1.1.1')
         
     def test_block_ip_invalid_payload(self):
         """Test the /block endpoint with an invalid payload."""
-        response = self.client.post('/block', data=json.dumps({'address': '3.3.3.3'}), content_type='application/json')
+        response = self.client.post('/block', json={'address': '3.3.3.3'})
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json, {'error': 'Invalid request, missing ip'})
+        self.assertEqual(response.json(), {'error': 'Invalid request, missing ip'})
 
 if __name__ == '__main__':
     unittest.main()

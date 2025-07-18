@@ -7,7 +7,7 @@ async function fetchMetrics() {
     errorMessageElement.style.display = 'none'; // Hide error on new fetch attempt
     try {
         // Use relative URL to fetch from the same origin
-        const response = await fetch('/metrics'); // Fetches from the Flask endpoint
+        const response = await fetch('/metrics'); // Fetches from the FastAPI endpoint
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
