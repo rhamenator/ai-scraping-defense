@@ -1,7 +1,8 @@
 # anti_scrape/tarpit/markov_generator.py
 # Generates deterministic fake HTML content using Markov chains from PostgreSQL.
 
-import psycopg2 # Or asyncpg for async
+import psycopg2
+from psycopg2 import pool
 import os
 import random
 import string
@@ -25,8 +26,7 @@ PG_DBNAME = os.getenv("PG_DBNAME", "markovdb")
 PG_USER = os.getenv("PG_USER", "markovuser")
 PG_PASSWORD_FILE = os.getenv("PG_PASSWORD_FILE", "/run/secrets/pg_password")
 
-_db_conn = None
-_db_cursor = None
+_db_pool = None
 
 def _get_pg_password():
     """Loads password from secret file."""
@@ -42,41 +42,68 @@ def _get_pg_password():
         )
         return None
 
-def _get_db_connection():
-    """Establishes or returns existing DB connection."""
-    global _db_conn, _db_cursor
-    if _db_conn and not _db_conn.closed:
-        # Optional: Add a ping check here for robustness
-        return _db_conn, _db_cursor
+def _get_db_pool():
+    """Creates or returns the global connection pool."""
+    global _db_pool
+    if _db_pool:
+        return _db_pool
 
-    logger.info(f"Connecting to PostgreSQL Markov DB: {PG_USER}@{PG_HOST}:{PG_PORT}/{PG_DBNAME}")
+    logger.info(
+        f"Initializing PostgreSQL connection pool: {PG_USER}@{PG_HOST}:{PG_PORT}/{PG_DBNAME}"
+    )
     pg_password = _get_pg_password()
     if not pg_password:
         logger.error("PostgreSQL password not available. Cannot connect.")
-        return None, None
+        return None
 
     try:
-        _db_conn = psycopg2.connect(
+        _db_pool = pool.SimpleConnectionPool(
+            1,
+            5,
             host=PG_HOST,
             port=PG_PORT,
             dbname=PG_DBNAME,
             user=PG_USER,
             password=pg_password,
-            connect_timeout=5
+            connect_timeout=5,
         )
-        _db_cursor = _db_conn.cursor()
-        logger.info("Successfully connected to PostgreSQL Markov DB.")
-        return _db_conn, _db_cursor
+        logger.info("PostgreSQL connection pool initialized.")
+        return _db_pool
     except psycopg2.OperationalError as e:
-        logger.error(f"ERROR: Failed to connect to PostgreSQL Markov DB: {e}")
-        _db_conn = None
-        _db_cursor = None
-        return None, None
+        logger.error(f"ERROR: Failed to initialize PostgreSQL pool: {e}")
+        _db_pool = None
+        return None
     except Exception as e:
-        logger.error(f"ERROR: Unexpected error connecting to PostgreSQL: {e}")
-        _db_conn = None
-        _db_cursor = None
+        logger.error(f"ERROR: Unexpected error initializing PostgreSQL pool: {e}")
+        _db_pool = None
+        return None
+
+
+def _get_db_connection():
+    """Fetches a connection and cursor from the pool."""
+    db_pool = _get_db_pool()
+    if not db_pool:
         return None, None
+    try:
+        conn = db_pool.getconn()
+        return conn, conn.cursor()
+    except Exception as e:
+        logger.error(f"ERROR: Failed to obtain PostgreSQL connection: {e}")
+        return None, None
+
+
+def _release_db_connection(conn, cursor):
+    """Return a connection to the pool and close its cursor."""
+    if cursor:
+        try:
+            cursor.close()
+        except Exception as e:  # pragma: no cover - log unexpected errors
+            logger.error(f"Error closing cursor: {e}")
+    if conn and _db_pool:
+        try:
+            _db_pool.putconn(conn)
+        except Exception as e:  # pragma: no cover - log unexpected errors
+            logger.error(f"Error releasing DB connection: {e}")
 
 # --- Helper Functions ---
 
@@ -159,13 +186,14 @@ def get_next_word_from_db(word1_id, word2_id):
 
     except psycopg2.Error as e:
         logger.error(f"Database error fetching next word for ({word1_id}, {word2_id}): {e}")
-        # Attempt to reconnect or handle error gracefully
-        global _db_conn
-        _db_conn = None # Force reconnect on next call
+        global _db_pool
+        _db_pool = None  # Force pool reinitialization on next call
         return None
     except Exception as e:
         logger.error(f"Unexpected error fetching next word: {e}")
         return None
+    finally:
+        _release_db_connection(conn, cursor)
 
 def get_word_id(word):
     """Gets the ID for a word, returns ID for '' (empty string) if not found."""
@@ -176,10 +204,12 @@ def get_word_id(word):
     try:
         cursor.execute("SELECT id FROM words WHERE word = %s", (word,))
         result = cursor.fetchone()
-        return result[0] if result else 1 # Default to empty string ID if word not found
+        return result[0] if result else 1  # Default to empty string ID if word not found
     except Exception as e:
         logger.error(f"Error fetching ID for word '{word}': {e}")
-        return 1 # Default to empty string ID on error
+        return 1  # Default to empty string ID on error
+    finally:
+        _release_db_connection(conn, cursor)
 
 # --- Markov Text Generation using DB ---
 def generate_markov_text_from_db(sentences=DEFAULT_SENTENCES_PER_PAGE):
@@ -188,6 +218,7 @@ def generate_markov_text_from_db(sentences=DEFAULT_SENTENCES_PER_PAGE):
     if not conn or not cursor:
         logger.error("No DB connection for Markov text generation.")
         return "<p>Content generation unavailable.</p>"
+    _release_db_connection(conn, cursor)
 
     # Use pre-seeded random state
     generated_content = ""
@@ -305,9 +336,9 @@ def _run_as_script() -> None:
     dynamic_html = generate_dynamic_tarpit_page()
     print("\n--- Generated HTML ---")
     print(dynamic_html)
-    if _db_conn:
-        _db_conn.close()
-        print("Database connection closed.")
+    if _db_pool:
+        _db_pool.closeall()
+        print("Database connections closed.")
 
 
 if __name__ == "__main__":

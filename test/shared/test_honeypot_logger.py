@@ -55,29 +55,31 @@ class TestJsonFormatter(unittest.TestCase):
 
 class TestLogHoneypotHitFunction(unittest.TestCase):
 
-    @patch.object(honeypot_logger.honeypot_logger, 'info') 
-    def test_log_honeypot_hit_success(self, mock_logger_info):
+    def test_log_honeypot_hit_success(self):
         """Test successful logging by log_honeypot_hit."""
+        import importlib
+        importlib.reload(honeypot_logger)
         details = {"ip": "192.168.1.100", "path": "/decoy"}
-        honeypot_logger.log_honeypot_hit(details)
-        
-        mock_logger_info.assert_called_once_with(
-            "Honeypot triggered", # The message string
-            extra={'details': details} # The 'extra' dictionary
-        )
+        with patch.object(honeypot_logger.honeypot_logger, 'info') as mock_info:
+            honeypot_logger.log_honeypot_hit(details)
+            mock_info.assert_called_once_with(
+                "Honeypot triggered",
+                extra={'details': details}
+            )
 
-    @patch.object(honeypot_logger.honeypot_logger, 'info', side_effect=Exception("Logger failed"))
-    @patch('builtins.print') 
-    def test_log_honeypot_hit_logger_exception(self, mock_print, mock_logger_info):
+    def test_log_honeypot_hit_logger_exception(self):
         """Test fallback print when logger.info raises an exception."""
+        import importlib
+        importlib.reload(honeypot_logger)
         details = {"ip": "10.0.0.5", "error_trigger": True}
-        honeypot_logger.log_honeypot_hit(details)
-        
-        mock_logger_info.assert_called_once() 
-        mock_print.assert_called_once()
-        args, _ = mock_print.call_args
-        self.assertIn("ERROR in log_honeypot_hit: Logger failed", args[0])
-        self.assertIn("'ip': '10.0.0.5'", args[0]) # Check details are in fallback print
+        with patch.object(honeypot_logger.honeypot_logger, 'info', side_effect=Exception("Logger failed")) as mock_info, \
+             patch('builtins.print') as mock_print:
+            honeypot_logger.log_honeypot_hit(details)
+            mock_info.assert_called_once()
+            mock_print.assert_called_once()
+            args, _ = mock_print.call_args
+            self.assertIn("ERROR in log_honeypot_hit: Logger failed", args[0])
+            self.assertIn("'ip': '10.0.0.5'", args[0])
 
 
 class TestHoneypotLoggerSetup(unittest.TestCase):
