@@ -19,6 +19,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertIn(b'id="metrics-container"', response.data)
         self.assertIn(b'id="blocklist-container"', response.data)
         self.assertIn(b'id="manual-ip-block"', response.data)
+        self.assertIn(b'admin.js', response.data)
 
     @patch('src.admin_ui.admin_ui._get_metrics_dict_func')
     def test_metrics_endpoint_success(self, mock_get_metrics_dict):
