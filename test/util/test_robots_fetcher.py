@@ -1,14 +1,16 @@
 # test/util/robots_fetcher.test.py
+from src.util import robots_fetcher
 import unittest
 from unittest.mock import patch, MagicMock, ANY, mock_open
 import os
-import importlib
-import runpy
 
 # Define a base mock exception class for when the real one isn't available
+
+
 class MockKubeApiException(Exception):
     def __init__(self, status=0):
         self.status = status
+
 
 # Conditionally import kubernetes for environments where it is available
 try:
@@ -22,15 +24,16 @@ except ImportError:
     client = MagicMock()
     config = MagicMock()
 
-from src.util import robots_fetcher
 
 class MockResponse:
     def __init__(self, text, status_code):
         self.text = text
         self.status_code = status_code
+
     def raise_for_status(self):
         if self.status_code >= 400:
             raise robots_fetcher.requests.exceptions.HTTPError()
+
 
 class TestRobotsFetcherComprehensive(unittest.TestCase):
 
@@ -43,9 +46,9 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
             'logger': patch('src.util.robots_fetcher.logger')
         }
         self.mocks = {name: p.start() for name, p in self.patches.items()}
-        
+
         self.mock_k8s_api = self.mocks['k8s_client.CoreV1Api'].return_value
-        
+
     def tearDown(self):
         for p in self.patches.values():
             p.stop()
@@ -54,7 +57,6 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
             del os.environ['TARGET_URL']
         if 'KUBERNETES_SERVICE_HOST' in os.environ:
             del os.environ['KUBERNETES_SERVICE_HOST']
-
 
     def test_get_default_robots_txt(self):
         """Test that the default robots.txt content is correct."""
@@ -87,10 +89,10 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
     @unittest.skipIf(not KUBE_AVAILABLE, "Kubernetes library not installed")
     def test_update_configmap_patches_existing(self):
         """Test that an existing ConfigMap is patched."""
-        self.mock_k8s_api.read_namespaced_config_map.return_value = MagicMock() # Simulate CM exists
-        
+        self.mock_k8s_api.read_namespaced_config_map.return_value = MagicMock()  # Simulate CM exists
+
         robots_fetcher.update_configmap(self.mock_k8s_api, "new content")
-        
+
         self.mock_k8s_api.patch_namespaced_config_map.assert_called_once()
         body = self.mock_k8s_api.patch_namespaced_config_map.call_args[1]['body']
         self.assertEqual(body.data['robots.txt'], "new content")
@@ -100,9 +102,9 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
     def test_update_configmap_creates_new(self):
         """Test that a new ConfigMap is created if it doesn't exist."""
         self.mock_k8s_api.patch_namespaced_config_map.side_effect = KubeApiException(status=404)
-        
+
         robots_fetcher.update_configmap(self.mock_k8s_api, "new content")
-        
+
         self.mock_k8s_api.create_namespaced_config_map.assert_called_once()
         body = self.mock_k8s_api.create_namespaced_config_map.call_args[1]['body']
         self.assertEqual(body.data['robots.txt'], "new content")
@@ -116,10 +118,10 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
         """Test the main execution logic when running inside a Kubernetes cluster."""
         mock_get_api.return_value = self.mock_k8s_api
         mock_fetch.return_value = "fetched content"
-        
+
         with patch.dict(os.environ, {'KUBERNETES_SERVICE_HOST': 'yes', 'TARGET_URL': 'http://target.com'}):
             robots_fetcher._run_as_script()
-        
+
         mock_get_api.assert_called_once_with()
         mock_fetch.assert_called_once_with('http://target.com')
         mock_update_cm.assert_called_once_with(self.mock_k8s_api, "fetched content")
@@ -127,7 +129,7 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
     def test_main_flow_local_mode(self):
         """Test the main execution logic when not in a cluster (local mode)."""
         with patch.dict(os.environ, {}, clear=True), \
-             patch('builtins.open', mock_open()) as mock_file:
+                patch('builtins.open', mock_open()) as mock_file:
             # Set TARGET_URL for local execution
             os.environ['TARGET_URL'] = 'http://localtarget.com'
             self.mocks['requests.get'].return_value = MockResponse("local content", 200)
@@ -138,6 +140,7 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
             mock_file().write.assert_called_once_with("local content")
             # Ensure k8s functions were not called
             self.mocks['k8s_config.load_incluster_config'].assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()
