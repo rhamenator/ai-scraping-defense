@@ -7,7 +7,9 @@ import httpx
 
 from src.shared.redis_client import get_redis_connection
 
-COMMUNITY_BLOCKLIST_API_URL = os.getenv("COMMUNITY_BLOCKLIST_API_URL", "http://mock_community_blocklist_api:8000")
+COMMUNITY_BLOCKLIST_API_URL = os.getenv(
+    "COMMUNITY_BLOCKLIST_API_URL", "https://mock_community_blocklist_api:8000"
+)
 COMMUNITY_BLOCKLIST_LIST_ENDPOINT = os.getenv("COMMUNITY_BLOCKLIST_LIST_ENDPOINT", "/list")
 REDIS_DB_BLOCKLIST = int(os.getenv("REDIS_DB_BLOCKLIST", 2))
 BLOCKLIST_TTL_SECONDS = int(os.getenv("COMMUNITY_BLOCKLIST_TTL_SECONDS", 86400))

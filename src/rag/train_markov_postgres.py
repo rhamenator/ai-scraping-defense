@@ -42,7 +42,8 @@ def get_pg_password():
                 secret_path = alt_path_proj
             else:
                 logger.error(
-                    f"Password file could not be found in the expected locations: {PG_PASSWORD_FILE}, {alt_path_run}, {alt_path_proj}"
+                    "Password file could not be found in the expected locations. "
+                    f"Tried: {PG_PASSWORD_FILE}, {alt_path_run}, {alt_path_proj}"
                 )
                 return None
     try:
