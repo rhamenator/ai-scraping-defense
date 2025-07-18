@@ -1,3 +1,4 @@
+"""Central configuration and secrets helpers."""
 import os
 from typing import Dict, Any
 

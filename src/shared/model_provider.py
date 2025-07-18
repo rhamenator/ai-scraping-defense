@@ -1,4 +1,5 @@
 # src/shared/model_provider.py
+"""Factory for obtaining model adapters based on a URI."""
 import os
 import logging
 from typing import Optional

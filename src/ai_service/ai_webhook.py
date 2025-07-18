@@ -1,5 +1,12 @@
 # ai_service/ai_webhook.py
 # Receives webhook events, logs, blocklists via Redis (with TTL), optionally reports to community lists, and sends alerts.
+"""Webhook receiver and blocklist manager.
+
+This module implements the Flask application responsible for ingesting
+webhook events from various detection points. Events may trigger IP
+blocklisting in Redis, optional reporting to community services and alert
+notifications through webhooks, Slack or SMTP email.
+"""
 
 from flask import Flask, jsonify, request
 from pydantic import BaseModel, Field

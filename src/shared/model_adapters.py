@@ -1,3 +1,4 @@
+"""Adapter interfaces for various model providers."""
 from abc import ABC, abstractmethod
 import os
 import logging
