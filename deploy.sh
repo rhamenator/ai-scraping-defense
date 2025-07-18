@@ -26,7 +26,7 @@ echo ""
 
 # Step 2: Apply all configurations and secrets.
 # It's crucial these exist before pods that need them are created.
-echo "Step 2: Applying ConfigMaps and Secrets..."
+echo "Step 2: Applying ConfigMaps, Secrets, and RBAC..."
 echo "Applying generic app configuration..."
 kubectl apply -f "$K8S_DIR/configmap.yaml"
 echo "Applying PostgreSQL init script..."
@@ -39,6 +39,8 @@ else
     echo "ERROR: kubernetes/secrets.yaml not found. Please run generate_secrets.sh first."
     exit 1
 fi
+echo "Applying robots fetcher RBAC..."
+kubectl apply -f "$K8S_DIR/robots-fetcher-rbac.yaml"
 echo "Configurations and Secrets applied."
 echo ""
 

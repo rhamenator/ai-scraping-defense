@@ -23,7 +23,8 @@ spec:
             - name: REAL_BACKEND_HOST
               value: "http://nginx-proxy.ai-defense.svc.cluster.local"
             - name: ROBOTS_CONFIGMAP_NAME
-              value: "nginx-robots-txt"
+              # Must match the ConfigMap consumed by the Nginx deployment.
+              value: "live-robots-txt-config"
             # The script needs to know its own namespace to patch the ConfigMap.
             - name: KUBERNETES_NAMESPACE
               valueFrom:
