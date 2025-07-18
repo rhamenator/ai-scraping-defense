@@ -73,6 +73,7 @@ This setup uses Docker Compose to orchestrate all the necessary services on your
     ```powershell
     .\Generate-Secrets.ps1
     ```
+    These scripts generate a `.htpasswd` entry using bcrypt with cost factor 12 for securing access to the Admin UI.
 
     **Important:** The script will print the generated credentials to the console. Copy these and save them in a secure password manager.
 
