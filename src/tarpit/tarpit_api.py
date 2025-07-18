@@ -15,7 +15,9 @@ from redis.exceptions import ConnectionError, RedisError
 
 # --- Setup Logging ---
 # Preserved from your original file.
-logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper(), format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+from src.shared.config import CONFIG
+
+logging.basicConfig(level=CONFIG.LOG_LEVEL.upper(), format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # --- Import Local & Shared Modules (Preserved from your original file) ---
@@ -59,9 +61,9 @@ except ImportError as e:
     FLAGGING_AVAILABLE = False
 
 # --- Environment-based Logging (Preserved from your original file) ---
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-APP_ENV = os.getenv("APP_ENV", "production")
-DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+LOG_LEVEL = CONFIG.LOG_LEVEL
+APP_ENV = CONFIG.APP_ENV
+DEBUG = CONFIG.DEBUG
 
 if APP_ENV == "development" or DEBUG:
     logger.setLevel(logging.DEBUG)
@@ -74,19 +76,19 @@ else:
     logger.debug(f"Log level set to {LOG_LEVEL}.")
 
 # --- Configuration (Preserved from your original file) ---
-ESCALATION_ENDPOINT = os.getenv("ESCALATION_ENDPOINT", "http://escalation_engine:8003/escalate")
-MIN_STREAM_DELAY_SEC = float(os.getenv("TAR_PIT_MIN_DELAY_SEC", 0.6))
-MAX_STREAM_DELAY_SEC = float(os.getenv("TAR_PIT_MAX_DELAY_SEC", 1.2))
-SYSTEM_SEED = os.getenv("SYSTEM_SEED", "default_system_seed_value_change_me")
+ESCALATION_ENDPOINT = CONFIG.ESCALATION_ENDPOINT
+MIN_STREAM_DELAY_SEC = CONFIG.TAR_PIT_MIN_DELAY_SEC
+MAX_STREAM_DELAY_SEC = CONFIG.TAR_PIT_MAX_DELAY_SEC
+SYSTEM_SEED = CONFIG.SYSTEM_SEED
 
-TAR_PIT_MAX_HOPS = int(os.getenv("TAR_PIT_MAX_HOPS", 250))
-TAR_PIT_HOP_WINDOW_SECONDS = int(os.getenv("TAR_PIT_HOP_WINDOW_SECONDS", 86400))
+TAR_PIT_MAX_HOPS = CONFIG.TAR_PIT_MAX_HOPS
+TAR_PIT_HOP_WINDOW_SECONDS = CONFIG.TAR_PIT_HOP_WINDOW_SECONDS
 HOP_LIMIT_ENABLED = TAR_PIT_MAX_HOPS > 0
 
-REDIS_DB_TAR_PIT_HOPS = int(os.getenv("REDIS_DB_TAR_PIT_HOPS", 4))
-REDIS_DB_BLOCKLIST = int(os.getenv("REDIS_DB_BLOCKLIST", 2))
-BLOCKLIST_TTL_SECONDS = int(os.getenv("BLOCKLIST_TTL_SECONDS", 86400))
-ENABLE_TARPIT_CATCH_ALL = os.getenv("ENABLE_TARPIT_CATCH_ALL", "false").lower() == "true"
+REDIS_DB_TAR_PIT_HOPS = CONFIG.REDIS_DB_TAR_PIT_HOPS
+REDIS_DB_BLOCKLIST = CONFIG.REDIS_DB_BLOCKLIST
+BLOCKLIST_TTL_SECONDS = CONFIG.BLOCKLIST_TTL_SECONDS
+ENABLE_TARPIT_CATCH_ALL = CONFIG.ENABLE_TARPIT_CATCH_ALL
 
 
 # --- THIS IS THE SOLE REFACTORING CHANGE ---
@@ -281,9 +283,9 @@ if __name__ == "__main__":
     logger.info(f"Redis Blocklist DB for Trigger: {REDIS_DB_BLOCKLIST}")
     logger.info(f"Streaming Delay: {MIN_STREAM_DELAY_SEC:.2f}s - {MAX_STREAM_DELAY_SEC:.2f}s")
     logger.info("--------------------------")
-    port = int(os.getenv("TARPIT_API_PORT", 8005))
+    port = CONFIG.TARPIT_API_PORT
     workers = int(os.getenv("UVICORN_WORKERS", 2))
-    log_level = os.getenv("LOG_LEVEL", "info").lower()
+    log_level = CONFIG.LOG_LEVEL.lower()
 
     logger.info(f"Starting Tarpit API on port {port}")
     uvicorn.run(
