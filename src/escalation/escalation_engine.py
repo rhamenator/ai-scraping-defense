@@ -328,6 +328,8 @@ def get_realtime_frequency_features(ip: str) -> dict:
 
 # --- Browser Fingerprint Tracking ---
 def compute_browser_fingerprint(metadata: "RequestMetadata") -> str:
+    if getattr(metadata, "fingerprint_id", None):
+        return metadata.fingerprint_id
     ua = (metadata.user_agent or "").lower()
     headers = metadata.headers or {}
     parts = [
@@ -389,6 +391,7 @@ class RequestMetadata(BaseModel):
     path: Optional[str] = None
     method: Optional[str] = None
     headers: Optional[Dict[str, str]] = None
+    fingerprint_id: Optional[str] = None
     source: str
 
 # --- FastAPI App ---
