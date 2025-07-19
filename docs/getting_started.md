@@ -145,3 +145,21 @@ docker-compose down
 ```
 
 This will stop and remove all the containers defined in your docker-compose.yml file.
+
+### **8. Stress Testing the Stack**
+
+For load and performance experiments, a helper script installs several open-source testing tools. Run it from the project root:
+
+```bash
+./setup_load_test_suite.sh
+```
+
+The script installs utilities like **wrk**, **siege**, **ab**, **k6**, and **locust**. After installation, you can try commands such as:
+
+```bash
+wrk -t4 -c100 -d30s http://localhost:8080
+siege -c50 -t1m http://localhost:8080
+ab -n 1000 -c100 http://localhost:8080/
+```
+
+Use these programs only against systems you own or have explicit permission to test.
