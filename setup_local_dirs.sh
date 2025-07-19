@@ -11,7 +11,8 @@ mkdir -p models
 mkdir -p archives
 mkdir -p secrets
 mkdir -p nginx/errors
-mkdir -p certs
+# TLS certificate directory matching TLS_CERT_PATH and TLS_KEY_PATH in .env
+mkdir -p nginx/certs
 # The kubernetes directory should already exist if you cloned the repo.
 
 echo "Creating placeholder secret files in ./secrets/ (REMEMBER TO FILL THESE WITH ACTUAL VALUES):"
