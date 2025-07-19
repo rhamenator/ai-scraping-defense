@@ -216,6 +216,21 @@ services:
       timeout: 5s
       retries: 5
 
+  blocklist_sync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: blocklist_sync
+    command: ["python", "-m", "scripts.blocklist_sync_daemon"]
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - defense_network
+    restart: unless-stopped
+
   fail2ban:
     image: crazymax/fail2ban:latest
     container_name: fail2ban
