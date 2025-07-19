@@ -48,6 +48,18 @@ spec:
           limits:
             cpu: "500m"
             memory: "512Mi"
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
         volumeMounts:
         - name: nginx-config
           mountPath: /etc/nginx/conf.d

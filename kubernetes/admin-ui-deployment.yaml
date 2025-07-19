@@ -50,3 +50,15 @@ spec:
             name: admin-ui-credentials
         - secretRef:
             name: redis-credentials
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 5002
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 5002
+          initialDelaySeconds: 10
+          periodSeconds: 10
