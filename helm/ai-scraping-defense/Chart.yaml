@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ai-scraping-defense
+description: Helm chart for deploying the AI Scraping Defense stack
+version: 0.1.0
+appVersion: "0.1.0"
+type: application

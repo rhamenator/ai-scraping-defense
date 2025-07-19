@@ -4,9 +4,21 @@ This guide outlines the steps to deploy the AI Scraping Defense stack to a Kuber
 
 ## Prerequisites
 
-- A running Kubernetes cluster.  
-- `kubectl` configured to communicate with your cluster.  
+- A running Kubernetes cluster.
+- `kubectl` configured to communicate with your cluster.
 - A container registry (e.g., Docker Hub, Google Container Registry, GitHub Container Registry) to store your built Docker image.
+
+### Deploy with Helm
+
+The repository now ships with a basic Helm chart located in the `helm/ai-scraping-defense` directory. Using Helm simplifies deployment and enables optional Horizontal Pod Autoscaler (HPA) resources.
+
+```bash
+helm install ai-defense ./helm/ai-scraping-defense \
+  --set image.repository=your-registry/ai-scraping-defense \
+  --set image.tag=latest
+```
+
+Customize the values in `values.yaml` or via `--set` flags to tune replica counts and autoscaling limits for large clusters.
 
 ## Deployment Steps
 
