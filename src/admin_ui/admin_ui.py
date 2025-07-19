@@ -8,7 +8,7 @@ designed to be run as a standalone service or within Docker.
 """
 import os
 import asyncio
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -20,6 +20,9 @@ from src.shared.config import CONFIG
 # Flag to indicate if metrics collection is actually available. Tests patch this
 # to simulate metrics being disabled.
 METRICS_TRULY_AVAILABLE = True
+
+# Interval in seconds between metric pushes over WebSocket
+WEBSOCKET_METRICS_INTERVAL = 5
 
 
 def _parse_prometheus_metrics(text: str) -> dict:
@@ -91,6 +94,44 @@ async def metrics_endpoint():
         return JSONResponse(metrics_dict, status_code=500)
 
     return JSONResponse(metrics_dict, status_code=200)
+
+
+@app.websocket("/ws/metrics")
+async def metrics_websocket(websocket: WebSocket):
+    """Stream metrics to the client over a WebSocket connection."""
+    await websocket.accept()
+
+    if not METRICS_TRULY_AVAILABLE:
+        await websocket.send_json({"error": "Metrics module not available"})
+        await websocket.close()
+        return
+
+    try:
+        while True:
+            try:
+                metrics_dict = _get_metrics_dict_func()
+            except Exception:  # pragma: no cover - defensive
+                import logging
+                logging.error(
+                    "An error occurred in the websocket metrics endpoint",
+                    exc_info=True,
+                )
+                await websocket.send_json({"error": "An internal error occurred"})
+                await websocket.close()
+                break
+
+            await websocket.send_json(metrics_dict)
+
+            if isinstance(metrics_dict, dict) and metrics_dict.get("error"):
+                await websocket.close()
+                break
+
+            try:
+                await asyncio.sleep(WEBSOCKET_METRICS_INTERVAL)
+            except asyncio.CancelledError:  # pragma: no cover - defensive
+                break
+    except WebSocketDisconnect:  # pragma: no cover - normal disconnect
+        pass
 
 
 @app.get("/blocklist")

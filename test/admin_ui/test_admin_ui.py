@@ -110,5 +110,21 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json(), {'error': 'Invalid request, missing ip'})
 
+    @patch('src.admin_ui.admin_ui._get_metrics_dict_func')
+    def test_metrics_websocket_initial_message(self, mock_get_metrics):
+        """Ensure the /ws/metrics endpoint streams metrics on connect."""
+        mock_get_metrics.return_value = {'active_connections': 5}
+        with self.client.websocket_connect('/ws/metrics') as websocket:
+            data = websocket.receive_json()
+        self.assertEqual(data, {'active_connections': 5})
+        mock_get_metrics.assert_called()
+
+    @patch('src.admin_ui.admin_ui.METRICS_TRULY_AVAILABLE', False)
+    def test_metrics_websocket_module_unavailable(self):
+        """WebSocket should send an error if metrics are unavailable."""
+        with self.client.websocket_connect('/ws/metrics') as websocket:
+            data = websocket.receive_json()
+        self.assertEqual(data, {'error': 'Metrics module not available'})
+
 if __name__ == '__main__':
     unittest.main()
