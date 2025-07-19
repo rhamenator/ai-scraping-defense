@@ -109,6 +109,11 @@ class Config:
 
     MODEL_TYPE: Optional[str] = field(default_factory=lambda: os.getenv("MODEL_TYPE"))
 
+    # Tarpit LLM generator configuration
+    ENABLE_TARPIT_LLM_GENERATOR: bool = field(default_factory=lambda: os.getenv("ENABLE_TARPIT_LLM_GENERATOR", "false").lower() == "true")
+    TARPIT_LLM_MODEL_URI: Optional[str] = field(default_factory=lambda: os.getenv("TARPIT_LLM_MODEL_URI"))
+    TARPIT_LLM_MAX_TOKENS: int = field(default_factory=lambda: int(os.getenv("TARPIT_LLM_MAX_TOKENS", 400)))
+
     def as_dict(self) -> Dict[str, Any]:
         """Return configuration values as a dictionary."""
         cfg = asdict(self)
