@@ -109,6 +109,8 @@ For a one-command setup, run `./quickstart_dev.sh` on Linux/macOS or `quickstart
     docker-compose up --build -d
     ```
 
+    If you'd like to try the proxy in front of a WordPress site, run `./setup_wordpress_website.sh` instead. It launches WordPress and MariaDB containers on the same Docker network and sets `REAL_BACKEND_HOST` automatically.
+
 7. **Access the Services:**
     - **Admin UI:** `http://localhost:5002`
     - **Cloud Dashboard:** `http://localhost:5006`
