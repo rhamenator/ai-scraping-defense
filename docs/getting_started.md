@@ -106,6 +106,7 @@ Once the containers are running, you can access the key services in your web bro
 * **Redis (for blocklist management):** [http://localhost:6379](http://localhost:6379) (not directly accessible via a web interface, but can be managed using Redis CLI or GUI tools).
 * **Blocklist Sync Daemon:** runs automatically to pull updates from the community blocklist service.
 * **Peer Sync Daemon:** exchanges blocklisted IPs with configured peer deployments.
+* **Config Recommender:** [http://localhost:8010](http://localhost:8010) provides automated tuning suggestions.
 
 ### **6.1. Accessing the Admin UI**
 

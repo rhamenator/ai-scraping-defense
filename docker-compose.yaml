@@ -200,6 +200,30 @@ services:
       timeout: 10s
       retries: 3
 
+  config_recommender:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: config_recommender
+    command: ["python", "src/config_recommender/recommender_api.py"]
+    env_file:
+      - .env
+    ports:
+      - "8010:8010"
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - defense_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/recommendations" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   postgres:
     image: postgres:15-alpine
     container_name: postgres_markov_db

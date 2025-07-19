@@ -26,6 +26,7 @@ class Config:
     TARPIT_API_HOST: str = field(default_factory=lambda: os.getenv("TARPIT_API_HOST", "tarpit_api"))
     ADMIN_UI_HOST: str = field(default_factory=lambda: os.getenv("ADMIN_UI_HOST", "admin_ui"))
     CLOUD_DASHBOARD_HOST: str = field(default_factory=lambda: os.getenv("CLOUD_DASHBOARD_HOST", "cloud_dashboard"))
+    CONFIG_RECOMMENDER_HOST: str = field(default_factory=lambda: os.getenv("CONFIG_RECOMMENDER_HOST", "config_recommender"))
 
     # Service ports
     AI_SERVICE_PORT: int = field(default_factory=lambda: int(os.getenv("AI_SERVICE_PORT", 8000)))
@@ -33,6 +34,7 @@ class Config:
     TARPIT_API_PORT: int = field(default_factory=lambda: int(os.getenv("TARPIT_API_PORT", 8001)))
     ADMIN_UI_PORT: int = field(default_factory=lambda: int(os.getenv("ADMIN_UI_PORT", 5002)))
     CLOUD_DASHBOARD_PORT: int = field(default_factory=lambda: int(os.getenv("CLOUD_DASHBOARD_PORT", 5006)))
+    CONFIG_RECOMMENDER_PORT: int = field(default_factory=lambda: int(os.getenv("CONFIG_RECOMMENDER_PORT", 8010)))
 
     # Redis
     REDIS_HOST: str = field(default_factory=lambda: os.getenv("REDIS_HOST", "redis"))
@@ -131,6 +133,7 @@ class Config:
             "TARPIT_API_URL": self.TARPIT_API_URL,
             "ADMIN_UI_URL": self.ADMIN_UI_URL,
             "CLOUD_DASHBOARD_URL": self.CLOUD_DASHBOARD_URL,
+            "CONFIG_RECOMMENDER_URL": self.CONFIG_RECOMMENDER_URL,
         })
         return cfg
 
@@ -140,6 +143,7 @@ class Config:
         object.__setattr__(self, "TARPIT_API_URL", f"http://{self.TARPIT_API_HOST}:{self.TARPIT_API_PORT}")
         object.__setattr__(self, "ADMIN_UI_URL", f"http://{self.ADMIN_UI_HOST}:{self.ADMIN_UI_PORT}")
         object.__setattr__(self, "CLOUD_DASHBOARD_URL", f"http://{self.CLOUD_DASHBOARD_HOST}:{self.CLOUD_DASHBOARD_PORT}")
+        object.__setattr__(self, "CONFIG_RECOMMENDER_URL", f"http://{self.CONFIG_RECOMMENDER_HOST}:{self.CONFIG_RECOMMENDER_PORT}")
         object.__setattr__(self, "TENANT_PREFIX", f"{self.TENANT_ID}:")
 
 
