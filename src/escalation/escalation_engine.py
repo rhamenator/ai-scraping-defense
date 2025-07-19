@@ -591,41 +591,95 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
     action_taken = "analysis_complete"; is_bot_decision: Optional[bool] = None; final_score = -1.0
 
     try:
-        ip_rep_result = None
-        if ENABLE_IP_REPUTATION:
-            ip_rep_result = await check_ip_reputation(ip_under_test)
-            if ip_rep_result and ip_rep_result.get("is_malicious"): 
-                 logger.info(f"IP {ip_under_test} flagged by IP Reputation. Escalating directly.")
-                 is_bot_decision = True; action_taken = "webhook_triggered_ip_reputation"; 
-                 increment_counter_metric(BOTS_DETECTED_IP_REPUTATION)
-                 payload = build_webhook_payload(
-                     metadata_req.model_dump(mode='json'),
-                     f"IP Reputation Malicious (Score: {ip_rep_result.get('score', 'N/A')})"
-                 )
-                 await forward_to_webhook(payload, "IP Reputation Malicious")
+        # Launch asynchronous checks concurrently
+        tasks = []
+        ip_rep_task = local_llm_task = external_api_task = None
 
-        if is_bot_decision is None: 
-            final_score = run_heuristic_and_model_analysis(metadata_req, ip_rep_result)
+        if ENABLE_IP_REPUTATION:
+            ip_rep_task = asyncio.create_task(check_ip_reputation(ip_under_test))
+            tasks.append(ip_rep_task)
+        if ENABLE_LOCAL_LLM_CLASSIFICATION:
+            local_llm_task = asyncio.create_task(classify_with_local_llm_api(metadata_req))
+            tasks.append(local_llm_task)
+        if ENABLE_EXTERNAL_API_CLASSIFICATION:
+            external_api_task = asyncio.create_task(classify_with_external_api(metadata_req))
+            tasks.append(external_api_task)
+
+        # Calculate heuristic/model score while async tasks run
+        base_score = run_heuristic_and_model_analysis(metadata_req, None)
+
+        ip_rep_result = None
+        local_llm_result = None
+        external_api_result = None
+
+        if tasks:
+            max_timeout = max(
+                IP_REPUTATION_TIMEOUT if ip_rep_task else 0,
+                LOCAL_LLM_TIMEOUT if local_llm_task else 0,
+                EXTERNAL_API_TIMEOUT if external_api_task else 0,
+            ) + 1.0
+            try:
+                results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=max_timeout)
+            except asyncio.TimeoutError:
+                logger.error(f"Timeout waiting for async checks for IP {ip_under_test}")
+                for t in tasks:
+                    t.cancel()
+                results = [None] * len(tasks)
+
+            idx = 0
+            if ip_rep_task:
+                res = results[idx]; idx += 1
+                if isinstance(res, Exception):
+                    logger.error(f"IP reputation task error for {ip_under_test}: {res}")
+                else:
+                    ip_rep_result = res
+            if local_llm_task:
+                res = results[idx]; idx += 1
+                if isinstance(res, Exception):
+                    logger.error(f"Local LLM task error for {ip_under_test}: {res}")
+                else:
+                    local_llm_result = res
+            if external_api_task:
+                res = results[idx]; idx += 1
+                if isinstance(res, Exception):
+                    logger.error(f"External API task error for {ip_under_test}: {res}")
+                else:
+                    external_api_result = res
+
+        # Adjust score with IP reputation if malicious
+        final_score = base_score
+        if ip_rep_result and ip_rep_result.get("is_malicious"):
+            logger.info(f"IP {ip_under_test} flagged by IP Reputation. Escalating directly.")
+            increment_counter_metric(BOTS_DETECTED_IP_REPUTATION)
+            increment_counter_metric(SCORE_ADJUSTED_IP_REPUTATION)
+            action_taken = "webhook_triggered_ip_reputation"
+            is_bot_decision = True
+            final_score = min(1.0, max(0.0, final_score + IP_REPUTATION_MALICIOUS_SCORE_BONUS))
+            payload = build_webhook_payload(
+                metadata_req.model_dump(mode='json'),
+                f"IP Reputation Malicious (Score: {ip_rep_result.get('score', 'N/A')})",
+            )
+            await forward_to_webhook(payload, "IP Reputation Malicious")
+
+        if is_bot_decision is None:
+            final_score = min(1.0, max(0.0, final_score))
 
             if final_score >= HEURISTIC_THRESHOLD_HIGH:
                 is_bot_decision = True; action_taken = "webhook_triggered_high_score"
                 increment_counter_metric(BOTS_DETECTED_HIGH_SCORE)
                 payload = build_webhook_payload(
                     metadata_req.model_dump(mode='json'),
-                    f"High Combined Score ({final_score:.3f})"
+                    f"High Combined Score ({final_score:.3f})",
                 )
                 await forward_to_webhook(payload, "High Combined Score")
             elif final_score < CAPTCHA_SCORE_THRESHOLD_LOW:
-                 is_bot_decision = False; action_taken = "classified_human_low_score"
-                 increment_counter_metric(HUMANS_DETECTED_LOW_SCORE)
+                is_bot_decision = False; action_taken = "classified_human_low_score"
+                increment_counter_metric(HUMANS_DETECTED_LOW_SCORE)
             elif ENABLE_CAPTCHA_TRIGGER and CAPTCHA_SCORE_THRESHOLD_LOW <= final_score < CAPTCHA_SCORE_THRESHOLD_HIGH:
                 await trigger_captcha_challenge(metadata_req)
-                action_taken = "captcha_triggered"; is_bot_decision = None 
+                action_taken = "captcha_triggered"; is_bot_decision = None
             else:
                 logger.info(f"IP {ip_under_test} requires deeper check (Score: {final_score:.3f}).")
-                local_llm_result = None
-                if ENABLE_LOCAL_LLM_CLASSIFICATION:
-                    local_llm_result = await classify_with_local_llm_api(metadata_req)
                 if local_llm_result is True:
                     is_bot_decision = True; action_taken = "webhook_triggered_local_llm"
                     increment_counter_metric(BOTS_DETECTED_LOCAL_LLM)
@@ -639,8 +693,7 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
                     increment_counter_metric(HUMANS_DETECTED_LOCAL_LLM)
                 else:
                     action_taken = "local_llm_inconclusive"
-                    if ENABLE_EXTERNAL_API_CLASSIFICATION:
-                        external_api_result = await classify_with_external_api(metadata_req)
+                    if external_api_task is not None:
                         if external_api_result is True:
                             is_bot_decision = True; action_taken = "webhook_triggered_external_api"
                             increment_counter_metric(BOTS_DETECTED_EXTERNAL_API)
@@ -652,7 +705,8 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
                         elif external_api_result is False:
                             is_bot_decision = False; action_taken = "classified_human_external_api"
                             increment_counter_metric(HUMANS_DETECTED_EXTERNAL_API)
-                        else: action_taken = "external_api_inconclusive"
+                        else:
+                            action_taken = "external_api_inconclusive"
     
     except ValidationError as e:
         logger.error(f"Invalid request payload received from {client_ip}: {e.errors()}") 
