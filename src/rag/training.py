@@ -9,6 +9,7 @@ import datetime
 from collections import defaultdict
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.metrics import classification_report, accuracy_score, roc_auc_score
 from sklearn.pipeline import Pipeline
@@ -387,6 +388,8 @@ def train_and_save_model(df: pd.DataFrame, model_path: str, model_type: str = "r
             enable_categorical=False,
             eval_metric="logloss",
         )
+    elif model_type in ("lr", "logreg", "logistic_regression"):
+        model = LogisticRegression(max_iter=1000, class_weight="balanced")
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -458,8 +461,8 @@ if __name__ == "__main__":
         "--model",
         dest="model_type",
         default="rf",
-        choices=["rf", "random_forest", "xgb", "xgboost"],
-        help="Model type to train (rf or xgb)",
+        choices=["rf", "random_forest", "xgb", "xgboost", "lr", "logreg", "logistic_regression"],
+        help="Model type to train (rf, xgb, or lr)",
     )
     args = parser.parse_args()
 

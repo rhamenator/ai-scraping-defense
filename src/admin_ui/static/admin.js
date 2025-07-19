@@ -1,6 +1,7 @@
 const metricsDisplay = document.getElementById('metrics-display');
 const lastUpdatedElement = document.getElementById('last-updated');
 const errorMessageElement = document.getElementById('error-message');
+const blockStatsContainer = document.getElementById('block-stats');
 const refreshInterval = 5000; // Attempt reconnect every 5 seconds if needed
 
 function connectWebSocket() {
@@ -95,12 +96,40 @@ function updateMetricsDisplay(metrics) {
     metricsDisplay.innerHTML = html || '<p>No metrics available.</p>'; // Handle empty metrics case
 
     // Update last updated time
-     if (metrics.last_updated_utc) {
-         lastUpdatedElement.textContent = `Last updated: ${formatMetricValue('last_updated_utc', metrics.last_updated_utc)}`;
-     } else {
-         lastUpdatedElement.textContent = `Last updated: ${new Date().toLocaleString()}`;
-     }
+    if (metrics.last_updated_utc) {
+        lastUpdatedElement.textContent = `Last updated: ${formatMetricValue('last_updated_utc', metrics.last_updated_utc)}`;
+    } else {
+        lastUpdatedElement.textContent = `Last updated: ${new Date().toLocaleString()}`;
+    }
+}
+
+function updateBlockStatsDisplay(stats) {
+    if (!blockStatsContainer) return;
+    let html = '<h2>Blocked Traffic</h2>';
+    html += `<p>Blocked IPs: ${stats.blocked_ip_count || 0}</p>`;
+    html += `<p>Temporary Blocks: ${stats.temporary_block_count || 0}</p>`;
+    html += `<p>Total Bots Detected: ${stats.total_bots_detected || 0}</p>`;
+    if (stats.recent_block_events && stats.recent_block_events.length) {
+        html += '<ul>';
+        for (const ev of stats.recent_block_events) {
+            const ts = ev.timestamp ? new Date(ev.timestamp).toLocaleString() : '';
+            html += `<li>${ev.ip || 'n/a'} - ${ev.reason || 'n/a'} - ${ts}</li>`;
+        }
+        html += '</ul>';
+    }
+    blockStatsContainer.innerHTML = html;
+}
+
+function fetchBlockStats() {
+    fetch('/block_stats')
+        .then(resp => resp.json())
+        .then(updateBlockStatsDisplay)
+        .catch(err => console.error('Error fetching block stats:', err));
 }
 
 // Start the WebSocket connection
 connectWebSocket();
+
+// Periodically fetch block statistics
+fetchBlockStats();
+setInterval(fetchBlockStats, 10000);

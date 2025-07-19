@@ -156,7 +156,7 @@ The resulting `jszip_rs` Python module will be used automatically if available.
 
 The `src/rag/training.py` script now accepts a `--model` flag to select which
 machine learning algorithm to train. Supported values are `rf` (RandomForest,
-default) and `xgb` (XGBoost). Example usage:
+default), `xgb` (XGBoost), and `lr` (Logistic Regression). Example usage:
 
 ```bash
 python src/rag/training.py --model xgb

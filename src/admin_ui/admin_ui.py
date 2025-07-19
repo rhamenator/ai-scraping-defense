@@ -7,6 +7,7 @@ IP block lists stored in Redis and adjusting basic settings. The application is
 designed to be run as a standalone service or within Docker.
 """
 import os
+import json
 import asyncio
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -23,6 +24,9 @@ METRICS_TRULY_AVAILABLE = True
 
 # Interval in seconds between metric pushes over WebSocket
 WEBSOCKET_METRICS_INTERVAL = 5
+
+# Path to the block events log file used for statistics
+BLOCK_LOG_FILE = os.getenv("BLOCK_LOG_FILE", "/app/logs/block_events.log")
 
 
 def _parse_prometheus_metrics(text: str) -> dict:
@@ -52,6 +56,32 @@ def _get_metrics_dict() -> dict:
 
 # Exposed for tests so they can patch the behaviour
 _get_metrics_dict_func = _get_metrics_dict
+
+
+def _load_recent_block_events(limit: int = 5) -> list[dict]:
+    """Load the most recent block events from the log file."""
+    if not os.path.exists(BLOCK_LOG_FILE):
+        return []
+    events: list[dict] = []
+    try:
+        with open(BLOCK_LOG_FILE, "r", encoding="utf-8") as f:
+            lines = f.readlines()[-limit:]
+        for line in lines:
+            try:
+                data = json.loads(line)
+                events.append({
+                    "timestamp": data.get("timestamp"),
+                    "ip": data.get("ip_address"),
+                    "reason": data.get("reason"),
+                })
+            except Exception:
+                continue
+    except Exception:
+        return []
+    return events
+
+# Exposed for tests so they can patch the behaviour
+_load_recent_block_events_func = _load_recent_block_events
 
 BASE_DIR = os.path.dirname(__file__)
 app = FastAPI()
@@ -138,6 +168,41 @@ async def metrics_websocket(websocket: WebSocket):
                 break
     except WebSocketDisconnect:  # pragma: no cover - normal disconnect
         pass
+
+
+@app.get("/block_stats")
+async def block_stats():
+    """Return blocklist counts and bot detection statistics."""
+    metrics_dict = {}
+    try:
+        metrics_dict = _get_metrics_dict_func()
+    except Exception:
+        metrics_dict = {}
+    total_bots = sum(
+        float(v) for k, v in metrics_dict.items() if k.startswith("bots_detected")
+    )
+    total_humans = sum(
+        float(v) for k, v in metrics_dict.items() if k.startswith("humans_detected")
+    )
+
+    redis_conn = get_redis_connection()
+    blocked_ips = set()
+    temp_block_count = 0
+    if redis_conn:
+        try:
+            blocked_ips = redis_conn.smembers("blocklist") or set()
+            temp_block_count = len(redis_conn.keys("blocklist:ip:*"))
+        except Exception:
+            pass
+
+    recent_events = _load_recent_block_events_func(5)
+    return JSONResponse({
+        "blocked_ip_count": len(blocked_ips),
+        "temporary_block_count": temp_block_count,
+        "total_bots_detected": total_bots,
+        "total_humans_detected": total_humans,
+        "recent_block_events": recent_events,
+    })
 
 
 @app.get("/blocklist")
