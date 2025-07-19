@@ -1,0 +1,13 @@
+[package]
+name = "markov-train-rs"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "markov_train_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.24.2", features = ["extension-module"] }
+postgres = "0.19"
+regex = "1"

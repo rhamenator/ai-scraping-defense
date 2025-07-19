@@ -8,10 +8,12 @@ WORKDIR /build
 # Copy only the Rust crates needed for compilation
 COPY tarpit-rs/ ./tarpit-rs/
 COPY frequency-rs/ ./frequency-rs/
+COPY markov-train-rs/ ./markov-train-rs/
 
 # Build the crates in release mode to produce shared libraries
 RUN cd tarpit-rs && cargo build --release && \
-    cd ../frequency-rs && cargo build --release
+    cd ../frequency-rs && cargo build --release && \
+    cd ../markov-train-rs && cargo build --release
 
 ### Final runtime image without the Rust toolchain
 FROM python:3.11-slim
@@ -38,6 +40,7 @@ COPY src/ /app/src/
 # Copy the pre-built shared libraries from the builder stage
 COPY --from=builder /build/tarpit-rs/target/release/libtarpit_rs.so /app/tarpit_rs.so
 COPY --from=builder /build/frequency-rs/target/release/libfrequency_rs.so /app/frequency_rs.so
+COPY --from=builder /build/markov-train-rs/target/release/libmarkov_train_rs.so /app/markov_train_rs.so
 
 # Copy the entrypoint script into the container and make it executable.
 # This script often contains logic to wait for dependencies (like databases)
