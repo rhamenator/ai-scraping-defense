@@ -1,4 +1,11 @@
-from . import ip_flagger, js_zip_generator, markov_generator, rotating_archive, tarpit_api
+from . import (
+    ip_flagger,
+    js_zip_generator,
+    markov_generator,
+    rotating_archive,
+    tarpit_api,
+    bad_api_generator,
+)
 try:
     import tarpit_rs
 except Exception:  # pragma: no cover - optional dependency
@@ -16,4 +23,5 @@ __all__ = [
     'tarpit_rs',
     'rotating_archive',
     'tarpit_api',
+    'bad_api_generator',
 ]

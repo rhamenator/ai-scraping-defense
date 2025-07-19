@@ -12,6 +12,7 @@ This project includes:
 
 - FastAPI-based tarpit to delay or confuse bots
 - ZIP archive honeypots containing fake JavaScript traps
+- Auto-generated decoy API endpoints to mislead scrapers
 - Escalation engine for behavioral analysis (local + LLM)
 - Admin UI with real-time metrics
 - Markov-based fake text generators

@@ -6,6 +6,7 @@ from src.tarpit import (
     markov_generator,
     rotating_archive,
     tarpit_api,
+    bad_api_generator,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     'markov_generator',
     'rotating_archive',
     'tarpit_api',
+    'bad_api_generator',
 ]
