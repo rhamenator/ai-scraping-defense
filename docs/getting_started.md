@@ -105,7 +105,7 @@ Once the containers are running, you can access the key services in your web bro
 
 ### **6.1. Accessing the Admin UI**
 
-To access the Admin UI, navigate to [http://localhost:5002](http://localhost:5002) in your web browser. This interface allows you to manage blocklists, view metrics, and configure settings.
+To access the Admin UI, navigate to [http://localhost:5002](http://localhost:5002) in your web browser. The dashboard primarily displays the current environment-based configuration and lets you manage the IP blocklist. A couple of runtime-only options (such as log level and escalation endpoint) can be adjusted on this page, but any changes will be lost when the service restarts.
 
 ### **6.2. Accessing the MailHog Interface**
 
