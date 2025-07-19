@@ -24,7 +24,7 @@ Expanding feature sets and refining system efficiency:
 * **Multi-Tenant Support** – Enable easier deployment for multiple websites and organizations.  
 * ✅ **Kubernetes Scaling Enhancements** – Initial Helm chart with optional autoscaling for large clusters.
 * ✅ **Plugin API for Custom Rules** – Allow user-defined filtering rules for specialized site protection needs.  
-* **Expanded Honeypots** – Introduce more deceptive mechanisms like **auto-generated bad API endpoints**.  
+* ✅ **Expanded Honeypots** – Introduce more deceptive mechanisms like **auto-generated bad API endpoints**.
 * **Anomaly Detection via AI** – Move beyond heuristics and integrate **anomaly detection models** for more adaptive security.  
 * **Public Community Blocklist** – Optional contributor-driven IP reputation database.
 

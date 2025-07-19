@@ -94,6 +94,7 @@ ENABLE_TARPIT_CATCH_ALL = CONFIG.ENABLE_TARPIT_CATCH_ALL
 # --- THIS IS THE SOLE REFACTORING CHANGE ---
 # Replaced the manual Redis Connection Pools with calls to the centralized client.
 from src.shared.redis_client import get_redis_connection
+from .bad_api_generator import register_bad_endpoints, GENERATED_BAD_API_ENDPOINTS
 redis_hops = get_redis_connection(db_number=REDIS_DB_TAR_PIT_HOPS)
 redis_blocklist = get_redis_connection(db_number=REDIS_DB_BLOCKLIST)
 
@@ -105,6 +106,7 @@ if not redis_hops or not redis_blocklist:
 
 # --- FastAPI App ---
 app = FastAPI()
+BAD_API_ENDPOINTS = register_bad_endpoints(app)
 
 # --- Helper Functions (Preserved from your original file) ---
 async def slow_stream_content(content: str):
