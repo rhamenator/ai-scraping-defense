@@ -59,7 +59,7 @@ services:
       - TARPIT_API_HOST=tarpit_api
       - ADMIN_UI_HOST=admin_ui
       - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PASSWORD_FILE=${REDIS_PASSWORD_FILE}
       - ENABLE_HTTPS=${ENABLE_HTTPS}
       - TLS_CERT_PATH=${TLS_CERT_PATH}
       - TLS_KEY_PATH=${TLS_KEY_PATH}
@@ -182,10 +182,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init_markov.sql:/docker-entrypoint-initdb.d/init_markov.sql
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      environment:
+        # The official Postgres image expects the POSTGRES_* variables, but
+        # our .env uses the newer PG_* naming. Map them here so both the
+        # container and the rest of the stack get the correct values.
+        - POSTGRES_USER=${PG_USER}
+        - POSTGRES_PASSWORD_FILE=${PG_PASSWORD_FILE}
+        - POSTGRES_DB=${PG_DBNAME}
     ports:
       - "${PG_PORT:-5432}:5432"
     networks:
@@ -200,18 +203,19 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis_store
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    # Load the password from the same file used by the other services
+    command: ["sh", "-c", "redis-server --requirepass $(cat ${REDIS_PASSWORD_FILE})"]
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PASSWORD_FILE=${REDIS_PASSWORD_FILE}
     networks:
       - defense_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a $(cat ${REDIS_PASSWORD_FILE}) ping"]
       interval: 10s
       timeout: 5s
       retries: 5
