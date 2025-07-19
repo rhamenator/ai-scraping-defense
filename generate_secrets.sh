@@ -4,7 +4,9 @@
 
 # --- Configuration ---
 GREEN='\033[0;32m'; YELLOW='\033[0;33m'; CYAN='\033[0;36m'; NC='\033[0m'
-K8S_DIR="$(dirname "$0")/kubernetes"; mkdir -p "$K8S_DIR"; OUTPUT_FILE="$K8S_DIR/secrets.yaml"
+SCRIPT_DIR="$(dirname "$0")"
+K8S_DIR="$SCRIPT_DIR/kubernetes"; mkdir -p "$K8S_DIR"; OUTPUT_FILE="$K8S_DIR/secrets.yaml"
+HTPASSWD_OUTPUT_FILE="$SCRIPT_DIR/nginx/.htpasswd"
 
 # --- Functions ---
 generate_password() { LC_ALL=C tr -dc 'A-Za-z0-9_!@#$%^&*' < /dev/urandom | head -c "${1:-24}"; }
@@ -24,6 +26,8 @@ OPENAI_API_KEY="sk-$(generate_password 40)"; ANTHROPIC_API_KEY="sk-ant-$(generat
 
 # Create Nginx htpasswd content using bcrypt
 HTPASSWD_FILE_CONTENT=$(htpasswd -nbBC 12 "$ADMIN_UI_USERNAME" "$NGINX_PASSWORD" | tr -d '\n')
+# Write htpasswd file for local Docker Compose usage
+echo "$HTPASSWD_FILE_CONTENT" > "$HTPASSWD_OUTPUT_FILE"
 
 # Write YAML to file
 cat > "$OUTPUT_FILE" << EOL

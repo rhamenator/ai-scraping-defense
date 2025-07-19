@@ -43,6 +43,7 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro
       - ./nginx/lua:/etc/nginx/lua:ro
       - ./nginx/certs:/etc/nginx/certs:ro
+      - ./nginx/.htpasswd:/etc/nginx/secrets/.htpasswd:ro
       # Restored Nginx cache volumes for stability and performance
       - nginx_client_body_temp:/var/run/openresty/nginx-client-body
       - nginx_proxy_temp:/var/cache/nginx/proxy_temp

@@ -5,6 +5,7 @@
 $K8sDir = Join-Path $PSScriptRoot "kubernetes"
 if (-not (Test-Path $K8sDir)) { New-Item -ItemType Directory -Path $K8sDir | Out-Null }
 $OutputFile = Join-Path $K8sDir "secrets.yaml"
+$NginxHtpasswdFile = Join-Path $PSScriptRoot "nginx/.htpasswd"
 
 function New-RandomPassword {
     param([int]$Length = 24)
@@ -47,6 +48,7 @@ $mistralApiKey = "mistral-" + (New-RandomPassword -Length 40)
 
 # Create Nginx htpasswd content using bcrypt
 $htpasswdFileContent = (htpasswd -nbBC 12 $adminUiUsername $nginxPassword).Trim()
+Set-Content -Path $NginxHtpasswdFile -Value $htpasswdFileContent -Encoding ASCII
 
 # Base64 encode all values
 $postgresUser_b64 = ConvertTo-Base64 "postgres"
