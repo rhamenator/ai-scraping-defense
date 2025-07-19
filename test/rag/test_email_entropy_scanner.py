@@ -1,7 +1,9 @@
 # test/rag/email_entropy_scanner.test.py
 import unittest
 import math # For math.log2 in direct entropy calculation for verification if needed
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+import sys
+sys.modules.setdefault('markov_train_rs', MagicMock())
 
 # Import the functions from the module to be tested
 # This assumes that the 'rag' package is in the PYTHONPATH or tests are run from project root.

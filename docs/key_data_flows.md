@@ -15,7 +15,7 @@ The system processes requests in a series of stages, designed to filter out mali
     - It sends a copy of the request metadata (IP, headers, path) to the **AI Service Webhook** for offline analysis.
 4. **Deep Analysis (Escalation Engine):** The AI Service passes the request data to the Escalation Engine, which begins its scoring pipeline:
     - It checks the request frequency and other patterns against data in Redis.
-    - It uses the trained RandomForest model to generate a bot probability score.
+    - It uses the trained ML model (RandomForest, XGBoost, etc.) to generate a bot probability score.
     - If the score is in a "gray area," it can make a final call to an external LLM via the **Model Adapter**.
 5. **Action:** Based on the final score, the Escalation Engine takes action:
     - **High Score (Bot):** The IP address is added to the `blocklist` set in Redis. On its next request, the bot will be blocked at Stage 2.

@@ -10,6 +10,8 @@ This guide will walk you through setting up the AI Scraping Defense project for 
 * **A Shell Environment:** Bash (for Linux/macOS) or PowerShell (for Windows).
 
 ## **Step-by-Step Setup**
+If you prefer an automated setup, simply run `./quickstart_dev.sh` on Linux/macOS or `quickstart_dev.ps1` on Windows.
+
 
 ### **1. Clone the Repository**
 

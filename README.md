@@ -25,6 +25,9 @@ This setup uses Docker Compose to orchestrate all the necessary services on your
 - A shell environment (Bash for Linux/macOS, PowerShell for Windows)
 
 ### Setup Instructions
+For a one-command setup, run `./quickstart_dev.sh` on Linux/macOS or `quickstart_dev.ps1` on Windows.
+
+
 
 1. **Clone the Repository:**
 
@@ -143,3 +146,19 @@ cargo build --release
 The build requires Python development headers (e.g. `python3-dev` on Debian-based systems) so that PyO3 can link against `libpython`.
 
 The resulting `jszip_rs` Python module will be used automatically if available.
+
+## Training the Detection Model
+
+The `src/rag/training.py` script now accepts a `--model` flag to select which
+machine learning algorithm to train. Supported values are `rf` (RandomForest,
+default) and `xgb` (XGBoost). Example usage:
+
+```bash
+python src/rag/training.py --model xgb
+```
+
+This flexibility makes it easy to experiment with different classifiers.
+
+## Automated Deployment
+
+Use `./quick_deploy.sh` (Linux/macOS) or `quick_deploy.ps1` (Windows) for a streamlined Kubernetes deployment. These scripts generate required secrets and apply all manifests using kubectl.

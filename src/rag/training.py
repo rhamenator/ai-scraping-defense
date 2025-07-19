@@ -21,6 +21,7 @@ import random
 import psycopg2
 from psycopg2.extras import DictCursor
 from typing import Optional, Dict, Any, List, Tuple
+import argparse
 
 # Attempt to import user-agents library
 try:
@@ -31,6 +32,16 @@ except ImportError:
     UA_PARSER_AVAILABLE = False
     ua_parse = None
     print("Warning: 'user-agents' not installed.")
+
+# Attempt to import xgboost library for optional model type
+try:
+    from xgboost import XGBClassifier
+    XGB_AVAILABLE = True
+    print("Imported 'xgboost'.")
+except ImportError:
+    XGBClassifier = None
+    XGB_AVAILABLE = False
+    print("Warning: 'xgboost' not installed.")
 
 # --- Configuration ---
 LOG_FILE_PATH = os.getenv("TRAINING_LOG_FILE_PATH", "/app/data/apache_access.log")
@@ -306,8 +317,8 @@ def assign_labels_and_scores(df: pd.DataFrame, honeypot_triggers: set, captcha_s
     return df
 
 # --- Model Training and Saving ---
-def train_and_save_model(df: pd.DataFrame, model_path: str):
-    """Trains a model on high-confidence data."""
+def train_and_save_model(df: pd.DataFrame, model_path: str, model_type: str = "rf"):
+    """Trains a model on high-confidence data and returns the trained model and accuracy."""
     # (This function is adapted to use the DataFrame)
     high_conf_df = df[df['label'].isin(['bot', 'human'])].copy()
     
@@ -329,15 +340,31 @@ def train_and_save_model(df: pd.DataFrame, model_path: str):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42, stratify=y)
 
-    model = RandomForestClassifier(
-        n_estimators=150, random_state=42, class_weight='balanced', n_jobs=-1
-    )
+    model_type = model_type.lower()
+    if model_type in ("rf", "random_forest"):
+        model = RandomForestClassifier(
+            n_estimators=150, random_state=42, class_weight='balanced', n_jobs=-1
+        )
+    elif model_type in ("xgb", "xgboost"):
+        if not XGB_AVAILABLE:
+            raise ImportError("xgboost is not installed")
+        model = XGBClassifier(
+            n_estimators=150,
+            random_state=42,
+            enable_categorical=False,
+            eval_metric="logloss",
+        )
+    else:
+        raise ValueError(f"Unsupported model type: {model_type}")
+
     model.fit(X_train, y_train)
 
+    accuracy = None
     try:
-        print("\n--- RF Model Evaluation ---")
+        print(f"\n--- {model_type.upper()} Model Evaluation ---")
         y_pred = model.predict(X_test)
-        print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
+        accuracy = accuracy_score(y_test, y_pred)
+        print(f"Accuracy: {accuracy:.4f}")
         print("\nClassification Report:\n", classification_report(y_test, y_pred, target_names=['human', 'bot']))
     except Exception as e:
         print(f"Skipping evaluation due to error: {e}")
@@ -345,6 +372,7 @@ def train_and_save_model(df: pd.DataFrame, model_path: str):
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
     joblib.dump(model, model_path)
     print(f"Model saved to {model_path}")
+    return model, accuracy
 
 def save_data_for_finetuning(df: pd.DataFrame, train_file: str, eval_file: str, eval_ratio: float):
     """Saves high-confidence data in JSONL format for LLM fine-tuning."""
@@ -391,7 +419,17 @@ def save_data_for_finetuning(df: pd.DataFrame, train_file: str, eval_file: str, 
 # --- Main Execution ---
 if __name__ == "__main__":
     print("--- Starting Bot Detection Model Training & Data Export (High-Performance Version) ---")
-    
+
+    parser = argparse.ArgumentParser(description="Train bot detection model")
+    parser.add_argument(
+        "--model",
+        dest="model_type",
+        default="rf",
+        choices=["rf", "random_forest", "xgb", "xgboost"],
+        help="Model type to train (rf or xgb)",
+    )
+    args = parser.parse_args()
+
     load_robots_txt(ROBOTS_TXT_PATH)
     conn = None
     try:
@@ -406,8 +444,8 @@ if __name__ == "__main__":
             honeypot_triggers, captcha_successes = load_feedback_data()
             labeled_df = assign_labels_and_scores(df, honeypot_triggers, captcha_successes)
             
-            # Train and save the Random Forest model
-            train_and_save_model(labeled_df, MODEL_SAVE_PATH)
+            # Train and save the chosen ML model
+            train_and_save_model(labeled_df, MODEL_SAVE_PATH, args.model_type)
             
             # Save data for LLM fine-tuning
             save_data_for_finetuning(labeled_df, FINETUNE_TRAIN_FILE, FINETUNE_EVAL_FILE, FINETUNE_SPLIT_RATIO)
