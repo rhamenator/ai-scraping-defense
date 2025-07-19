@@ -186,3 +186,13 @@ To experiment with the stack's performance under load, run the helper script:
 ```
 
 It installs common open-source tools such as **wrk**, **siege**, **ab**, **k6**, and **locust**. Use them responsibly and only against environments you control.
+
+After installing the tools, you can run a basic stress test using the provided scripts:
+
+```powershell
+./stress_test.ps1 -Target http://your-linux-host:8080 -VUs 50 -DurationSeconds 30
+```
+
+```bash
+./stress_test.sh http://your-linux-host:8080
+```
