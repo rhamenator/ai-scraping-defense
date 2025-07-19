@@ -1,32 +1,37 @@
 const metricsDisplay = document.getElementById('metrics-display');
 const lastUpdatedElement = document.getElementById('last-updated');
 const errorMessageElement = document.getElementById('error-message');
-const refreshInterval = 5000; // Refresh every 5 seconds (5000 ms)
+const refreshInterval = 5000; // Attempt reconnect every 5 seconds if needed
 
-async function fetchMetrics() {
-    errorMessageElement.style.display = 'none'; // Hide error on new fetch attempt
-    try {
-        // Use relative URL to fetch from the same origin
-        const response = await fetch('/metrics'); // Fetches from the FastAPI endpoint
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${protocol}://${window.location.host}/ws/metrics`);
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+    ws.onmessage = (event) => {
+        errorMessageElement.style.display = 'none';
+        try {
+            const data = JSON.parse(event.data);
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            updateMetricsDisplay(data);
+        } catch (err) {
+            console.error('Error processing WebSocket message:', err);
+            errorMessageElement.textContent = `WebSocket error: ${err.message}`;
+            errorMessageElement.style.display = 'block';
         }
-        const data = await response.json();
+    };
 
-        if (data.error) {
-             throw new Error(`API Error: ${data.error}`);
-        }
-
-        updateMetricsDisplay(data);
-
-    } catch (error) {
-        console.error('Error fetching metrics:', error);
-        metricsDisplay.innerHTML = '<p>Could not load metrics.</p>'; // Clear display on error
-        errorMessageElement.textContent = `Error fetching metrics: ${error.message}`;
+    ws.onerror = (event) => {
+        console.error('WebSocket error observed:', event);
+        errorMessageElement.textContent = 'WebSocket connection error';
         errorMessageElement.style.display = 'block';
-        lastUpdatedElement.textContent = 'Last updated: Error';
-    }
+    };
+
+    ws.onclose = () => {
+        // Attempt to reconnect after a delay
+        setTimeout(connectWebSocket, refreshInterval);
+    };
 }
 
 function formatMetricKey(key) {
@@ -97,6 +102,5 @@ function updateMetricsDisplay(metrics) {
      }
 }
 
-// Initial fetch and set interval for refreshing
-fetchMetrics();
-setInterval(fetchMetrics, refreshInterval);
+// Start the WebSocket connection
+connectWebSocket();
