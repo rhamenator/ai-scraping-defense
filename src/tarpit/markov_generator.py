@@ -11,6 +11,8 @@ import logging
 import hashlib
 import html
 
+from src.shared.model_provider import get_model_adapter
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -27,6 +29,23 @@ DEFAULT_SENTENCES_PER_PAGE = int(os.getenv("DEFAULT_SENTENCES_PER_PAGE", 15))
 FAKE_LINK_COUNT = int(os.getenv("FAKE_LINK_COUNT", 7))  # Increased link count for maze effect
 FAKE_LINK_DEPTH = int(os.getenv("FAKE_LINK_DEPTH", 3))  # Max directory depth for fake links
 MIN_WORDS_FOR_NEXT = 2 # Need at least 2 words history for state_size=2 model
+
+# LLM generator configuration
+ENABLE_TARPIT_LLM_GENERATOR = os.getenv("ENABLE_TARPIT_LLM_GENERATOR", "false").lower() == "true"
+TARPIT_LLM_MODEL_URI = os.getenv("TARPIT_LLM_MODEL_URI")
+TARPIT_LLM_MAX_TOKENS = int(os.getenv("TARPIT_LLM_MAX_TOKENS", 400))
+
+LLM_ADAPTER = None
+if ENABLE_TARPIT_LLM_GENERATOR and TARPIT_LLM_MODEL_URI:
+    try:
+        LLM_ADAPTER = get_model_adapter(TARPIT_LLM_MODEL_URI)
+        if LLM_ADAPTER:
+            logger.info(f"LLM adapter initialized for {TARPIT_LLM_MODEL_URI}")
+        else:
+            logger.error("Failed to initialize LLM adapter; falling back to Markov generator")
+    except Exception as e:
+        logger.error(f"Error initializing LLM adapter: {e}")
+        LLM_ADAPTER = None
 
 # --- Database Connection (Assuming sync psycopg2 for simplicity) ---
 PG_HOST = os.getenv("PG_HOST", "postgres")
@@ -277,6 +296,29 @@ def generate_markov_text_from_db(sentences=DEFAULT_SENTENCES_PER_PAGE):
 
     return generated_content
 
+# --- LLM Text Generation ---
+def generate_llm_text(sentences=DEFAULT_SENTENCES_PER_PAGE):
+    """Generate paragraphs using a configured LLM adapter."""
+    if not LLM_ADAPTER:
+        return None
+    prompt = (
+        f"Write {sentences} short paragraphs of plausible but meaningless technical documentation. "
+        "Separate paragraphs with blank lines."
+    )
+    try:
+        messages = [{"role": "user", "content": prompt}]
+        try:
+            result = LLM_ADAPTER.predict(messages, max_tokens=TARPIT_LLM_MAX_TOKENS)
+        except Exception:
+            result = LLM_ADAPTER.predict(prompt, max_tokens=TARPIT_LLM_MAX_TOKENS)
+        text = result.get("response") if isinstance(result, dict) else str(result)
+        paragraphs = [f"<p>{html.escape(p.strip())}</p>" for p in text.splitlines() if p.strip()]
+        if paragraphs:
+            return "\n".join(paragraphs)
+    except Exception as e:
+        logger.error(f"LLM text generation failed: {e}")
+    return None
+
 # --- Main Generator Function ---
 def _generate_dynamic_tarpit_page_py():
     """
@@ -285,8 +327,14 @@ def _generate_dynamic_tarpit_page_py():
     Assumes random module has been seeded externally.
     """
     logger.debug("Generating dynamic tarpit page content (Python)...")
-    # 1. Generate Markov Text from DB
-    page_content = generate_markov_text_from_db(DEFAULT_SENTENCES_PER_PAGE)
+    # 1. Generate page text
+    if ENABLE_TARPIT_LLM_GENERATOR:
+        page_content = generate_llm_text(DEFAULT_SENTENCES_PER_PAGE)
+        if not page_content:
+            logger.warning("LLM generation failed; falling back to Markov text")
+            page_content = generate_markov_text_from_db(DEFAULT_SENTENCES_PER_PAGE)
+    else:
+        page_content = generate_markov_text_from_db(DEFAULT_SENTENCES_PER_PAGE)
 
     # 2. Generate Fake Links
     fake_links = generate_fake_links()
@@ -339,7 +387,9 @@ def _generate_dynamic_tarpit_page_py():
 
 
 def generate_dynamic_tarpit_page() -> str:
-    """Wrapper that uses the Rust implementation if available."""
+    """Generate a tarpit page using the configured backend."""
+    if ENABLE_TARPIT_LLM_GENERATOR:
+        return _generate_dynamic_tarpit_page_py()
     if RUST_ENABLED:
         try:
             return rs_generate_dynamic_tarpit_page()

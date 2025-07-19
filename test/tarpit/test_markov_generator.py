@@ -261,7 +261,28 @@ class TestMarkovGenerator(unittest.TestCase):
         mock_gen_text.assert_called_once_with(markov_generator.DEFAULT_SENTENCES_PER_PAGE)
         mock_gen_links.assert_called_once()
         # generate_random_page_name is called for title and inside generate_fake_links
-        self.assertGreaterEqual(mock_gen_name.call_count, 1) 
+        self.assertGreaterEqual(mock_gen_name.call_count, 1)
+
+    @patch("src.tarpit.markov_generator.generate_fake_links", return_value=['/tarpit/fake.html'])
+    def test_llm_generator_used_when_enabled(self, mock_links):
+        dummy_adapter = MagicMock()
+        dummy_adapter.predict.return_value = {"response": "Para one\n\nPara two"}
+
+        with patch.dict(os.environ, {
+            "ENABLE_TARPIT_LLM_GENERATOR": "true",
+            "TARPIT_LLM_MODEL_URI": "openai://test-model",
+        }, clear=False), \
+             patch("src.shared.model_provider.get_model_adapter", return_value=dummy_adapter) as mock_get_adapter:
+            import importlib
+            importlib.reload(markov_generator)
+
+            with patch.object(markov_generator, "RUST_ENABLED", False), \
+                 patch("src.tarpit.markov_generator.generate_markov_text_from_db", return_value="fallback") as mock_markov:
+                html = markov_generator.generate_dynamic_tarpit_page()
+
+            mock_get_adapter.assert_called_once_with("openai://test-model")
+            mock_markov.assert_not_called()
+            self.assertIn("<p>Para one</p>", html)
 
     # --- Test __main__ block ---
     @patch.object(markov_generator, 'generate_dynamic_tarpit_page', return_value="<html></html>")
