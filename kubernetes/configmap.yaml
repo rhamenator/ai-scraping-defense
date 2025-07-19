@@ -11,11 +11,15 @@ data:
   LOG_LEVEL: "INFO"
   APP_ENV: "production"
 
-  # Internal service URLs used for communication between pods
-  ESCALATION_ENGINE_URL: "http://escalation-engine:8003/escalate"
-  ADMIN_UI_URL: "http://admin-ui:5002"
-  TARPIT_API_URL: "http://tarpit-api:8001"
-  AI_SERVICE_URL: "http://ai-service:8000"
+  # Internal service hostnames and ports used for pod communication
+  AI_SERVICE_HOST: "ai-service"
+  AI_SERVICE_PORT: "8000"
+  ESCALATION_ENGINE_HOST: "escalation-engine"
+  ESCALATION_ENGINE_PORT: "8003"
+  TARPIT_API_HOST: "tarpit-api"
+  TARPIT_API_PORT: "8001"
+  ADMIN_UI_HOST: "admin-ui"
+  ADMIN_UI_PORT: "5002"
 
   # Redis connection details
   REDIS_HOST: "redis" # The service name of the Redis statefulset

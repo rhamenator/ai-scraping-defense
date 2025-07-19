@@ -20,6 +20,12 @@ def get_secret(file_variable_name: str) -> Optional[str]:
 class Config:
     """Configuration loaded from environment variables once on import."""
 
+    # Internal service hosts
+    AI_SERVICE_HOST: str = field(default_factory=lambda: os.getenv("AI_SERVICE_HOST", "ai_service"))
+    ESCALATION_ENGINE_HOST: str = field(default_factory=lambda: os.getenv("ESCALATION_ENGINE_HOST", "escalation_engine"))
+    TARPIT_API_HOST: str = field(default_factory=lambda: os.getenv("TARPIT_API_HOST", "tarpit_api"))
+    ADMIN_UI_HOST: str = field(default_factory=lambda: os.getenv("ADMIN_UI_HOST", "admin_ui"))
+
     # Service ports
     AI_SERVICE_PORT: int = field(default_factory=lambda: int(os.getenv("AI_SERVICE_PORT", 8000)))
     ESCALATION_ENGINE_PORT: int = field(default_factory=lambda: int(os.getenv("ESCALATION_ENGINE_PORT", 8003)))
@@ -115,10 +121,10 @@ class Config:
         return cfg
 
     def __post_init__(self):
-        object.__setattr__(self, "AI_SERVICE_URL", f"http://ai_service:{self.AI_SERVICE_PORT}")
-        object.__setattr__(self, "ESCALATION_ENGINE_URL", f"http://escalation_engine:{self.ESCALATION_ENGINE_PORT}")
-        object.__setattr__(self, "TARPIT_API_URL", f"http://tarpit_api:{self.TARPIT_API_PORT}")
-        object.__setattr__(self, "ADMIN_UI_URL", f"http://admin_ui:{self.ADMIN_UI_PORT}")
+        object.__setattr__(self, "AI_SERVICE_URL", f"http://{self.AI_SERVICE_HOST}:{self.AI_SERVICE_PORT}")
+        object.__setattr__(self, "ESCALATION_ENGINE_URL", f"http://{self.ESCALATION_ENGINE_HOST}:{self.ESCALATION_ENGINE_PORT}")
+        object.__setattr__(self, "TARPIT_API_URL", f"http://{self.TARPIT_API_HOST}:{self.TARPIT_API_PORT}")
+        object.__setattr__(self, "ADMIN_UI_URL", f"http://{self.ADMIN_UI_HOST}:{self.ADMIN_UI_PORT}")
 
 
 # Instantiate configuration once

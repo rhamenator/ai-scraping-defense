@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from jinja2 import pass_context
 from src.shared.redis_client import get_redis_connection
 from src.shared.metrics import get_metrics
+from src.shared.config import CONFIG
 
 # Flag to indicate if metrics collection is actually available. Tests patch this
 # to simulate metrics being disabled.
@@ -150,7 +151,7 @@ async def settings_page(request: Request):
     current_settings = {
         "Model URI": os.getenv("MODEL_URI", "Not Set"),
         "Log Level": os.getenv("LOG_LEVEL", "INFO"),
-        "Escalation Engine URL": os.getenv("ESCALATION_ENGINE_URL", "http://escalation_engine:8003/escalate"),
+        "Escalation Engine URL": CONFIG.ESCALATION_ENDPOINT,
     }
     return templates.TemplateResponse("settings.html", {"request": request, "settings": current_settings})
 
