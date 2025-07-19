@@ -125,7 +125,7 @@ You can extend the detection heuristics by placing Python modules inside the `pl
 If you want to see how the defense stack performs in front of a real CMS, a helper script is provided to launch a WordPress instance and wire it into the proxy.
 
 ```bash
-./setup_wordpress_website.sh
+./setup_wordpress_website.sh (or ./setup_wordpress_website.ps1 on Windows)
 ```
 
 The script starts the Docker Compose stack (if it is not already running) and then launches WordPress and its MariaDB database on the same `defense_network`. Traffic allowed by the proxy will reach WordPress via `REAL_BACKEND_HOST`. Once started you can visit the site directly at [http://localhost:8082](http://localhost:8082) or through the defense stack at [http://localhost:8080](http://localhost:8080).
@@ -151,7 +151,7 @@ This will stop and remove all the containers defined in your docker-compose.yml 
 For load and performance experiments, a helper script installs several open-source testing tools. Run it from the project root:
 
 ```bash
-./setup_load_test_suite.sh
+./setup_load_test_suite.sh (or ./setup_load_test_suite.ps1 on Windows)
 ```
 
 The script installs utilities like **wrk**, **siege**, **ab**, **k6**, and **locust**. After installation, you can try commands such as:

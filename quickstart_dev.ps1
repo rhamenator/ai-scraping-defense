@@ -11,7 +11,7 @@ if (-not (Test-Path '.env')) {
 }
 
 # Prepare local directories
-bash ./setup_local_dirs.sh
+if (Test-Path "setup_local_dirs.ps1") { & "$PSScriptRoot/setup_local_dirs.ps1" } else { bash ./setup_local_dirs.sh }
 
 # Generate local secrets
 & "$PSScriptRoot/Generate-Secrets.ps1"

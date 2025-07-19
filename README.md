@@ -109,7 +109,7 @@ For a one-command setup, run `./quickstart_dev.sh` on Linux/macOS or `quickstart
     docker-compose up --build -d
     ```
 
-    If you'd like to try the proxy in front of a WordPress site, run `./setup_wordpress_website.sh` instead. It launches WordPress and MariaDB containers on the same Docker network and sets `REAL_BACKEND_HOST` automatically.
+    If you'd like to try the proxy in front of a WordPress site, run `./setup_wordpress_website.sh` (or `./setup_wordpress_website.ps1` on Windows) instead. It launches WordPress and MariaDB containers on the same Docker network and sets `REAL_BACKEND_HOST` automatically.
 
 7. **Access the Services:**
     - **Admin UI:** `http://localhost:5002`
@@ -182,7 +182,7 @@ Use `./quick_deploy.sh` (Linux/macOS) or `quick_deploy.ps1` (Windows) for a stre
 To experiment with the stack's performance under load, run the helper script:
 
 ```bash
-./setup_load_test_suite.sh
+./setup_load_test_suite.sh (or ./setup_load_test_suite.ps1 on Windows)
 ```
 
 It installs common open-source tools such as **wrk**, **siege**, **ab**, **k6**, and **locust**. Use them responsibly and only against environments you control.
