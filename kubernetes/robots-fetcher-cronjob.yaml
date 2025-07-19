@@ -17,6 +17,7 @@ spec:
           containers:
           - name: robots-fetcher
             image: your-registry/ai-scraping-defense:latest
+            imagePullPolicy: Always
             # Updated command to run the robots fetcher script.
             command: ["python", "src/util/robots_fetcher.py"]
             env:

@@ -14,6 +14,7 @@ spec:
           containers:
           - name: corpus-updater
             image: your-registry/ai-scraping-defense:latest
+            imagePullPolicy: Always
             # Updated command to run the corpus updater script.
             command: ["python", "src/util/corpus_wikipedia_updater.py"]
             env:

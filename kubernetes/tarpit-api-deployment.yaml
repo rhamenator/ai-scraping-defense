@@ -30,6 +30,7 @@ spec:
       containers:
       - name: tarpit-api
         image: your-registry/ai-scraping-defense:latest
+        imagePullPolicy: Always
         command: ["uvicorn", "src.tarpit.tarpit_api:app", "--host", "0.0.0.0", "--port", "8001"]
         ports:
         - containerPort: 8001

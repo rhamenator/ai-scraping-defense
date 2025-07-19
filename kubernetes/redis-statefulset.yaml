@@ -33,6 +33,7 @@ spec:
       containers:
       - name: redis
         image: redis:7-alpine
+        imagePullPolicy: Always
         # Command to start Redis server and require a password.
         # Using sh -c so the REDIS_PASSWORD environment variable expands correctly.
         command: ["sh", "-c", "redis-server --requirepass \"$REDIS_PASSWORD\""]

@@ -17,6 +17,7 @@ spec:
       containers:
       - name: archive-rotator
         image: your-registry/ai-scraping-defense:latest
+        imagePullPolicy: Always
         # Updated command to run the rotating archive script.
         command: ["python", "src/tarpit/rotating_archive.py"]
         env:

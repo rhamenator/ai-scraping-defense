@@ -14,6 +14,7 @@ spec:
           containers:
           - name: markov-trainer
             image: your-registry/ai-scraping-defense:latest
+            imagePullPolicy: Always
             # Updated command to run the Markov training script.
             command: ["python", "src/rag/train_markov_postgres.py"]
             envFrom:

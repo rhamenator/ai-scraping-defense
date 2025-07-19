@@ -30,6 +30,7 @@ spec:
       containers:
       - name: escalation-engine
         image: your-registry/ai-scraping-defense:latest
+        imagePullPolicy: Always
         # Updated command to run the Uvicorn server for the escalation engine.
         command: ["uvicorn", "src.escalation.escalation_engine:app", "--host", "0.0.0.0", "--port", "8003"]
         ports:
