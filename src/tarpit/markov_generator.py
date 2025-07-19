@@ -13,6 +13,15 @@ import html
 
 logger = logging.getLogger(__name__)
 
+try:
+    from tarpit_rs import generate_dynamic_tarpit_page as rs_generate_dynamic_tarpit_page
+    RUST_ENABLED = True
+    logger.info("tarpit_rs module loaded; using Rust implementation where possible.")
+except Exception as e:
+    rs_generate_dynamic_tarpit_page = None
+    RUST_ENABLED = False
+    logger.warning(f"Could not import tarpit_rs: {e}. Falling back to Python implementation.")
+
 # --- Configuration ---
 DEFAULT_SENTENCES_PER_PAGE = int(os.getenv("DEFAULT_SENTENCES_PER_PAGE", 15))
 FAKE_LINK_COUNT = int(os.getenv("FAKE_LINK_COUNT", 7))  # Increased link count for maze effect
@@ -269,13 +278,13 @@ def generate_markov_text_from_db(sentences=DEFAULT_SENTENCES_PER_PAGE):
     return generated_content
 
 # --- Main Generator Function ---
-def generate_dynamic_tarpit_page():
+def _generate_dynamic_tarpit_page_py():
     """
     Generates a full HTML page with deterministically generated
     Markov text (from Postgres) and fake links.
     Assumes random module has been seeded externally.
     """
-    logger.debug("Generating dynamic tarpit page content...")
+    logger.debug("Generating dynamic tarpit page content (Python)...")
     # 1. Generate Markov Text from DB
     page_content = generate_markov_text_from_db(DEFAULT_SENTENCES_PER_PAGE)
 
@@ -327,6 +336,18 @@ def generate_dynamic_tarpit_page():
 
     logger.debug("Dynamic tarpit page content generated.")
     return html_structure
+
+
+def generate_dynamic_tarpit_page() -> str:
+    """Wrapper that uses the Rust implementation if available."""
+    if RUST_ENABLED:
+        try:
+            return rs_generate_dynamic_tarpit_page()
+        except Exception as e:
+            logger.warning(
+                f"tarpit_rs error generating page: {e}; falling back to Python implementation"
+            )
+    return _generate_dynamic_tarpit_page_py()
 
 
 def _run_as_script() -> None:
