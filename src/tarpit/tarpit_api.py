@@ -15,7 +15,7 @@ from redis.exceptions import ConnectionError, RedisError
 
 # --- Setup Logging ---
 # Preserved from your original file.
-from src.shared.config import CONFIG
+from src.shared.config import CONFIG, tenant_key
 
 logging.basicConfig(level=CONFIG.LOG_LEVEL.upper(), format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -119,7 +119,7 @@ def trigger_ip_block(ip: str, reason: str):
         logger.error(f"Cannot block IP {ip}, Redis blocklist connection unavailable.")
         return False
     try:
-        key = f"blocklist:{ip}"
+        key = tenant_key(f"blocklist:{ip}")
         if redis_blocklist.exists(key):
             logger.info(f"IP {ip} already in blocklist. TTL refreshed")
         result = redis_blocklist.setex(key, BLOCKLIST_TTL_SECONDS, reason)
@@ -164,7 +164,7 @@ async def tarpit_handler(request: Request, path: str = ""):
             if not is_ip_flagged(client_ip):
                 logger.debug(f"IP {client_ip} not flagged; hop count not enforced")
             else:
-                hop_key = f"tarpit:hops:{client_ip}"
+                hop_key = tenant_key(f"tarpit:hops:{client_ip}")
                 pipe = redis_hops.pipeline()
                 pipe.incr(hop_key)
                 pipe.expire(hop_key, TAR_PIT_HOP_WINDOW_SECONDS)

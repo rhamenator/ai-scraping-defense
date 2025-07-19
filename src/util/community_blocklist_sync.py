@@ -6,6 +6,7 @@ from typing import List, Optional
 import httpx
 
 from src.shared.redis_client import get_redis_connection
+from src.shared.config import tenant_key
 
 COMMUNITY_BLOCKLIST_API_URL = os.getenv(
     "COMMUNITY_BLOCKLIST_API_URL", "https://mock_community_blocklist_api:8000"
@@ -37,7 +38,7 @@ def update_redis_blocklist(ips: List[str], redis_conn) -> int:
         return 0
     added = 0
     for ip in ips:
-        key = f"blocklist:ip:{ip}"
+        key = tenant_key(f"blocklist:ip:{ip}")
         try:
             redis_conn.setex(key, BLOCKLIST_TTL_SECONDS, "community")
             added += 1

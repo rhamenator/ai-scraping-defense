@@ -34,7 +34,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'status': 'success', 'message': 'IP 10.0.0.1 added to blocklist.'})
-        self.mock_redis_client.sadd.assert_called_once_with('blocklist', '10.0.0.1')
+        self.mock_redis_client.sadd.assert_called_once_with('default:blocklist', '10.0.0.1')
 
     def test_webhook_receiver_allow_ip_success(self):
         """Test a successful 'allow_ip' action."""
@@ -44,7 +44,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'status': 'success', 'message': 'IP 20.0.0.2 removed from blocklist.'})
-        self.mock_redis_client.srem.assert_called_once_with('blocklist', '20.0.0.2')
+        self.mock_redis_client.srem.assert_called_once_with('default:blocklist', '20.0.0.2')
         
     def test_webhook_receiver_flag_ip_success(self):
         """Test a successful 'flag_ip' action."""
@@ -55,7 +55,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'status': 'success', 'message': 'IP 30.0.0.3 flagged.'})
         # The key name is defined inside the ai_webhook script
-        self.mock_redis_client.set.assert_called_once_with('ip_flag:30.0.0.3', 'Suspicious activity')
+        self.mock_redis_client.set.assert_called_once_with('default:ip_flag:30.0.0.3', 'Suspicious activity')
 
     def test_webhook_receiver_unflag_ip_success(self):
         """Test a successful 'unflag_ip' action."""
@@ -65,7 +65,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'status': 'success', 'message': 'IP 40.0.0.4 unflagged.'})
-        self.mock_redis_client.delete.assert_called_once_with('ip_flag:40.0.0.4')
+        self.mock_redis_client.delete.assert_called_once_with('default:ip_flag:40.0.0.4')
 
     def test_webhook_receiver_invalid_action(self):
         """Test that an unsupported action returns a 400 error."""

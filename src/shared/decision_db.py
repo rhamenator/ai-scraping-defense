@@ -6,8 +6,13 @@ decisions and related metadata for analysis and debugging.
 import os
 import sqlite3
 from contextlib import contextmanager
+from src.shared.config import CONFIG
 
-DB_PATH = os.getenv("DECISIONS_DB_PATH", "/app/data/decisions.db")
+DEFAULT_DB_DIR = "/app/data"
+DB_PATH = os.getenv(
+    "DECISIONS_DB_PATH",
+    os.path.join(DEFAULT_DB_DIR, CONFIG.TENANT_ID, "decisions.db"),
+)
 
 # Ensure the directory for the database exists so connecting does not fail
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)

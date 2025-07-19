@@ -6,7 +6,8 @@
 local redis_host = os.getenv("REDIS_HOST") or "redis"
 local redis_port = tonumber(os.getenv("REDIS_PORT")) or 6379
 local redis_db_blocklist = tonumber(os.getenv("REDIS_DB_BLOCKLIST")) or 2
-local redis_blocklist_key_prefix = "blocklist:ip:" -- Prefix for individual IP keys
+local tenant_id = os.getenv("TENANT_ID") or "default"
+local redis_blocklist_key_prefix = tenant_id .. ":blocklist:ip:" -- Prefix for individual IP keys
 local redis_timeout_ms = 200 -- Connection/read timeout in milliseconds
 
 -- Get the remote IP address

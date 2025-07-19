@@ -29,7 +29,7 @@ class TestIPFlaggerComprehensive(unittest.TestCase):
 
         self.assertTrue(result)
         self.mock_get_redis.assert_called_once_with(db_number=ip_flagger.REDIS_DB_FLAGGED_IPS)
-        self.mock_redis_client.setex.assert_called_once_with("ip_flag:8.8.8.8", ip_flagger.FLAGGED_IP_TTL_SECONDS, "Test Reason: High frequency")
+        self.mock_redis_client.setex.assert_called_once_with("default:ip_flag:8.8.8.8", ip_flagger.FLAGGED_IP_TTL_SECONDS, "Test Reason: High frequency")
         self.mock_redis_client.expire.assert_called_once()
 
     def test_flag_suspicious_ip_redis_connection_fails(self):
@@ -55,7 +55,7 @@ class TestIPFlaggerComprehensive(unittest.TestCase):
         self.mock_redis_client.exists.return_value = 1
         result = ip_flagger.is_ip_flagged("9.9.9.9")
         self.assertTrue(result)
-        self.mock_redis_client.exists.assert_called_once_with("ip_flag:9.9.9.9")
+        self.mock_redis_client.exists.assert_called_once_with("default:ip_flag:9.9.9.9")
 
     def test_is_ip_flagged_false(self):
         """Test checking an unflagged IP returns False."""
@@ -76,7 +76,7 @@ class TestIPFlaggerComprehensive(unittest.TestCase):
         self.mock_redis_client.delete.return_value = 1
         result = ip_flagger.remove_ip_flag("8.8.8.8")
         self.assertTrue(result)
-        self.mock_redis_client.delete.assert_any_call("ip_flag:8.8.8.8")
+        self.mock_redis_client.delete.assert_any_call("default:ip_flag:8.8.8.8")
         self.mock_redis_client.delete.assert_any_call(f"{ip_flagger.FLAG_COUNT_PREFIX}8.8.8.8")
         
     def test_remove_ip_flag_redis_command_error(self):

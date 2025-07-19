@@ -12,6 +12,7 @@ This project provides a multi-layered, microservice-based defense system against
 - **Rate Limiting:** Adaptive per-IP limits updated by a small daemon writing to Nginx.
 - **Community Blocklist:** Optional daemon to sync IPs from a shared blocklist service.
 - **Containerized:** Fully containerized with Docker and ready for deployment on Kubernetes.
+- **Multi-Tenant Ready:** Namespace configuration and Redis keys with `TENANT_ID` for easy isolation.
 - **Optional Cloud Integrations:** Toggle CDN caching, DDoS mitigation, managed TLS, and a Web Application Firewall using environment variables.
 - **Plugin API:** Drop-in Python modules allow custom rules to extend detection logic.
 
@@ -45,6 +46,7 @@ For a one-command setup, run `./quickstart_dev.sh` on Linux/macOS or `quickstart
     ```
 
     Open the `.env` file and review the default settings. You do not need to change anything to get started, but this is where you would add your API keys later.
+    Set `TENANT_ID` to a unique value for each isolated deployment.
     To enable the CAPTCHA verification service, populate `CAPTCHA_SECRET` with your reCAPTCHA secret key.
     Tarpit behavior can be tuned with `TARPIT_MAX_HOPS` and `TARPIT_HOP_WINDOW_SECONDS` to automatically block clients that spend too much time in the tarpit.
 

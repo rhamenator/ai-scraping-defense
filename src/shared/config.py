@@ -46,6 +46,9 @@ class Config:
     APP_ENV: str = field(default_factory=lambda: os.getenv("APP_ENV", "production"))
     DEBUG: bool = field(default_factory=lambda: os.getenv("DEBUG", "false").lower() == "true")
 
+    # Multi-tenant identifier used to namespace keys
+    TENANT_ID: str = field(default_factory=lambda: os.getenv("TENANT_ID", "default"))
+
     # Tarpit configuration
     ESCALATION_ENDPOINT: str = field(default_factory=lambda: os.getenv("ESCALATION_ENDPOINT", "http://escalation_engine:8003/escalate"))
     TAR_PIT_MIN_DELAY_SEC: float = field(default_factory=lambda: float(os.getenv("TAR_PIT_MIN_DELAY_SEC", 0.6)))
@@ -114,6 +117,9 @@ class Config:
     TARPIT_LLM_MODEL_URI: Optional[str] = field(default_factory=lambda: os.getenv("TARPIT_LLM_MODEL_URI"))
     TARPIT_LLM_MAX_TOKENS: int = field(default_factory=lambda: int(os.getenv("TARPIT_LLM_MAX_TOKENS", 400)))
 
+    # Derived attribute: namespace prefix for Redis keys and similar resources
+    TENANT_PREFIX: str = field(init=False)
+
     def as_dict(self) -> Dict[str, Any]:
         """Return configuration values as a dictionary."""
         cfg = asdict(self)
@@ -130,6 +136,7 @@ class Config:
         object.__setattr__(self, "ESCALATION_ENGINE_URL", f"http://{self.ESCALATION_ENGINE_HOST}:{self.ESCALATION_ENGINE_PORT}")
         object.__setattr__(self, "TARPIT_API_URL", f"http://{self.TARPIT_API_HOST}:{self.TARPIT_API_PORT}")
         object.__setattr__(self, "ADMIN_UI_URL", f"http://{self.ADMIN_UI_HOST}:{self.ADMIN_UI_PORT}")
+        object.__setattr__(self, "TENANT_PREFIX", f"{self.TENANT_ID}:")
 
 
 # Instantiate configuration once
@@ -143,3 +150,8 @@ for _k, _v in CONFIG.as_dict().items():
 def get_config() -> Dict[str, Any]:
     """Return all configuration as a dictionary."""
     return CONFIG.as_dict()
+
+
+def tenant_key(base: str) -> str:
+    """Prefix a key with the configured tenant ID."""
+    return f"{CONFIG.TENANT_PREFIX}{base}"

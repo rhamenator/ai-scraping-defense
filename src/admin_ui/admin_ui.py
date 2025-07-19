@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from jinja2 import pass_context
 from src.shared.redis_client import get_redis_connection
 from src.shared.metrics import get_metrics
-from src.shared.config import CONFIG
+from src.shared.config import CONFIG, tenant_key
 
 # Flag to indicate if metrics collection is actually available. Tests patch this
 # to simulate metrics being disabled.
@@ -190,8 +190,8 @@ async def block_stats():
     temp_block_count = 0
     if redis_conn:
         try:
-            blocked_ips = redis_conn.smembers("blocklist") or set()
-            temp_block_count = len(redis_conn.keys("blocklist:ip:*"))
+            blocked_ips = redis_conn.smembers(tenant_key("blocklist")) or set()
+            temp_block_count = len(redis_conn.keys(tenant_key("blocklist:ip:*")))
         except Exception:
             pass
 
@@ -211,7 +211,7 @@ async def get_blocklist():
     if not redis_conn:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
 
-    blocklist_set = redis_conn.smembers("blocklist")
+    blocklist_set = redis_conn.smembers(tenant_key("blocklist"))
     if asyncio.iscoroutine(blocklist_set):
         blocklist_set = await blocklist_set
 
@@ -235,7 +235,7 @@ async def block_ip(request: Request):
     if not redis_conn:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
 
-    redis_conn.sadd("blocklist", ip)
+    redis_conn.sadd(tenant_key("blocklist"), ip)
     return JSONResponse({"status": "success", "ip": ip})
 
 
@@ -253,7 +253,7 @@ async def unblock_ip(request: Request):
     if not redis_conn:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
 
-    redis_conn.srem("blocklist", ip)
+    redis_conn.srem(tenant_key("blocklist"), ip)
     return JSONResponse({"status": "success", "ip": ip})
 
 

@@ -90,7 +90,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         response = self.client.post('/block', json={'ip': '3.3.3.3'})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'status': 'success', 'ip': '3.3.3.3'})
-        mock_redis_instance.sadd.assert_called_once_with('blocklist', '3.3.3.3')
+        mock_redis_instance.sadd.assert_called_once_with('default:blocklist', '3.3.3.3')
 
     @patch('src.admin_ui.admin_ui.get_redis_connection')
     def test_unblock_ip_success(self, mock_get_redis):
@@ -102,7 +102,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         response = self.client.post('/unblock', json={'ip': '1.1.1.1'})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'status': 'success', 'ip': '1.1.1.1'})
-        mock_redis_instance.srem.assert_called_once_with('blocklist', '1.1.1.1')
+        mock_redis_instance.srem.assert_called_once_with('default:blocklist', '1.1.1.1')
         
     def test_block_ip_invalid_payload(self):
         """Test the /block endpoint with an invalid payload."""
