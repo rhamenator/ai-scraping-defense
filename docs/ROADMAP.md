@@ -32,7 +32,7 @@ Expanding feature sets and refining system efficiency:
 
 Larger-scale improvements and broader adoption:
 
-* **Federated Model for Threat Intelligence Sharing** – Establish **peer-to-peer collaboration between deployments** to exchange bot intelligence.  
+* ✅ **Federated Model for Threat Intelligence Sharing** – Establish **peer-to-peer collaboration between deployments** to exchange bot intelligence.
 * **Cloud-Based Management Dashboard** – Provide **hosted real-time monitoring** for multiple installations.  
 * **Industry Partnerships** – Integrate with cybersecurity initiatives and FOSS security groups for wider adoption.  
 * **Automated Configuration Recommendations** – AI-driven suggestions for optimal firewall/tarpit settings based on incoming traffic patterns.
