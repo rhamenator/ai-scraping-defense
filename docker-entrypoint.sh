@@ -13,8 +13,8 @@ MODEL_FILE="${MODEL_PATH:-/app/models/bot_detection_rf_model.joblib}"
 # Ensures the database is ready before any application logic runs.
 echo "Waiting for postgres..."
 # The password file is used securely.
-export PGPASSWORD=$(cat "$POSTGRES_PASSWORD_FILE")
-while ! pg_isready -h "$POSTGRES_HOST" -p 5432 -q -U "$(cat "$POSTGRES_USER_FILE")"; do
+export PGPASSWORD=$(cat "$PG_PASSWORD_FILE")
+while ! pg_isready -h "$PG_HOST" -p 5432 -q -U "$PG_USER"; do
   echo "PostgreSQL is unavailable - sleeping"
   sleep 2
 done
