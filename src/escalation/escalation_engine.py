@@ -143,6 +143,11 @@ FINGERPRINT_REUSE_THRESHOLD = CONFIG.FINGERPRINT_REUSE_THRESHOLD
 # GeoIP database path
 GEOIP_DB_PATH = os.getenv("GEOIP_DB_PATH", "/app/GeoLite2-Country.mmdb")
 
+# --- Plugin System ---
+from src.plugins import load_plugins
+ENABLE_PLUGINS = os.getenv("ENABLE_PLUGINS", "false").lower() == "true"
+PLUGINS = load_plugins() if ENABLE_PLUGINS else []
+
 HEURISTIC_THRESHOLD_LOW = 0.3
 HEURISTIC_THRESHOLD_MEDIUM = 0.6
 HEURISTIC_THRESHOLD_HIGH = 0.8
@@ -471,6 +476,16 @@ def run_heuristic_and_model_analysis(metadata: RequestMetadata, ip_rep_result: O
         rule_score += 0.2
     if is_known_benign:
         rule_score -= 0.5
+
+    if PLUGINS:
+        for plugin in PLUGINS:
+            try:
+                delta = plugin(metadata)
+                if isinstance(delta, (int, float)):
+                    rule_score += float(delta)
+            except Exception as e:  # pragma: no cover - plugin error
+                logger.error("Plugin %s failed: %s", getattr(plugin, '__name__', 'unknown'), e)
+
     rule_score = max(0.0, min(1.0, rule_score))
 
     # --- THIS IS THE PRIMARY CHANGE ---

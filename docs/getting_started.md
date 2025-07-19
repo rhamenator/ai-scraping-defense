@@ -98,10 +98,11 @@ docker-compose up --build -d
 
 Once the containers are running, you can access the key services in your web browser:
 
-* **Admin UI:** [http://localhost:5002](http://localhost:5002)  
-* **Your Application (via Nginx Proxy):** [http://localhost:8080](http://localhost:8080)  
+* **Admin UI:** [http://localhost:5002](http://localhost:5002)
+* **Your Application (via Nginx Proxy):** [http://localhost:8080](http://localhost:8080)
 * **MailHog (Email Catcher):** [http://localhost:8025](http://localhost:8025)
 * **Redis (for blocklist management):** [http://localhost:6379](http://localhost:6379) (not directly accessible via a web interface, but can be managed using Redis CLI or GUI tools).
+* **Blocklist Sync Daemon:** runs automatically to pull updates from the community blocklist service.
 
 ### **6.1. Accessing the Admin UI**
 
@@ -110,6 +111,10 @@ To access the Admin UI, navigate to [http://localhost:5002](http://localhost:500
 ### **6.2. Accessing the MailHog Interface**
 
 MailHog is used to capture emails sent by the application for testing purposes. You can access it at [http://localhost:8025](http://localhost:8025). This is useful for verifying email functionality without sending real emails.
+
+### **6.3. Adding Custom Rule Plugins**
+
+You can extend the detection heuristics by placing Python modules inside the `plugins/` directory. Set `ENABLE_PLUGINS=true` in your `.env` file and restart the stack. Each module should define a `check(metadata)` function returning a numeric adjustment.
 
 ### **7. Stopping the Application**
 
