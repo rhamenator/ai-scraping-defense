@@ -163,7 +163,7 @@ class TestTrainingPipelineComprehensive(unittest.TestCase):
 
     @patch('rag.training.joblib.dump')
     def test_model_accuracy_comparison(self, mock_dump):
-        """Ensure RandomForest and XGBoost models both train and return accuracy."""
+        """Ensure RandomForest, XGBoost, and Logistic Regression train and return accuracy."""
         df = pd.DataFrame({
             'label': ['bot'] * 10 + ['human'] * 10,
             'ua_length': [20]*20,
@@ -187,9 +187,11 @@ class TestTrainingPipelineComprehensive(unittest.TestCase):
 
         _, acc_rf = training.train_and_save_model(df, self.model_path, 'rf')
         _, acc_xgb = training.train_and_save_model(df, self.model_path, 'xgb')
+        _, acc_lr = training.train_and_save_model(df, self.model_path, 'lr')
 
         self.assertGreaterEqual(acc_rf, 0.9)
         self.assertGreaterEqual(acc_xgb, 0.9)
+        self.assertGreaterEqual(acc_lr, 0.8)
 
 if __name__ == '__main__':
     unittest.main()

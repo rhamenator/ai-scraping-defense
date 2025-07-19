@@ -126,5 +126,42 @@ class TestAdminUIComprehensive(unittest.TestCase):
             data = websocket.receive_json()
         self.assertEqual(data, {'error': 'Metrics module not available'})
 
+    @patch('src.admin_ui.admin_ui._get_metrics_dict_func')
+    @patch('src.admin_ui.admin_ui.get_redis_connection')
+    @patch('src.admin_ui.admin_ui._load_recent_block_events_func')
+    def test_block_stats_success(self, mock_load, mock_get_redis, mock_get_metrics):
+        """Test the /block_stats endpoint aggregates data correctly."""
+        mock_get_metrics.return_value = {
+            'bots_detected_high_score_total': 10.0,
+            'humans_detected_low_score_total': 5.0
+        }
+        mock_redis = MagicMock()
+        mock_redis.smembers.return_value = {'4.4.4.4'}
+        mock_redis.keys.return_value = ['blocklist:ip:4.4.4.4', 'blocklist:ip:5.5.5.5']
+        mock_get_redis.return_value = mock_redis
+        mock_load.return_value = [{'ip': '4.4.4.4', 'reason': 'test', 'timestamp': '2025-01-01T00:00:00Z'}]
+
+        response = self.client.get('/block_stats')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['blocked_ip_count'], 1)
+        self.assertEqual(data['temporary_block_count'], 2)
+        self.assertEqual(data['total_bots_detected'], 10.0)
+        self.assertEqual(data['total_humans_detected'], 5.0)
+        self.assertEqual(len(data['recent_block_events']), 1)
+
+    @patch('src.admin_ui.admin_ui._get_metrics_dict_func', side_effect=Exception('fail'))
+    @patch('src.admin_ui.admin_ui.get_redis_connection', return_value=None)
+    @patch('src.admin_ui.admin_ui._load_recent_block_events_func', return_value=[])
+    def test_block_stats_handles_errors(self, mock_load, mock_get_redis, mock_get_metrics):
+        """Test /block_stats handles missing data gracefully."""
+        response = self.client.get('/block_stats')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['blocked_ip_count'], 0)
+        self.assertEqual(data['temporary_block_count'], 0)
+        self.assertEqual(data['total_bots_detected'], 0)
+        self.assertEqual(data['total_humans_detected'], 0)
+
 if __name__ == '__main__':
     unittest.main()

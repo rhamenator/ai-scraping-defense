@@ -51,3 +51,12 @@ h1, h2 {
     margin-top: 10px;
     display: none; /* Hidden by default */
 }
+
+#block-stats {
+    margin-top: 30px;
+}
+
+#block-stats ul {
+    list-style: none;
+    padding: 0;
+}
