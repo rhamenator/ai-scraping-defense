@@ -160,6 +160,22 @@ try:
 except Exception as e:
     logger.error(f"CRITICAL: Unhandled exception during model loading: {e}", exc_info=True)
 
+local_llm_adapter = None
+external_api_adapter = None
+try:
+    if LOCAL_LLM_API_URL and LOCAL_LLM_MODEL:
+        local_llm_adapter = get_model_adapter(
+            model_uri=f"local-llm://{LOCAL_LLM_API_URL}",
+            config={"model": LOCAL_LLM_MODEL, "timeout": LOCAL_LLM_TIMEOUT},
+        )
+    if EXTERNAL_API_URL:
+        external_api_adapter = get_model_adapter(
+            model_uri=f"external-api://{EXTERNAL_API_URL}",
+            config={"api_key": EXTERNAL_API_KEY, "timeout": EXTERNAL_API_TIMEOUT},
+        )
+except Exception as e:
+    logger.error(f"Error initializing LLM adapters: {e}", exc_info=True)
+
 redis_client_freq = get_redis_connection(db_number=REDIS_DB_FREQUENCY)
 FREQUENCY_TRACKING_ENABLED = bool(redis_client_freq)
 
@@ -451,58 +467,80 @@ def run_heuristic_and_model_analysis(metadata: RequestMetadata, ip_rep_result: O
 
 # --- All other helper functions are preserved as-is ---
 async def classify_with_local_llm_api(metadata: RequestMetadata) -> Optional[bool]:
-    if not LOCAL_LLM_API_URL or not LOCAL_LLM_MODEL: return None
+    if not local_llm_adapter:
+        return None
     increment_counter_metric(LOCAL_LLM_CHECKS_RUN)
-    logger.info(f"Attempting classification for IP {metadata.ip} using local LLM API ({LOCAL_LLM_MODEL})...")
+    logger.info(
+        f"Attempting classification for IP {metadata.ip} using local LLM API ({LOCAL_LLM_MODEL})..."
+    )
     safe_metadata = metadata.model_dump()
     try:
-        prompt_json = json.dumps(safe_metadata, ensure_ascii=False)
-    except Exception:
-        prompt_json = json.dumps({"ip": metadata.ip, "path": metadata.path})
-    prompt = f"Analyze the following request JSON and classify as MALICIOUS_BOT, BENIGN_CRAWLER, or HUMAN: {prompt_json}"
-    api_payload = {"model": LOCAL_LLM_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": 0.1, "stream": False}
-    response = None
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(LOCAL_LLM_API_URL, json=api_payload, timeout=LOCAL_LLM_TIMEOUT)
-            response.raise_for_status(); result = response.json()
-            content = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip().upper()
-            safe_content = content.replace("\n", " ")[:200]
-            logger.info(f"Local LLM API response for {metadata.ip}: '{safe_content}'")
-            if "MALICIOUS_BOT" in content: return True
-            elif "HUMAN" in content or "BENIGN_CRAWLER" in content: return False
-            else: logger.warning(f"Unexpected classification LLM ({metadata.ip}): '{content}'"); increment_counter_metric(LOCAL_LLM_ERRORS_UNEXPECTED_RESPONSE); return None
-    except httpx.TimeoutException: logger.error(f"Timeout LLM API ({LOCAL_LLM_API_URL}) for IP {metadata.ip}"); increment_counter_metric(LOCAL_LLM_ERRORS_TIMEOUT); return None
-    except httpx.RequestError as exc: logger.error(f"Request error LLM API ({LOCAL_LLM_API_URL}) for IP {metadata.ip}: {exc}"); increment_counter_metric(LOCAL_LLM_ERRORS_REQUEST); return None
-    except json.JSONDecodeError as exc: 
-        resp_text = response.text[:500] if response is not None and hasattr(response, "text") else "<no response>"
-        logger.error(f"JSON decode error LLM for {metadata.ip}: {exc} - Resp: {resp_text}"); increment_counter_metric(LOCAL_LLM_ERRORS_RESPONSE_DECODE); return None
-    except Exception as e: logger.error(f"Unexpected error LLM API for IP {metadata.ip}: {e}", exc_info=True); increment_counter_metric(LOCAL_LLM_ERRORS_UNEXPECTED); return None
+        result = await asyncio.to_thread(local_llm_adapter.predict, safe_metadata)
+    except Exception as e:
+        logger.error(f"Unexpected error calling local LLM adapter for IP {metadata.ip}: {e}", exc_info=True)
+        increment_counter_metric(LOCAL_LLM_ERRORS_UNEXPECTED)
+        return None
+
+    if not isinstance(result, dict):
+        logger.warning(f"Unexpected local LLM response type for {metadata.ip}: {result}")
+        increment_counter_metric(LOCAL_LLM_ERRORS_UNEXPECTED_RESPONSE)
+        return None
+
+    if "error" in result:
+        logger.error(f"Local LLM adapter error for IP {metadata.ip}: {result['error']}")
+        increment_counter_metric(LOCAL_LLM_ERRORS_REQUEST)
+        return None
+
+    content = str(result.get("classification", "")).upper()
+    safe_content = content.replace("\n", " ")[:200]
+    logger.info(f"Local LLM API response for {metadata.ip}: '{safe_content}'")
+    if "MALICIOUS_BOT" in content:
+        return True
+    if "HUMAN" in content or "BENIGN_CRAWLER" in content:
+        return False
+    logger.warning(f"Unexpected classification LLM ({metadata.ip}): '{content}'")
+    increment_counter_metric(LOCAL_LLM_ERRORS_UNEXPECTED_RESPONSE)
+    return None
 
 async def classify_with_external_api(metadata: RequestMetadata) -> Optional[bool]:
-    if not EXTERNAL_API_URL: return None
+    if not external_api_adapter:
+        return None
     increment_counter_metric(EXTERNAL_API_CHECKS_RUN)
     logger.info(f"Attempting classification for IP {metadata.ip} using External API...")
     headers_to_send = metadata.headers if metadata.headers is not None else {}
-    external_payload = {"ipAddress": metadata.ip, "userAgent": metadata.user_agent, "referer": metadata.referer, "requestPath": metadata.path, "headers": headers_to_send}
-    
-    req_headers = { 'Content-Type': 'application/json' }
-    if EXTERNAL_API_KEY: req_headers['Authorization'] = f"Bearer {EXTERNAL_API_KEY}"
-    response = None
+    external_payload = {
+        "ipAddress": metadata.ip,
+        "userAgent": metadata.user_agent,
+        "referer": metadata.referer,
+        "requestPath": metadata.path,
+        "headers": headers_to_send,
+    }
+
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(EXTERNAL_API_URL, headers=req_headers, json=external_payload, timeout=EXTERNAL_API_TIMEOUT)
-            response.raise_for_status(); result = response.json()
-            is_bot = result.get("is_bot", None) 
-            logger.info(f"External API response for {metadata.ip}: IsBot={is_bot}")
-            if isinstance(is_bot, bool): increment_counter_metric(EXTERNAL_API_SUCCESS); return is_bot
-            else: logger.warning(f"Unexpected response external API for {metadata.ip}. Resp: {result}"); increment_counter_metric(EXTERNAL_API_ERRORS_UNEXPECTED_RESPONSE); return None
-    except httpx.TimeoutException: logger.error(f"Timeout external API ({EXTERNAL_API_URL}) for IP {metadata.ip}"); increment_counter_metric(EXTERNAL_API_ERRORS_TIMEOUT); return None
-    except httpx.RequestError as exc: logger.error(f"Request error external API ({EXTERNAL_API_URL}) for IP {metadata.ip}: {exc}"); increment_counter_metric(EXTERNAL_API_ERRORS_REQUEST); return None
-    except json.JSONDecodeError as exc: 
-        resp_text = response.text[:500] if response is not None and hasattr(response, "text") else "<no response>"
-        logger.error(f"JSON decode error external API for {metadata.ip}: {exc} - Resp: {resp_text}"); increment_counter_metric(EXTERNAL_API_ERRORS_RESPONSE_DECODE); return None
-    except Exception as e: logger.error(f"Unexpected error external API for IP {metadata.ip}: {e}", exc_info=True); increment_counter_metric(EXTERNAL_API_ERRORS_UNEXPECTED); return None
+        result = await asyncio.to_thread(external_api_adapter.predict, external_payload)
+    except Exception as e:
+        logger.error(f"Unexpected error calling external API adapter for IP {metadata.ip}: {e}", exc_info=True)
+        increment_counter_metric(EXTERNAL_API_ERRORS_UNEXPECTED)
+        return None
+
+    if not isinstance(result, dict):
+        logger.warning(f"Unexpected external API response type for {metadata.ip}: {result}")
+        increment_counter_metric(EXTERNAL_API_ERRORS_UNEXPECTED_RESPONSE)
+        return None
+
+    if "error" in result:
+        logger.error(f"External API adapter error for IP {metadata.ip}: {result['error']}")
+        increment_counter_metric(EXTERNAL_API_ERRORS_REQUEST)
+        return None
+
+    is_bot = result.get("is_bot")
+    logger.info(f"External API response for {metadata.ip}: IsBot={is_bot}")
+    if isinstance(is_bot, bool):
+        increment_counter_metric(EXTERNAL_API_SUCCESS)
+        return is_bot
+    logger.warning(f"Unexpected response external API for {metadata.ip}. Resp: {result}")
+    increment_counter_metric(EXTERNAL_API_ERRORS_UNEXPECTED_RESPONSE)
+    return None
 
 async def forward_to_webhook(payload: Dict[str, Any], reason: str):
     """Send a prepared webhook payload."""

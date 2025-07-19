@@ -291,3 +291,62 @@ class LlamaCppAdapter(BaseModelAdapter):
             return {"response": response['choices'][0]['message']['content']}
         except Exception as e:
             logging.error(f"Error during llama-cpp-python prediction: {e}"); return {"error": str(e)}
+class LocalLLMApiAdapter(BaseModelAdapter):
+    """Adapter for a locally hosted OpenAI-compatible API."""
+    def _load_model(self):
+        self.timeout = self.config.get("timeout", 30.0)
+        self.model_name = self.config.get("model")
+        self.api_url = self.model_uri
+
+    def predict(self, data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+        try:
+            prompt_json = json.dumps(data, ensure_ascii=False)
+        except Exception:
+            prompt_json = json.dumps({"ip": data.get("ip")})
+        prompt = (
+            "Analyze the following request JSON and classify as MALICIOUS_BOT, BENIGN_CRAWLER, or HUMAN: "
+            f"{prompt_json}"
+        )
+        payload = {
+            "model": self.model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.1,
+            "stream": False,
+        }
+        try:
+            with httpx.Client() as client:
+                resp = client.post(self.api_url, json=payload, timeout=self.timeout)
+                resp.raise_for_status()
+                result = resp.json()
+                content = (
+                    result.get("choices", [{}])[0]
+                    .get("message", {})
+                    .get("content", "")
+                    .strip()
+                )
+                return {"classification": content}
+        except Exception as e:
+            logging.error(f"Local LLM API request failed: {e}")
+            return {"error": str(e)}
+
+
+class ExternalAPIAdapter(BaseModelAdapter):
+    """Adapter for the external classification API."""
+    def _load_model(self):
+        self.timeout = self.config.get("timeout", 15.0)
+        self.api_key = self.config.get("api_key")
+        self.api_url = self.model_uri
+
+    def predict(self, data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        try:
+            with httpx.Client() as client:
+                resp = client.post(self.api_url, json=data, headers=headers, timeout=self.timeout)
+                resp.raise_for_status()
+                return resp.json()
+        except Exception as e:
+            logging.error(f"External API request failed: {e}")
+            return {"error": str(e)}
+

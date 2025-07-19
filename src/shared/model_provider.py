@@ -8,7 +8,8 @@ from typing import Optional
 from src.shared.model_adapters import (
     BaseModelAdapter, SklearnAdapter, MarkovAdapter, HttpModelAdapter,
     OpenAIAdapter, AnthropicAdapter, GoogleGeminiAdapter, CohereAdapter,
-    MistralAdapter, OllamaAdapter, LlamaCppAdapter
+    MistralAdapter, OllamaAdapter, LlamaCppAdapter,
+    LocalLLMApiAdapter, ExternalAPIAdapter
 )
 
 # The ADAPTER_MAP now maps the URI scheme (e.g., "openai") to the adapter class.
@@ -24,9 +25,11 @@ ADAPTER_MAP = {
     "mistral": MistralAdapter,
     "ollama": OllamaAdapter,
     "llamacpp": LlamaCppAdapter,
+    "local-llm": LocalLLMApiAdapter,
+    "external-api": ExternalAPIAdapter,
 }
 
-def get_model_adapter() -> Optional[BaseModelAdapter]:
+def get_model_adapter(model_uri: Optional[str] = None, config: Optional[dict] = None) -> Optional[BaseModelAdapter]:
     """
     Factory function to get the appropriate model adapter based on the MODEL_URI.
     The URI scheme determines which adapter is loaded.
@@ -37,7 +40,8 @@ def get_model_adapter() -> Optional[BaseModelAdapter]:
     - ollama://llama3
     - http://my-custom-api.com/predict
     """
-    model_uri = os.getenv("MODEL_URI")
+    if model_uri is None:
+        model_uri = os.getenv("MODEL_URI")
     if not model_uri:
         logging.error("CRITICAL: MODEL_URI environment variable is not set. Cannot load model.")
         return None
@@ -69,6 +73,8 @@ def get_model_adapter() -> Optional[BaseModelAdapter]:
              # This case is for relative paths, but absolute is recommended in containers.
             model_path = os.path.join("/app", path)
 
+        if config is not None:
+            return adapter_class(model_path, config)
         return adapter_class(model_path)
     except Exception as e:
         logging.error(f"Failed to instantiate model adapter for scheme '{scheme}': {e}", exc_info=True)
