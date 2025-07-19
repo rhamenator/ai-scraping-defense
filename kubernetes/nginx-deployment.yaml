@@ -65,6 +65,8 @@ spec:
           mountPath: /etc/nginx/conf.d
         - name: lua-scripts
           mountPath: /etc/nginx/lua
+        - name: waf-rules
+          mountPath: /etc/nginx/modsecurity
         - name: robots-txt
           mountPath: /etc/nginx/robots.txt
           subPath: robots.txt
@@ -79,6 +81,9 @@ spec:
       - name: lua-scripts
         configMap:
           name: lua-scripts-config # Assumes a configmap for lua scripts exists
+      - name: waf-rules
+        configMap:
+          name: waf-rules
       - name: robots-txt
         configMap:
           name: live-robots-txt-config

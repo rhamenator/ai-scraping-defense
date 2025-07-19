@@ -37,6 +37,15 @@ You must update all the Kubernetes Deployment and CronJob manifests in the kuber
 
 Search for the image: key in all *.yaml files inside kubernetes/ and replace the placeholder value (e.g., your-registry/ai-scraping-defense:latest) with the $IMAGE_NAME you defined above.
 
+### **Enable ModSecurity**
+
+1. Download the OWASP CRS into the `waf/` directory so that `crs-setup.conf` and a `rules` folder are available.
+2. Create the `waf-rules` ConfigMap:
+   ```bash
+   kubectl create configmap waf-rules --from-file=waf/ -n ai-defense
+   ```
+3. Apply the manifests which mount `/etc/nginx/modsecurity` in the Nginx deployment.
+
 ### **3. Generate and Apply Secrets**
 
 The application's secrets (passwords, API keys) are managed via a single secrets.yaml file, which should **never** be committed to version control.

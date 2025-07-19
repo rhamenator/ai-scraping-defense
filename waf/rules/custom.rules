@@ -1,0 +1,2 @@
+# Example custom rule
+SecRule REQUEST_HEADERS:User-Agent "BadBot" "id:1000,phase:1,deny,log,msg:'Block BadBot'"

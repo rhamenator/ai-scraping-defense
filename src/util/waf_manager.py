@@ -1,8 +1,13 @@
 import os
 import logging
+import subprocess
 
 ENABLE_WAF = os.getenv("ENABLE_WAF", "false").lower() == "true"
-WAF_RULES_PATH = os.getenv("WAF_RULES_PATH", "/etc/nginx/waf_rules.conf")
+WAF_RULES_PATH = os.getenv(
+    "WAF_RULES_PATH",
+    "/etc/nginx/modsecurity/rules/custom.rules",
+)
+NGINX_RELOAD_CMD = ["nginx", "-s", "reload"]
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -20,3 +25,22 @@ def load_waf_rules() -> list[str]:
     except FileNotFoundError:
         logger.error(f"WAF rules file not found: {WAF_RULES_PATH}")
         return []
+
+
+def reload_waf_rules(rules: list[str]) -> bool:
+    """Rewrite the rules file and reload Nginx to apply changes."""
+    if not ENABLE_WAF:
+        logger.debug("WAF disabled. Skipping reload.")
+        return False
+
+    try:
+        with open(WAF_RULES_PATH, "w") as f:
+            f.write("\n".join(rules) + "\n")
+        logger.info("WAF rules written. Reloading Nginx...")
+        subprocess.run(NGINX_RELOAD_CMD, check=True)
+        logger.info("Nginx reloaded with new WAF rules.")
+        return True
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.error("Failed to reload WAF rules: %s", exc)
+        return False
+
