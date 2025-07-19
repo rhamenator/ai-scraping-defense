@@ -29,7 +29,7 @@ class Config:
     # Service ports
     AI_SERVICE_PORT: int = field(default_factory=lambda: int(os.getenv("AI_SERVICE_PORT", 8000)))
     ESCALATION_ENGINE_PORT: int = field(default_factory=lambda: int(os.getenv("ESCALATION_ENGINE_PORT", 8003)))
-    TARPIT_API_PORT: int = field(default_factory=lambda: int(os.getenv("TARPIT_API_PORT", 8005)))
+    TARPIT_API_PORT: int = field(default_factory=lambda: int(os.getenv("TARPIT_API_PORT", 8001)))
     ADMIN_UI_PORT: int = field(default_factory=lambda: int(os.getenv("ADMIN_UI_PORT", 5002)))
 
     # Redis
