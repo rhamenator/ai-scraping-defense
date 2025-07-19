@@ -23,4 +23,3 @@ def load_plugins() -> List[Callable[[object], float]]:
             import logging
             logging.error("Failed to load plugin %s: %s", filename, e)
     return plugins
-

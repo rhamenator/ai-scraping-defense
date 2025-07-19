@@ -13,6 +13,7 @@ WATCHERS: Dict[str, List[WebSocket]] = {}
 
 WEBSOCKET_METRICS_INTERVAL = 5
 
+
 @app.post("/register")
 async def register_installation(payload: Dict[str, Any]):
     installation_id = payload.get("installation_id")
@@ -20,6 +21,7 @@ async def register_installation(payload: Dict[str, Any]):
         return JSONResponse({"error": "installation_id required"}, status_code=400)
     INSTALLATIONS.setdefault(installation_id, {"metrics": {}})
     return {"status": "registered", "installation_id": installation_id}
+
 
 @app.post("/push")
 async def push_metrics(payload: Dict[str, Any]):
@@ -36,9 +38,11 @@ async def push_metrics(payload: Dict[str, Any]):
             pass
     return {"status": "ok"}
 
+
 @app.get("/metrics/{installation_id}")
 async def get_metrics(installation_id: str):
     return INSTALLATIONS.get(installation_id, {}).get("metrics", {})
+
 
 @app.websocket("/ws/{installation_id}")
 async def metrics_websocket(websocket: WebSocket, installation_id: str):
