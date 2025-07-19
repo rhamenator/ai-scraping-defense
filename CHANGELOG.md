@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+* **Markov Training Utility:** Removed `rag/train_markov_postgres.py` and now build the Markov model using the Rust `markov-train-rs` crate via `train_from_corpus_rs`.
+
 ## **[0.0.5] - 2025-05-25**
 
 ### **Added**

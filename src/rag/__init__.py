@@ -1,8 +1,9 @@
-from . import training, finetune, train_markov_postgres, email_entropy_scanner
+from . import training, finetune, email_entropy_scanner
+import markov_train_rs
 
 __all__ = [
     'training',
     'finetune',
-    'train_markov_postgres',
+    'markov_train_rs',
     'email_entropy_scanner',
 ]

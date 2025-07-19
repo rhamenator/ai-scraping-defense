@@ -109,27 +109,13 @@ This setup uses Docker Compose to orchestrate all the necessary services on your
 - `test/`: Unit tests for the Python services.
 - `sample.env`: Template for local development configuration.
 - `Dockerfile`: A single Dockerfile used to build the base image for all Python services.
-- `rag/train_markov_postgres.py`: Python script for loading Markov training data into PostgreSQL.
 - `jszip-rs/`: Rust implementation of the fake JavaScript archive generator.
 - `markov-train-rs/`: Rust implementation of the Markov training utility.
 
-## Markov Training Utility (Python)
-
-`rag/train_markov_postgres.py` reads a text corpus and populates the Markov chain tables in PostgreSQL. The script uses environment variables for database credentials (`PG_HOST`, `PG_PORT`, `PG_DBNAME`, `PG_USER`, and `PG_PASSWORD_FILE`).
-
-### Running
-
-Provide the path to a corpus file as an argument:
-
-```bash
-python src/rag/train_markov_postgres.py path/to/corpus.txt
-```
-
-Ensure the database credentials are available through environment variables or a password file as described above.
-
 ## Markov Training Utility (Rust)
 
-`markov-train-rs` provides a Rust implementation of the same training logic. It exposes a `train_from_corpus_rs` function callable from Python via PyO3.
+`markov-train-rs` contains a high-performance implementation of the corpus loader.
+It exposes a `train_from_corpus_rs` function callable from Python via PyO3.
 
 Build the extension with Cargo:
 
@@ -138,7 +124,13 @@ cd markov-train-rs
 cargo build --release
 ```
 
-The compiled `markov_train_rs` module can then be imported from Python to accelerate Markov corpus ingestion.
+Once built, call the function to populate PostgreSQL:
+
+```bash
+python -c "import markov_train_rs, os; markov_train_rs.train_from_corpus_rs(os.environ['CORPUS_FILE_PATH'])"
+```
+
+Ensure the usual `PG_HOST`, `PG_PORT`, `PG_DBNAME`, `PG_USER`, and `PG_PASSWORD_FILE` environment variables are set so the library can connect to PostgreSQL.
 
 ## JS ZIP Generator (Rust)
 
