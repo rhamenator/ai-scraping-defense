@@ -110,6 +110,7 @@ For a one-command setup, run `./quickstart_dev.sh` on Linux/macOS or `quickstart
 
 7. **Access the Services:**
     - **Admin UI:** `http://localhost:5002`
+    - **Cloud Dashboard:** `http://localhost:5006`
     - **Your Application (via proxy):** `http://localhost:8080`
     - **HTTPS (if enabled):** `https://localhost:8443`
 

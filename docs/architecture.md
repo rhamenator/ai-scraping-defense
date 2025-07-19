@@ -12,6 +12,7 @@ The AI Scraping Defense system is designed as a distributed, microservice-based 
   - **Escalation Engine:** The central analysis component. It runs a multi-stage pipeline to score requests, using heuristics, a machine learning model, and optionally a powerful LLM for a final verdict.
   - **Tarpit API:** Provides a set of "tarpits" (e.g., zip bombs, slow responses, nonsensical data) designed to waste the resources of confirmed malicious bots.
   - **Admin UI:** A FastAPI-based web interface for monitoring system metrics and viewing the blocklist. Configuration is loaded from environment variables, though a couple of runtime-only options (log level and escalation endpoint) can be tweaked via the interface.
+  - **Cloud Dashboard:** Centralized service that aggregates metrics from multiple installations for hosted monitoring.
   - **Public Community Blocklist Service:** Hosts a shared IP reputation list that contributors can update via a simple API.
 
 - **Data Stores:**
@@ -43,6 +44,7 @@ graph TD
             AIService["AI Service Webhook"]
             EscalationEngine["🧠 Escalation Engine"]
             AdminUI["📊 Admin UI"]
+            CloudDashboard["☁️ Cloud Dashboard"]
         end
 
         subgraph "Countermeasures"
@@ -73,6 +75,7 @@ graph TD
     EscalationEngine -- "Reads" --> Postgres
     EscalationEngine -- "Calls for Final Verdict" --> LLM
     EscalationEngine -- "Updates" --> AdminUI
+    AdminUI -- "Streams Metrics" --> CloudDashboard
 
     AdminUI -- "Manages" --> Redis
 
@@ -96,6 +99,7 @@ graph TD
     EscalationEngine -->|Reads| Postgres["🐘 PostgreSQL\n(Markov Data)"]
     EscalationEngine -->|Calls for Final Verdict| LLM["☁️ LLM APIs\n(OpenAI, Mistral, etc.)"]
     EscalationEngine -->|Updates| AdminUI["📊 Admin UI"]
+    AdminUI -->|Streams Metrics| CloudDashboard["☁️ Cloud Dashboard"]
 
     AdminUI -->|Manages| Redis
 
@@ -151,6 +155,7 @@ graph TD
     EscalationEngine -->|Reads| Postgres
     EscalationEngine -->|Calls for Final Verdict| LLM
     EscalationEngine -->|Updates| AdminUI
+    AdminUI -->|Streams Metrics| CloudDashboard
 
     AdminUI -->|Manages| Redis
 
