@@ -101,6 +101,38 @@ local user_agent = headers["User-Agent"]
 local remote_addr = ngx.var.remote_addr
 local request_method = ngx.req.get_method()
 local request_uri = ngx.var.request_uri or "/" -- Ensure URI is never nil
+local fingerprint_id = ngx.var.cookie_fp_id
+local ai_service_host = os.getenv("AI_SERVICE_HOST") or "ai_service"
+local ai_service_port = os.getenv("AI_SERVICE_PORT") or "8000"
+local ai_service_url = "http://" .. ai_service_host .. ":" .. ai_service_port .. "/webhook"
+local http = require "resty.http"
+local cjson = require "cjson.safe"
+
+local function forward_metadata(reason)
+  local payload = {
+    event_type = "suspicious_request",
+    reason = reason,
+    timestamp_utc = ngx.utctime(),
+    details = {
+      ip = remote_addr,
+      user_agent = user_agent,
+      path = request_uri,
+      method = request_method,
+      fingerprint_id = fingerprint_id,
+      headers = headers,
+    }
+  }
+  local httpc = http.new()
+  httpc:set_timeout(1000)
+  local res, err = httpc:request_uri(ai_service_url, {
+    method = "POST",
+    body = cjson.encode(payload),
+    headers = { ["Content-Type"] = "application/json" },
+  })
+  if not res then
+    ngx.log(ngx.ERR, "detect_bot: failed to forward metadata: ", err)
+  end
+end
 local real_backend_host = os.getenv("REAL_BACKEND_HOST") -- For proxying allowed requests
 
 ngx.log(ngx.DEBUG, "[BOT CHECK] IP: ", sanitize_for_log(remote_addr),
@@ -174,6 +206,7 @@ end
 if suspicion_score >= 0.7 then -- Adjust threshold as needed
   local reason_str = table.concat(reasons, ",")
   ngx.log(ngx.WARN, "[TAR PIT TRIGGER: High Heuristic Score] Score: ", string.format("%.2f", suspicion_score), ", IP: ", remote_addr, ", UA: ", user_agent, ", Reasons: ", reason_str)
+  forward_metadata(reason_str)
   return ngx.exec("/api/tarpit")
 else
   -- Request passed bot checks or low suspicion score
