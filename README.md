@@ -18,6 +18,7 @@ This project provides a multi-layered, microservice-based defense system against
 - **Optional Cloud Integrations:** Toggle CDN caching, DDoS mitigation, managed TLS, and a Web Application Firewall using environment variables.
 - **Plugin API:** Drop-in Python modules allow custom rules to extend detection logic.
 - **Anomaly Detection via AI:** Move beyond heuristics and integrate anomaly detection models for more adaptive security.
+- **Automated Configuration Recommendations:** AI-driven service that analyzes traffic patterns and suggests firewall and tarpit tuning.
 
 ## Getting Started (Local Development)
 
