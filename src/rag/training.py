@@ -23,6 +23,14 @@ from psycopg2.extras import DictCursor
 from typing import Optional, Dict, Any, List, Tuple
 import argparse
 
+# GeoIP lookup
+try:
+    import geoip2.database
+    GEOIP_AVAILABLE = True
+except Exception:
+    GEOIP_AVAILABLE = False
+    geoip2 = None
+
 # Attempt to import user-agents library
 try:
     from user_agents import parse as ua_parse
@@ -61,6 +69,9 @@ HUMAN_LABEL_THRESHOLD = float(os.getenv("TRAINING_HUMAN_LABEL_THRESHOLD", 0.5))
 ROBOTS_TXT_PATH = os.getenv("TRAINING_ROBOTS_TXT_PATH", "/app/config/robots.txt")
 HONEYPOT_HIT_LOG = os.getenv("TRAINING_HONEYPOT_LOG", "/app/logs/honeypot_hits.log")
 CAPTCHA_SUCCESS_LOG = os.getenv("TRAINING_CAPTCHA_LOG", "/app/logs/captcha_success.log")
+
+# Path to GeoIP database used for IP country lookup
+GEOIP_DB_PATH = os.getenv("GEOIP_DB_PATH", "/app/GeoLite2-Country.mmdb")
 
 KNOWN_BAD_UAS_STR = os.getenv("KNOWN_BAD_UAS", 'python-requests,curl,wget,scrapy,java/,ahrefsbot,semrushbot,mj12bot,dotbot,petalbot,bytespider,gptbot,ccbot,claude-web,google-extended,dataprovider,purebot,scan,masscan,zgrab,nmap')
 KNOWN_BAD_UAS = [ua.strip().lower() for ua in KNOWN_BAD_UAS_STR.split(',') if ua.strip()]
@@ -126,6 +137,24 @@ def setup_database() -> Optional[psycopg2.extensions.connection]:
 
 # --- Data Loading and Feature Engineering (Refactored for Performance) ---
 
+_geoip_reader = None
+
+def lookup_country_code(ip: str) -> str:
+    """Return ISO country code for an IP using GeoIP database."""
+    global _geoip_reader
+    if not GEOIP_AVAILABLE or not ip:
+        return ""
+    if _geoip_reader is None:
+        try:
+            _geoip_reader = geoip2.database.Reader(GEOIP_DB_PATH)
+        except Exception:
+            return ""
+    try:
+        resp = _geoip_reader.country(ip)
+        return resp.country.iso_code or ""
+    except Exception:
+        return ""
+
 def load_and_process_logs(conn: psycopg2.extensions.connection) -> pd.DataFrame:
     """
     Loads all logs from the database into a pandas DataFrame and engineers
@@ -140,6 +169,10 @@ def load_and_process_logs(conn: psycopg2.extensions.connection) -> pd.DataFrame:
         return df
 
     print("Engineering features...")
+
+    # IP-based feature using GeoIP
+    df['country_code'] = df['ip'].apply(lookup_country_code)
+    df['country_code_id'] = pd.Categorical(df['country_code']).codes
     
     # Convert timestamp to datetime objects for calculations
     df['timestamp'] = pd.to_datetime(df['timestamp_iso'])
@@ -330,7 +363,7 @@ def train_and_save_model(df: pd.DataFrame, model_path: str, model_type: str = "r
         'ua_length', 'status', 'bytes', 'path_depth', 'path_length', 'path_is_root',
         'path_is_wp', 'path_disallowed', 'ua_is_known_bad', 'ua_is_known_benign_crawler',
         'ua_is_empty', 'referer_is_empty', 'hour_of_day', 'day_of_week',
-        'req_freq_60s', 'time_since_last_sec'
+        'req_freq_60s', 'time_since_last_sec', 'country_code_id'
     ]
     
     high_conf_df['is_bot'] = high_conf_df['label'].apply(lambda x: 1 if x == 'bot' else 0)

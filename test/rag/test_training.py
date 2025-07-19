@@ -75,6 +75,17 @@ class TestTrainingPipelineComprehensive(unittest.TestCase):
         self.assertEqual(honeypot_ips, {"1.1.1.1", "2.2.2.2"})
         self.assertEqual(captcha_ips, {"3.3.3.3"}) # Only successes are counted
 
+    def test_lookup_country_code(self):
+        fake_resp = MagicMock()
+        fake_resp.country.iso_code = 'US'
+        fake_reader = MagicMock()
+        fake_reader.country.return_value = fake_resp
+        with patch('geoip2.database.Reader', return_value=fake_reader):
+            with patch.object(training, 'GEOIP_DB_PATH', '/tmp/db.mmdb'):
+                training._geoip_reader = None
+                code = training.lookup_country_code('8.8.8.8')
+        self.assertEqual(code, 'US')
+
     def test_assign_labels_and_scores(self):
         """Test the comprehensive labeling logic based on multiple factors."""
         training.disallowed_paths = {"/admin/"}
@@ -115,7 +126,8 @@ class TestTrainingPipelineComprehensive(unittest.TestCase):
             'path_is_wp': [0]*10, 'path_disallowed': [1]*5 + [0]*5, 'ua_is_known_bad': [1]*5 + [0]*5,
             'ua_is_known_benign_crawler': [0]*10, 'ua_is_empty': [0]*10, 'referer_is_empty': [1]*10,
             'hour_of_day': range(10), 'day_of_week': [d % 7 for d in range(10)],
-            'req_freq_60s': range(10), 'time_since_last_sec': range(10)
+            'req_freq_60s': range(10), 'time_since_last_sec': range(10),
+            'country_code_id': [0]*10
         })
         
         training.train_and_save_model(df, self.model_path)
@@ -170,6 +182,7 @@ class TestTrainingPipelineComprehensive(unittest.TestCase):
             'day_of_week': [1]*20,
             'req_freq_60s': [50]*10 + [1]*10,
             'time_since_last_sec': [0.1]*10 + [10]*10,
+            'country_code_id': [0]*20,
         })
 
         _, acc_rf = training.train_and_save_model(df, self.model_path, 'rf')

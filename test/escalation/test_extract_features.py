@@ -17,6 +17,7 @@ class TestExtractFeatures(unittest.TestCase):
         with (
             patch.object(ee, "is_path_disallowed", return_value=True),
             patch.object(ee, "UA_PARSER_AVAILABLE", False),
+            patch.object(ee, "get_country_code", return_value="US"),
         ):
             feats = ee.extract_features(log, freq)
         self.assertEqual(feats["ua_length"], len("Python-requests/2.0"))
@@ -28,6 +29,7 @@ class TestExtractFeatures(unittest.TestCase):
         self.assertEqual(feats["http_method"], "POST")
         self.assertEqual(feats["hour_of_day"], 12)
         self.assertEqual(feats["day_of_week"], 6)  # 2023-01-01 is Sunday
+        self.assertEqual(feats["country_code"], "US")
 
 if __name__ == "__main__":
     unittest.main()
