@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import datetime
 import importlib
+import sys
 import json
 import tempfile
 
@@ -39,6 +40,9 @@ class TestTrainingPipelineComprehensive(unittest.TestCase):
             'TRAINING_PG_PASSWORD_FILE': self.pg_password_path,
         })
         self.env_patcher.start()
+        sys.modules.setdefault('markov_train_rs', MagicMock())
+        if 'src.rag' not in sys.modules:
+            importlib.import_module('src.rag')
         importlib.reload(training)
 
     def tearDown(self):
@@ -143,7 +147,36 @@ class TestTrainingPipelineComprehensive(unittest.TestCase):
             log_data_inner = json.loads(record['log_data'])
             self.assertEqual(log_data_inner['ip'], '1.1.1.1')
             self.assertNotIn('bot_score', log_data_inner)
-            self.assertNotIn('labeling_reasons', log_data_inner)
+        self.assertNotIn('labeling_reasons', log_data_inner)
+
+    @patch('rag.training.joblib.dump')
+    def test_model_accuracy_comparison(self, mock_dump):
+        """Ensure RandomForest and XGBoost models both train and return accuracy."""
+        df = pd.DataFrame({
+            'label': ['bot'] * 10 + ['human'] * 10,
+            'ua_length': [20]*20,
+            'status': [200]*20,
+            'bytes': [150]*20,
+            'path_depth': [1]*20,
+            'path_length': [10]*20,
+            'path_is_root': [0]*20,
+            'path_is_wp': [0]*20,
+            'path_disallowed': [1]*10 + [0]*10,
+            'ua_is_known_bad': [1]*10 + [0]*10,
+            'ua_is_known_benign_crawler': [0]*20,
+            'ua_is_empty': [0]*20,
+            'referer_is_empty': [1]*20,
+            'hour_of_day': [12]*20,
+            'day_of_week': [1]*20,
+            'req_freq_60s': [50]*10 + [1]*10,
+            'time_since_last_sec': [0.1]*10 + [10]*10,
+        })
+
+        _, acc_rf = training.train_and_save_model(df, self.model_path, 'rf')
+        _, acc_xgb = training.train_and_save_model(df, self.model_path, 'xgb')
+
+        self.assertGreaterEqual(acc_rf, 0.9)
+        self.assertGreaterEqual(acc_xgb, 0.9)
 
 if __name__ == '__main__':
     unittest.main()

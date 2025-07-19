@@ -8,7 +8,7 @@ The AI Scraping Defense Stack is in its early stages, providing a containerized 
 
 These features and enhancements are prioritized for near-term development:
 
-* **Expanded ML Heuristics** – Improve the trained **Random Forest model** for better bot detection accuracy.  
+* **Expanded ML Heuristics** – Improve the trained ML models (RandomForest, XGBoost, etc.) for better bot detection accuracy.
 * **Adaptive Rate-Limiting** – Basic per-IP rate limiting implemented via Nginx `limit_req`.
 * **Improved Admin UI** – Expand dashboard analytics for better visibility into bot trends and blocked traffic.  
 * **Better IP Reputation Handling** – Enhance integrations with public/community blocklists for real-time threat assessment.
