@@ -55,7 +55,7 @@ First, run the secret generation script:
 - **On Linux/macOS:** bash ./generate_secrets.sh
 - **On Windows:** .Generate-Secrets.ps1
 
-This creates a kubernetes/secrets.yaml file with securely generated, base64-encoded values.
+This creates a `kubernetes/secrets.yaml` file with securely generated, base64-encoded values and prints the plaintext credentials to your console.
 
 **IMPORTANT:** Before applying, open kubernetes/secrets.yaml and replace the placeholder API keys (e.g., YOUR_BASE64_ENCODED_OPENAI_API_KEY) with your actual, base64-encoded keys if you plan to use those services.
 

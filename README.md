@@ -64,12 +64,16 @@ For a one-command setup, run `./quickstart_dev.sh` on Linux/macOS or `quickstart
     ```
 
 4. **Generate Secrets:**
-    Run the secret generation script. This will create passwords for the database, admin UI, etc., and store them in the `.env` file for Docker Compose to use.
+    Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console. The script **does not** modify `.env` unless you use the optional `--update-env` flag.
 
     *On Linux or macOS:*
 
     ```bash
+    # prints credentials only
     bash ./generate_secrets.sh
+
+    # optionally update .env with the generated values
+    bash ./generate_secrets.sh --update-env
     ```
 
     *On Windows (in a PowerShell terminal):*
