@@ -120,6 +120,16 @@ MailHog is used to capture emails sent by the application for testing purposes. 
 
 You can extend the detection heuristics by placing Python modules inside the `plugins/` directory. Set `ENABLE_PLUGINS=true` in your `.env` file and restart the stack. Each module should define a `check(metadata)` function returning a numeric adjustment.
 
+### **6.4. Running a WordPress Test Site**
+
+If you want to see how the defense stack performs in front of a real CMS, a helper script is provided to launch a WordPress instance and wire it into the proxy.
+
+```bash
+./setup_wordpress_website.sh
+```
+
+The script starts the Docker Compose stack (if it is not already running) and then launches WordPress and its MariaDB database on the same `defense_network`. Traffic allowed by the proxy will reach WordPress via `REAL_BACKEND_HOST`. Once started you can visit the site directly at [http://localhost:8082](http://localhost:8082) or through the defense stack at [http://localhost:8080](http://localhost:8080).
+
 ### **7. Stopping the Application**
 
 To stop the application stack, you can run:
