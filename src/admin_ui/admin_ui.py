@@ -58,6 +58,12 @@ app = FastAPI()
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
+# Editable runtime settings managed via the Admin UI
+RUNTIME_SETTINGS = {
+    "LOG_LEVEL": os.getenv("LOG_LEVEL", "INFO"),
+    "ESCALATION_ENDPOINT": CONFIG.ESCALATION_ENDPOINT,
+}
+
 
 @pass_context
 def _jinja_url_for(context, name: str, **path_params) -> str:
@@ -191,10 +197,36 @@ async def settings_page(request: Request):
     """Renders the system settings page."""
     current_settings = {
         "Model URI": os.getenv("MODEL_URI", "Not Set"),
-        "Log Level": os.getenv("LOG_LEVEL", "INFO"),
-        "Escalation Engine URL": CONFIG.ESCALATION_ENDPOINT,
+        "LOG_LEVEL": RUNTIME_SETTINGS["LOG_LEVEL"],
+        "ESCALATION_ENDPOINT": RUNTIME_SETTINGS["ESCALATION_ENDPOINT"],
     }
-    return templates.TemplateResponse("settings.html", {"request": request, "settings": current_settings})
+    return templates.TemplateResponse(
+        "settings.html", {"request": request, "settings": current_settings}
+    )
+
+
+@app.post("/settings", response_class=HTMLResponse)
+async def update_settings(request: Request):
+    """Update editable settings from form data."""
+    form = await request.form()
+    log_level = form.get("LOG_LEVEL")
+    escalation_endpoint = form.get("ESCALATION_ENDPOINT")
+
+    if log_level:
+        RUNTIME_SETTINGS["LOG_LEVEL"] = log_level
+        os.environ["LOG_LEVEL"] = log_level
+    if escalation_endpoint:
+        RUNTIME_SETTINGS["ESCALATION_ENDPOINT"] = escalation_endpoint
+        os.environ["ESCALATION_ENDPOINT"] = escalation_endpoint
+
+    current_settings = {
+        "Model URI": os.getenv("MODEL_URI", "Not Set"),
+        "LOG_LEVEL": RUNTIME_SETTINGS["LOG_LEVEL"],
+        "ESCALATION_ENDPOINT": RUNTIME_SETTINGS["ESCALATION_ENDPOINT"],
+    }
+    return templates.TemplateResponse(
+        "settings.html", {"request": request, "settings": current_settings, "updated": True}
+    )
 
 
 if __name__ == "__main__":

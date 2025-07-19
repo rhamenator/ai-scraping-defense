@@ -4,61 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Scraping Defense - Admin Dashboard</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            line-height: 1.6;
-            margin: 20px;
-            background-color: #f4f4f4;
-            color: #333;
-        }
-        .container {
-            max-width: 900px;
-            margin: auto;
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        h1, h2 {
-            color: #555;
-        }
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        .metric-card {
-            background: #e9ecef;
-            padding: 15px;
-            border-radius: 5px;
-            text-align: center;
-        }
-        .metric-card h3 {
-            margin-top: 0;
-            font-size: 1em;
-            color: #495057;
-            text-transform: capitalize; /* Display keys nicely */
-        }
-        .metric-value {
-            font-size: 1.8em;
-            font-weight: bold;
-            color: #007bff;
-        }
-        #last-updated {
-            margin-top: 20px;
-            font-size: 0.9em;
-            color: #6c757d;
-            text-align: right;
-        }
-        #error-message {
-            color: red;
-            font-weight: bold;
-            margin-top: 10px;
-            display: none; /* Hidden by default */
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
 </head>
 <body>
     <div class="container">
