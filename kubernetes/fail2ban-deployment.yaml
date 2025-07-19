@@ -1,0 +1,59 @@
+# kubernetes/fail2ban-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fail2ban
+  namespace: ai-defense
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fail2ban
+  template:
+    metadata:
+      labels:
+        app: fail2ban
+    spec:
+      containers:
+      - name: fail2ban
+        image: crazymax/fail2ban:latest
+        imagePullPolicy: Always
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN", "NET_RAW"]
+        volumeMounts:
+        - name: nginx-logs
+          mountPath: /var/log/nginx
+          readOnly: true
+        - name: fail2ban-config
+          mountPath: /data
+        env:
+        - name: IPTABLES_MODE
+          value: "nft"
+      volumes:
+      - name: nginx-logs
+        persistentVolumeClaim:
+          claimName: nginx-logs-pvc
+      - name: fail2ban-config
+        configMap:
+          name: fail2ban-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fail2ban-config
+  namespace: ai-defense
+data:
+  jail.local: |
+    [nginx-blocklist]
+    enabled = true
+    filter = nginx-blocklist
+    logpath = /var/log/nginx/error.log
+    bantime = 86400
+    findtime = 300
+    maxretry = 1
+    action = iptables-allports[name=nginx-blocklist]
+  filter.d/nginx-blocklist.conf: |
+    [Definition]
+    failregex = check_blocklist: Blocking IP <HOST>
+    ignoreregex =

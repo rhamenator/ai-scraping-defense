@@ -166,3 +166,24 @@ The stack can integrate with external services for enhanced protection. Each int
 - **Web Application Firewall (`ENABLE_WAF`)** – Applies additional request filtering using customizable rules.
 
 These features are optional so deployments remain lightweight when cloud services are unavailable.
+
+## Local IP Banning with Fail2ban
+
+Fail2ban monitors the shared Nginx logs and inserts firewall rules using
+`iptables` or `nftables` when an IP is blocked by the Lua script. The log line
+`check_blocklist: Blocking IP <ip>` triggers a temporary ban matching the Redis
+blocklist TTL.
+
+### Activation Steps
+
+1. **Docker Compose** – Ensure the `fail2ban` service is enabled and start it
+   alongside the other containers:
+   ```bash
+   docker compose up -d fail2ban
+   ```
+2. **Kubernetes** – Apply `nginx-logs-pvc.yaml`, update the `nginx-deployment`
+   to mount this volume, then deploy `fail2ban-deployment.yaml`.
+
+Fail2ban runs with `NET_ADMIN` and `NET_RAW` capabilities so it can modify host
+firewall rules. Review these permissions and adjust `bantime` and `findtime`
+within the jail to fit your security policy.
