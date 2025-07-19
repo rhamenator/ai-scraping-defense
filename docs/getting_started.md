@@ -61,12 +61,14 @@ This script will create a virtual environment in the .venv directory, install al
 
 ### **4. Generate Local Secrets**
 
-The application requires several secrets to run (e.g., database passwords). A script is provided to generate these securely and automatically populate your .env file.
+The application requires several secrets to run (e.g., database passwords). A script is provided to generate these securely. It creates `kubernetes/secrets.yaml` and prints the credentials to your console. By default it **does not** modify your `.env` file.
 
 * **On Linux or macOS:**
 
 ```  bash
   ./generate_secrets.sh
+  # optionally update your .env automatically
+  ./generate_secrets.sh --update-env
 ```
 
 * **On Windows (in a PowerShell terminal):**

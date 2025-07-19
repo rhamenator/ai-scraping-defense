@@ -9,7 +9,28 @@ K8S_DIR="$SCRIPT_DIR/kubernetes"; mkdir -p "$K8S_DIR"; OUTPUT_FILE="$K8S_DIR/sec
 HTPASSWD_OUTPUT_FILE="$SCRIPT_DIR/nginx/.htpasswd"
 
 # --- Functions ---
-generate_password() { LC_ALL=C tr -dc 'A-Za-z0-9_!@#$%^&*' < /dev/urandom | head -c "${1:-24}"; }
+generate_password() {
+  LC_ALL=C tr -dc 'A-Za-z0-9_!@#$%^&*' < /dev/urandom | head -c "${1:-24}"
+}
+
+update_env=false
+for arg in "$@"; do
+  case "$arg" in
+    --update-env)
+      update_env=true
+      shift
+      ;;
+  esac
+done
+
+update_var() {
+  local key="$1" value="$2" file="$3"
+  if grep -q "^${key}=" "$file"; then
+    sed -i.bak "s|^${key}=.*|${key}=${value}|" "$file" && rm -f "${file}.bak"
+  else
+    echo "${key}=${value}" >> "$file"
+  fi
+}
 
 # --- Main Logic ---
 echo -e "${CYAN}Generating secrets for Kubernetes...${NC}"
@@ -126,6 +147,30 @@ echo -e "${YELLOW}--- End of credentials ---${NC}"
 echo -e "${GREEN}Kubernetes secrets manifest file created at: ${OUTPUT_FILE}${NC}"
 echo -e "${YELLOW}You can now apply the secrets to your Kubernetes cluster using:${NC}"
 echo -e "  kubectl apply -f ${OUTPUT_FILE}${NC}"
+# Optionally update .env with generated values
+if [ "$update_env" = true ]; then
+  ENV_FILE="$SCRIPT_DIR/.env"
+  if [ ! -f "$ENV_FILE" ] && [ -f "$SCRIPT_DIR/sample.env" ]; then
+    cp "$SCRIPT_DIR/sample.env" "$ENV_FILE"
+  fi
+  echo -e "${CYAN}Updating ${ENV_FILE} with generated values...${NC}"
+  update_var POSTGRES_PASSWORD "$POSTGRES_PASSWORD" "$ENV_FILE"
+  update_var REDIS_PASSWORD "$REDIS_PASSWORD" "$ENV_FILE"
+  update_var ADMIN_UI_USERNAME "$ADMIN_UI_USERNAME" "$ENV_FILE"
+  update_var ADMIN_UI_PASSWORD "$ADMIN_UI_PASSWORD" "$ENV_FILE"
+  update_var SYSTEM_SEED "$SYSTEM_SEED" "$ENV_FILE"
+  update_var NGINX_PASSWORD "$NGINX_PASSWORD" "$ENV_FILE"
+  update_var OPENAI_API_KEY "$OPENAI_API_KEY" "$ENV_FILE"
+  update_var ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY" "$ENV_FILE"
+  update_var GOOGLE_API_KEY "$GOOGLE_API_KEY" "$ENV_FILE"
+  update_var COHERE_API_KEY "$COHERE_API_KEY" "$ENV_FILE"
+  update_var MISTRAL_API_KEY "$MISTRAL_API_KEY" "$ENV_FILE"
+  update_var EXTERNAL_API_KEY "$EXTERNAL_API_KEY" "$ENV_FILE"
+  update_var IP_REPUTATION_API_KEY "$IP_REPUTATION_API_KEY" "$ENV_FILE"
+  update_var COMMUNITY_BLOCKLIST_API_KEY "$COMMUNITY_BLOCKLIST_API_KEY" "$ENV_FILE"
+  update_var SMTP_PASSWORD "$SMTP_PASSWORD" "$ENV_FILE"
+fi
+
 echo -e "${GREEN}Secrets Generation Complete!${NC}"
 echo -e "${NC}"
 # End of script
