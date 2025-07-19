@@ -1,0 +1,13 @@
+# kubernetes/nginx-logs-pvc.yaml
+# Persistent storage for shared Nginx logs.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nginx-logs-pvc
+  namespace: ai-defense
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi

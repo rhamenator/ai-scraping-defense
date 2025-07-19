@@ -74,6 +74,8 @@ spec:
         - name: nginx-auth-secret
           mountPath: /etc/nginx/secrets
           readOnly: true
+        - name: nginx-logs
+          mountPath: /var/log/nginx
       volumes:
       - name: nginx-config
         configMap:
@@ -91,3 +93,6 @@ spec:
       - name: nginx-auth-secret
         secret:
           secretName: nginx-auth
+      - name: nginx-logs
+        persistentVolumeClaim:
+          claimName: nginx-logs-pvc

@@ -51,6 +51,7 @@ services:
       - nginx_fastcgi_temp:/var/cache/nginx/fastcgi_temp
       - nginx_uwsgi_temp:/var/cache/nginx/uwsgi_temp
       - nginx_scgi_temp:/var/cache/nginx/scgi_temp
+      - nginx_logs:/var/log/nginx
     environment:
       - LUA_PATH=/usr/local/openresty/lualib/?.lua;;
       - AI_SERVICE_HOST=ai_service
@@ -215,6 +216,22 @@ services:
       timeout: 5s
       retries: 5
 
+  fail2ban:
+    image: crazymax/fail2ban:latest
+    container_name: fail2ban
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./fail2ban:/data
+      - nginx_logs:/var/log/nginx:ro
+    env_file:
+      - .env
+    restart: unless-stopped
+    depends_on:
+      - nginx_proxy
+
 networks:
   defense_network:
     driver: bridge
@@ -227,3 +244,4 @@ volumes:
   nginx_fastcgi_temp:
   nginx_uwsgi_temp:
   nginx_scgi_temp:
+  nginx_logs:
