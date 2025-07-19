@@ -11,6 +11,7 @@ This project provides a multi-layered, microservice-based defense system against
 - **End-User Verification:** Optional reCAPTCHA challenge service logs successful verifications for training data.
 - **Rate Limiting:** Adaptive per-IP limits updated by a small daemon writing to Nginx.
 - **Community Blocklist:** Optional daemon to sync IPs from a shared blocklist service.
+- **Public Community Blocklist Service:** Lightweight FastAPI app for contributors to share and fetch malicious IPs.
 - **Containerized:** Fully containerized with Docker and ready for deployment on Kubernetes.
 - **Multi-Tenant Ready:** Namespace configuration and Redis keys with `TENANT_ID` for easy isolation.
 - **Optional Cloud Integrations:** Toggle CDN caching, DDoS mitigation, managed TLS, and a Web Application Firewall using environment variables.
