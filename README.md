@@ -176,3 +176,13 @@ This flexibility makes it easy to experiment with different classifiers.
 ## Automated Deployment
 
 Use `./quick_deploy.sh` (Linux/macOS) or `quick_deploy.ps1` (Windows) for a streamlined Kubernetes deployment. These scripts generate required secrets and apply all manifests using kubectl.
+
+## Load Testing Helpers
+
+To experiment with the stack's performance under load, run the helper script:
+
+```bash
+./setup_load_test_suite.sh
+```
+
+It installs common open-source tools such as **wrk**, **siege**, **ab**, **k6**, and **locust**. Use them responsibly and only against environments you control.
