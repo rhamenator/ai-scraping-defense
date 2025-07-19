@@ -5,6 +5,7 @@ from typing import Dict, Any, Optional, Union
 import httpx
 import os
 import datetime
+from src.shared.config import tenant_key
 import time
 import json
 import numpy as np
@@ -132,7 +133,7 @@ ROBOTS_TXT_PATH = CONFIG.TRAINING_ROBOTS_TXT_PATH
 
 REDIS_DB_FREQUENCY = CONFIG.REDIS_DB_FREQUENCY
 FREQUENCY_WINDOW_SECONDS = CONFIG.FREQUENCY_WINDOW_SECONDS
-FREQUENCY_KEY_PREFIX = "freq:"
+FREQUENCY_KEY_PREFIX = os.getenv("FREQUENCY_KEY_PREFIX") or tenant_key("freq:")
 FREQUENCY_TRACKING_TTL = FREQUENCY_WINDOW_SECONDS + 60
 
 # Browser fingerprint tracking configuration
@@ -385,7 +386,7 @@ def track_fingerprint(fingerprint: str, ip: str) -> int:
     if not FINGERPRINT_TRACKING_ENABLED or not fingerprint or not redis_client_fingerprints:
         return 1
     try:
-        key = f"fp:{fingerprint}"
+        key = tenant_key(f"fp:{fingerprint}")
         redis_client_fingerprints.sadd(key, ip)
         redis_client_fingerprints.expire(key, FINGERPRINT_WINDOW_SECONDS)
         return int(redis_client_fingerprints.scard(key))

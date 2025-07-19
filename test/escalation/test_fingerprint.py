@@ -27,9 +27,9 @@ class TestFingerprinting(unittest.TestCase):
         ):
             mock_redis.scard.return_value = 2
             count = ee.track_fingerprint("abc", "1.1.1.1")
-        mock_redis.sadd.assert_called_once_with("fp:abc", "1.1.1.1")
-        mock_redis.expire.assert_called_once_with("fp:abc", ee.FINGERPRINT_WINDOW_SECONDS)
-        mock_redis.scard.assert_called_once_with("fp:abc")
+        mock_redis.sadd.assert_called_once_with("default:fp:abc", "1.1.1.1")
+        mock_redis.expire.assert_called_once_with("default:fp:abc", ee.FINGERPRINT_WINDOW_SECONDS)
+        mock_redis.scard.assert_called_once_with("default:fp:abc")
         self.assertEqual(count, 2)
 
 if __name__ == "__main__":

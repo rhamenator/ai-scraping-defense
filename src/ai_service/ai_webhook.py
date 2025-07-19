@@ -16,7 +16,7 @@ import datetime
 import pprint
 import os
 from redis.exceptions import ConnectionError, RedisError
-from src.shared.config import CONFIG
+from src.shared.config import CONFIG, tenant_key
 from src.shared.redis_client import get_redis_connection as shared_get_redis_connection
 import json
 import httpx
@@ -69,7 +69,7 @@ logger = logging.getLogger(__name__)  # Use __name__ for module-specific logger
 REDIS_HOST = CONFIG.REDIS_HOST
 REDIS_PORT = CONFIG.REDIS_PORT
 REDIS_DB_BLOCKLIST = CONFIG.REDIS_DB_BLOCKLIST
-BLOCKLIST_KEY_PREFIX = "blocklist:ip:"
+BLOCKLIST_KEY_PREFIX = tenant_key("blocklist:ip:")
 BLOCKLIST_TTL_SECONDS = CONFIG.BLOCKLIST_TTL_SECONDS
 
 ALERT_METHOD = CONFIG.ALERT_METHOD
@@ -448,17 +448,17 @@ async def webhook_receiver(request: Request):
 
     try:
         if action == "block_ip":
-            redis_conn.sadd("blocklist", ip)
+            redis_conn.sadd(tenant_key("blocklist"), ip)
             return {"status": "success", "message": f"IP {ip} added to blocklist."}
         elif action == "allow_ip":
-            redis_conn.srem("blocklist", ip)
+            redis_conn.srem(tenant_key("blocklist"), ip)
             return {"status": "success", "message": f"IP {ip} removed from blocklist."}
         elif action == "flag_ip":
             reason = payload.get("reason", "")
-            redis_conn.set(f"ip_flag:{ip}", reason)
+            redis_conn.set(tenant_key(f"ip_flag:{ip}"), reason)
             return {"status": "success", "message": f"IP {ip} flagged."}
         elif action == "unflag_ip":
-            redis_conn.delete(f"ip_flag:{ip}")
+            redis_conn.delete(tenant_key(f"ip_flag:{ip}"))
             return {"status": "success", "message": f"IP {ip} unflagged."}
         else:
             raise HTTPException(status_code=400, detail=f"Invalid action: {action}")

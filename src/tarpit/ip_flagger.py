@@ -7,6 +7,7 @@ import sys
 import logging
 import os
 from src.shared.redis_client import get_redis_connection
+from src.shared.config import tenant_key
 
 # Configure logging for this module
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -23,7 +24,7 @@ FLAGGED_IP_TTL_SECONDS = int(os.getenv("FLAGGED_IP_TTL_SECONDS", 604800))
 REPEAT_OFFENDER_THRESHOLD = int(os.getenv("REPEAT_OFFENDER_THRESHOLD", 3))
 
 # Internal counter key prefix for tracking how many times an IP was flagged.
-FLAG_COUNT_PREFIX = "ip_flag_count:"
+FLAG_COUNT_PREFIX = tenant_key("ip_flag_count:")
 
 def flag_suspicious_ip(ip_address: str, reason: str = "Suspicious activity"):
     """
@@ -42,7 +43,7 @@ def flag_suspicious_ip(ip_address: str, reason: str = "Suspicious activity"):
         flag_count = r.incr(count_key)
         r.expire(count_key, FLAGGED_IP_TTL_SECONDS)
 
-        flag_key = f"ip_flag:{ip_address}"
+        flag_key = tenant_key(f"ip_flag:{ip_address}")
         if flag_count > REPEAT_OFFENDER_THRESHOLD:
             # Repeat offenders are stored without expiration
             r.set(flag_key, reason)
@@ -66,7 +67,7 @@ def is_ip_flagged(ip_address: str) -> bool:
     if r:
         try:
             # FIX: r.exists() returns an int (0 or 1), not a bool. Cast it.
-            return bool(r.exists(f"ip_flag:{ip_address}"))
+            return bool(r.exists(tenant_key(f"ip_flag:{ip_address}")))
         except Exception as e:
             logger.error(f"Failed to check IP {ip_address} in Redis: {e}")
             return False
@@ -84,7 +85,7 @@ def remove_ip_flag(ip_address: str):
         return False
 
     try:
-        r.delete(f"ip_flag:{ip_address}")
+        r.delete(tenant_key(f"ip_flag:{ip_address}"))
         r.delete(f"{FLAG_COUNT_PREFIX}{ip_address}")
         logger.info(f"Removed flag for IP: {ip_address}")
         return True
