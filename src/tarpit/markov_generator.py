@@ -155,8 +155,8 @@ def get_next_word_from_db(word1_id, word2_id):
         cursor.execute(
             """
             SELECT w.word, s.freq
-            FROM sequences s
-            JOIN words w ON s.next_id = w.id
+            FROM markov_sequences s
+            JOIN markov_words w ON s.next_id = w.id
             WHERE s.p1 = %s AND s.p2 = %s
             ORDER BY s.freq DESC, random() -- Add random() for variety among equal frequencies
             LIMIT 20; -- Limit results for performance
@@ -202,7 +202,7 @@ def get_word_id(word):
         return 1 # ID for empty string (start/end token)
 
     try:
-        cursor.execute("SELECT id FROM words WHERE word = %s", (word,))
+        cursor.execute("SELECT id FROM markov_words WHERE word = %s", (word,))
         result = cursor.fetchone()
         return result[0] if result else 1  # Default to empty string ID if word not found
     except Exception as e:

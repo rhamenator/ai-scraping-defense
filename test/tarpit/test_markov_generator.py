@@ -152,7 +152,7 @@ class TestMarkovGenerator(unittest.TestCase):
 
         word_id = markov_generator.get_word_id("testword")
         self.assertEqual(word_id, 123)
-        mock_cursor.execute.assert_called_once_with("SELECT id FROM words WHERE word = %s", ("testword",))
+        mock_cursor.execute.assert_called_once_with("SELECT id FROM markov_words WHERE word = %s", ("testword",))
 
     @patch("src.tarpit.markov_generator._get_db_connection")
     def test_get_word_id_not_found_returns_empty_id(self, mock_get_conn):

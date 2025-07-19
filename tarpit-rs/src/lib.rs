@@ -22,13 +22,13 @@ fn get_connection() -> Result<Client, postgres::Error> {
 
 fn get_word_id(client: &mut Client, word: &str) -> i32 {
     if word.is_empty() { return 1; }
-    if let Ok(row) = client.query_opt("SELECT id FROM words WHERE word = $1", &[&word]) {
+    if let Ok(row) = client.query_opt("SELECT id FROM markov_words WHERE word = $1", &[&word]) {
         row.map(|r| r.get::<usize, i32>(0)).unwrap_or(1)
     } else { 1 }
 }
 
 fn get_next_word_from_db(client: &mut Client, w1: i32, w2: i32) -> Option<String> {
-    let stmt = "SELECT w.word, s.freq FROM sequences s JOIN words w ON s.next_id = w.id WHERE s.p1 = $1 AND s.p2 = $2 ORDER BY s.freq DESC, random() LIMIT 20";
+    let stmt = "SELECT w.word, s.freq FROM markov_sequences s JOIN markov_words w ON s.next_id = w.id WHERE s.p1 = $1 AND s.p2 = $2 ORDER BY s.freq DESC, random() LIMIT 20";
     match client.query(stmt, &[&w1, &w2]) {
         Ok(rows) if !rows.is_empty() => {
             let words: Vec<String> = rows.iter().map(|r| r.get(0)).collect();
