@@ -111,6 +111,7 @@ This setup uses Docker Compose to orchestrate all the necessary services on your
 - `Dockerfile`: A single Dockerfile used to build the base image for all Python services.
 - `rag/train_markov_postgres.py`: Python script for loading Markov training data into PostgreSQL.
 - `jszip-rs/`: Rust implementation of the fake JavaScript archive generator.
+- `markov-train-rs/`: Rust implementation of the Markov training utility.
 
 ## Markov Training Utility (Python)
 
@@ -125,6 +126,19 @@ python src/rag/train_markov_postgres.py path/to/corpus.txt
 ```
 
 Ensure the database credentials are available through environment variables or a password file as described above.
+
+## Markov Training Utility (Rust)
+
+`markov-train-rs` provides a Rust implementation of the same training logic. It exposes a `train_from_corpus_rs` function callable from Python via PyO3.
+
+Build the extension with Cargo:
+
+```bash
+cd markov-train-rs
+cargo build --release
+```
+
+The compiled `markov_train_rs` module can then be imported from Python to accelerate Markov corpus ingestion.
 
 ## JS ZIP Generator (Rust)
 
