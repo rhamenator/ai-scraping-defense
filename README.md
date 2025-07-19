@@ -108,35 +108,27 @@ This setup uses Docker Compose to orchestrate all the necessary services on your
 - `docs/`: Project documentation, including architecture and data flows.
 - `test/`: Unit tests for the Python services.
 - `sample.env`: Template for local development configuration.
-- `docker-compose.yaml`: Orchestrates the services for local development.
 - `Dockerfile`: A single Dockerfile used to build the base image for all Python services.
-- `markov-train-rs/`: Rust utility for loading Markov training data into PostgreSQL.
+- `rag/train_markov_postgres.py`: Python script for loading Markov training data into PostgreSQL.
 - `jszip-rs/`: Rust implementation of the fake JavaScript archive generator.
 
-## Markov Training Utility (Rust)
+## Markov Training Utility (Python)
 
-`markov-train-rs` is a small command-line application that reads a text corpus and populates the Markov chain tables in PostgreSQL. The program uses the same environment variables as the Python script (`PG_HOST`, `PG_PORT`, `PG_DBNAME`, `PG_USER`, and `PG_PASSWORD_FILE`).
-
-### Building
-
-```bash
-cd markov-train-rs
-cargo build --release
-```
+`rag/train_markov_postgres.py` reads a text corpus and populates the Markov chain tables in PostgreSQL. The script uses environment variables for database credentials (`PG_HOST`, `PG_PORT`, `PG_DBNAME`, `PG_USER`, and `PG_PASSWORD_FILE`).
 
 ### Running
 
-Provide the path to a corpus file:
+Provide the path to a corpus file as an argument:
 
 ```bash
-./target/release/markov-train-rs path/to/corpus.txt
+python src/rag/train_markov_postgres.py path/to/corpus.txt
 ```
 
 Ensure the database credentials are available through environment variables or a password file as described above.
 
 ## JS ZIP Generator (Rust)
 
-`jszip-rs` provides an optional Rust backend for generating the large fake JavaScript archives used by the tarpit. It can be built with Cargo similar to `markov-train-rs`:
+`jszip-rs` provides an optional Rust backend for generating the large fake JavaScript archives used by the tarpit. It can be built with Cargo:
 
 ```bash
 cd jszip-rs
