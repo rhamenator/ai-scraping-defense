@@ -16,6 +16,14 @@ import sys
 import ipaddress
 import hashlib
 
+# GeoIP
+try:
+    import geoip2.database
+    GEOIP_AVAILABLE = True
+except Exception:
+    geoip2 = None
+    GEOIP_AVAILABLE = False
+
 # --- Refactored Imports ---
 from src.shared.model_provider import get_model_adapter
 from src.shared.decision_db import record_decision
@@ -132,6 +140,9 @@ REDIS_DB_FINGERPRINTS = CONFIG.REDIS_DB_FINGERPRINTS
 FINGERPRINT_WINDOW_SECONDS = CONFIG.FINGERPRINT_WINDOW_SECONDS
 FINGERPRINT_REUSE_THRESHOLD = CONFIG.FINGERPRINT_REUSE_THRESHOLD
 
+# GeoIP database path
+GEOIP_DB_PATH = os.getenv("GEOIP_DB_PATH", "/app/GeoLite2-Country.mmdb")
+
 HEURISTIC_THRESHOLD_LOW = 0.3
 HEURISTIC_THRESHOLD_MEDIUM = 0.6
 HEURISTIC_THRESHOLD_HIGH = 0.8
@@ -205,9 +216,29 @@ def is_path_disallowed(path):
     if not path or not disallowed_paths: return False
     try:
         for disallowed in disallowed_paths:
-            if disallowed and path.startswith(disallowed): return True 
+            if disallowed and path.startswith(disallowed): return True
     except Exception: pass
     return False
+
+# --- GeoIP Lookup ---
+_geoip_reader = None
+
+def get_country_code(ip: str) -> str:
+    """Return ISO country code for IP using GeoIP database."""
+    global _geoip_reader
+    if not GEOIP_AVAILABLE or not ip:
+        return ""  # empty string if unavailable
+    if _geoip_reader is None:
+        try:
+            _geoip_reader = geoip2.database.Reader(GEOIP_DB_PATH)
+        except Exception as e:
+            logger.error(f"Failed to load GeoIP DB: {e}")
+            return ""
+    try:
+        resp = _geoip_reader.country(ip)
+        return resp.country.iso_code or ""
+    except Exception:
+        return ""
 
 load_robots_txt(ROBOTS_TXT_PATH) 
 
@@ -218,6 +249,9 @@ def extract_features(log_entry_dict: Dict[str, Any], freq_features: Dict[str, An
     ua_string = log_entry_dict.get('user_agent', '') or ''
     referer = log_entry_dict.get('referer', '') or ''
     path = log_entry_dict.get('path', '') or ''
+    ip_addr = log_entry_dict.get('ip', '') or ''
+
+    features['country_code'] = get_country_code(ip_addr)
     
     features['ua_length'] = len(ua_string) 
     features['status_code'] = log_entry_dict.get('status', 0)
