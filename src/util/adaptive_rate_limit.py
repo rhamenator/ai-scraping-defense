@@ -1,7 +1,10 @@
 import statistics
 from typing import Iterable
 
-def compute_rate_limit(recent_counts: Iterable[int], base_rate: int = 60, multiplier: float = 1.5) -> int:
+
+def compute_rate_limit(
+    recent_counts: Iterable[int], base_rate: int = 60, multiplier: float = 1.5
+) -> int:
     """Compute a new per-minute rate limit based on recent request counts.
 
     If the average of recent_counts exceeds base_rate * multiplier, the new limit

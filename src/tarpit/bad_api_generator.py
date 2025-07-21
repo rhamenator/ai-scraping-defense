@@ -13,12 +13,14 @@ from fastapi.responses import JSONResponse
 
 try:
     from src.shared.honeypot_logger import log_honeypot_hit
+
     HONEYPOT_LOGGING_AVAILABLE = True
 except Exception:  # pragma: no cover - optional dependency
     HONEYPOT_LOGGING_AVAILABLE = False
 
     def log_honeypot_hit(details: dict) -> None:  # type: ignore[empty-body]
         return
+
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +60,7 @@ def register_bad_endpoints(app: FastAPI, count: int = 5) -> List[str]:
     GENERATED_BAD_API_ENDPOINTS = endpoints
 
     for path in endpoints:
+
         async def handler(request: Request, path: str = path):
             client_ip = request.client.host if request.client else "unknown"
             ua = request.headers.get("user-agent", "unknown")
@@ -81,4 +84,3 @@ def register_bad_endpoints(app: FastAPI, count: int = 5) -> List[str]:
             methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
         )
     return endpoints
-

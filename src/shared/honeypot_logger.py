@@ -17,26 +17,30 @@ os.makedirs(os.path.dirname(HONEYPOT_LOG_FILE), exist_ok=True)
 # --- Logger Setup ---
 
 # Create a specific logger instance
-honeypot_logger = logging.getLogger('honeypot_logger')
+honeypot_logger = logging.getLogger("honeypot_logger")
 honeypot_logger.setLevel(logging.INFO)
 honeypot_logger.propagate = False  # Prevent duplicating logs to root logger
 # Ensure attribute exists for tests that patch logging.getLogger
-if not hasattr(honeypot_logger, 'handlers'):
+if not hasattr(honeypot_logger, "handlers"):
     honeypot_logger.handlers = []
+
 
 # Create a JSON formatter
 class JsonFormatter(logging.Formatter):
     def format(self, record):
         log_record = {
-            'timestamp': datetime.datetime.fromtimestamp(
+            "timestamp": datetime.datetime.fromtimestamp(
                 record.created, datetime.timezone.utc
-            ).isoformat().replace('+00:00', 'Z'),
-            'level': record.levelname,
-            'message': record.getMessage(),
+            )
+            .isoformat()
+            .replace("+00:00", "Z"),
+            "level": record.levelname,
+            "message": record.getMessage(),
             # Add extra context passed to the logger
-            **getattr(record, 'details', {})
+            **getattr(record, "details", {}),
         }
         return json.dumps(log_record)
+
 
 # Configure file handler only if not already configured (prevents duplicates on reload)
 if not honeypot_logger.hasHandlers():
@@ -55,6 +59,7 @@ if not honeypot_logger.hasHandlers():
 
 # --- Logging Function ---
 
+
 def log_honeypot_hit(details: dict):
     """
     Logs a honeypot hit event with structured details.
@@ -65,10 +70,11 @@ def log_honeypot_hit(details: dict):
     """
     try:
         # Use the 'extra' argument mechanism for structured logging
-        honeypot_logger.info("Honeypot triggered", extra={'details': details})
+        honeypot_logger.info("Honeypot triggered", extra={"details": details})
     except Exception as e:
         # Log error to stderr if logger fails
         print(f"ERROR in log_honeypot_hit: {e}. Details: {details}")
+
 
 # Example usage (for testing this module directly)
 # if __name__ == "__main__":

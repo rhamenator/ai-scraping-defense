@@ -17,7 +17,7 @@ class TestBadApiGenerator(unittest.TestCase):
 
     def test_register_bad_endpoints(self):
         app = FastAPI()
-        with patch('src.tarpit.bad_api_generator.log_honeypot_hit') as log_mock:
+        with patch("src.tarpit.bad_api_generator.log_honeypot_hit") as log_mock:
             eps = bad_api_generator.register_bad_endpoints(app, count=2)
             self.assertEqual(len(eps), 2)
             client = TestClient(app)
@@ -26,5 +26,5 @@ class TestBadApiGenerator(unittest.TestCase):
             log_mock.assert_called()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -16,22 +16,33 @@ from src.shared.model_provider import get_model_adapter
 logger = logging.getLogger(__name__)
 
 try:
-    from tarpit_rs import generate_dynamic_tarpit_page as rs_generate_dynamic_tarpit_page
+    from tarpit_rs import (
+        generate_dynamic_tarpit_page as rs_generate_dynamic_tarpit_page,
+    )
+
     RUST_ENABLED = True
     logger.info("tarpit_rs module loaded; using Rust implementation where possible.")
 except Exception as e:
     rs_generate_dynamic_tarpit_page = None
     RUST_ENABLED = False
-    logger.warning(f"Could not import tarpit_rs: {e}. Falling back to Python implementation.")
+    logger.warning(
+        f"Could not import tarpit_rs: {e}. Falling back to Python implementation."
+    )
 
 # --- Configuration ---
 DEFAULT_SENTENCES_PER_PAGE = int(os.getenv("DEFAULT_SENTENCES_PER_PAGE", 15))
-FAKE_LINK_COUNT = int(os.getenv("FAKE_LINK_COUNT", 7))  # Increased link count for maze effect
-FAKE_LINK_DEPTH = int(os.getenv("FAKE_LINK_DEPTH", 3))  # Max directory depth for fake links
-MIN_WORDS_FOR_NEXT = 2 # Need at least 2 words history for state_size=2 model
+FAKE_LINK_COUNT = int(
+    os.getenv("FAKE_LINK_COUNT", 7)
+)  # Increased link count for maze effect
+FAKE_LINK_DEPTH = int(
+    os.getenv("FAKE_LINK_DEPTH", 3)
+)  # Max directory depth for fake links
+MIN_WORDS_FOR_NEXT = 2  # Need at least 2 words history for state_size=2 model
 
 # LLM generator configuration
-ENABLE_TARPIT_LLM_GENERATOR = os.getenv("ENABLE_TARPIT_LLM_GENERATOR", "false").lower() == "true"
+ENABLE_TARPIT_LLM_GENERATOR = (
+    os.getenv("ENABLE_TARPIT_LLM_GENERATOR", "false").lower() == "true"
+)
 TARPIT_LLM_MODEL_URI = os.getenv("TARPIT_LLM_MODEL_URI")
 TARPIT_LLM_MAX_TOKENS = int(os.getenv("TARPIT_LLM_MAX_TOKENS", 400))
 
@@ -42,7 +53,9 @@ if ENABLE_TARPIT_LLM_GENERATOR and TARPIT_LLM_MODEL_URI:
         if LLM_ADAPTER:
             logger.info(f"LLM adapter initialized for {TARPIT_LLM_MODEL_URI}")
         else:
-            logger.error("Failed to initialize LLM adapter; falling back to Markov generator")
+            logger.error(
+                "Failed to initialize LLM adapter; falling back to Markov generator"
+            )
     except Exception as e:
         logger.error(f"Error initializing LLM adapter: {e}")
         LLM_ADAPTER = None
@@ -56,6 +69,7 @@ PG_PASSWORD_FILE = os.getenv("PG_PASSWORD_FILE", "/run/secrets/pg_password")
 
 _db_pool = None
 
+
 def _get_pg_password():
     """Loads password from secret file."""
     try:
@@ -65,10 +79,9 @@ def _get_pg_password():
         with open(PG_PASSWORD_FILE, "r") as f:
             return f.read().strip()
     except Exception as e:
-        logger.error(
-            f"Failed to read PostgreSQL password from {PG_PASSWORD_FILE}: {e}"
-        )
+        logger.error(f"Failed to read PostgreSQL password from {PG_PASSWORD_FILE}: {e}")
         return None
+
 
 def _get_db_pool():
     """Creates or returns the global connection pool."""
@@ -133,23 +146,28 @@ def _release_db_connection(conn, cursor):
         except Exception as e:  # pragma: no cover - log unexpected errors
             logger.error(f"Error releasing DB connection: {e}")
 
+
 # --- Helper Functions ---
+
 
 def generate_random_page_name(length=10):
     """Generates a random alphanumeric string for page/link names."""
     # Use the current random state (should be seeded externally)
-    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
+    return "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
+
 
 def generate_fake_links(count=FAKE_LINK_COUNT, depth=FAKE_LINK_DEPTH):
     """Generates a list of plausible but fake internal link targets."""
     links = []
-    base_path = "/tarpit" # Base path for all tarpit links
+    base_path = "/tarpit"  # Base path for all tarpit links
 
     for _ in range(count):
         # Link to other fake pages or fake JS endpoints
         link_type = random.choice(["page", "js", "data", "css"])
         num_dirs = random.randint(0, depth)
-        dirs = [generate_random_page_name(random.randint(5,8)) for _ in range(num_dirs)]
+        dirs = [
+            generate_random_page_name(random.randint(5, 8)) for _ in range(num_dirs)
+        ]
         filename_base = generate_random_page_name()
 
         if link_type == "page":
@@ -159,11 +177,11 @@ def generate_fake_links(count=FAKE_LINK_COUNT, depth=FAKE_LINK_DEPTH):
             ext = ".js"
             path_prefix = "/js/"
         elif link_type == "data":
-             ext = random.choice([".json", ".xml", ".csv"])
-             path_prefix = "/data/"
-        else: # css
-             ext = ".css"
-             path_prefix = "/styles/"
+            ext = random.choice([".json", ".xml", ".csv"])
+            path_prefix = "/data/"
+        else:  # css
+            ext = ".css"
+            path_prefix = "/styles/"
 
         full_path = base_path + path_prefix + "/".join(dirs) + "/" + filename_base + ext
         # Normalize path (remove double slashes, etc.) - Python's os.path.normpath isn't URL aware
@@ -171,6 +189,7 @@ def generate_fake_links(count=FAKE_LINK_COUNT, depth=FAKE_LINK_DEPTH):
         links.append(full_path)
 
     return links
+
 
 def get_next_word_from_db(word1_id, word2_id):
     """Queries PostgreSQL for the next word based on the previous two."""
@@ -189,12 +208,12 @@ def get_next_word_from_db(word1_id, word2_id):
             ORDER BY s.freq DESC, random() -- Add random() for variety among equal frequencies
             LIMIT 20; -- Limit results for performance
             """,
-            (word1_id, word2_id)
+            (word1_id, word2_id),
         )
         results = cursor.fetchall()
 
         if not results:
-            return None # No known sequence follows these two words
+            return None  # No known sequence follows these two words
 
         # --- Probabilistic Selection ---
         # Instead of just picking the most frequent, pick probabilistically
@@ -203,8 +222,8 @@ def get_next_word_from_db(word1_id, word2_id):
         frequencies = [row[1] for row in results]
         total_freq = sum(frequencies)
 
-        if total_freq == 0: # Should not happen if results exist, but safety check
-             return random.choice(words)
+        if total_freq == 0:  # Should not happen if results exist, but safety check
+            return random.choice(words)
 
         # Normalize frequencies to probabilities
         probabilities = [f / total_freq for f in frequencies]
@@ -213,7 +232,9 @@ def get_next_word_from_db(word1_id, word2_id):
         return random.choices(words, weights=probabilities, k=1)[0]
 
     except psycopg2.Error as e:
-        logger.error(f"Database error fetching next word for ({word1_id}, {word2_id}): {e}")
+        logger.error(
+            f"Database error fetching next word for ({word1_id}, {word2_id}): {e}"
+        )
         global _db_pool
         _db_pool = None  # Force pool reinitialization on next call
         return None
@@ -223,21 +244,25 @@ def get_next_word_from_db(word1_id, word2_id):
     finally:
         _release_db_connection(conn, cursor)
 
+
 def get_word_id(word):
     """Gets the ID for a word, returns ID for '' (empty string) if not found."""
     conn, cursor = _get_db_connection()
     if not conn or not cursor or not word:
-        return 1 # ID for empty string (start/end token)
+        return 1  # ID for empty string (start/end token)
 
     try:
         cursor.execute("SELECT id FROM markov_words WHERE word = %s", (word,))
         result = cursor.fetchone()
-        return result[0] if result else 1  # Default to empty string ID if word not found
+        return (
+            result[0] if result else 1
+        )  # Default to empty string ID if word not found
     except Exception as e:
         logger.error(f"Error fetching ID for word '{word}': {e}")
         return 1  # Default to empty string ID on error
     finally:
         _release_db_connection(conn, cursor)
+
 
 # --- Markov Text Generation using DB ---
 def generate_markov_text_from_db(sentences=DEFAULT_SENTENCES_PER_PAGE):
@@ -250,51 +275,54 @@ def generate_markov_text_from_db(sentences=DEFAULT_SENTENCES_PER_PAGE):
 
     # Use pre-seeded random state
     generated_content = ""
-    word1_id, word2_id = 1, 1 # Start with empty history (ID 1)
+    word1_id, word2_id = 1, 1  # Start with empty history (ID 1)
 
     word_count = 0
-    max_words = sentences * random.randint(15, 30) # Approximate total words
+    max_words = sentences * random.randint(15, 30)  # Approximate total words
 
     current_paragraph = []
 
     while word_count < max_words:
         next_word = get_next_word_from_db(word1_id, word2_id)
 
-        if next_word is None or next_word == '': # Reached end of a chain or error
+        if next_word is None or next_word == "":  # Reached end of a chain or error
             # End current paragraph if any words were added
             if current_paragraph:
-                 generated_content += "<p>" + " ".join(current_paragraph) + ".</p>\n"
-                 current_paragraph = []
+                generated_content += "<p>" + " ".join(current_paragraph) + ".</p>\n"
+                current_paragraph = []
 
             # Attempt to restart chain from a random point if needed
             # This is simplified - a better approach might pick a random common pair
             word1_id, word2_id = 1, 1
-            if next_word is None and word_count < max_words / 2: # Only restart if stuck early
-                 continue # Try fetching again with reset state
+            if (
+                next_word is None and word_count < max_words / 2
+            ):  # Only restart if stuck early
+                continue  # Try fetching again with reset state
             else:
-                 break # Stop if stuck late or explicitly got empty string
+                break  # Stop if stuck late or explicitly got empty string
 
         current_paragraph.append(html.escape(next_word))
         word_count += 1
 
         # Shift history
         word1_id = word2_id
-        word2_id = get_word_id(next_word) # Get ID for the next state
+        word2_id = get_word_id(next_word)  # Get ID for the next state
 
         # End paragraph on punctuation (simple heuristic)
-        if next_word.endswith(('.', '!', '?')) and len(current_paragraph) > 5:
-             generated_content += "<p>" + " ".join(current_paragraph) + "</p>\n"
-             current_paragraph = []
-             word1_id, word2_id = 1, 1 # Reset history after punctuation
+        if next_word.endswith((".", "!", "?")) and len(current_paragraph) > 5:
+            generated_content += "<p>" + " ".join(current_paragraph) + "</p>\n"
+            current_paragraph = []
+            word1_id, word2_id = 1, 1  # Reset history after punctuation
 
     # Add any remaining words in the current paragraph
     if current_paragraph:
-         generated_content += "<p>" + " ".join(current_paragraph) + ".</p>\n"
+        generated_content += "<p>" + " ".join(current_paragraph) + ".</p>\n"
 
     if not generated_content:
-         return "<p>Could not generate content.</p>" # Fallback
+        return "<p>Could not generate content.</p>"  # Fallback
 
     return generated_content
+
 
 # --- LLM Text Generation ---
 def generate_llm_text(sentences=DEFAULT_SENTENCES_PER_PAGE):
@@ -312,12 +340,15 @@ def generate_llm_text(sentences=DEFAULT_SENTENCES_PER_PAGE):
         except Exception:
             result = LLM_ADAPTER.predict(prompt, max_tokens=TARPIT_LLM_MAX_TOKENS)
         text = result.get("response") if isinstance(result, dict) else str(result)
-        paragraphs = [f"<p>{html.escape(p.strip())}</p>" for p in text.splitlines() if p.strip()]
+        paragraphs = [
+            f"<p>{html.escape(p.strip())}</p>" for p in text.splitlines() if p.strip()
+        ]
         if paragraphs:
             return "\n".join(paragraphs)
     except Exception as e:
         logger.error(f"LLM text generation failed: {e}")
     return None
+
 
 # --- Main Generator Function ---
 def _generate_dynamic_tarpit_page_py():
@@ -342,18 +373,27 @@ def _generate_dynamic_tarpit_page_py():
     for link in fake_links:
         # Create somewhat readable link text from the path
         try:
-            link_text = link.split('/')[-1].split('.')[0].replace('_', ' ').replace('-', ' ').capitalize()
+            link_text = (
+                link.split("/")[-1]
+                .split(".")[0]
+                .replace("_", " ")
+                .replace("-", " ")
+                .capitalize()
+            )
             if not link_text:
                 link_text = "Resource Link"
             link_text = html.escape(link_text)
         except:
-            link_text = "Link" # Fallback
+            link_text = "Link"  # Fallback
         link_html += f'    <li><a href="{link}">{link_text}</a></li>\n'
     link_html += "</ul>\n"
 
     # 3. Assemble HTML
     # Use a slightly different title/structure for variety
-    page_title = " ".join(word.capitalize() for word in generate_random_page_name(random.randint(2,4)).split())
+    page_title = " ".join(
+        word.capitalize()
+        for word in generate_random_page_name(random.randint(2, 4)).split()
+    )
     page_title = html.escape(page_title)
     html_structure = f"""<!DOCTYPE html>
 <html lang="en">

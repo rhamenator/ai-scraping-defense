@@ -5,6 +5,7 @@ import os
 
 from src.util import adaptive_rate_limit_manager as manager
 
+
 class TestAdaptiveRateLimitManager(unittest.TestCase):
     def test_get_recent_counts(self):
         redis = MagicMock()
@@ -17,7 +18,10 @@ class TestAdaptiveRateLimitManager(unittest.TestCase):
         mock_redis = MagicMock()
         with (
             patch.object(manager, "get_recent_counts", return_value=[10, 20]) as grc,
-            patch("src.util.adaptive_rate_limit_manager.compute_rate_limit", return_value=40) as comp,
+            patch(
+                "src.util.adaptive_rate_limit_manager.compute_rate_limit",
+                return_value=40,
+            ) as comp,
             patch.object(manager, "update_rate_limit") as upd,
         ):
             result = manager.compute_and_update(mock_redis)
@@ -37,6 +41,7 @@ class TestAdaptiveRateLimitManager(unittest.TestCase):
             content,
             "limit_req_zone $binary_remote_addr zone=req_rate_limit:10m rate=70r/m;",
         )
+
 
 if __name__ == "__main__":
     unittest.main()

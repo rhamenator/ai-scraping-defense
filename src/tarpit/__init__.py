@@ -6,6 +6,7 @@ from . import (
     tarpit_api,
     bad_api_generator,
 )
+
 try:
     import tarpit_rs
 except Exception:  # pragma: no cover - optional dependency
@@ -16,12 +17,12 @@ except Exception:  # pragma: no cover - optional dependency
     jszip_rs = None
 
 __all__ = [
-    'ip_flagger',
-    'js_zip_generator',
-    'jszip_rs',
-    'markov_generator',
-    'tarpit_rs',
-    'rotating_archive',
-    'tarpit_api',
-    'bad_api_generator',
+    "ip_flagger",
+    "js_zip_generator",
+    "jszip_rs",
+    "markov_generator",
+    "tarpit_rs",
+    "rotating_archive",
+    "tarpit_api",
+    "bad_api_generator",
 ]

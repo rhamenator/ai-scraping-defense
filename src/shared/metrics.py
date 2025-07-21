@@ -1,6 +1,12 @@
 # metrics.py
 """Prometheus metrics used across services."""
-from prometheus_client import Counter, Histogram, Gauge, CollectorRegistry, generate_latest
+from prometheus_client import (
+    Counter,
+    Histogram,
+    Gauge,
+    CollectorRegistry,
+    generate_latest,
+)
 import time
 
 # 0. Global Registry
@@ -10,125 +16,395 @@ REGISTRY = CollectorRegistry()
 
 # General Counters (from previous versions)
 REQUEST_COUNT = Counter(
-    'http_requests_total',
-    'Total HTTP requests.',
-    ['method', 'endpoint', 'status_code'],
-    registry=REGISTRY
+    "http_requests_total",
+    "Total HTTP requests.",
+    ["method", "endpoint", "status_code"],
+    registry=REGISTRY,
 )
 PAGE_VIEWS = Counter(
-    'page_views_total',
-    'Total page views.',
-    ['page_type'],
-    registry=REGISTRY
+    "page_views_total", "Total page views.", ["page_type"], registry=REGISTRY
 )
 # ... (other general counters from metrics_py_for_test_v3 remain here) ...
-CACHE_HITS = Counter('cache_hits_total', 'Total cache hits.', registry=REGISTRY)
-CACHE_MISSES = Counter('cache_misses_total', 'Total cache misses.', registry=REGISTRY)
-DB_QUERIES = Counter('db_queries_total', 'Total database queries.', ['query_type'], registry=REGISTRY)
-ERROR_COUNT = Counter('errors_total', 'Total errors encountered.', ['error_type'], registry=REGISTRY)
-SECURITY_EVENTS = Counter('security_events_total', 'Total security events.', ['event_type'], registry=REGISTRY)
-LOGIN_ATTEMPTS = Counter('login_attempts_total', 'Total login attempts.', ['result'], registry=REGISTRY)
-USER_REGISTRATIONS = Counter('user_registrations_total', 'Total user registrations.', registry=REGISTRY)
-API_CALLS = Counter('api_calls_total', 'Total API calls.', ['api_name', 'version'], registry=REGISTRY)
-EXTERNAL_API_CALLS = Counter('external_api_calls_total', 'Total external API calls.', ['service_name'], registry=REGISTRY)
-FILE_UPLOADS = Counter('file_uploads_total', 'Total file uploads.', ['file_type'], registry=REGISTRY)
-EMAIL_SENT = Counter('email_sent_total', 'Total emails sent.', ['email_type'], registry=REGISTRY)
-TARPIT_ENTRIES = Counter('tarpit_entries_total', 'Total entries into the tarpit.', registry=REGISTRY)
-HONEYPOT_TRIGGERS = Counter('honeypot_triggers_total', 'Total honeypot triggers.', ['honeypot_name'], registry=REGISTRY)
-
-
-# Counters for AI Webhook (from metrics_py_for_test_v3)
-COMMUNITY_REPORTS_ATTEMPTED = Counter('community_reports_attempted_total', 'Total attempts to report IPs to community blocklists.', registry=REGISTRY)
-COMMUNITY_REPORTS_SUCCESS = Counter('community_reports_success_total', 'Total successful reports to community blocklists.', registry=REGISTRY)
-COMMUNITY_REPORTS_ERRORS_TIMEOUT = Counter('community_reports_errors_timeout_total', 'Total timeout errors during community blocklist reporting.', registry=REGISTRY)
-COMMUNITY_REPORTS_ERRORS_REQUEST = Counter('community_reports_errors_request_total', 'Total request errors during community blocklist reporting.', registry=REGISTRY)
-COMMUNITY_REPORTS_ERRORS_STATUS = Counter('community_reports_errors_status_total', 'Total HTTP status errors from community blocklist API.', registry=REGISTRY)
-COMMUNITY_REPORTS_ERRORS_RESPONSE_DECODE = Counter('community_reports_errors_response_decode_total', 'Total errors decoding responses from community blocklist API.', registry=REGISTRY)
-COMMUNITY_REPORTS_ERRORS_UNEXPECTED = Counter('community_reports_errors_unexpected_total', 'Total unexpected errors during community blocklist reporting.', registry=REGISTRY)
-
-# Counters for Escalation Engine
-REDIS_ERRORS_FREQUENCY = Counter('redis_errors_frequency_total', 'Total Redis errors during frequency tracking.', registry=REGISTRY)
-IP_REPUTATION_CHECKS_RUN = Counter('ip_reputation_checks_run_total', 'Total IP reputation checks performed.', registry=REGISTRY)
-IP_REPUTATION_SUCCESS = Counter('ip_reputation_success_total', 'Total successful IP reputation checks.', registry=REGISTRY)
-IP_REPUTATION_MALICIOUS = Counter('ip_reputation_malicious_total', 'Total IPs flagged as malicious by reputation service.', registry=REGISTRY)
-IP_REPUTATION_ERRORS_TIMEOUT = Counter('ip_reputation_errors_timeout_total', 'Total timeout errors during IP reputation checks.', registry=REGISTRY)
-IP_REPUTATION_ERRORS_REQUEST = Counter('ip_reputation_errors_request_total', 'Total request errors during IP reputation checks.', registry=REGISTRY)
-IP_REPUTATION_ERRORS_RESPONSE_DECODE = Counter('ip_reputation_errors_response_decode_total', 'Total errors decoding IP reputation API responses.', registry=REGISTRY)
-IP_REPUTATION_ERRORS_UNEXPECTED = Counter('ip_reputation_errors_unexpected_total', 'Total unexpected errors during IP reputation checks.', registry=REGISTRY)
-
-HEURISTIC_CHECKS_RUN = Counter('heuristic_checks_run_total', 'Total heuristic checks performed by escalation engine.', registry=REGISTRY)
-# Note: The dynamic f"req_freq_{FREQUENCY_WINDOW_SECONDS}s" metric is complex for a simple counter.
-# Escalation engine should increment a general counter per analysis, and actual frequencies might be better as observed values in a Histogram.
-# For now, a general counter for frequency analyses performed:
-FREQUENCY_ANALYSES_PERFORMED = Counter('frequency_analyses_performed_total', 'Total frequency analyses performed.', registry=REGISTRY)
-
-RF_MODEL_PREDICTIONS = Counter('rf_model_predictions_total', 'Total predictions made by the Random Forest model.', registry=REGISTRY)
-RF_MODEL_ERRORS = Counter('rf_model_errors_total', 'Total errors during Random Forest model prediction.', registry=REGISTRY)
-SCORE_ADJUSTED_IP_REPUTATION = Counter('score_adjusted_ip_reputation_total', 'Total times final score was adjusted due to IP reputation.', registry=REGISTRY)
-
-LOCAL_LLM_CHECKS_RUN = Counter('local_llm_checks_run_total', 'Total checks made using local LLM.', registry=REGISTRY)
-LOCAL_LLM_ERRORS_UNEXPECTED_RESPONSE = Counter('local_llm_errors_unexpected_response_total', 'Total unexpected responses from local LLM.', registry=REGISTRY)
-LOCAL_LLM_ERRORS_TIMEOUT = Counter('local_llm_errors_timeout_total', 'Total timeout errors calling local LLM.', registry=REGISTRY)
-LOCAL_LLM_ERRORS_REQUEST = Counter('local_llm_errors_request_total', 'Total request errors calling local LLM.', registry=REGISTRY)
-LOCAL_LLM_ERRORS_RESPONSE_DECODE = Counter('local_llm_errors_response_decode_total', 'Total errors decoding local LLM responses.', registry=REGISTRY)
-LOCAL_LLM_ERRORS_UNEXPECTED = Counter('local_llm_errors_unexpected_total', 'Total unexpected errors with local LLM.', registry=REGISTRY)
-
-EXTERNAL_API_CHECKS_RUN = Counter('external_api_checks_run_total', 'Total checks made using external classification API.', registry=REGISTRY)
-EXTERNAL_API_SUCCESS = Counter('external_api_success_total', 'Total successful calls to external classification API.', registry=REGISTRY)
-EXTERNAL_API_ERRORS_UNEXPECTED_RESPONSE = Counter('external_api_errors_unexpected_response_total', 'Total unexpected responses from external API.', registry=REGISTRY)
-EXTERNAL_API_ERRORS_TIMEOUT = Counter('external_api_errors_timeout_total', 'Total timeout errors calling external API.', registry=REGISTRY)
-EXTERNAL_API_ERRORS_REQUEST = Counter('external_api_errors_request_total', 'Total request errors calling external API.', registry=REGISTRY)
-EXTERNAL_API_ERRORS_RESPONSE_DECODE = Counter('external_api_errors_response_decode_total', 'Total errors decoding external API responses.', registry=REGISTRY)
-EXTERNAL_API_ERRORS_UNEXPECTED = Counter('external_api_errors_unexpected_total', 'Total unexpected errors with external API.', registry=REGISTRY)
-
-ESCALATION_WEBHOOKS_SENT = Counter('escalation_webhooks_sent_total', 'Total webhooks sent by escalation engine.', registry=REGISTRY)
-ESCALATION_WEBHOOK_ERRORS_REQUEST = Counter('escalation_webhook_errors_request_total', 'Total request errors sending escalation webhooks.', registry=REGISTRY)
-ESCALATION_WEBHOOK_ERRORS_UNEXPECTED = Counter('escalation_webhook_errors_unexpected_total', 'Total unexpected errors sending escalation webhooks.', registry=REGISTRY)
-
-CAPTCHA_CHALLENGES_TRIGGERED = Counter('captcha_challenges_triggered_total', 'Total CAPTCHA challenges triggered.', registry=REGISTRY)
-ESCALATION_REQUESTS_RECEIVED = Counter(
-    'escalation_requests_received_total',
-    'Total number of requests received by the escalation engine',
+CACHE_HITS = Counter("cache_hits_total", "Total cache hits.", registry=REGISTRY)
+CACHE_MISSES = Counter("cache_misses_total", "Total cache misses.", registry=REGISTRY)
+DB_QUERIES = Counter(
+    "db_queries_total", "Total database queries.", ["query_type"], registry=REGISTRY
+)
+ERROR_COUNT = Counter(
+    "errors_total", "Total errors encountered.", ["error_type"], registry=REGISTRY
+)
+SECURITY_EVENTS = Counter(
+    "security_events_total", "Total security events.", ["event_type"], registry=REGISTRY
+)
+LOGIN_ATTEMPTS = Counter(
+    "login_attempts_total", "Total login attempts.", ["result"], registry=REGISTRY
+)
+USER_REGISTRATIONS = Counter(
+    "user_registrations_total", "Total user registrations.", registry=REGISTRY
+)
+API_CALLS = Counter(
+    "api_calls_total", "Total API calls.", ["api_name", "version"], registry=REGISTRY
+)
+EXTERNAL_API_CALLS = Counter(
+    "external_api_calls_total",
+    "Total external API calls.",
+    ["service_name"],
+    registry=REGISTRY,
+)
+FILE_UPLOADS = Counter(
+    "file_uploads_total", "Total file uploads.", ["file_type"], registry=REGISTRY
+)
+EMAIL_SENT = Counter(
+    "email_sent_total", "Total emails sent.", ["email_type"], registry=REGISTRY
+)
+TARPIT_ENTRIES = Counter(
+    "tarpit_entries_total", "Total entries into the tarpit.", registry=REGISTRY
+)
+HONEYPOT_TRIGGERS = Counter(
+    "honeypot_triggers_total",
+    "Total honeypot triggers.",
+    ["honeypot_name"],
     registry=REGISTRY,
 )
 
-BOTS_DETECTED_IP_REPUTATION = Counter('bots_detected_ip_reputation_total', 'Total bots detected primarily by IP reputation.', registry=REGISTRY)
-BOTS_DETECTED_HIGH_SCORE = Counter('bots_detected_high_score_total', 'Total bots detected by high combined score.', registry=REGISTRY)
-HUMANS_DETECTED_LOW_SCORE = Counter('humans_detected_low_score_total', 'Total classified as human by low combined score.', registry=REGISTRY)
-BOTS_DETECTED_LOCAL_LLM = Counter('bots_detected_local_llm_total', 'Total bots detected by local LLM.', registry=REGISTRY)
-HUMANS_DETECTED_LOCAL_LLM = Counter('humans_detected_local_llm_total', 'Total classified as human by local LLM.', registry=REGISTRY)
-BOTS_DETECTED_EXTERNAL_API = Counter('bots_detected_external_api_total', 'Total bots detected by external API.', registry=REGISTRY)
-HUMANS_DETECTED_EXTERNAL_API = Counter('humans_detected_external_api_total', 'Total classified as human by external API.', registry=REGISTRY)
+
+# Counters for AI Webhook (from metrics_py_for_test_v3)
+COMMUNITY_REPORTS_ATTEMPTED = Counter(
+    "community_reports_attempted_total",
+    "Total attempts to report IPs to community blocklists.",
+    registry=REGISTRY,
+)
+COMMUNITY_REPORTS_SUCCESS = Counter(
+    "community_reports_success_total",
+    "Total successful reports to community blocklists.",
+    registry=REGISTRY,
+)
+COMMUNITY_REPORTS_ERRORS_TIMEOUT = Counter(
+    "community_reports_errors_timeout_total",
+    "Total timeout errors during community blocklist reporting.",
+    registry=REGISTRY,
+)
+COMMUNITY_REPORTS_ERRORS_REQUEST = Counter(
+    "community_reports_errors_request_total",
+    "Total request errors during community blocklist reporting.",
+    registry=REGISTRY,
+)
+COMMUNITY_REPORTS_ERRORS_STATUS = Counter(
+    "community_reports_errors_status_total",
+    "Total HTTP status errors from community blocklist API.",
+    registry=REGISTRY,
+)
+COMMUNITY_REPORTS_ERRORS_RESPONSE_DECODE = Counter(
+    "community_reports_errors_response_decode_total",
+    "Total errors decoding responses from community blocklist API.",
+    registry=REGISTRY,
+)
+COMMUNITY_REPORTS_ERRORS_UNEXPECTED = Counter(
+    "community_reports_errors_unexpected_total",
+    "Total unexpected errors during community blocklist reporting.",
+    registry=REGISTRY,
+)
+
+# Counters for Escalation Engine
+REDIS_ERRORS_FREQUENCY = Counter(
+    "redis_errors_frequency_total",
+    "Total Redis errors during frequency tracking.",
+    registry=REGISTRY,
+)
+IP_REPUTATION_CHECKS_RUN = Counter(
+    "ip_reputation_checks_run_total",
+    "Total IP reputation checks performed.",
+    registry=REGISTRY,
+)
+IP_REPUTATION_SUCCESS = Counter(
+    "ip_reputation_success_total",
+    "Total successful IP reputation checks.",
+    registry=REGISTRY,
+)
+IP_REPUTATION_MALICIOUS = Counter(
+    "ip_reputation_malicious_total",
+    "Total IPs flagged as malicious by reputation service.",
+    registry=REGISTRY,
+)
+IP_REPUTATION_ERRORS_TIMEOUT = Counter(
+    "ip_reputation_errors_timeout_total",
+    "Total timeout errors during IP reputation checks.",
+    registry=REGISTRY,
+)
+IP_REPUTATION_ERRORS_REQUEST = Counter(
+    "ip_reputation_errors_request_total",
+    "Total request errors during IP reputation checks.",
+    registry=REGISTRY,
+)
+IP_REPUTATION_ERRORS_RESPONSE_DECODE = Counter(
+    "ip_reputation_errors_response_decode_total",
+    "Total errors decoding IP reputation API responses.",
+    registry=REGISTRY,
+)
+IP_REPUTATION_ERRORS_UNEXPECTED = Counter(
+    "ip_reputation_errors_unexpected_total",
+    "Total unexpected errors during IP reputation checks.",
+    registry=REGISTRY,
+)
+
+HEURISTIC_CHECKS_RUN = Counter(
+    "heuristic_checks_run_total",
+    "Total heuristic checks performed by escalation engine.",
+    registry=REGISTRY,
+)
+# Note: The dynamic f"req_freq_{FREQUENCY_WINDOW_SECONDS}s" metric is complex for a simple counter.
+# Escalation engine should increment a general counter per analysis, and actual frequencies might be better as observed values in a Histogram.
+# For now, a general counter for frequency analyses performed:
+FREQUENCY_ANALYSES_PERFORMED = Counter(
+    "frequency_analyses_performed_total",
+    "Total frequency analyses performed.",
+    registry=REGISTRY,
+)
+
+RF_MODEL_PREDICTIONS = Counter(
+    "rf_model_predictions_total",
+    "Total predictions made by the Random Forest model.",
+    registry=REGISTRY,
+)
+RF_MODEL_ERRORS = Counter(
+    "rf_model_errors_total",
+    "Total errors during Random Forest model prediction.",
+    registry=REGISTRY,
+)
+SCORE_ADJUSTED_IP_REPUTATION = Counter(
+    "score_adjusted_ip_reputation_total",
+    "Total times final score was adjusted due to IP reputation.",
+    registry=REGISTRY,
+)
+
+LOCAL_LLM_CHECKS_RUN = Counter(
+    "local_llm_checks_run_total",
+    "Total checks made using local LLM.",
+    registry=REGISTRY,
+)
+LOCAL_LLM_ERRORS_UNEXPECTED_RESPONSE = Counter(
+    "local_llm_errors_unexpected_response_total",
+    "Total unexpected responses from local LLM.",
+    registry=REGISTRY,
+)
+LOCAL_LLM_ERRORS_TIMEOUT = Counter(
+    "local_llm_errors_timeout_total",
+    "Total timeout errors calling local LLM.",
+    registry=REGISTRY,
+)
+LOCAL_LLM_ERRORS_REQUEST = Counter(
+    "local_llm_errors_request_total",
+    "Total request errors calling local LLM.",
+    registry=REGISTRY,
+)
+LOCAL_LLM_ERRORS_RESPONSE_DECODE = Counter(
+    "local_llm_errors_response_decode_total",
+    "Total errors decoding local LLM responses.",
+    registry=REGISTRY,
+)
+LOCAL_LLM_ERRORS_UNEXPECTED = Counter(
+    "local_llm_errors_unexpected_total",
+    "Total unexpected errors with local LLM.",
+    registry=REGISTRY,
+)
+
+EXTERNAL_API_CHECKS_RUN = Counter(
+    "external_api_checks_run_total",
+    "Total checks made using external classification API.",
+    registry=REGISTRY,
+)
+EXTERNAL_API_SUCCESS = Counter(
+    "external_api_success_total",
+    "Total successful calls to external classification API.",
+    registry=REGISTRY,
+)
+EXTERNAL_API_ERRORS_UNEXPECTED_RESPONSE = Counter(
+    "external_api_errors_unexpected_response_total",
+    "Total unexpected responses from external API.",
+    registry=REGISTRY,
+)
+EXTERNAL_API_ERRORS_TIMEOUT = Counter(
+    "external_api_errors_timeout_total",
+    "Total timeout errors calling external API.",
+    registry=REGISTRY,
+)
+EXTERNAL_API_ERRORS_REQUEST = Counter(
+    "external_api_errors_request_total",
+    "Total request errors calling external API.",
+    registry=REGISTRY,
+)
+EXTERNAL_API_ERRORS_RESPONSE_DECODE = Counter(
+    "external_api_errors_response_decode_total",
+    "Total errors decoding external API responses.",
+    registry=REGISTRY,
+)
+EXTERNAL_API_ERRORS_UNEXPECTED = Counter(
+    "external_api_errors_unexpected_total",
+    "Total unexpected errors with external API.",
+    registry=REGISTRY,
+)
+
+ESCALATION_WEBHOOKS_SENT = Counter(
+    "escalation_webhooks_sent_total",
+    "Total webhooks sent by escalation engine.",
+    registry=REGISTRY,
+)
+ESCALATION_WEBHOOK_ERRORS_REQUEST = Counter(
+    "escalation_webhook_errors_request_total",
+    "Total request errors sending escalation webhooks.",
+    registry=REGISTRY,
+)
+ESCALATION_WEBHOOK_ERRORS_UNEXPECTED = Counter(
+    "escalation_webhook_errors_unexpected_total",
+    "Total unexpected errors sending escalation webhooks.",
+    registry=REGISTRY,
+)
+
+CAPTCHA_CHALLENGES_TRIGGERED = Counter(
+    "captcha_challenges_triggered_total",
+    "Total CAPTCHA challenges triggered.",
+    registry=REGISTRY,
+)
+ESCALATION_REQUESTS_RECEIVED = Counter(
+    "escalation_requests_received_total",
+    "Total number of requests received by the escalation engine",
+    registry=REGISTRY,
+)
+
+BOTS_DETECTED_IP_REPUTATION = Counter(
+    "bots_detected_ip_reputation_total",
+    "Total bots detected primarily by IP reputation.",
+    registry=REGISTRY,
+)
+BOTS_DETECTED_HIGH_SCORE = Counter(
+    "bots_detected_high_score_total",
+    "Total bots detected by high combined score.",
+    registry=REGISTRY,
+)
+HUMANS_DETECTED_LOW_SCORE = Counter(
+    "humans_detected_low_score_total",
+    "Total classified as human by low combined score.",
+    registry=REGISTRY,
+)
+BOTS_DETECTED_LOCAL_LLM = Counter(
+    "bots_detected_local_llm_total",
+    "Total bots detected by local LLM.",
+    registry=REGISTRY,
+)
+HUMANS_DETECTED_LOCAL_LLM = Counter(
+    "humans_detected_local_llm_total",
+    "Total classified as human by local LLM.",
+    registry=REGISTRY,
+)
+BOTS_DETECTED_EXTERNAL_API = Counter(
+    "bots_detected_external_api_total",
+    "Total bots detected by external API.",
+    registry=REGISTRY,
+)
+HUMANS_DETECTED_EXTERNAL_API = Counter(
+    "humans_detected_external_api_total",
+    "Total classified as human by external API.",
+    registry=REGISTRY,
+)
 
 
 # 2. Histograms (from previous versions)
-REQUEST_LATENCY = Histogram('http_request_duration_seconds', 'HTTP request duration in seconds.', ['method', 'endpoint'], registry=REGISTRY)
-DB_QUERY_LATENCY = Histogram('db_query_duration_seconds', 'Database query duration in seconds.', ['query_type'], registry=REGISTRY)
-EXTERNAL_API_LATENCY = Histogram('external_api_latency_seconds', 'Latency of external API calls in seconds.', ['service_name'], registry=REGISTRY)
-FUNCTION_EXECUTION_TIME = Histogram('function_execution_seconds', 'Execution time of specific functions in seconds.', ['function_name'], registry=REGISTRY)
-FILE_UPLOAD_SIZE = Histogram('file_upload_size_bytes', 'Size of uploaded files in bytes.', ['file_type'], registry=REGISTRY)
-RESPONSE_SIZE = Histogram('response_size_bytes', 'Size of HTTP responses in bytes.', ['endpoint'], registry=REGISTRY)
+REQUEST_LATENCY = Histogram(
+    "http_request_duration_seconds",
+    "HTTP request duration in seconds.",
+    ["method", "endpoint"],
+    registry=REGISTRY,
+)
+DB_QUERY_LATENCY = Histogram(
+    "db_query_duration_seconds",
+    "Database query duration in seconds.",
+    ["query_type"],
+    registry=REGISTRY,
+)
+EXTERNAL_API_LATENCY = Histogram(
+    "external_api_latency_seconds",
+    "Latency of external API calls in seconds.",
+    ["service_name"],
+    registry=REGISTRY,
+)
+FUNCTION_EXECUTION_TIME = Histogram(
+    "function_execution_seconds",
+    "Execution time of specific functions in seconds.",
+    ["function_name"],
+    registry=REGISTRY,
+)
+FILE_UPLOAD_SIZE = Histogram(
+    "file_upload_size_bytes",
+    "Size of uploaded files in bytes.",
+    ["file_type"],
+    registry=REGISTRY,
+)
+RESPONSE_SIZE = Histogram(
+    "response_size_bytes",
+    "Size of HTTP responses in bytes.",
+    ["endpoint"],
+    registry=REGISTRY,
+)
 
 # 3. Gauges (from previous versions)
-ACTIVE_USERS = Gauge('active_users_current', 'Current number of active users.', registry=REGISTRY)
-CPU_USAGE = Gauge('cpu_usage_percent', 'Current CPU usage.', ['core'], registry=REGISTRY)
-MEMORY_USAGE = Gauge('memory_usage_bytes', 'Current memory usage in bytes.', ['type'], registry=REGISTRY)
-DISK_SPACE_USAGE = Gauge('disk_space_usage_bytes', 'Disk space usage by mount point.', ['mount_point'], registry=REGISTRY)
-DB_CONNECTIONS = Gauge('db_connections_active', 'Active database connections.', ['db_name', 'state'], registry=REGISTRY)
-QUEUE_LENGTH = Gauge('queue_length_current', 'Current length of a queue.', ['queue_name'], registry=REGISTRY)
-UPTIME_SECONDS = Gauge('uptime_seconds_total', 'System uptime in seconds.', registry=REGISTRY)
-CELERY_WORKERS = Gauge('celery_workers_active', 'Number of active Celery workers.', registry=REGISTRY)
-CELERY_TASKS = Gauge('celery_tasks_total', 'Number of Celery tasks by state.', ['state'], registry=REGISTRY)
-FEATURE_FLAGS = Gauge('feature_flags_status', 'Status of feature flags (1=on, 0=off).', ['flag_name'], registry=REGISTRY)
+ACTIVE_USERS = Gauge(
+    "active_users_current", "Current number of active users.", registry=REGISTRY
+)
+CPU_USAGE = Gauge(
+    "cpu_usage_percent", "Current CPU usage.", ["core"], registry=REGISTRY
+)
+MEMORY_USAGE = Gauge(
+    "memory_usage_bytes", "Current memory usage in bytes.", ["type"], registry=REGISTRY
+)
+DISK_SPACE_USAGE = Gauge(
+    "disk_space_usage_bytes",
+    "Disk space usage by mount point.",
+    ["mount_point"],
+    registry=REGISTRY,
+)
+DB_CONNECTIONS = Gauge(
+    "db_connections_active",
+    "Active database connections.",
+    ["db_name", "state"],
+    registry=REGISTRY,
+)
+QUEUE_LENGTH = Gauge(
+    "queue_length_current",
+    "Current length of a queue.",
+    ["queue_name"],
+    registry=REGISTRY,
+)
+UPTIME_SECONDS = Gauge(
+    "uptime_seconds_total", "System uptime in seconds.", registry=REGISTRY
+)
+CELERY_WORKERS = Gauge(
+    "celery_workers_active", "Number of active Celery workers.", registry=REGISTRY
+)
+CELERY_TASKS = Gauge(
+    "celery_tasks_total",
+    "Number of Celery tasks by state.",
+    ["state"],
+    registry=REGISTRY,
+)
+FEATURE_FLAGS = Gauge(
+    "feature_flags_status",
+    "Status of feature flags (1=on, 0=off).",
+    ["flag_name"],
+    registry=REGISTRY,
+)
 
 
 # 4. Helper Functions (from previous versions)
 def record_request(method, endpoint, status_code):
-    REQUEST_COUNT.labels(method=method, endpoint=endpoint, status_code=str(status_code)).inc()
+    REQUEST_COUNT.labels(
+        method=method, endpoint=endpoint, status_code=str(status_code)
+    ).inc()
 
-@REQUEST_LATENCY.labels(method='GET', endpoint='/example').time() 
+
+@REQUEST_LATENCY.labels(method="GET", endpoint="/example").time()
 def example_timed_request_handler():
     time.sleep(0.1)
+
 
 def observe_histogram_metric(metric_instance, value, labels=None):
     if not isinstance(metric_instance, Histogram):
@@ -138,6 +414,7 @@ def observe_histogram_metric(metric_instance, value, labels=None):
     else:
         metric_instance.observe(value)
 
+
 def increment_counter_metric(metric_instance, labels=None):
     if not isinstance(metric_instance, Counter):
         raise TypeError("increment_counter_metric requires a Counter")
@@ -145,6 +422,7 @@ def increment_counter_metric(metric_instance, labels=None):
         metric_instance.labels(**labels).inc()
     else:
         metric_instance.inc()
+
 
 def set_gauge_metric(metric_instance, value, labels=None):
     if not isinstance(metric_instance, Gauge):
@@ -154,6 +432,7 @@ def set_gauge_metric(metric_instance, value, labels=None):
     else:
         metric_instance.set(value)
 
+
 def increment_gauge_metric(metric_instance, labels=None):
     if not isinstance(metric_instance, Gauge):
         raise TypeError("increment_gauge_metric requires a Gauge")
@@ -161,6 +440,7 @@ def increment_gauge_metric(metric_instance, labels=None):
         metric_instance.labels(**labels).inc()
     else:
         metric_instance.inc()
+
 
 def decrement_gauge_metric(metric_instance, labels=None):
     if not isinstance(metric_instance, Gauge):
@@ -170,10 +450,12 @@ def decrement_gauge_metric(metric_instance, labels=None):
     else:
         metric_instance.dec()
 
+
 def get_metrics():
     return generate_latest(REGISTRY)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # Example usage
     increment_counter_metric(ESCALATION_REQUESTS_RECEIVED)
     increment_counter_metric(RF_MODEL_PREDICTIONS)

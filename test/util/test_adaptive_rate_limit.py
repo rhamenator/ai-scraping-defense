@@ -1,6 +1,7 @@
 import unittest
 from src.util import adaptive_rate_limit
 
+
 class TestAdaptiveRateLimit(unittest.TestCase):
     def test_increase_limit(self):
         self.assertEqual(adaptive_rate_limit.compute_rate_limit([10, 20, 15], 60), 90)
@@ -14,5 +15,6 @@ class TestAdaptiveRateLimit(unittest.TestCase):
     def test_empty_counts(self):
         self.assertEqual(adaptive_rate_limit.compute_rate_limit([], 60), 60)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

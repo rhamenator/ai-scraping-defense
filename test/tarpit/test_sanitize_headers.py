@@ -2,6 +2,7 @@ import unittest
 
 from src.tarpit import tarpit_api
 
+
 class TestSanitizeHeaders(unittest.TestCase):
     def test_sanitize_headers_removes_sensitive_and_normalizes(self):
         headers = {
@@ -17,6 +18,7 @@ class TestSanitizeHeaders(unittest.TestCase):
         self.assertEqual(result["multiline"], "line1 line2 line3")
         self.assertNotIn("Authorization", result)
         self.assertNotIn("Cookie", result)
+
 
 if __name__ == "__main__":
     unittest.main()

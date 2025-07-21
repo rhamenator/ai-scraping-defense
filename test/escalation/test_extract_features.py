@@ -4,6 +4,7 @@ import datetime
 
 from src.escalation import escalation_engine as ee
 
+
 class TestExtractFeatures(unittest.TestCase):
     def test_extract_features_basic(self):
         log = {
@@ -30,6 +31,7 @@ class TestExtractFeatures(unittest.TestCase):
         self.assertEqual(feats["hour_of_day"], 12)
         self.assertEqual(feats["day_of_week"], 6)  # 2023-01-01 is Sunday
         self.assertEqual(feats["country_code"], "US")
+
 
 if __name__ == "__main__":
     unittest.main()

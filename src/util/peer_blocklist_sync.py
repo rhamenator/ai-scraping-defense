@@ -13,7 +13,10 @@ REDIS_DB_BLOCKLIST = int(os.getenv("REDIS_DB_BLOCKLIST", 2))
 PEER_BLOCKLIST_TTL_SECONDS = int(os.getenv("PEER_BLOCKLIST_TTL_SECONDS", 86400))
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 
 async def fetch_peer_ips(url: str) -> List[str]:
     """Fetch a list of malicious IPs from a peer deployment."""
@@ -29,6 +32,7 @@ async def fetch_peer_ips(url: str) -> List[str]:
                 return [ip for ip in ips if isinstance(ip, str)]
         return []
 
+
 def update_redis_blocklist(ips: List[str], redis_conn) -> int:
     """Insert IPs into the Redis blocklist with a TTL."""
     if not ips or not redis_conn:
@@ -43,12 +47,13 @@ def update_redis_blocklist(ips: List[str], redis_conn) -> int:
             logger.error("Failed to set Redis key for IP %s: %s", ip, exc)
     return added
 
+
 async def sync_peer_blocklists() -> Optional[int]:
     """Fetch blocklists from configured peers and update Redis."""
     if not PEER_BLOCKLIST_URLS:
         logger.info("No peer blocklist URLs configured.")
         return 0
-    urls = [u.strip() for u in PEER_BLOCKLIST_URLS.split(',') if u.strip()]
+    urls = [u.strip() for u in PEER_BLOCKLIST_URLS.split(",") if u.strip()]
     if not urls:
         logger.info("Peer blocklist URL list empty.")
         return 0
@@ -68,6 +73,7 @@ async def sync_peer_blocklists() -> Optional[int]:
         total_added += added
     logger.info("Added/updated %s IPs from peer blocklists.", total_added)
     return total_added
+
 
 if __name__ == "__main__":  # pragma: no cover - manual execution
     asyncio.run(sync_peer_blocklists())
