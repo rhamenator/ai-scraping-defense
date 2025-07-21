@@ -10,8 +10,7 @@ import logging
 
 # Configure module-level logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -28,7 +27,8 @@ except ImportError as e:
 ARCHIVE_DIR = DEFAULT_ARCHIVE_DIR
 ARCHIVE_PATTERN = os.path.join(ARCHIVE_DIR, "assets_*.zip")
 MAX_ARCHIVES_TO_KEEP = 5  # Keep the latest N archives
-GENERATION_INTERVAL_MINUTES = 60 # Generate a new archive every hour
+GENERATION_INTERVAL_MINUTES = 60  # Generate a new archive every hour
+
 
 def rotate_archives():
     """Generates a new archive and cleans up old ones."""
@@ -45,14 +45,10 @@ def rotate_archives():
     # 2. Get list of existing archives, sorted by modification time (newest first)
     try:
         existing_archives = sorted(
-            glob.glob(ARCHIVE_PATTERN),
-            key=os.path.getmtime,
-            reverse=True
+            glob.glob(ARCHIVE_PATTERN), key=os.path.getmtime, reverse=True
         )
     except Exception as e:
-        logger.error(
-            f"Failed to list existing archives in {ARCHIVE_DIR}: {e}"
-        )
+        logger.error(f"Failed to list existing archives in {ARCHIVE_DIR}: {e}")
         return
 
     # 3. Determine archives to delete
@@ -82,9 +78,7 @@ if __name__ == "__main__":
     logger.info("--- Rotating Archive Scheduler ---")
     logger.info(f"Watching directory: {ARCHIVE_DIR}")
     logger.info(f"Keeping latest: {MAX_ARCHIVES_TO_KEEP} archives")
-    logger.info(
-        f"Generating new archive every: {GENERATION_INTERVAL_MINUTES} minutes"
-    )
+    logger.info(f"Generating new archive every: {GENERATION_INTERVAL_MINUTES} minutes")
     logger.info("---------------------------------")
 
     # Schedule the job
@@ -100,4 +94,4 @@ if __name__ == "__main__":
     )
     while True:
         schedule.run_pending()
-        time.sleep(60) # Check every minute
+        time.sleep(60)  # Check every minute

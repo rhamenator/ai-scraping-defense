@@ -3,6 +3,7 @@ This module provides functions to flag, check, and remove IP addresses
 in a dedicated Redis database. It uses a centralized Redis connection
 utility from the 'shared' module.
 """
+
 import sys
 import logging
 import os
@@ -10,7 +11,9 @@ from src.shared.redis_client import get_redis_connection
 from src.shared.config import tenant_key
 
 # Configure logging for this module
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Define the specific Redis database number for flagged IPs.
@@ -25,6 +28,7 @@ REPEAT_OFFENDER_THRESHOLD = int(os.getenv("REPEAT_OFFENDER_THRESHOLD", 3))
 
 # Internal counter key prefix for tracking how many times an IP was flagged.
 FLAG_COUNT_PREFIX = tenant_key("ip_flag_count:")
+
 
 def flag_suspicious_ip(ip_address: str, reason: str = "Suspicious activity"):
     """
@@ -92,7 +96,9 @@ def remove_ip_flag(ip_address: str):
     except Exception as e:
         logger.error(f"Failed to remove IP flag for {ip_address}: {e}")
         return False
-if __name__ == '__main__':
+
+
+if __name__ == "__main__":
     # Example usage for direct testing of this module.
     print("Running IP Flagger example...")
     test_ip = "192.168.1.100"

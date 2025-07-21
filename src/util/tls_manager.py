@@ -7,7 +7,10 @@ TLS_PROVIDER = os.getenv("TLS_PROVIDER", "certbot")
 TLS_EMAIL = os.getenv("TLS_EMAIL")
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 
 def ensure_certificate(domain: str) -> bool:
     """Placeholder for requesting or renewing a TLS certificate."""

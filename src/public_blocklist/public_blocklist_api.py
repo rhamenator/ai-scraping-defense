@@ -5,7 +5,9 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel, IPvAnyAddress
 
-PUBLIC_BLOCKLIST_FILE = os.getenv("PUBLIC_BLOCKLIST_FILE", "./data/public_blocklist.json")
+PUBLIC_BLOCKLIST_FILE = os.getenv(
+    "PUBLIC_BLOCKLIST_FILE", "./data/public_blocklist.json"
+)
 PUBLIC_BLOCKLIST_API_KEY = os.getenv("PUBLIC_BLOCKLIST_API_KEY")
 
 app = FastAPI()

@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 from src.escalation import escalation_engine as ee
 from src.escalation.escalation_engine import RequestMetadata
 
+
 class TestFingerprinting(unittest.TestCase):
     def test_compute_browser_fingerprint_consistent(self):
         meta = RequestMetadata(
@@ -28,9 +29,12 @@ class TestFingerprinting(unittest.TestCase):
             mock_redis.scard.return_value = 2
             count = ee.track_fingerprint("abc", "1.1.1.1")
         mock_redis.sadd.assert_called_once_with("default:fp:abc", "1.1.1.1")
-        mock_redis.expire.assert_called_once_with("default:fp:abc", ee.FINGERPRINT_WINDOW_SECONDS)
+        mock_redis.expire.assert_called_once_with(
+            "default:fp:abc", ee.FINGERPRINT_WINDOW_SECONDS
+        )
         mock_redis.scard.assert_called_once_with("default:fp:abc")
         self.assertEqual(count, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

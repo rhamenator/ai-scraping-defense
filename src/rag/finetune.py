@@ -6,25 +6,32 @@
 
 import os
 import datetime
-import time # Added for timing
+import time  # Added for timing
 import json
-from datasets import load_dataset, Dataset, Features, Value, ClassLabel # Using Hugging Face datasets library
-from transformers import (
-    AutoModelForSequenceClassification,
-    AutoTokenizer
-)
+from datasets import (
+    load_dataset,
+    Dataset,
+    Features,
+    Value,
+    ClassLabel,
+)  # Using Hugging Face datasets library
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from transformers.data.data_collator import DataCollatorWithPadding
+
 try:
     from transformers.trainer import Trainer
     from transformers.training_args import TrainingArguments
 except Exception:  # transformers may require torch which isn't installed
     Trainer = object
+
     class TrainingArguments:  # minimal stub used for tests
         def __init__(self, *args, **kwargs):
             pass
-import evaluate # Using Hugging Face evaluate library
+
+
+import evaluate  # Using Hugging Face evaluate library
 import numpy as np
-import collections.abc # Added for Sized check
+import collections.abc  # Added for Sized check
 
 # --- Configuration ---
 # Paths assume data is prepared and accessible by training.py's export function
@@ -33,10 +40,12 @@ TRAINING_DATA_FILE = os.path.join(FINETUNE_DATA_DIR, "finetuning_data_train.json
 VALIDATION_DATA_FILE = os.path.join(FINETUNE_DATA_DIR, "finetuning_data_eval.jsonl")
 
 # Choose a pre-trained model suitable for classification (smaller models are faster)
-BASE_MODEL_NAME = "distilbert-base-uncased" # Example: Relatively small & fast
+BASE_MODEL_NAME = "distilbert-base-uncased"  # Example: Relatively small & fast
 # BASE_MODEL_NAME = "bert-base-uncased"
 # BASE_MODEL_NAME = "roberta-base"
-OUTPUT_DIR = "/app/models/finetuned_bot_detector" # Where the fine-tuned model will be saved
+OUTPUT_DIR = (
+    "/app/models/finetuned_bot_detector"  # Where the fine-tuned model will be saved
+)
 LOGGING_DIR = "/app/logs/finetuning_logs"
 
 # Training Hyperparameters (Example - Requires Tuning)
@@ -46,11 +55,12 @@ PER_DEVICE_EVAL_BATCH_SIZE = 32
 LEARNING_RATE = 2e-5
 WEIGHT_DECAY = 0.01
 LOGGING_STEPS = 50
-EVAL_STEPS = 200 # How often to evaluate during training
-SAVE_STEPS = 500 # How often to save checkpoints
-MAX_SEQ_LENGTH = 256 # Max token length for input sequences
+EVAL_STEPS = 200  # How often to evaluate during training
+SAVE_STEPS = 500  # How often to save checkpoints
+MAX_SEQ_LENGTH = 256  # Max token length for input sequences
 
 # --- Data Preparation ---
+
 
 def prepare_text_for_model(log_entry):
     """
@@ -60,32 +70,34 @@ def prepare_text_for_model(log_entry):
     """
     # Ensure log_entry is the dictionary containing parsed log fields
     if not isinstance(log_entry, dict):
-        return "" # Handle potential errors
+        return ""  # Handle potential errors
 
     # Example: Combine key fields into a structured string
     # Use 'None' or 'N/A' for missing fields consistently
-    ua = log_entry.get('user_agent', 'None')
-    method = log_entry.get('method', 'UNK')
-    path = log_entry.get('path', 'UNK_PATH')
-    status = log_entry.get('status', 0)
-    referer = log_entry.get('referer', 'None')
-    ip = log_entry.get('ip', 'UnknownIP') # Include IP? Might help if model sees patterns
+    ua = log_entry.get("user_agent", "None")
+    method = log_entry.get("method", "UNK")
+    path = log_entry.get("path", "UNK_PATH")
+    status = log_entry.get("status", 0)
+    referer = log_entry.get("referer", "None")
+    ip = log_entry.get(
+        "ip", "UnknownIP"
+    )  # Include IP? Might help if model sees patterns
 
     # Combine headers into a simplified string if available
     headers_str = ""
-    headers_dict = log_entry.get('headers')
+    headers_dict = log_entry.get("headers")
     if isinstance(headers_dict, dict):
-         # Include all headers except very common, usually irrelevant ones
-         ignore = {'cookie', 'set-cookie', 'content-length'}
-         filtered = {k: v for k, v in headers_dict.items() if k.lower() not in ignore}
-         headers_str = " ".join(f"{k}={v}" for k, v in filtered.items())
+        # Include all headers except very common, usually irrelevant ones
+        ignore = {"cookie", "set-cookie", "content-length"}
+        filtered = {k: v for k, v in headers_dict.items() if k.lower() not in ignore}
+        headers_str = " ".join(f"{k}={v}" for k, v in filtered.items())
 
     # Format the input text - Experiment with different formats!
     # This format tries to be somewhat structured.
     text = f"[IP:{ip}] [M:{method}] [S:{status}] [P:{path}] [R:{referer}] [UA:{ua}] [H:{headers_str}]"
 
     # Truncate to avoid excessive length (tokenizers handle max_length, but good practice)
-    return text[:MAX_SEQ_LENGTH * 5] # Allow more chars before tokenization
+    return text[: MAX_SEQ_LENGTH * 5]  # Allow more chars before tokenization
 
 
 def load_and_prepare_dataset(file_path, tokenizer):
@@ -94,16 +106,20 @@ def load_and_prepare_dataset(file_path, tokenizer):
     try:
         # Load from JSON Lines file
         # Expected format per line: {"log_data": {parsed_log_dict}, "label": "bot" or "human"}
-        raw_dataset = load_dataset('json', data_files=file_path, split='train')
+        raw_dataset = load_dataset("json", data_files=file_path, split="train")
 
         # Define expected features for validation and ClassLabel mapping
         # Ensure 'human' is 0 and 'bot' is 1 to match training.py's label encoding if reusing metrics
-        label_map = ['human', 'bot']
-        expected_features = Features({
-            'log_data': Value('string'), # Temporarily treat as string for mapping, then re-parse or adjust
-            'label': ClassLabel(names=label_map),
-            # Add other fields if they exist at the top level
-        })
+        label_map = ["human", "bot"]
+        expected_features = Features(
+            {
+                "log_data": Value(
+                    "string"
+                ),  # Temporarily treat as string for mapping, then re-parse or adjust
+                "label": ClassLabel(names=label_map),
+                # Add other fields if they exist at the top level
+            }
+        )
 
         # Preprocessing function to extract log_data, prepare text, and tokenize
         def preprocess_function(examples):
@@ -114,21 +130,25 @@ def load_and_prepare_dataset(file_path, tokenizer):
             # The `map` function passes each row (example) as a dict.
             processed_texts = []
             labels = []
-            for i in range(len(examples['label'])):
+            for i in range(len(examples["label"])):
                 # If log_data loaded as string, parse it back; otherwise use directly if dict
-                log_dict = json.loads(examples['log_data'][i]) if isinstance(examples['log_data'][i], str) else examples['log_data'][i]
+                log_dict = (
+                    json.loads(examples["log_data"][i])
+                    if isinstance(examples["log_data"][i], str)
+                    else examples["log_data"][i]
+                )
                 processed_texts.append(prepare_text_for_model(log_dict))
                 # Map label string to integer ID
-                labels.append(label_map.index(examples['label'][i]))
+                labels.append(label_map.index(examples["label"][i]))
 
             tokenized_inputs = tokenizer(
                 processed_texts,
                 max_length=MAX_SEQ_LENGTH,
                 truncation=True,
-                padding=False # Padding handled dynamically by DataCollator
+                padding=False,  # Padding handled dynamically by DataCollator
             )
             # Add labels to the tokenized inputs
-            tokenized_inputs['label'] = labels
+            tokenized_inputs["label"] = labels
             return tokenized_inputs
 
         # Apply preprocessing
@@ -136,17 +156,28 @@ def load_and_prepare_dataset(file_path, tokenizer):
         processed_dataset = raw_dataset.map(
             preprocess_function,
             batched=True,
-            remove_columns=["log_data", "label"] # Remove original columns after processing
+            remove_columns=[
+                "log_data",
+                "label",
+            ],  # Remove original columns after processing
         )
 
         try:
-            if isinstance(processed_dataset, collections.abc.Sized): # Check if the object is Sized
-                num_examples = len(processed_dataset) # Now Pylance might be more confident
+            if isinstance(
+                processed_dataset, collections.abc.Sized
+            ):  # Check if the object is Sized
+                num_examples = len(
+                    processed_dataset
+                )  # Now Pylance might be more confident
                 print(f"Dataset prepared. Number of examples: {num_examples}")
             else:
-                print("Dataset prepared. Number of examples: (IterableDataset, length unknown)")
+                print(
+                    "Dataset prepared. Number of examples: (IterableDataset, length unknown)"
+                )
         except Exception:
-            print("Dataset prepared. Number of examples: (IterableDataset, length unknown)")
+            print(
+                "Dataset prepared. Number of examples: (IterableDataset, length unknown)"
+            )
         # print("Example processed sample:", processed_dataset[0]) # Debug: check structure
         return processed_dataset
 
@@ -157,7 +188,9 @@ def load_and_prepare_dataset(file_path, tokenizer):
         # import traceback; traceback.print_exc() # Uncomment for detailed traceback
     return None
 
+
 # --- Model Training ---
+
 
 def compute_metrics(eval_pred):
     """Computes evaluation metrics (accuracy, F1)."""
@@ -168,17 +201,20 @@ def compute_metrics(eval_pred):
         print(f"Error loading evaluation metrics: {e}. Check network or cache.")
         return {"accuracy": 0.0, "f1": 0.0}
 
-
     logits, labels = eval_pred
     # Logits are output neurons, need argmax to get predicted class index
     predictions = np.argmax(logits, axis=-1)
 
     try:
         accuracy = metric_acc.compute(predictions=predictions, references=labels)
-        f1_score = metric_f1.compute(predictions=predictions, references=labels, average="binary") # Use 'binary' for 2 classes
+        f1_score = metric_f1.compute(
+            predictions=predictions, references=labels, average="binary"
+        )  # Use 'binary' for 2 classes
 
         return {
-            "accuracy": accuracy["accuracy"] if accuracy and "accuracy" in accuracy else 0.0,
+            "accuracy": (
+                accuracy["accuracy"] if accuracy and "accuracy" in accuracy else 0.0
+            ),
             "f1": f1_score["f1"] if f1_score and "f1" in f1_score else 0.0,
         }
     except Exception as e:
@@ -211,7 +247,9 @@ def fine_tune_model():
     try:
         print(f"Loading base model for sequence classification: {BASE_MODEL_NAME}")
         # num_labels=2 for binary classification (human/bot)
-        model = AutoModelForSequenceClassification.from_pretrained(BASE_MODEL_NAME, num_labels=2)
+        model = AutoModelForSequenceClassification.from_pretrained(
+            BASE_MODEL_NAME, num_labels=2
+        )
     except Exception as e:
         print(f"ERROR: Failed to load base model '{BASE_MODEL_NAME}': {e}")
         return
@@ -225,18 +263,18 @@ def fine_tune_model():
         learning_rate=LEARNING_RATE,
         weight_decay=WEIGHT_DECAY,
         logging_dir=LOGGING_DIR,
-        logging_strategy="steps", # Log metrics periodically
+        logging_strategy="steps",  # Log metrics periodically
         logging_steps=LOGGING_STEPS,
-        eval_strategy="steps", # Evaluate periodically
+        eval_strategy="steps",  # Evaluate periodically
         eval_steps=EVAL_STEPS,
         save_strategy="steps",
         save_steps=SAVE_STEPS,
-        save_total_limit=2, # Keep only last 2 checkpoints + final model
-        load_best_model_at_end=True, # Reload best model found during training
-        metric_for_best_model="f1", # Use F1 score to determine best model
+        save_total_limit=2,  # Keep only last 2 checkpoints + final model
+        load_best_model_at_end=True,  # Reload best model found during training
+        metric_for_best_model="f1",  # Use F1 score to determine best model
         greater_is_better=True,
-        report_to="tensorboard", # Log to TensorBoard (requires tensorboard package)
-        fp16=True, # Enable mixed precision training if GPU supports it
+        report_to="tensorboard",  # Log to TensorBoard (requires tensorboard package)
+        fp16=True,  # Enable mixed precision training if GPU supports it
         # Consider adding:
         # warmup_steps=... ,
         # gradient_accumulation_steps=... ,
@@ -268,18 +306,22 @@ def fine_tune_model():
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)
 
-        trainer.save_model() # Saves the best model to output_dir
-        trainer.save_state() # Saves trainer state
+        trainer.save_model()  # Saves the best model to output_dir
+        trainer.save_state()  # Saves trainer state
         print(f"Best fine-tuned model and state saved to: {OUTPUT_DIR}")
 
         print("\nEvaluating final best model on evaluation set...")
-        eval_metrics = trainer.evaluate(eval_dataset=eval_dataset) # Explicitly evaluate best model
+        eval_metrics = trainer.evaluate(
+            eval_dataset=eval_dataset
+        )  # Explicitly evaluate best model
         trainer.log_metrics("eval_final", eval_metrics)
         trainer.save_metrics("eval_final", eval_metrics)
 
     except Exception as e:
         print(f"ERROR during fine-tuning or evaluation: {e}")
-        import traceback; traceback.print_exc()
+        import traceback
+
+        traceback.print_exc()
 
     print("--- Fine-Tuning Script Finished ---")
 

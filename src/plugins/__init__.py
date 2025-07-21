@@ -21,5 +21,6 @@ def load_plugins() -> List[Callable[[object], float]]:
                 plugins.append(func)
         except Exception as e:  # pragma: no cover - unexpected
             import logging
+
             logging.error("Failed to load plugin %s: %s", filename, e)
     return plugins

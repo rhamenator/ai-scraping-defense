@@ -1,4 +1,5 @@
 """FastAPI service for hosted monitoring across installations."""
+
 from typing import Dict, Any, List
 import asyncio
 

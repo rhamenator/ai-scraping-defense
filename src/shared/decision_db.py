@@ -3,6 +3,7 @@
 This module wraps a simple SQLite database used to persist blocklist
 decisions and related metadata for analysis and debugging.
 """
+
 import os
 import sqlite3
 from contextlib import contextmanager
@@ -29,6 +30,7 @@ CREATE TABLE IF NOT EXISTS decisions (
 );
 """
 
+
 @contextmanager
 def get_conn():
     conn = sqlite3.connect(DB_PATH)
@@ -39,9 +41,19 @@ def get_conn():
     finally:
         conn.close()
 
-def record_decision(ip: str, source: str, score: float, is_bot: int | None, action: str, timestamp: str) -> None:
+
+def record_decision(
+    ip: str, source: str, score: float, is_bot: int | None, action: str, timestamp: str
+) -> None:
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO decisions (ip, source, score, is_bot, action, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
-            (ip, source, score, None if is_bot is None else int(bool(is_bot)), action, timestamp),
+            (
+                ip,
+                source,
+                score,
+                None if is_bot is None else int(bool(is_bot)),
+                action,
+                timestamp,
+            ),
         )

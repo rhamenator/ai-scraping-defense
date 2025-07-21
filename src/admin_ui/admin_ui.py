@@ -69,16 +69,19 @@ def _load_recent_block_events(limit: int = 5) -> list[dict]:
         for line in lines:
             try:
                 data = json.loads(line)
-                events.append({
-                    "timestamp": data.get("timestamp"),
-                    "ip": data.get("ip_address"),
-                    "reason": data.get("reason"),
-                })
+                events.append(
+                    {
+                        "timestamp": data.get("timestamp"),
+                        "ip": data.get("ip_address"),
+                        "reason": data.get("reason"),
+                    }
+                )
             except Exception:
                 continue
     except Exception:
         return []
     return events
+
 
 # Exposed for tests so they can patch the behaviour
 _load_recent_block_events_func = _load_recent_block_events
@@ -86,7 +89,9 @@ _load_recent_block_events_func = _load_recent_block_events
 BASE_DIR = os.path.dirname(__file__)
 app = FastAPI()
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+app.mount(
+    "/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"
+)
 
 # Editable runtime settings managed via the Admin UI
 RUNTIME_SETTINGS = {
@@ -123,6 +128,7 @@ async def metrics_endpoint():
         metrics_dict = _get_metrics_dict_func()
     except Exception as exc:  # pragma: no cover - defensive
         import logging
+
         logging.error("An error occurred in the metrics endpoint", exc_info=True)
         return JSONResponse({"error": "An internal error occurred"}, status_code=500)
 
@@ -148,6 +154,7 @@ async def metrics_websocket(websocket: WebSocket):
                 metrics_dict = _get_metrics_dict_func()
             except Exception:  # pragma: no cover - defensive
                 import logging
+
                 logging.error(
                     "An error occurred in the websocket metrics endpoint",
                     exc_info=True,
@@ -196,13 +203,15 @@ async def block_stats():
             pass
 
     recent_events = _load_recent_block_events_func(5)
-    return JSONResponse({
-        "blocked_ip_count": len(blocked_ips),
-        "temporary_block_count": temp_block_count,
-        "total_bots_detected": total_bots,
-        "total_humans_detected": total_humans,
-        "recent_block_events": recent_events,
-    })
+    return JSONResponse(
+        {
+            "blocked_ip_count": len(blocked_ips),
+            "temporary_block_count": temp_block_count,
+            "total_bots_detected": total_bots,
+            "total_humans_detected": total_humans,
+            "recent_block_events": recent_events,
+        }
+    )
 
 
 @app.get("/blocklist")
@@ -225,7 +234,9 @@ async def get_blocklist():
 async def block_ip(request: Request):
     json_data = await request.json()
     if not json_data:
-        return JSONResponse({"error": "Invalid request, missing JSON body"}, status_code=400)
+        return JSONResponse(
+            {"error": "Invalid request, missing JSON body"}, status_code=400
+        )
 
     ip = json_data.get("ip")
     if not ip:
@@ -243,7 +254,9 @@ async def block_ip(request: Request):
 async def unblock_ip(request: Request):
     json_data = await request.json()
     if not json_data:
-        return JSONResponse({"error": "Invalid request, missing JSON body"}, status_code=400)
+        return JSONResponse(
+            {"error": "Invalid request, missing JSON body"}, status_code=400
+        )
 
     ip = json_data.get("ip")
     if not ip:
@@ -290,12 +303,14 @@ async def update_settings(request: Request):
         "ESCALATION_ENDPOINT": RUNTIME_SETTINGS["ESCALATION_ENDPOINT"],
     }
     return templates.TemplateResponse(
-        "settings.html", {"request": request, "settings": current_settings, "updated": True}
+        "settings.html",
+        {"request": request, "settings": current_settings, "updated": True},
     )
 
 
 if __name__ == "__main__":
     import uvicorn
+
     host = os.getenv("FLASK_RUN_HOST", "0.0.0.0")
     port = int(os.getenv("ADMIN_UI_PORT", 5002))
     log_level = os.getenv("LOG_LEVEL", "info").lower()

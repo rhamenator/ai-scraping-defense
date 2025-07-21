@@ -11,12 +11,17 @@ from src.shared.config import tenant_key
 COMMUNITY_BLOCKLIST_API_URL = os.getenv(
     "COMMUNITY_BLOCKLIST_API_URL", "https://mock_community_blocklist_api:8000"
 )
-COMMUNITY_BLOCKLIST_LIST_ENDPOINT = os.getenv("COMMUNITY_BLOCKLIST_LIST_ENDPOINT", "/list")
+COMMUNITY_BLOCKLIST_LIST_ENDPOINT = os.getenv(
+    "COMMUNITY_BLOCKLIST_LIST_ENDPOINT", "/list"
+)
 REDIS_DB_BLOCKLIST = int(os.getenv("REDIS_DB_BLOCKLIST", 2))
 BLOCKLIST_TTL_SECONDS = int(os.getenv("COMMUNITY_BLOCKLIST_TTL_SECONDS", 86400))
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 
 async def fetch_blocklist(url: str) -> List[str]:
     """Fetches a list of malicious IPs from the community blocklist service."""
@@ -32,6 +37,7 @@ async def fetch_blocklist(url: str) -> List[str]:
                 return [ip for ip in ips if isinstance(ip, str)]
         return []
 
+
 def update_redis_blocklist(ips: List[str], redis_conn) -> int:
     """Adds IPs to the Redis blocklist with a TTL."""
     if not redis_conn or not ips:
@@ -46,9 +52,12 @@ def update_redis_blocklist(ips: List[str], redis_conn) -> int:
             logger.error(f"Failed to set Redis key for IP {ip}: {e}")
     return added
 
+
 async def sync_blocklist() -> Optional[int]:
     """Fetches the community blocklist and updates Redis."""
-    list_url = COMMUNITY_BLOCKLIST_API_URL.rstrip('/') + COMMUNITY_BLOCKLIST_LIST_ENDPOINT
+    list_url = (
+        COMMUNITY_BLOCKLIST_API_URL.rstrip("/") + COMMUNITY_BLOCKLIST_LIST_ENDPOINT
+    )
     logger.info(f"Fetching community blocklist from {list_url}")
     try:
         ips = await fetch_blocklist(list_url)
@@ -65,6 +74,7 @@ async def sync_blocklist() -> Optional[int]:
     added = update_redis_blocklist(ips, redis_conn)
     logger.info(f"Added/updated {added} IPs from community blocklist.")
     return added
+
 
 if __name__ == "__main__":
     asyncio.run(sync_blocklist())
