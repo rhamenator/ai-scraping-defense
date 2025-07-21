@@ -38,7 +38,7 @@ cp sample.env .env
 Copy-Item sample.env .env
 ```
 
-Now, open the .env file in your code editor. For now, you can leave the default values as they are. This is where you would add your real API keys for services like OpenAI or Mistral when you're ready to use them.
+Now, open the .env file in your code editor. For now, you can leave the default values as they are. This is where you would add your real API keys for services like OpenAI or Mistral when you're ready to use them. For **production** deployments, update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443` so the proxy listens on the standard web ports.
 
 ### **3. Set Up the Python Virtual Environment**
 

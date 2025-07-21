@@ -53,6 +53,7 @@ For a one-command setup, run `./quickstart_dev.sh` on Linux/macOS or `quickstart
     Set `TENANT_ID` to a unique value for each isolated deployment.
     To enable the CAPTCHA verification service, populate `CAPTCHA_SECRET` with your reCAPTCHA secret key.
     Tarpit behavior can be tuned with `TARPIT_MAX_HOPS` and `TARPIT_HOP_WINDOW_SECONDS` to automatically block clients that spend too much time in the tarpit.
+    For **production** deployments, change `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443` so the proxy listens on standard web ports.
 
 3. **Set Up Python Virtual Environment:**
     Run the setup script to create a virtual environment and install all Python dependencies.
