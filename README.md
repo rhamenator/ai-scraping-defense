@@ -106,6 +106,18 @@ Follow these steps if you prefer to configure everything yourself.
     - **Your Application:** `http://localhost:8080`
     - **HTTPS (if enabled):** `https://localhost:8443`
 
+## Optional Features
+
+Several integrations are disabled by default to keep the stack lightweight. You can enable them by editing `.env`:
+
+- **Web Application Firewall** (`ENABLE_WAF`) – Mounts ModSecurity rules from `WAF_RULES_PATH` for additional filtering.
+- **Global CDN** (`ENABLE_GLOBAL_CDN`) – Connects to your CDN provider using `CLOUD_CDN_API_TOKEN` for edge caching.
+- **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) – Reports malicious traffic to an external service configured by `DDOS_PROTECTION_API_KEY`.
+- **Managed TLS** (`ENABLE_MANAGED_TLS`) – Automatically issues certificates via `TLS_PROVIDER` with contact email `TLS_EMAIL`.
+- **CAPTCHA Verification** – Populate `CAPTCHA_SECRET` to activate reCAPTCHA challenges.
+- **Fail2ban** – Start the `fail2ban` container to insert firewall rules based on blocked IPs.
+- **LLM Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) – Use an LLM to generate fake pages when a model URI is provided.
+
 ## Project Structure
 
 - `src/`: Contains all Python source code for the microservices.
@@ -117,6 +129,17 @@ Follow these steps if you prefer to configure everything yourself.
 - `Dockerfile`: A single Dockerfile used to build the base image for all Python services.
 - `jszip-rs/`: Rust implementation of the fake JavaScript archive generator.
 - `markov-train-rs/`: Rust implementation of the Markov training utility.
+## Configuring AI Models
+
+The detection services load a model specified by the `MODEL_URI` value in `.env`. Examples include a local scikit-learn file or an external API:
+
+```bash
+MODEL_URI=sklearn:///app/models/bot_detection_rf_model.joblib
+MODEL_URI=openai://gpt-4-turbo
+MODEL_URI=mistral://mistral-large-latest
+```
+
+For remote providers, set the corresponding API key in `.env` (`OPENAI_API_KEY`, `MISTRAL_API_KEY`, etc.). The [Model Adapters guide](docs/api_references.md) explains all available schemes.
 
 ## Markov Training Utility (Rust)
 

@@ -175,6 +175,30 @@ ab -n 1000 -c100 http://localhost:8080/
 
 Use these programs only against systems you own or have explicit permission to test.
 
+
+## **Configuring AI Models**
+
+Detection components load a model from the path or provider defined by `MODEL_URI` in `.env`.
+
+```bash
+MODEL_URI=sklearn:///app/models/bot_detection_rf_model.joblib
+MODEL_URI=openai://gpt-4-turbo
+MODEL_URI=mistral://mistral-large-latest
+```
+
+When using an external provider, populate the matching API key variable (e.g., `OPENAI_API_KEY` or `MISTRAL_API_KEY`). See [api_references.md](api_references.md) for all supported schemes.
+
+## **Optional Features**
+
+The `.env` file also contains toggles for several optional integrations:
+
+- **Web Application Firewall** (`ENABLE_WAF`) mounts ModSecurity rules specified by `WAF_RULES_PATH`.
+- **Global CDN** (`ENABLE_GLOBAL_CDN`) connects to a provider using `CLOUD_CDN_API_TOKEN`.
+- **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) sends threat data to a third-party service via `DDOS_PROTECTION_API_KEY`.
+- **Managed TLS** (`ENABLE_MANAGED_TLS`) automatically issues certificates using `TLS_PROVIDER` and `TLS_EMAIL`.
+- **CAPTCHA Verification** activates when `CAPTCHA_SECRET` is supplied.
+- **LLM-Generated Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) require a `TARPIT_LLM_MODEL_URI`.
+
 ## **Quick Kubernetes Deployment**
 
 To deploy the stack to a Kubernetes cluster in one step run:
