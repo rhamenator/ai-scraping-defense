@@ -20,25 +20,26 @@ This project provides a multi-layered, microservice-based defense system against
 - **Anomaly Detection via AI:** Move beyond heuristics and integrate anomaly detection models for more adaptive security.
 - **Automated Configuration Recommendations:** AI-driven service that analyzes traffic patterns and suggests firewall and tarpit tuning.
 
-## Getting Started (Local Development)
+## Quick Local Setup
 
-This setup uses Docker Compose to orchestrate all the necessary services on your local machine.
+Run the automated script after cloning the repository:
 
-### Prerequisites
+```bash
+git clone https://github.com/your-username/ai-scraping-defense.git
+cd ai-scraping-defense
+./quickstart_dev.sh        # or .\quickstart_dev.ps1 on Windows
+```
 
-- Docker and Docker Compose
-- Python 3.10+
-- A shell environment (Bash for Linux/macOS, PowerShell for Windows)
+The script copies `sample.env`, generates secrets, installs dependencies, and launches Docker Compose for you.
 
-### Setup Instructions
-For a one-command setup, run `./quickstart_dev.sh` on Linux/macOS or `quickstart_dev.ps1` on Windows.
+## Manual Local Setup
 
-
+Follow these steps if you prefer to configure everything yourself.
 
 1. **Clone the Repository:**
 
     ```bash
-    git clone [https://github.com/your-username/ai-scraping-defense.git](https://github.com/your-username/ai-scraping-defense.git)
+    git clone https://github.com/your-username/ai-scraping-defense.git
     cd ai-scraping-defense
     ```
 
@@ -49,11 +50,7 @@ For a one-command setup, run `./quickstart_dev.sh` on Linux/macOS or `quickstart
     cp sample.env .env
     ```
 
-    Open the `.env` file and review the default settings. You do not need to change anything to get started, but this is where you would add your API keys later.
-    Set `TENANT_ID` to a unique value for each isolated deployment.
-    To enable the CAPTCHA verification service, populate `CAPTCHA_SECRET` with your reCAPTCHA secret key.
-    Tarpit behavior can be tuned with `TARPIT_MAX_HOPS` and `TARPIT_HOP_WINDOW_SECONDS` to automatically block clients that spend too much time in the tarpit.
-    For **production** deployments, change `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443` so the proxy listens on standard web ports.
+    Open `.env` and review the defaults. Set `TENANT_ID` for isolated deployments and add any API keys you plan to use. For **production** deployments update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443`.
 
 3. **Set Up Python Virtual Environment:**
     Run the setup script to create a virtual environment and install all Python dependencies.
@@ -64,36 +61,29 @@ For a one-command setup, run `./quickstart_dev.sh` on Linux/macOS or `quickstart
     sudo bash ./reset_venv.sh
     ```
 
-    *On Windows (in a PowerShell terminal as Administrator):*
+    *On Windows (PowerShell as Administrator):*
 
     ```powershell
     .\reset_venv.ps1
     ```
 
 4. **Generate Secrets:**
-    Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console. The script **does not** modify `.env` unless you use the optional `--update-env` flag.
+    Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console.
 
     *On Linux or macOS:*
 
     ```bash
-    # prints credentials only
     bash ./generate_secrets.sh
-
-    # optionally update .env with the generated values
-    bash ./generate_secrets.sh --update-env
     ```
 
-    *On Windows (in a PowerShell terminal):*
+    *On Windows:*
 
     ```powershell
     .\Generate-Secrets.ps1
     ```
-    These scripts generate a `.htpasswd` entry using bcrypt with cost factor 12 for securing access to the Admin UI.
-
-    **Important:** The script will print the generated credentials to the console. Copy these and save them in a secure password manager.
 
 5. **Enable HTTPS (Optional):**
-    Edit the `.env` file to set `ENABLE_HTTPS=true` and provide paths to your TLS certificate and key.
+    Edit `.env` and set `ENABLE_HTTPS=true` with paths to your certificate and key.
 
     ```bash
     ENABLE_HTTPS=true
@@ -101,22 +91,32 @@ For a one-command setup, run `./quickstart_dev.sh` on Linux/macOS or `quickstart
     TLS_KEY_PATH=./nginx/certs/tls.key
     ```
 
-    Make sure the certificate files exist at those paths or update them accordingly.
-
 6. **Launch the Stack:**
-    Build and start all the services using Docker Compose.
+    Build and start the services with Docker Compose.
 
     ```bash
     docker-compose up --build -d
     ```
 
-    If you'd like to try the proxy in front of a WordPress site, run `./setup_wordpress_website.sh` (or `./setup_wordpress_website.ps1` on Windows) instead. It launches WordPress and MariaDB containers on the same Docker network and sets `REAL_BACKEND_HOST` automatically.
+    If you'd like to try the proxy in front of a WordPress site, run `./setup_wordpress_website.sh` (or `./setup_wordpress_website.ps1` on Windows) instead. It launches WordPress and MariaDB containers and sets `REAL_BACKEND_HOST` automatically.
 
 7. **Access the Services:**
     - **Admin UI:** `http://localhost:5002`
     - **Cloud Dashboard:** `http://localhost:5006`
-    - **Your Application (via proxy):** `http://localhost:8080`
+    - **Your Application:** `http://localhost:8080`
     - **HTTPS (if enabled):** `https://localhost:8443`
+
+## Optional Features
+
+Several integrations are disabled by default to keep the stack lightweight. You can enable them by editing `.env`:
+
+- **Web Application Firewall** (`ENABLE_WAF`) – Mounts ModSecurity rules from `WAF_RULES_PATH` for additional filtering.
+- **Global CDN** (`ENABLE_GLOBAL_CDN`) – Connects to your CDN provider using `CLOUD_CDN_API_TOKEN` for edge caching.
+- **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) – Reports malicious traffic to an external service configured by `DDOS_PROTECTION_API_KEY`.
+- **Managed TLS** (`ENABLE_MANAGED_TLS`) – Automatically issues certificates via `TLS_PROVIDER` with contact email `TLS_EMAIL`.
+- **CAPTCHA Verification** – Populate `CAPTCHA_SECRET` to activate reCAPTCHA challenges.
+- **Fail2ban** – Start the `fail2ban` container to insert firewall rules based on blocked IPs.
+- **LLM Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) – Use an LLM to generate fake pages when a model URI is provided.
 
 ## Project Structure
 
@@ -129,6 +129,17 @@ For a one-command setup, run `./quickstart_dev.sh` on Linux/macOS or `quickstart
 - `Dockerfile`: A single Dockerfile used to build the base image for all Python services.
 - `jszip-rs/`: Rust implementation of the fake JavaScript archive generator.
 - `markov-train-rs/`: Rust implementation of the Markov training utility.
+## Configuring AI Models
+
+The detection services load a model specified by the `MODEL_URI` value in `.env`. Examples include a local scikit-learn file or an external API:
+
+```bash
+MODEL_URI=sklearn:///app/models/bot_detection_rf_model.joblib
+MODEL_URI=openai://gpt-4-turbo
+MODEL_URI=mistral://mistral-large-latest
+```
+
+For remote providers, set the corresponding API key in `.env` (`OPENAI_API_KEY`, `MISTRAL_API_KEY`, etc.). The [Model Adapters guide](docs/api_references.md) explains all available schemes.
 
 ## Markov Training Utility (Rust)
 
@@ -174,9 +185,19 @@ python src/rag/training.py --model xgb
 
 This flexibility makes it easy to experiment with different classifiers.
 
-## Automated Deployment
+## Quick Kubernetes Deployment
 
-Use `./quick_deploy.sh` (Linux/macOS) or `quick_deploy.ps1` (Windows) for a streamlined Kubernetes deployment. These scripts generate required secrets and apply all manifests using kubectl.
+Run the helper script to deploy everything to Kubernetes in one step:
+
+```bash
+./quick_deploy.sh       # or .\quick_deploy.ps1 on Windows
+```
+
+The script generates secrets and applies all manifests using `kubectl`.
+
+## Manual Kubernetes Deployment
+
+For a detailed, step-by-step guide see [docs/kubernetes_deployment.md](docs/kubernetes_deployment.md). The `deploy.sh` and `deploy.ps1` scripts provide a manual approach if you need more control.
 
 ## Load Testing Helpers
 
