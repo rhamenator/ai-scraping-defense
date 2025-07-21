@@ -14,6 +14,9 @@ The AI Scraping Defense system is designed as a distributed, microservice-based 
   - **Admin UI:** A FastAPI-based web interface for monitoring system metrics and viewing the blocklist. Configuration is loaded from environment variables, though a couple of runtime-only options (log level and escalation endpoint) can be tweaked via the interface.
   - **Cloud Dashboard:** Centralized service that aggregates metrics from multiple installations for hosted monitoring.
   - **Config Recommender:** Analyzes traffic patterns to suggest firewall and tarpit tuning parameters.
+  - **Blocklist Sync Daemon:** Periodically pulls updates from the public community blocklist.
+  - **Peer Sync Daemon:** Exchanges blocklisted IPs with other deployments.
+  - **Adaptive Rate Limit Daemon:** Adjusts Nginx rate limit rules based on observed traffic.
   - **Public Community Blocklist Service:** Hosts a shared IP reputation list that contributors can update via a simple API.
 
 - **Data Stores:**
@@ -23,6 +26,9 @@ The AI Scraping Defense system is designed as a distributed, microservice-based 
 - **Background Jobs:**
   - **Corpus Updater & Markov Trainer:** Cron jobs that periodically fetch new text data and retrain the Markov model to keep the tarpit content fresh.
   - **Archive Rotator:** A simple service that manages the "zip bomb" archives used by the Tarpit API.
+  - **Blocklist Sync Daemon:** Periodically pulls IP reputation data from the Public Community Blocklist Service.
+  - **Peer Sync Daemon:** Shares blocklisted IPs between trusted deployments.
+  - **Adaptive Rate Limit Daemon:** Updates Nginx rate-limit settings based on recent traffic patterns.
 
 ## Architecture Diagram
 
@@ -47,6 +53,9 @@ graph TD
             AdminUI["📊 Admin UI"]
             CloudDashboard["☁️ Cloud Dashboard"]
             ConfigRecommender["🔧 Config Recommender"]
+            BlocklistSync["🔄 Blocklist Sync"]
+            PeerSync["🔄 Peer Sync"]
+            RateLimitDaemon["⚙️ Rate Limit Daemon"]
         end
 
         subgraph "Countermeasures"
@@ -62,6 +71,8 @@ graph TD
     
     subgraph "External Services"
         LLM["☁️ LLM APIs\n(OpenAI, Mistral, etc.)"]
+        CommunityBlocklist["☁️ Community Blocklist"]
+        PeerDeployments["☁️ Peer Deployments"]
     end
 
     User -- "Legitimate Request" --> Nginx
@@ -80,6 +91,11 @@ graph TD
     AdminUI -- "Streams Metrics" --> CloudDashboard
     AdminUI -- "Feeds" --> ConfigRecommender
     ConfigRecommender -- "Suggestions" --> AdminUI
+    BlocklistSync -- "Update" --> Redis
+    PeerSync -- "Share IPs" --> Redis
+    RateLimitDaemon -- "Adjust Limits" --> Nginx
+    BlocklistSync -- "Fetch IPs" --> CommunityBlocklist
+    PeerSync -- "Exchange IPs" --> PeerDeployments
 
     AdminUI -- "Manages" --> Redis
 
@@ -106,6 +122,11 @@ graph TD
     AdminUI -->|Streams Metrics| CloudDashboard["☁️ Cloud Dashboard"]
     AdminUI -->|Feeds| ConfigRecommender["🔧 Config Recommender"]
     ConfigRecommender -->|Suggestions| AdminUI
+    BlocklistSync["🔄 Blocklist Sync"] -->|Update| Redis
+    PeerSync["🔄 Peer Sync"] -->|Share IPs| Redis
+    RateLimitDaemon["⚙️ Rate Limit Daemon"] -->|Adjust Limits| Nginx
+    BlocklistSync -->|Fetch IPs| CommunityBlocklist["☁️ Community Blocklist"]
+    PeerSync -->|Exchange IPs| PeerDeployments["☁️ Peer Deployments"]
 
     AdminUI -->|Manages| Redis
 
@@ -132,6 +153,10 @@ graph TD
             EscalationEngine["🧠 Escalation Engine"]
             AdminUI["📊 Admin UI"]
             ConfigRecommender["🔧 Config Recommender"]
+            CloudDashboard["☁️ Cloud Dashboard"]
+            BlocklistSync["🔄 Blocklist Sync"]
+            PeerSync["🔄 Peer Sync"]
+            RateLimitDaemon["⚙️ Rate Limit Daemon"]
         end
 
         subgraph "Countermeasures"
@@ -147,6 +172,8 @@ graph TD
 
     subgraph "External Services"
         LLM["☁️ LLM APIs\n(OpenAI, Mistral, etc.)"]
+        CommunityBlocklist["☁️ Community Blocklist"]
+        PeerDeployments["☁️ Peer Deployments"]
     end
 
     User -->|Legitimate Request| Nginx
@@ -165,6 +192,11 @@ graph TD
     AdminUI -->|Streams Metrics| CloudDashboard
     AdminUI -->|Feeds| ConfigRecommender
     ConfigRecommender -->|Suggestions| AdminUI
+    BlocklistSync -->|Update| Redis
+    PeerSync -->|Share IPs| Redis
+    RateLimitDaemon -->|Adjust Limits| Nginx
+    BlocklistSync -->|Fetch IPs| CommunityBlocklist
+    PeerSync -->|Exchange IPs| PeerDeployments
 
     AdminUI -->|Manages| Redis
 
