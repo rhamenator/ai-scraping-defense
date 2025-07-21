@@ -3,6 +3,7 @@
     Quickly deploys the stack to Kubernetes.
 #>
 $ErrorActionPreference = 'Stop'
+Set-Location -Path $PSScriptRoot
 Write-Host '=== AI Scraping Defense: Quick Deploy ===' -ForegroundColor Cyan
 
 if (-not (Test-Path '.env')) {

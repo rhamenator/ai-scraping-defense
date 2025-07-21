@@ -2,6 +2,10 @@
 # Quick deployment for Kubernetes
 set -e
 
+# Always operate from the directory where this script resides
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 echo "=== AI Scraping Defense: Quick Deploy ==="
 
 # Ensure .env exists for docker build context or other scripts
