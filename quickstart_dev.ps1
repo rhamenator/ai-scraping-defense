@@ -3,6 +3,7 @@
     Sets up the development environment with a single command.
 #>
 $ErrorActionPreference = 'Stop'
+Set-Location -Path $PSScriptRoot
 Write-Host '=== AI Scraping Defense: Development Quickstart ===' -ForegroundColor Cyan
 
 if (-not (Test-Path '.env')) {

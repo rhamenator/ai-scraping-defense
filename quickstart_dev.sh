@@ -2,6 +2,10 @@
 # Quick setup script for local development
 set -e
 
+# Always operate from the directory where this script resides
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 echo "=== AI Scraping Defense: Development Quickstart ==="
 
 # Copy sample.env if .env doesn't exist
