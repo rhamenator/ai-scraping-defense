@@ -2,15 +2,26 @@
 
 This guide will walk you through setting up the AI Scraping Defense project for local development. The entire stack is orchestrated using Docker Compose, which makes the setup process straightforward.
 
+## **Quick Local Setup**
+
+Run the helper script after cloning the repository:
+
+```bash
+git clone https://github.com/your-username/ai-scraping-defense.git
+cd ai-scraping-defense
+./quickstart_dev.sh       # or .\quickstart_dev.ps1 on Windows
+```
+
+The script copies `sample.env`, generates secrets, installs dependencies, and launches Docker Compose.
+
 ## **Prerequisites**
 
-* **Docker & Docker Compose:** Ensure they are installed and running on your system.  
-* **Python:** Version 3.10 or higher.  
-* **Git:** For cloning the repository.  
+* **Docker & Docker Compose:** Ensure they are installed and running on your system.
+* **Python:** Version 3.10 or higher.
+* **Git:** For cloning the repository.
 * **A Shell Environment:** Bash (for Linux/macOS) or PowerShell (for Windows).
 
-## **Step-by-Step Setup**
-If you prefer an automated setup, simply run `./quickstart_dev.sh` on Linux/macOS or `quickstart_dev.ps1` on Windows.
+## **Manual Local Setup**
 
 
 ### **1. Clone the Repository**
@@ -163,3 +174,17 @@ ab -n 1000 -c100 http://localhost:8080/
 ```
 
 Use these programs only against systems you own or have explicit permission to test.
+
+## **Quick Kubernetes Deployment**
+
+To deploy the stack to a Kubernetes cluster in one step run:
+
+```bash
+./quick_deploy.sh       # or .\quick_deploy.ps1 on Windows
+```
+
+This script generates the required secrets and applies all manifests using `kubectl`.
+
+## **Manual Kubernetes Deployment**
+
+For a detailed walkthrough see [kubernetes_deployment.md](kubernetes_deployment.md). The `deploy.sh` and `deploy.ps1` scripts allow you to apply the manifests manually when you need more control over the process.
