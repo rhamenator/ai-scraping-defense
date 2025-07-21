@@ -230,13 +230,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init_markov.sql:/docker-entrypoint-initdb.d/init_markov.sql
-      environment:
-        # The official Postgres image expects the POSTGRES_* variables, but
-        # our .env uses the newer PG_* naming. Map them here so both the
-        # container and the rest of the stack get the correct values.
-        - POSTGRES_USER=${PG_USER}
-        - POSTGRES_PASSWORD_FILE=${PG_PASSWORD_FILE}
-        - POSTGRES_DB=${PG_DBNAME}
+    environment:
+      # The official Postgres image expects the POSTGRES_* variables, but
+      # our .env uses the newer PG_* naming. Map them here so both the
+      # container and the rest of the stack get the correct values.
+      - POSTGRES_USER=${PG_USER}
+      - POSTGRES_PASSWORD_FILE=${PG_PASSWORD_FILE}
+      - POSTGRES_DB=${PG_DBNAME}
     ports:
       - "${PG_PORT:-5432}:5432"
     networks:
