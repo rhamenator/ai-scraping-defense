@@ -18,7 +18,7 @@ This project includes:
 - Markov-based fake text generators
 - Lua/NGINX filtering and GoAccess log reporting
 - Fail2Ban compatibility and webhook alerts
-- Anomaly Detection via AI – Move beyond heuristics and integrate anomaly detection models for more adaptive security.
+- ✅ Anomaly Detection via AI – Move beyond heuristics and integrate anomaly detection models for more adaptive security.
 
 > This stack is modular, extensible, and designed for privacy-conscious and resource-constrained FOSS projects.
 ---
