@@ -203,6 +203,20 @@ FINGERPRINT_REUSE_THRESHOLD = CONFIG.FINGERPRINT_REUSE_THRESHOLD
 # GeoIP database path
 GEOIP_DB_PATH = os.getenv("GEOIP_DB_PATH", "/app/GeoLite2-Country.mmdb")
 
+# Anomaly detection configuration
+ANOMALY_MODEL_PATH = CONFIG.ANOMALY_MODEL_PATH
+ANOMALY_THRESHOLD = CONFIG.ANOMALY_THRESHOLD
+anomaly_detector = None
+if ANOMALY_MODEL_PATH:
+    try:
+        from src.shared.anomaly_detector import AnomalyDetector
+
+        anomaly_detector = AnomalyDetector(ANOMALY_MODEL_PATH)
+        if anomaly_detector.model:
+            logger.info(f"Anomaly detector loaded from {ANOMALY_MODEL_PATH}")
+    except Exception as e:  # pragma: no cover - unexpected
+        logger.error(f"Failed to initialize anomaly detector: {e}", exc_info=True)
+
 # --- Plugin System ---
 from src.plugins import load_plugins
 
@@ -664,11 +678,10 @@ def run_heuristic_and_model_analysis(
 
     # --- THIS IS THE PRIMARY CHANGE ---
     # It now uses the model_adapter instead of the direct model_pipeline.
+    features_dict = extract_features(log_entry_dict, frequency_features)
     if MODEL_LOADED and model_adapter:
         try:
-            features_dict = extract_features(log_entry_dict, frequency_features)
             if features_dict:
-                # The adapter's predict method is called here.
                 probabilities = model_adapter.predict([features_dict])
                 model_score = probabilities[0][1]
                 model_used = True
@@ -682,12 +695,19 @@ def run_heuristic_and_model_analysis(
                 f"RF model prediction failed for IP {metadata.ip}: {e}", exc_info=True
             )
             increment_counter_metric(RF_MODEL_ERRORS)
+
+    anomaly_score = 0.0
+    if anomaly_detector and features_dict:
+        anomaly_score = anomaly_detector.score(features_dict)
     # --- END OF CHANGE ---
 
     if model_used:
         final_score = (0.3 * rule_score) + (0.7 * model_score)
     else:
         final_score = rule_score
+
+    if anomaly_score > 0.0:
+        final_score = max(final_score, anomaly_score)
 
     if ip_rep_result and ip_rep_result.get("is_malicious"):
         logger.info(f"Adjusting score for malicious IP reputation for {metadata.ip}")

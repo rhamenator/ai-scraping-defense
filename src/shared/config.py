@@ -319,6 +319,14 @@ class Config:
         default_factory=lambda: int(os.getenv("TARPIT_LLM_MAX_TOKENS", 400))
     )
 
+    # Anomaly Detection
+    ANOMALY_MODEL_PATH: Optional[str] = field(
+        default_factory=lambda: os.getenv("ANOMALY_MODEL_PATH")
+    )
+    ANOMALY_THRESHOLD: float = field(
+        default_factory=lambda: float(os.getenv("ANOMALY_THRESHOLD", 0.7))
+    )
+
     # Derived attribute: namespace prefix for Redis keys and similar resources
     TENANT_PREFIX: str = field(init=False)
 
