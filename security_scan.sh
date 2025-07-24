@@ -1,6 +1,7 @@
 #!/bin/bash
 # security_scan.sh - Advanced security testing helper
 #
+
 # Usage: sudo ./security_scan.sh <target_host_or_ip> [web_url_for_nikto] [docker_image] [code_dir] [sqlmap_url]
 # - target_host_or_ip: IP or hostname for network scans
 # - web_url_for_nikto: full URL to scan with Nikto and ZAP (defaults to http://<target>)
@@ -14,6 +15,7 @@ TARGET="$1"
 WEB_URL="${2:-http://$1}"
 IMAGE="$3"
 CODE_DIR="${4:-.}"
+
 SQLMAP_URL="$5"
 
 if [[ -z "$TARGET" ]]; then
