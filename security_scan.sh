@@ -1,11 +1,13 @@
 #!/bin/bash
 # security_scan.sh - Advanced security testing helper
 #
-# Usage: sudo ./security_scan.sh <target_host_or_ip> [web_url_for_nikto] [docker_image] [code_dir]
+
+# Usage: sudo ./security_scan.sh <target_host_or_ip> [web_url_for_nikto] [docker_image] [code_dir] [sqlmap_url]
 # - target_host_or_ip: IP or hostname for network scans
 # - web_url_for_nikto: full URL to scan with Nikto and ZAP (defaults to http://<target>)
 # - docker_image: optional container image to scan with Trivy
 # - code_dir: optional path to source code for Bandit static analysis
+# - sqlmap_url: optional parameterized URL for automated SQLMap testing
 
 set -e
 
@@ -14,8 +16,10 @@ WEB_URL="${2:-http://$1}"
 IMAGE="$3"
 CODE_DIR="${4:-.}"
 
+SQLMAP_URL="$5"
+
 if [[ -z "$TARGET" ]]; then
-    echo "Usage: sudo $0 <target_host_or_ip> [web_url_for_nikto] [docker_image] [code_dir]"
+    echo "Usage: sudo $0 <target_host_or_ip> [web_url_for_nikto] [docker_image] [code_dir] [sqlmap_url]"
     exit 1
 fi
 
@@ -34,9 +38,17 @@ else
     echo "zap-baseline.py not installed. Skipping ZAP scan."
 fi
 
-echo "=== 4. SQLMap (example usage) ==="
-echo "  Customize the sqlmap command with the specific parameterized URL you wish to test."
-echo "  Example: sqlmap -u 'http://$TARGET/vuln.php?id=1' --batch -oN reports/sqlmap_${TARGET}.txt"
+echo "=== 4. SQLMap (optional automated scan) ==="
+if [[ -n "$SQLMAP_URL" ]]; then
+    if command -v sqlmap >/dev/null 2>&1; then
+        sqlmap -u "$SQLMAP_URL" --batch -oN "reports/sqlmap_$(echo $TARGET | tr '/:' '_').txt"
+    else
+        echo "sqlmap not installed. Skipping SQL injection test."
+    fi
+else
+    echo "  Provide a parameterized URL as sqlmap_url to run SQLMap automatically."
+    echo "  Example: sqlmap -u 'http://$TARGET/vuln.php?id=1' --batch -oN reports/sqlmap_${TARGET}.txt"
+fi
 
 if [[ -n "$IMAGE" ]]; then
     echo "=== 5. Trivy Container Scan ==="
@@ -103,4 +115,28 @@ else
     echo "sslyze not installed. Skipping TLS scan."
 fi
 
-echo "Reports saved in the 'reports' directory. Review them for potential issues."
+echo "=== 15. ffuf Web Fuzzing ==="
+if command -v ffuf >/dev/null 2>&1; then
+    WORDLIST="/usr/share/seclists/Discovery/Web-Content/common.txt"
+    if [[ -f "$WORDLIST" ]]; then
+        ffuf -w "$WORDLIST" -u "${WEB_URL}/FUZZ" -of csv -o "reports/ffuf_$(echo $WEB_URL | tr '/:' '_').csv"
+    else
+        echo "Wordlist $WORDLIST not found. Skipping ffuf fuzzing."
+    fi
+else
+    echo "ffuf not installed. Skipping web fuzzing."
+fi
+
+echo "=== 16. Wfuzz Parameter Fuzzing ==="
+if command -v wfuzz >/dev/null 2>&1; then
+    PARAM_LIST="/usr/share/seclists/Discovery/Web-Content/burp-parameter-names.txt"
+    if [[ -f "$PARAM_LIST" ]]; then
+        wfuzz -c -z file,"$PARAM_LIST" -d "FUZZ=test" "$WEB_URL" | tee "reports/wfuzz_$(echo $WEB_URL | tr '/:' '_').txt"
+    else
+        echo "Parameter wordlist $PARAM_LIST not found. Skipping wfuzz."
+    fi
+else
+    echo "wfuzz not installed. Skipping parameter fuzzing."
+fi
+
+echo "Reports saved in the 'reports' directory. Review them for potential issues." 
