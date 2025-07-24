@@ -145,6 +145,8 @@ For remote providers, set the corresponding API key in `.env` (`OPENAI_API_KEY`,
 
 `markov-train-rs` contains a high-performance implementation of the corpus loader.
 It exposes a `train_from_corpus_rs` function callable from Python via PyO3.
+The repository is pinned to **Rust 1.78.0** via `rust-toolchain.toml`. Ensure
+that toolchain is installed before building the Rust crates.
 
 Build the extension with Cargo:
 
