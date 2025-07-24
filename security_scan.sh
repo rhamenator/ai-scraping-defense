@@ -66,4 +66,41 @@ lynis audit system --quiet --logfile reports/lynis.log --report-file reports/lyn
 echo "=== 9. Optional Hydra Password Test ==="
 echo "  hydra -L users.txt -P passwords.txt ssh://$TARGET -o reports/hydra_${TARGET}.txt"
 
+echo "=== 10. Masscan Quick Sweep ==="
+if command -v masscan >/dev/null 2>&1; then
+    echo "  Running a fast port sweep (rate 1000) on $TARGET"
+    masscan -p1-65535 "$TARGET" --rate=1000 -oL "reports/masscan_${TARGET}.txt"
+else
+    echo "masscan not installed. Skipping quick sweep."
+fi
+
+echo "=== 11. Gobuster Directory Scan ==="
+if command -v gobuster >/dev/null 2>&1; then
+    gobuster dir -u "$WEB_URL" -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt \
+        -o "reports/gobuster_$(echo $WEB_URL | tr '/:' '_').txt"
+else
+    echo "gobuster not installed. Skipping directory scan."
+fi
+
+echo "=== 12. Enum4linux SMB Enumeration ==="
+if command -v enum4linux >/dev/null 2>&1; then
+    enum4linux -a "$TARGET" | tee "reports/enum4linux_${TARGET}.txt"
+else
+    echo "enum4linux not installed. Skipping SMB enumeration."
+fi
+
+echo "=== 13. WPScan (WordPress) ==="
+if command -v wpscan >/dev/null 2>&1; then
+    wpscan --url "$WEB_URL" --no-update -o "reports/wpscan_$(echo $WEB_URL | tr '/:' '_').txt"
+else
+    echo "wpscan not installed. Skipping WordPress scan."
+fi
+
+echo "=== 14. SSLyze TLS Scan ==="
+if command -v sslyze >/dev/null 2>&1; then
+    sslyze --regular "$TARGET" > "reports/sslyze_${TARGET}.txt"
+else
+    echo "sslyze not installed. Skipping TLS scan."
+fi
+
 echo "Reports saved in the 'reports' directory. Review them for potential issues."
