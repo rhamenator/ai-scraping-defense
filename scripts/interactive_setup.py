@@ -79,7 +79,7 @@ def store_secrets(root: Path, env: dict[str, str]) -> None:
                 conn.execute(
                     "REPLACE INTO secrets (key, value) VALUES (?, ?)", (key, value)
                 )
-    print(f"Secrets stored in {db_path}")
+    print("Secrets have been stored in the local database.")
 
 
 def main() -> None:
