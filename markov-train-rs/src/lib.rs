@@ -25,7 +25,7 @@ fn connect_db() -> Result<Client, postgres::Error> {
     Client::connect(&conn_str, NoTls)
 }
 
-fn tokenize_text(text: &str, re1: &Regex, re2: &Regex, re3: &Regex) -> Vec<String> {
+pub fn tokenize_text(text: &str, re1: &Regex, re2: &Regex, re3: &Regex) -> Vec<String> {
     let mut s = re1.replace_all(text, "").to_lowercase();
     s = re2.replace_all(&s, "").to_string();
     s.split_whitespace()

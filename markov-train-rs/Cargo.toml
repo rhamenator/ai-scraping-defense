@@ -6,7 +6,7 @@ rust-version = "1.78"
 
 [lib]
 name = "markov_train_rs"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 pyo3 = { version = "0.24.2", features = ["extension-module"] }
