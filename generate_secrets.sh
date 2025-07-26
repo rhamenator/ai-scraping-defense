@@ -42,7 +42,7 @@ ADMIN_UI_USERNAME=${SUDO_USER:-$USER}; if [ -z "$ADMIN_UI_USERNAME" ]; then ADMI
 ADMIN_UI_PASSWORD=$(generate_password)
 SYSTEM_SEED=$(generate_password 48)
 NGINX_PASSWORD=$(generate_password 32)
-EXTERNAL_API_KEY="key-for-$(generate_password)"; IP_REPUTATION_API_KEY="key-for-$(generate_password)"; COMMUNITY_BLOCKLIST_API_KEY="key-for-$(generate_password)"; SMTP_PASSWORD=$(generate_password)
+EXTERNAL_API_KEY="key-for-$(generate_password)"; IP_REPUTATION_API_KEY="key-for-$(generate_password)"; COMMUNITY_BLOCKLIST_API_KEY="key-for-$(generate_password)"
 OPENAI_API_KEY="sk-$(generate_password 40)"; ANTHROPIC_API_KEY="sk-ant-$(generate_password 40)"; GOOGLE_API_KEY="AIza$(generate_password 35)"; COHERE_API_KEY="coh-$(generate_password 40)"; MISTRAL_API_KEY="mistral-$(generate_password 40)"
 
 # Create Nginx htpasswd content using bcrypt
@@ -115,7 +115,6 @@ data:
   MISTRAL_API_KEY: $(echo -n "$MISTRAL_API_KEY" | base64 | tr -d '\n')
   IP_REPUTATION_API_KEY: $(echo -n "$IP_REPUTATION_API_KEY" | base64 | tr -d '\n')
   COMMUNITY_BLOCKLIST_API_KEY: $(echo -n "$COMMUNITY_BLOCKLIST_API_KEY" | base64 | tr -d '\n')
-  SMTP_PASSWORD: $(echo -n "$SMTP_PASSWORD" | base64 | tr -d '\n')
 EOL
 
 # Output credentials
@@ -138,8 +137,6 @@ echo -e "${CYAN}IP Reputation API Key: ${NC}"
 echo "  $IP_REPUTATION_API_KEY"
 echo -e "${CYAN}Community Blocklist API Key: ${NC}"
 echo "  $COMMUNITY_BLOCKLIST_API_KEY"
-echo -e "${CYAN}SMTP Password: ${NC}"
-echo "  $SMTP_PASSWORD"
 echo -e "${CYAN}External API Key: ${NC}"
 echo "  $EXTERNAL_API_KEY"
 echo -e "${NC}"
@@ -168,7 +165,6 @@ if [ "$update_env" = true ]; then
   update_var EXTERNAL_API_KEY "$EXTERNAL_API_KEY" "$ENV_FILE"
   update_var IP_REPUTATION_API_KEY "$IP_REPUTATION_API_KEY" "$ENV_FILE"
   update_var COMMUNITY_BLOCKLIST_API_KEY "$COMMUNITY_BLOCKLIST_API_KEY" "$ENV_FILE"
-  update_var SMTP_PASSWORD "$SMTP_PASSWORD" "$ENV_FILE"
 fi
 
 echo -e "${GREEN}Secrets Generation Complete!${NC}"

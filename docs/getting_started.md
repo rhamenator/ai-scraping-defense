@@ -69,6 +69,7 @@ To bring the stack up, only a handful of settings must be reviewed in `.env`:
 - `EXTERNAL_API_KEY` for optional integrations.
 - Port values such as `NGINX_HTTP_PORT`, `NGINX_HTTPS_PORT`, and `ADMIN_UI_PORT` typically work as-is.
 - `REAL_BACKEND_HOST` tells Nginx where to forward requests that pass the bot checks when the defense stack sits in front of another web server.
+- `ALERT_SMTP_PASSWORD_FILE` or `ALERT_SMTP_PASSWORD` if you plan to send alert emails via SMTP.
 
 The `[scripts/interactive_setup.py](../scripts/interactive_setup.py)` helper referenced above will prompt for these values and update `.env` automatically.
 
