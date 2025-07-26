@@ -235,6 +235,15 @@ The script applies all manifests using `kubectl`; it does not generate secrets.
 
 For a detailed, step-by-step guide see [docs/kubernetes_deployment.md](docs/kubernetes_deployment.md). The `deploy.sh` and `deploy.ps1` scripts provide a manual approach if you need more control.
 
+## Cloud Deployment (GKE Example)
+
+To deploy the stack to a managed Kubernetes service such as Google Kubernetes Engine, follow the instructions in [docs/cloud_provider_deployment.md](docs/cloud_provider_deployment.md). Convenience scripts are provided for automation:
+
+```bash
+./gke_deploy.sh       # or .\gke_deploy.ps1 on Windows
+```
+
+
 ## Load Testing Helpers
 
 To experiment with the stack's performance under load, run the helper script:
