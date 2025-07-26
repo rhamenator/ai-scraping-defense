@@ -163,13 +163,5 @@ def main():
     logger.info("--- Wikipedia Corpus Updater Finished ---")
 
 
-def main():
-    """Main execution function."""
-    logger.info("--- Wikipedia Corpus Updater Started ---")
-    articles = fetch_random_wikipedia_articles(NUM_ARTICLES_TO_FETCH)
-    update_corpus_file(articles)
-    logger.info("--- Wikipedia Corpus Updater Finished ---")
-
-
 if __name__ == "__main__":
     main()
