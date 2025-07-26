@@ -14,10 +14,19 @@ generate_password() {
 }
 
 update_env=false
-for arg in "$@"; do
-  case "$arg" in
+export_path=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --update-env)
       update_env=true
+      shift
+      ;;
+    --export-path)
+      export_path="$2"
+      shift 2
+      ;;
+    *)
       shift
       ;;
   esac
@@ -116,6 +125,29 @@ data:
   IP_REPUTATION_API_KEY: $(echo -n "$IP_REPUTATION_API_KEY" | base64 | tr -d '\n')
   COMMUNITY_BLOCKLIST_API_KEY: $(echo -n "$COMMUNITY_BLOCKLIST_API_KEY" | base64 | tr -d '\n')
 EOL
+
+if [ -n "$export_path" ]; then
+  cat > "$export_path" << EOF
+{
+  "ADMIN_UI_USERNAME": "$ADMIN_UI_USERNAME",
+  "ADMIN_UI_PASSWORD": "$ADMIN_UI_PASSWORD",
+  "NGINX_PASSWORD": "$NGINX_PASSWORD",
+  "POSTGRES_PASSWORD": "$POSTGRES_PASSWORD",
+  "REDIS_PASSWORD": "$REDIS_PASSWORD",
+  "SYSTEM_SEED": "$SYSTEM_SEED",
+  "OPENAI_API_KEY": "$OPENAI_API_KEY",
+  "ANTHROPIC_API_KEY": "$ANTHROPIC_API_KEY",
+  "GOOGLE_API_KEY": "$GOOGLE_API_KEY",
+  "COHERE_API_KEY": "$COHERE_API_KEY",
+  "MISTRAL_API_KEY": "$MISTRAL_API_KEY",
+  "EXTERNAL_API_KEY": "$EXTERNAL_API_KEY",
+  "IP_REPUTATION_API_KEY": "$IP_REPUTATION_API_KEY",
+  "COMMUNITY_BLOCKLIST_API_KEY": "$COMMUNITY_BLOCKLIST_API_KEY"
+}
+EOF
+  chmod 600 "$export_path"
+  echo -e "${GREEN}Credentials exported to: ${export_path}${NC}"
+fi
 
 # Output credentials
 echo -e "\nSuccessfully created Kubernetes secrets file at: ${GREEN}${OUTPUT_FILE}${NC}"

@@ -1,6 +1,11 @@
 # Generate-Secrets.ps1 (Updated for Kubernetes)
 #
 # Creates a complete Kubernetes secrets manifest for the entire application stack.
+# Optional arguments
+param(
+    [string]$ExportPath
+)
+
 # Warn if not running as Administrator
 $adminCheck = [Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -140,6 +145,28 @@ data:
 "@
 
 Set-Content -Path $OutputFile -Value $yamlContent -Encoding UTF8
+
+if ($ExportPath) {
+    $creds = [ordered]@{
+        ADMIN_UI_USERNAME = $adminUiUsername
+        ADMIN_UI_PASSWORD = $adminUiPassword
+        NGINX_PASSWORD = $nginxPassword
+        POSTGRES_PASSWORD = $postgresPassword
+        REDIS_PASSWORD = $redisPassword
+        SYSTEM_SEED = $systemSeed
+        OPENAI_API_KEY = $openaiApiKey
+        ANTHROPIC_API_KEY = $anthropicApiKey
+        GOOGLE_API_KEY = $googleApiKey
+        COHERE_API_KEY = $cohereApiKey
+        MISTRAL_API_KEY = $mistralApiKey
+        EXTERNAL_API_KEY = $externalApiKey
+        IP_REPUTATION_API_KEY = $ipReputationApiKey
+        COMMUNITY_BLOCKLIST_API_KEY = $communityBlocklistApiKey
+    }
+    $creds | ConvertTo-Json -Depth 1 | Set-Content -Path $ExportPath -Encoding UTF8
+    try { chmod 600 $ExportPath 2>$null } catch {}
+    Write-Host "Credentials exported to: $ExportPath" -ForegroundColor Green
+}
 
 # Output credentials
 Write-Host "Successfully created Kubernetes secrets file at: $OutputFile" -ForegroundColor Green
