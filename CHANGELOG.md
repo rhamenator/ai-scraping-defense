@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * Updated kubernetes/tarpit-api-deployment.yaml to source the SYSTEM_SEED environment variable from this new Secret.  
 * **Kubernetes Image Placeholders:** Standardized placeholder image names (e.g., your-registry/ai-defense-python-base:latest, your-registry/ai-defense-nginx:latest) across all relevant Kubernetes YAML files (*-deployment.yaml,*-cronjob.yaml) to clarify where user-specific image URIs should be inserted.  
 * **Documentation (mkdocs.yml):** Corrected the "License Summary" link in nav section to point to license_summary.md.  
-* **Documentation (docs/api_references.md):** Updated to include the /metrics endpoint for the Escalation Engine.  
+* **Documentation (docs/model_adapter_guide.md):** Updated to include the /metrics endpoint for the Escalation Engine.  
 * **Documentation (docs/kubernetes_deployment.md):** Significantly updated to reflect the new PostgreSQL schema initialization method, SYSTEM_SEED relocation, standardized image placeholders, and other recent enhancements for clarity and accuracy.
 
 ### **Fixed**

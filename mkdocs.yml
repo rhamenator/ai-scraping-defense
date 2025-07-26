@@ -45,7 +45,7 @@ nav:
     - Kubernetes Deployment: docs/kubernetes_deployment.md
     - Architecture: docs/architecture.md
     - Key Data Flows: docs/key_data_flows.md
-    - API Reference: docs/api_references.md
+    - API Reference: docs/model_adapter_guide.md
   - Microservices:
     - Tarpit Service: tarpit/README.md
     # Add READMEs for other services (escalation, admin_ui) here if they exist
