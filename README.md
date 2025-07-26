@@ -44,10 +44,12 @@ Follow these steps if you prefer to configure everything yourself.
     ```
 
 2. **Create Environment File:**
-    Copy the example environment file to create your local configuration.
+    Copy the example environment file or use the interactive helper to customise settings.
 
     ```bash
     cp sample.env .env
+    # optional guided setup
+    python scripts/interactive_setup.py
     ```
 
     Open `.env` and review the defaults. Set `TENANT_ID` for isolated deployments and add any API keys you plan to use. For **production** deployments update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443`.
@@ -68,7 +70,7 @@ Follow these steps if you prefer to configure everything yourself.
     ```
 
 4. **Generate Secrets:**
-    Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console.
+    Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console. If you used `interactive_setup.py` above, this step has already been performed.
 
     *On Linux or macOS:*
 
