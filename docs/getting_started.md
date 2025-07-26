@@ -215,7 +215,7 @@ MODEL_URI=openai://gpt-4-turbo
 MODEL_URI=mistral://mistral-large-latest
 ```
 
-When using an external provider, populate the matching API key variable (e.g., `OPENAI_API_KEY` or `MISTRAL_API_KEY`). See [api_references.md](api_references.md) for all supported schemes.
+When using an external provider, populate the matching API key variable (e.g., `OPENAI_API_KEY` or `MISTRAL_API_KEY`). See [model_adapter_guide.md](model_adapter_guide.md) for all supported schemes.
 
 ## **Optional Features**
 

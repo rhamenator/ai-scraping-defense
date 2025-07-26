@@ -176,7 +176,11 @@ MODEL_URI=openai://gpt-4-turbo
 MODEL_URI=mistral://mistral-large-latest
 ```
 
-For remote providers, set the corresponding API key in `.env` (`OPENAI_API_KEY`, `MISTRAL_API_KEY`, etc.). The [Model Adapters guide](docs/api_references.md) explains all available schemes.
+For remote providers, set the corresponding API key in `.env` (`OPENAI_API_KEY`, `MISTRAL_API_KEY`, etc.).
+
+## Model Adapter Guide
+
+The [Model Adapter Guide](docs/model_adapter_guide.md) explains all available schemes and how to extend the system with new providers.
 
 ## Markov Training Utility (Rust)
 
