@@ -1,5 +1,7 @@
 # AI Scraping Defense
 
+[![codecov](https://codecov.io/gh/rhamenator/ai-scraping-defense/branch/main/graph/badge.svg)](https://codecov.io/gh/rhamenator/ai-scraping-defense)
+
 This project provides a multi-layered, microservice-based defense system against sophisticated AI-powered web scrapers and malicious bots.
 
 ## Key Features

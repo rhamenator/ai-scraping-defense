@@ -3,6 +3,11 @@ import unittest
 import os
 import sys
 
+try:
+    import coverage
+except ImportError:  # pragma: no cover - coverage not installed
+    coverage = None
+
 
 def main():
     """Discovers and runs all tests in the project."""
@@ -33,9 +38,21 @@ def main():
         top_level_dir=project_root,
     )
 
+    cov = None
+    if coverage is not None:
+        cov = coverage.Coverage(source=[src_path])
+        cov.start()
+
     # Use a TextTestRunner to run the suite
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
+
+    if cov is not None:
+        cov.stop()
+        cov.save()
+        print("Coverage Summary:")
+        cov.report()
+        cov.xml_report(outfile=os.path.join(project_root, "coverage.xml"))
 
     print("-" * 70)
 
