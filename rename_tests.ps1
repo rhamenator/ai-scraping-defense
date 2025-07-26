@@ -12,6 +12,10 @@
 .EXAMPLE
     .\rename_tests.ps1
 #>
+$adminCheck = [Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
+if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Warning "It's recommended to run this script from an elevated PowerShell session."
+}
 
 # Get the path to the 'test' directory relative to the script's location
 $testDirectory = Join-Path -Path $PSScriptRoot -ChildPath "test"

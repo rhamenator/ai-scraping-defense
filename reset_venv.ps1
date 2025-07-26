@@ -11,6 +11,10 @@
 .EXAMPLE
     .\reset_venv.ps1
 #>
+$adminCheck = [Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
+if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Warning "It's recommended to run this script from an elevated PowerShell session."
+}
 
 # --- Self-Elevation Logic ---
 # This block ensures the script runs with Administrator privileges.

@@ -16,6 +16,10 @@ param(
     [int]$VUs = 50,
     [int]$DurationSeconds = 30
 )
+$adminCheck = [Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
+if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Warning "It's recommended to run this script from an elevated PowerShell session."
+}
 
 $ErrorActionPreference = 'Stop'
 Write-Host '=== AI Scraping Defense: Stress Test ===' -ForegroundColor Cyan

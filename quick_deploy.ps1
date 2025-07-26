@@ -2,6 +2,10 @@
 .SYNOPSIS
     Quickly deploys the stack to Kubernetes.
 #>
+$adminCheck = [Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
+if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Warning "It's recommended to run this script from an elevated PowerShell session."
+}
 $ErrorActionPreference = 'Stop'
 Set-Location -Path $PSScriptRoot
 Write-Host '=== AI Scraping Defense: Quick Deploy ===' -ForegroundColor Cyan
