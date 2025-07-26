@@ -15,7 +15,7 @@ const FILENAME_PREFIXES: [&str; 12] = [
 const FILENAME_SUFFIXES: [&str; 6] = ["_min", "_pack", "_bundle", "_lib", "_core", ""];
 const FILENAME_EXT: &str = ".js";
 
-fn rand_string(len: usize) -> String {
+pub fn rand_string(len: usize) -> String {
     rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(len)
@@ -24,7 +24,7 @@ fn rand_string(len: usize) -> String {
 }
 
 #[pyfunction]
-fn generate_realistic_filename() -> PyResult<String> {
+pub fn generate_realistic_filename() -> PyResult<String> {
     let mut rng = rand::thread_rng();
     let prefix = FILENAME_PREFIXES[rng.gen_range(0..FILENAME_PREFIXES.len())];
     let suffix = FILENAME_SUFFIXES[rng.gen_range(0..FILENAME_SUFFIXES.len())];
@@ -32,7 +32,7 @@ fn generate_realistic_filename() -> PyResult<String> {
     Ok(format!("{}{}{}.{}", prefix, suffix, random_hash, "js"))
 }
 
-fn generate_file_content(name: &str, target_size: usize) -> Vec<u8> {
+pub fn generate_file_content(name: &str, target_size: usize) -> Vec<u8> {
     let mut rng = rand::thread_rng();
     let mut content = format!("// Fake module: {}\n(function() {{\n", name);
     let vars = rng.gen_range(5..20);
@@ -52,7 +52,7 @@ fn generate_file_content(name: &str, target_size: usize) -> Vec<u8> {
 }
 
 #[pyfunction(signature = (num_files, output_dir = None))]
-fn create_fake_js_zip(num_files: usize, output_dir: Option<String>) -> PyResult<Option<String>> {
+pub fn create_fake_js_zip(num_files: usize, output_dir: Option<String>) -> PyResult<Option<String>> {
     let out_dir = output_dir.unwrap_or_else(|| DEFAULT_ARCHIVE_DIR.to_string());
     fs::create_dir_all(&out_dir).map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Failed to create dir: {}", e)))?;
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
