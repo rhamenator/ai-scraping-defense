@@ -109,6 +109,14 @@ def main() -> None:
     subprocess.run(["bash", "generate_secrets.sh", "--update-env"], cwd=root, check=True)
     print("Setup complete. Updated .env and generated secrets.")
 
+    resp = input("Launch the local Docker Compose stack now? [y/N]: ").strip().lower()
+    if resp == "y":
+        subprocess.run(["bash", "quickstart_dev.sh"], cwd=root, check=True)
+
+    resp = input("Deploy to Kubernetes using quick_deploy.sh now? [y/N]: ").strip().lower()
+    if resp == "y":
+        subprocess.run(["bash", "quick_deploy.sh"], cwd=root, check=True)
+
 
 if __name__ == "__main__":  # pragma: no cover - manual usage
     main()

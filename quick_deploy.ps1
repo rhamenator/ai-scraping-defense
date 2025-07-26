@@ -11,9 +11,6 @@ if (-not (Test-Path '.env')) {
     Write-Host 'Created .env from sample.env'
 }
 
-# Generate Kubernetes secrets
-& "$PSScriptRoot/Generate-Secrets.ps1"
-
 # Deploy manifests
 & "$PSScriptRoot/deploy.ps1"
 
