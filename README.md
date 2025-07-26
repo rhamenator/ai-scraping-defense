@@ -36,6 +36,15 @@ versions when running on Windows.
 The script copies `sample.env`, generates secrets, installs Python requirements using
 
 `pip install -r requirements.txt -c constraints.txt`, and launches Docker Compose for you.
+The stack requires Rust 1.78.0. `mise` (or `rustup`) installs this toolchain automatically.
+If you see a warning about `idiomatic_version_file_enable_tools`, silence it with:
+
+```bash
+mise settings add idiomatic_version_file_enable_tools rust
+```
+
+You can ignore the message if Rust 1.78.0 is already installed.
+
 
 For a step-by-step explanation of each setup script, see [docs/getting_started.md](docs/getting_started.md).
 
