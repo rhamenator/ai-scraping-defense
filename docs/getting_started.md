@@ -9,11 +9,10 @@ Run the helper script after cloning the repository:
 ```bash
 git clone https://github.com/your-username/ai-scraping-defense.git
 cd ai-scraping-defense
-./quickstart_dev.sh       # automatically uses .ps1 on Windows
+sudo ./quickstart_dev.sh  # use sudo on Linux/macOS; run quickstart_dev.ps1 on Windows
 ```
 
-The helper scripts detect your platform and call the PowerShell variants
-whenever the setup runs on Windows.
+On Windows, run `quickstart_dev.ps1` instead of the shell script.
 
 The script copies `sample.env`, generates secrets, installs dependencies, and launches Docker Compose.
 
@@ -230,11 +229,10 @@ The `.env` file also contains toggles for several optional integrations:
 To deploy the stack to a Kubernetes cluster in one step run:
 
 ```bash
-./quick_deploy.sh       # automatically uses .ps1 on Windows
+./quick_deploy.sh       # run .\quick_deploy.ps1 on Windows
 ```
 
-Like the local setup script, this command detects Windows and calls the
-PowerShell version when needed.
+On Windows, use `quick_deploy.ps1` instead of the shell script.
 
 This script generates the required secrets and applies all manifests using `kubectl`.
 

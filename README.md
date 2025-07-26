@@ -27,11 +27,10 @@ Run the automated script after cloning the repository:
 ```bash
 git clone https://github.com/your-username/ai-scraping-defense.git
 cd ai-scraping-defense
-./quickstart_dev.sh        # automatically uses .ps1 on Windows
+sudo ./quickstart_dev.sh   # use sudo on Linux/macOS; run quickstart_dev.ps1 on Windows
 ```
 
-The helper scripts detect your operating system and invoke the PowerShell
-versions when running on Windows.
+On Windows, run `quickstart_dev.ps1` instead.
 
 The script copies `sample.env`, generates secrets, installs Python requirements using
 
