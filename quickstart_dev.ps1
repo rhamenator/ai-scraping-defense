@@ -2,6 +2,10 @@
 .SYNOPSIS
     Sets up the development environment with a single command.
 #>
+$adminCheck = [Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
+if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Warning "It's recommended to run this script from an elevated PowerShell session."
+}
 $ErrorActionPreference = 'Stop'
 Set-Location -Path $PSScriptRoot
 Write-Host '=== AI Scraping Defense: Development Quickstart ===' -ForegroundColor Cyan

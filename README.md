@@ -31,7 +31,7 @@ cd ai-scraping-defense
 sudo ./quickstart_dev.sh   # use sudo on Linux/macOS; run quickstart_dev.ps1 on Windows
 ```
 
-On Windows, run `quickstart_dev.ps1` instead.
+On Windows, open an **Administrator PowerShell** window and run `quickstart_dev.ps1` instead.
 
 The script copies `sample.env`, generates secrets, installs Python requirements using
 
@@ -226,6 +226,8 @@ Run the helper script to deploy everything to Kubernetes in one step. Ensure the
 ```bash
 ./quick_deploy.sh       # or .\quick_deploy.ps1 on Windows
 ```
+
+If you're on Windows, run `quick_deploy.ps1` from an **Administrator PowerShell** window.
 
 The script applies all manifests using `kubectl`; it does not generate secrets.
 

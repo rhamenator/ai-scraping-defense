@@ -6,6 +6,10 @@
     This script applies the manifests in a logical order to ensure dependencies
     like namespaces and secrets are created before the applications that use them.
 #>
+$adminCheck = [Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
+if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Warning "It's recommended to run this script from an elevated PowerShell session."
+}
 
 # --- Script Configuration ---
 $ErrorActionPreference = "Stop"

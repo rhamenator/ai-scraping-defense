@@ -1,6 +1,11 @@
 # Generate-Secrets.ps1 (Updated for Kubernetes)
 #
 # Creates a complete Kubernetes secrets manifest for the entire application stack.
+# Warn if not running as Administrator
+$adminCheck = [Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
+if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Warning "It's recommended to run this script from an elevated PowerShell session."
+}
 
 $K8sDir = Join-Path $PSScriptRoot "kubernetes"
 if (-not (Test-Path $K8sDir)) { New-Item -ItemType Directory -Path $K8sDir | Out-Null }

@@ -12,7 +12,7 @@ cd ai-scraping-defense
 sudo ./quickstart_dev.sh  # use sudo on Linux/macOS; run quickstart_dev.ps1 on Windows
 ```
 
-On Windows, run `quickstart_dev.ps1` instead of the shell script.
+On Windows, run `quickstart_dev.ps1` from an **Administrator PowerShell** window instead of the shell script.
 
 The script copies `sample.env`, generates secrets, installs dependencies, and launches Docker Compose.
 
@@ -232,7 +232,7 @@ To deploy the stack to a Kubernetes cluster in one step run:
 ./quick_deploy.sh       # run .\quick_deploy.ps1 on Windows
 ```
 
-On Windows, use `quick_deploy.ps1` instead of the shell script.
+On Windows, use `quick_deploy.ps1` from an **Administrator PowerShell** window instead of the shell script.
 
 This script generates the required secrets and applies all manifests using `kubectl`.
 
