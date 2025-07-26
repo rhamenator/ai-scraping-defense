@@ -31,7 +31,10 @@ cd ai-scraping-defense
 ```
 
 The script copies `sample.env`, generates secrets, installs Python requirements using
+
 `pip install -r requirements.txt -c constraints.txt`, and launches Docker Compose for you.
+
+For a step-by-step explanation of each setup script, see [docs/getting_started.md](docs/getting_started.md).
 
 ## Manual Local Setup
 

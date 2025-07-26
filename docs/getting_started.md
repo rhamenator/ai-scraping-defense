@@ -1,6 +1,6 @@
 # **Getting Started (Local Development)**
 
-This guide will walk you through setting up the AI Scraping Defense project for local development. The entire stack is orchestrated using Docker Compose, which makes the setup process straightforward.
+This guide will walk you through setting up the AI Scraping Defense project for local development. The entire stack is orchestrated using Docker Compose, which makes the setup process straightforward. For a broad overview of the project, see the [README](../README.md).
 
 ## **Quick Local Setup**
 
@@ -43,16 +43,30 @@ Copy the template to create your own local .env file:
 # On Linux or macOS
 cp sample.env .env
 # optional guided setup
-python scripts/interactive_setup.py
+python [scripts/interactive_setup.py](../scripts/interactive_setup.py)
 ```
 
 ``` PowerShell
 # On Windows (in a PowerShell terminal)
 Copy-Item sample.env .env
-python scripts/interactive_setup.py
+python [scripts/interactive_setup.py](../scripts/interactive_setup.py)
 ```
 
 Now, open the .env file in your code editor. For now, you can leave the default values as they are. This is where you would add your real API keys for services like OpenAI or Mistral when you're ready to use them. For **production** deployments, update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443` so the proxy listens on the standard web ports.
+
+#### **Minimal Required Variables**
+
+To bring the stack up, only a handful of settings must be reviewed in `.env`:
+
+- `MODEL_URI` &mdash; choose the detection model. Examples include:
+  - `sklearn:///app/models/bot_detection_rf_model.joblib`
+  - `openai://gpt-4-turbo`
+  - `mistral://mistral-large-latest`
+- The API key matching your chosen provider: `OPENAI_API_KEY`, `MISTRAL_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or `COHERE_API_KEY`.
+- `EXTERNAL_API_KEY` for optional integrations.
+- Port values such as `NGINX_HTTP_PORT`, `NGINX_HTTPS_PORT`, and `ADMIN_UI_PORT` typically work as-is.
+
+The `[scripts/interactive_setup.py](../scripts/interactive_setup.py)` helper referenced above will prompt for these values and update `.env` automatically.
 
 ### **3. Set Up the Python Virtual Environment**
 
