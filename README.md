@@ -104,12 +104,16 @@ Follow these steps if you prefer to configure everything yourself.
 
     ```bash
     bash ./generate_secrets.sh
+    # export credentials to a JSON file
+    bash ./generate_secrets.sh --export-path my_secrets.json
     ```
 
     *On Windows:*
 
     ```powershell
     .\Generate-Secrets.ps1
+    # save credentials to a JSON file
+    .\Generate-Secrets.ps1 -ExportPath my_secrets.json
     ```
 
 5. **Enable HTTPS (Optional):**

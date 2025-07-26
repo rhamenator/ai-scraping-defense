@@ -102,12 +102,16 @@ The application requires several secrets to run (e.g., database passwords). A sc
   ./generate_secrets.sh
   # optionally update your .env automatically
   ./generate_secrets.sh --update-env
+  # save credentials to a JSON file
+  ./generate_secrets.sh --export-path my_secrets.json
 ```
 
 * **On Windows (in a PowerShell terminal):**
 
 ``` PowerShell
   .\Generate-Secrets.ps1
+  # export credentials to JSON
+  .\Generate-Secrets.ps1 -ExportPath my_secrets.json
 ```
 
 When run from the interactive helper, the correct script is chosen
