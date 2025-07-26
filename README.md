@@ -62,7 +62,7 @@ Follow these steps if you prefer to configure everything yourself.
     The interactive helper can also launch Docker Compose or deploy to
     Kubernetes when it finishes, if you choose to proceed automatically.
 
-    Open `.env` and review the defaults. Set `TENANT_ID` for isolated deployments and add any API keys you plan to use. For **production** deployments update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443`.
+    Open `.env` and review the defaults. Set `TENANT_ID` for isolated deployments and add any API keys you plan to use. For **production** deployments update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443`. `REAL_BACKEND_HOST` controls where allowed traffic is forwarded when the proxy sits in front of another site.
 
 3. **Set Up Python Virtual Environment:**
     Run the setup script to create a virtual environment and install all Python dependencies.
@@ -116,7 +116,7 @@ Follow these steps if you prefer to configure everything yourself.
     docker-compose up --build -d
     ```
 
-    If you'd like to try the proxy in front of a WordPress site, run `./setup_wordpress_website.sh` (or `./setup_wordpress_website.ps1` on Windows) instead. It launches WordPress and MariaDB containers and sets `REAL_BACKEND_HOST` automatically.
+    If you'd like to try the proxy in front of a WordPress site, run `./setup_wordpress_website.sh` (or `./setup_wordpress_website.ps1` on Windows) instead. It launches WordPress and MariaDB containers and sets `REAL_BACKEND_HOST` automatically. For a smaller test, `./setup_fake_website.sh` creates a simple nginx site and updates the variable in the same way.
 
 7. **Access the Services:**
     - **Admin UI:** `http://localhost:5002`
