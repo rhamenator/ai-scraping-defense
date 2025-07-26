@@ -9,7 +9,7 @@ Run the helper script after cloning the repository:
 ```bash
 git clone https://github.com/your-username/ai-scraping-defense.git
 cd ai-scraping-defense
-./quickstart_dev.sh       # automatically uses .ps1 on Windows
+sudo ./quickstart_dev.sh  # use sudo on Linux/macOS, automatically uses .ps1 on Windows
 ```
 
 The helper scripts detect your platform and call the PowerShell variants

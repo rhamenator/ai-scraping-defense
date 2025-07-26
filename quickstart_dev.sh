@@ -2,6 +2,11 @@
 # Quick setup script for local development
 set -e
 
+# Warn if not running as root on Linux/macOS
+if [ "$(id -u)" -ne 0 ]; then
+  echo "WARNING: It's recommended to run this script with sudo on Linux/macOS" >&2
+fi
+
 # Always operate from the directory where this script resides
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
