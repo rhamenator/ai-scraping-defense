@@ -9,6 +9,7 @@ This helper prompts for key configuration values, writes them to
 from __future__ import annotations
 
 import os
+import platform
 import sqlite3
 import subprocess
 from pathlib import Path
@@ -86,6 +87,7 @@ def store_secrets(root: Path, env: dict[str, str]) -> None:
 
 def main() -> None:
     root = Path(__file__).resolve().parent.parent
+    is_windows = platform.system() == "Windows"
     env_file = root / ".env"
     sample_file = root / "sample.env"
 
@@ -107,17 +109,26 @@ def main() -> None:
     update_env_file(env_file, updates)
     store_secrets(root, env)
 
-    print("Running generate_secrets.sh --update-env ...")
-    subprocess.run(["bash", "generate_secrets.sh", "--update-env"], cwd=root, check=True)
+    print("Generating secrets...")
+    if is_windows:
+        subprocess.run(["powershell", "./Generate-Secrets.ps1"], cwd=root, check=True)
+    else:
+        subprocess.run(["bash", "generate_secrets.sh", "--update-env"], cwd=root, check=True)
     print("Setup complete. Updated .env and generated secrets.")
 
     resp = input("Launch the local Docker Compose stack now? [y/N]: ").strip().lower()
     if resp == "y":
-        subprocess.run(["bash", "quickstart_dev.sh"], cwd=root, check=True)
+        if is_windows:
+            subprocess.run(["powershell", "./quickstart_dev.ps1"], cwd=root, check=True)
+        else:
+            subprocess.run(["bash", "quickstart_dev.sh"], cwd=root, check=True)
 
     resp = input("Deploy to Kubernetes using quick_deploy.sh now? [y/N]: ").strip().lower()
     if resp == "y":
-        subprocess.run(["bash", "quick_deploy.sh"], cwd=root, check=True)
+        if is_windows:
+            subprocess.run(["powershell", "./quick_deploy.ps1"], cwd=root, check=True)
+        else:
+            subprocess.run(["bash", "quick_deploy.sh"], cwd=root, check=True)
 
 
 if __name__ == "__main__":  # pragma: no cover - manual usage
