@@ -44,7 +44,6 @@ $nginxPassword = New-RandomPassword -Length 32
 $externalApiKey = "key-for-" + (New-RandomPassword)
 $ipReputationApiKey = "key-for-" + (New-RandomPassword)
 $communityBlocklistApiKey = "key-for-" + (New-RandomPassword)
-$smtpPassword = New-RandomPassword
 $openaiApiKey = "sk-" + (New-RandomPassword -Length 40)
 $anthropicApiKey = "sk-ant-" + (New-RandomPassword -Length 40)
 $googleApiKey = "AIza" + (New-RandomPassword -Length 35)
@@ -66,7 +65,6 @@ $systemSeed_b64 = ConvertTo-Base64 $systemSeed
 $externalApiKey_b64 = ConvertTo-Base64 $externalApiKey
 $ipReputationApiKey_b64 = ConvertTo-Base64 $ipReputationApiKey
 $communityBlocklistApiKey_b64 = ConvertTo-Base64 $communityBlocklistApiKey
-$smtpPassword_b64 = ConvertTo-Base64 $smtpPassword
 $htpasswdFileContent_b64 = ConvertTo-Base64 $htpasswdFileContent
 $openaiApiKey_b64 = ConvertTo-Base64 $openaiApiKey
 $anthropicApiKey_b64 = ConvertTo-Base64 $anthropicApiKey
@@ -139,7 +137,6 @@ data:
   MISTRAL_API_KEY: $mistralApiKey_b64
   IP_REPUTATION_API_KEY: $ipReputationApiKey_b64
   COMMUNITY_BLOCKLIST_API_KEY: $communityBlocklistApiKey_b64
-  SMTP_PASSWORD: $smtpPassword_b64
 "@
 
 Set-Content -Path $OutputFile -Value $yamlContent -Encoding UTF8
@@ -163,7 +160,6 @@ Write-Host "  Mistral API Key:   $mistralApiKey"
 Write-Host "  External API Key:  $externalApiKey"
 Write-Host "  IP Reputation API Key: $ipReputationApiKey"
 Write-Host "  Community Blocklist API Key: $communityBlocklistApiKey"
-Write-Host "  SMTP Password: $smtpPassword"
 Write-Host "--- End of credentials ---" -ForegroundColor Yellow
 Write-Host "Kubernetes secrets manifest file created at: $OutputFile" -ForegroundColor Green
 Write-Host "You can now apply the secrets to your Kubernetes cluster using:" -ForegroundColor Yellow
