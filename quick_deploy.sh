@@ -14,9 +14,6 @@ if [ ! -f .env ]; then
   echo "Created .env from sample.env"
 fi
 
-# Generate Kubernetes secrets
-bash ./generate_secrets.sh
-
 # Deploy to Kubernetes
 bash ./deploy.sh
 

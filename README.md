@@ -30,7 +30,8 @@ cd ai-scraping-defense
 ./quickstart_dev.sh        # or .\quickstart_dev.ps1 on Windows
 ```
 
-The script copies `sample.env`, generates secrets, installs dependencies, and launches Docker Compose for you.
+The script copies `sample.env`, generates secrets, installs Python requirements using
+`pip install -r requirements.txt -c constraints.txt`, and launches Docker Compose for you.
 
 ## Manual Local Setup
 
@@ -52,10 +53,19 @@ Follow these steps if you prefer to configure everything yourself.
     python scripts/interactive_setup.py
     ```
 
+    The interactive helper can also launch Docker Compose or deploy to
+    Kubernetes when it finishes, if you choose to proceed automatically.
+
     Open `.env` and review the defaults. Set `TENANT_ID` for isolated deployments and add any API keys you plan to use. For **production** deployments update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443`.
 
 3. **Set Up Python Virtual Environment:**
     Run the setup script to create a virtual environment and install all Python dependencies.
+    After the environment is created, install the project requirements with pinned
+    constraints:
+
+    ```bash
+    pip install -r requirements.txt -c constraints.txt
+    ```
 
     *On Linux or macOS:*
 
@@ -191,13 +201,15 @@ This flexibility makes it easy to experiment with different classifiers.
 
 ## Quick Kubernetes Deployment
 
-Run the helper script to deploy everything to Kubernetes in one step:
+Run the helper script to deploy everything to Kubernetes in one step. Ensure the
+`kubernetes/secrets.yaml` file already exists (generate it with
+`generate_secrets.sh` or the interactive setup):
 
 ```bash
 ./quick_deploy.sh       # or .\quick_deploy.ps1 on Windows
 ```
 
-The script generates secrets and applies all manifests using `kubectl`.
+The script applies all manifests using `kubectl`; it does not generate secrets.
 
 ## Manual Kubernetes Deployment
 

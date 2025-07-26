@@ -20,6 +20,9 @@ if (Test-Path "setup_local_dirs.ps1") { & "$PSScriptRoot/setup_local_dirs.ps1" }
 # Reset virtual environment
 & "$PSScriptRoot/reset_venv.ps1"
 
+# Install Python requirements with constraints
+& "$PSScriptRoot/.venv/Scripts/pip.exe" install -r requirements.txt -c constraints.txt
+
 # Run tests
 & "$PSScriptRoot/.venv/Scripts/python.exe" test/run_all_tests.py
 
