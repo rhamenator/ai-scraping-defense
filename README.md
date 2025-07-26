@@ -23,6 +23,78 @@ This project provides a multi-layered, microservice-based defense system against
 - **Anomaly Detection via AI:** Move beyond heuristics and integrate anomaly detection models for more adaptive security. ✅
 - **Automated Configuration Recommendations:** AI-driven service that analyzes traffic patterns and suggests firewall and tarpit tuning.
 
+## Architecture Overview
+
+The following diagram provides a high-level view of how the major components interact. See [docs/architecture.md](docs/architecture.md) for a deeper explanation.
+
+```mermaid
+graph TD
+    subgraph "User / Bot Traffic"
+        direction LR
+        User["👤 User"]
+        Bot["🤖 Bot"]
+    end
+
+    subgraph "Defense System"
+        direction TB
+        Nginx["🛡️ Nginx Proxy w/ Lua"]
+
+        subgraph "Analysis & Logic (Python Microservices)"
+            direction LR
+            AIService["AI Service Webhook"]
+            EscalationEngine["🧠 Escalation Engine"]
+            AdminUI["📊 Admin UI"]
+            CloudDashboard["☁️ Cloud Dashboard"]
+            ConfigRecommender["🔧 Config Recommender"]
+            BlocklistSync["🔄 Blocklist Sync"]
+            PeerSync["🔄 Peer Sync"]
+            RateLimitDaemon["⚙️ Rate Limit Daemon"]
+        end
+
+        subgraph "Countermeasures"
+            TarpitAPI["🕸️ Tarpit API"]
+        end
+
+        subgraph "Data & State Stores"
+            direction LR
+            Redis["⚡ Redis\n(Blocklist, Cache)"]
+            Postgres["🐘 PostgreSQL\n(Markov Data)"]
+        end
+    end
+
+    subgraph "External Services"
+        LLM["☁️ LLM APIs\n(OpenAI, Mistral, etc.)"]
+        CommunityBlocklist["☁️ Community Blocklist"]
+        PeerDeployments["☁️ Peer Deployments"]
+    end
+
+    User -- "Legitimate Request" --> Nginx
+    Bot -- "Suspicious Request" --> Nginx
+
+    Nginx -- "Block Immediately" --> Bot
+    Nginx -- "Forward for Analysis" --> AIService
+    Nginx -- "Serve Content" --> User
+    Nginx -- "Redirect to Tarpit" --> Bot
+
+    AIService -- "Queues Request" --> EscalationEngine
+    EscalationEngine -- "Reads/Writes" --> Redis
+    EscalationEngine -- "Reads" --> Postgres
+    EscalationEngine -- "Calls for Final Verdict" --> LLM
+    EscalationEngine -- "Updates" --> AdminUI
+    AdminUI -- "Streams Metrics" --> CloudDashboard
+    AdminUI -- "Feeds" --> ConfigRecommender
+    ConfigRecommender -- "Suggestions" --> AdminUI
+    BlocklistSync -- "Update" --> Redis
+    PeerSync -- "Share IPs" --> Redis
+    RateLimitDaemon -- "Adjust Limits" --> Nginx
+    BlocklistSync -- "Fetch IPs" --> CommunityBlocklist
+    PeerSync -- "Exchange IPs" --> PeerDeployments
+
+    AdminUI -- "Manages" --> Redis
+
+    TarpitAPI -- "Reads" --> Postgres
+```
+
 ## Quick Local Setup
 
 Run the automated script after cloning the repository:
