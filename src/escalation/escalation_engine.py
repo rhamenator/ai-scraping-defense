@@ -1,21 +1,23 @@
 # escalation/escalation_engine.py
-from fastapi import FastAPI, Request, HTTPException, Response
-from pydantic import BaseModel, Field, ValidationError
-from typing import Dict, Any, Optional, Union
-import httpx
-import os
-import datetime
-from src.shared.config import tenant_key
-import time
-import json
-import numpy as np
-from urllib.parse import urlparse
-import re
 import asyncio
-import logging
-import sys
-import ipaddress
+import datetime
 import hashlib
+import ipaddress
+import json
+import logging
+import os
+import re
+import sys
+import time
+from typing import Any, Dict, Optional, Union
+from urllib.parse import urlparse
+
+import httpx
+import numpy as np
+from fastapi import FastAPI, HTTPException, Request, Response
+from pydantic import BaseModel, Field, ValidationError
+
+from src.shared.config import tenant_key
 
 # GeoIP
 try:
@@ -26,11 +28,12 @@ except Exception:
     geoip2 = None
     GEOIP_AVAILABLE = False
 
+from src.shared.config import CONFIG
+from src.shared.decision_db import record_decision
+
 # --- Refactored Imports ---
 from src.shared.model_provider import get_model_adapter
-from src.shared.decision_db import record_decision
 from src.shared.redis_client import get_redis_connection
-from src.shared.config import CONFIG
 
 # --- Setup Logging ---
 logging.basicConfig(
@@ -50,46 +53,46 @@ except Exception as e:
 # --- Metrics Import (Preserved from your original file) ---
 try:
     from src.shared.metrics import (
-        increment_counter_metric,
-        get_metrics,
-        REDIS_ERRORS_FREQUENCY,
-        IP_REPUTATION_CHECKS_RUN,
-        IP_REPUTATION_SUCCESS,
-        IP_REPUTATION_MALICIOUS,
-        IP_REPUTATION_ERRORS_TIMEOUT,
-        IP_REPUTATION_ERRORS_REQUEST,
-        IP_REPUTATION_ERRORS_RESPONSE_DECODE,
-        IP_REPUTATION_ERRORS_UNEXPECTED,
-        HEURISTIC_CHECKS_RUN,
-        FREQUENCY_ANALYSES_PERFORMED,
-        RF_MODEL_PREDICTIONS,
-        RF_MODEL_ERRORS,
-        SCORE_ADJUSTED_IP_REPUTATION,
-        LOCAL_LLM_CHECKS_RUN,
-        LOCAL_LLM_ERRORS_UNEXPECTED_RESPONSE,
-        LOCAL_LLM_ERRORS_TIMEOUT,
-        LOCAL_LLM_ERRORS_REQUEST,
-        LOCAL_LLM_ERRORS_RESPONSE_DECODE,
-        LOCAL_LLM_ERRORS_UNEXPECTED,
-        EXTERNAL_API_CHECKS_RUN,
-        EXTERNAL_API_SUCCESS,
-        EXTERNAL_API_ERRORS_UNEXPECTED_RESPONSE,
-        EXTERNAL_API_ERRORS_TIMEOUT,
-        EXTERNAL_API_ERRORS_REQUEST,
-        EXTERNAL_API_ERRORS_RESPONSE_DECODE,
-        EXTERNAL_API_ERRORS_UNEXPECTED,
-        ESCALATION_WEBHOOKS_SENT,
-        ESCALATION_WEBHOOK_ERRORS_REQUEST,
-        ESCALATION_WEBHOOK_ERRORS_UNEXPECTED,
+        BOTS_DETECTED_EXTERNAL_API,
+        BOTS_DETECTED_HIGH_SCORE,
+        BOTS_DETECTED_IP_REPUTATION,
+        BOTS_DETECTED_LOCAL_LLM,
         CAPTCHA_CHALLENGES_TRIGGERED,
         ESCALATION_REQUESTS_RECEIVED,
-        BOTS_DETECTED_IP_REPUTATION,
-        BOTS_DETECTED_HIGH_SCORE,
-        HUMANS_DETECTED_LOW_SCORE,
-        BOTS_DETECTED_LOCAL_LLM,
-        HUMANS_DETECTED_LOCAL_LLM,
-        BOTS_DETECTED_EXTERNAL_API,
+        ESCALATION_WEBHOOK_ERRORS_REQUEST,
+        ESCALATION_WEBHOOK_ERRORS_UNEXPECTED,
+        ESCALATION_WEBHOOKS_SENT,
+        EXTERNAL_API_CHECKS_RUN,
+        EXTERNAL_API_ERRORS_REQUEST,
+        EXTERNAL_API_ERRORS_RESPONSE_DECODE,
+        EXTERNAL_API_ERRORS_TIMEOUT,
+        EXTERNAL_API_ERRORS_UNEXPECTED,
+        EXTERNAL_API_ERRORS_UNEXPECTED_RESPONSE,
+        EXTERNAL_API_SUCCESS,
+        FREQUENCY_ANALYSES_PERFORMED,
+        HEURISTIC_CHECKS_RUN,
         HUMANS_DETECTED_EXTERNAL_API,
+        HUMANS_DETECTED_LOCAL_LLM,
+        HUMANS_DETECTED_LOW_SCORE,
+        IP_REPUTATION_CHECKS_RUN,
+        IP_REPUTATION_ERRORS_REQUEST,
+        IP_REPUTATION_ERRORS_RESPONSE_DECODE,
+        IP_REPUTATION_ERRORS_TIMEOUT,
+        IP_REPUTATION_ERRORS_UNEXPECTED,
+        IP_REPUTATION_MALICIOUS,
+        IP_REPUTATION_SUCCESS,
+        LOCAL_LLM_CHECKS_RUN,
+        LOCAL_LLM_ERRORS_REQUEST,
+        LOCAL_LLM_ERRORS_RESPONSE_DECODE,
+        LOCAL_LLM_ERRORS_TIMEOUT,
+        LOCAL_LLM_ERRORS_UNEXPECTED,
+        LOCAL_LLM_ERRORS_UNEXPECTED_RESPONSE,
+        REDIS_ERRORS_FREQUENCY,
+        RF_MODEL_ERRORS,
+        RF_MODEL_PREDICTIONS,
+        SCORE_ADJUSTED_IP_REPUTATION,
+        get_metrics,
+        increment_counter_metric,
     )
 
     METRICS_SYSTEM_AVAILABLE = True
@@ -1000,6 +1003,22 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
                 else:
                     external_api_result = res
 
+        # Fallback to external API if local classification failed
+        if (
+            local_llm_task
+            and local_llm_result is None
+            and external_api_adapter
+            and external_api_task is None
+        ):
+            logger.info(f"Falling back to cloud API for IP {ip_under_test}")
+            try:
+                external_api_result = await classify_with_external_api(metadata_req)
+            except Exception as e:
+                logger.error(
+                    f"Fallback external API error for {ip_under_test}: {e}",
+                    exc_info=True,
+                )
+
         # Adjust score with IP reputation if malicious
         final_score = base_score
         if ip_rep_result and ip_rep_result.get("is_malicious"):
@@ -1063,7 +1082,7 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
                     increment_counter_metric(HUMANS_DETECTED_LOCAL_LLM)
                 else:
                     action_taken = "local_llm_inconclusive"
-                    if external_api_task is not None:
+                    if external_api_task is not None or external_api_result is not None:
                         if external_api_result is True:
                             is_bot_decision = True
                             action_taken = "webhook_triggered_external_api"

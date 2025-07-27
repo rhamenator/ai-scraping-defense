@@ -70,6 +70,9 @@ To bring the stack up, only a handful of settings must be reviewed in `.env`:
 - Port values such as `NGINX_HTTP_PORT`, `NGINX_HTTPS_PORT`, and `ADMIN_UI_PORT` typically work as-is.
 - `REAL_BACKEND_HOST` tells Nginx where to forward requests that pass the bot checks when the defense stack sits in front of another web server.
 - `ALERT_SMTP_PASSWORD_FILE` or `ALERT_SMTP_PASSWORD` if you plan to send alert emails via SMTP.
+- `PROMPT_ROUTER_PORT`, `PROMETHEUS_PORT`, `GRAFANA_PORT`, and `WATCHTOWER_INTERVAL` control the optional monitoring and routing services. Adjust them if the defaults conflict with other local services.
+
+Prometheus uses a static configuration file (`monitoring/prometheus.yml`) to define scrape targets. Environment variable substitution isn't supported, so edit that file directly if your service names or ports differ from the defaults.
 
 The `[scripts/interactive_setup.py](../scripts/interactive_setup.py)` helper referenced above will prompt for these values and update `.env` automatically.
 
