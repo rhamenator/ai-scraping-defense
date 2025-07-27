@@ -209,7 +209,7 @@ graph TD
 
 The stack can integrate with external services for enhanced protection. Each integration is controlled via environment variables and is disabled by default:
 
-- **Global CDN (`ENABLE_GLOBAL_CDN`)** – Connects to a provider such as Cloudflare for worldwide edge caching.
+- **Global CDN (`ENABLE_GLOBAL_CDN`)** – Connects to a a major CDN provider for worldwide edge caching.
 - **DDoS Mitigation (`ENABLE_DDOS_PROTECTION`)** – Reports suspicious traffic to a third-party anti-DDoS service.
 - **Managed TLS (`ENABLE_MANAGED_TLS`)** – Automatically requests and renews TLS certificates.
 - **Web Application Firewall (`ENABLE_WAF`)** – Applies additional request filtering using customizable rules.

@@ -21,6 +21,9 @@ This project provides a multi-layered, microservice-based defense system against
 - **Optional Cloud Integrations:** Toggle CDN caching, DDoS mitigation, managed TLS, and a Web Application Firewall using environment variables.
 - **Plugin API:** Drop-in Python modules allow custom rules to extend detection logic.
 - **Anomaly Detection via AI:** Move beyond heuristics and integrate anomaly detection models for more adaptive security. ✅
+- **Crawler Authentication & Pay-Per-Crawl:** Token registry and usage accounting enable monetization experiments.
+- **AI Labyrinth Honeypots:** Optional endless maze pages trap persistent bots.
+- **Zero Trust Risk & Attack Scoring:** Placeholder modules provide risk analytics hooks.
 - **Automated Configuration Recommendations:** AI-driven service that analyzes traffic patterns and suggests firewall and tarpit tuning.
 - **Audit Logging:** Sensitive actions are written to a rotating `audit.log` for forensic review.
 - **RBAC Controls:** Admin endpoints verify an `ADMIN_UI_ROLE` environment variable and reject non-admin users.

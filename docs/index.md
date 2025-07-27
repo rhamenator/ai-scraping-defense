@@ -35,6 +35,7 @@ To get a full understanding of the project, please review the following document
 - [**Monitoring Stack**](monitoring_stack.md)**:** Using Prometheus, Grafana, and Watchtower for observability and automatic updates.
 - [**Kubernetes Deployment**](kubernetes_deployment.md)**:** A step-by-step guide for deploying the entire application stack to a production-ready Kubernetes cluster.
 - [**Fail2ban**](fail2ban.md)**:** Configuration and deployment instructions for the optional firewall banning service.
+- [**Edge Provider Enhancements**](edge_enhancements.md)**:** Overview of experimental crawler tokens, AI labyrinths, and risk scoring.
 
 ---
 

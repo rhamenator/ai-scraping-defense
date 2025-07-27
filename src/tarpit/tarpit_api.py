@@ -66,6 +66,12 @@ except ImportError as e:
         GENERATOR_AVAILABLE = False
 
 try:
+    from .labyrinth import generate_labyrinth_page
+    LABYRINTH_AVAILABLE = True
+except Exception:
+    LABYRINTH_AVAILABLE = False
+
+try:
     # Uses the corrected ip_flagger with the renamed function
     from .ip_flagger import flag_suspicious_ip, is_ip_flagged
 
@@ -278,7 +284,20 @@ async def tarpit_handler(request: Request, path: str = ""):
         )
 
     content = "<html><body>Tarpit Error</body></html>"
-    if GENERATOR_AVAILABLE:
+    if CONFIG.ENABLE_AI_LABYRINTH and LABYRINTH_AVAILABLE:
+        try:
+            path_bytes = requested_path.encode("utf-8")
+            path_hash = hashlib.sha256(path_bytes).hexdigest()
+            combined_seed = f"{SYSTEM_SEED}-{path_hash}"
+            content = generate_labyrinth_page(
+                combined_seed, depth=CONFIG.TARPIT_LABYRINTH_DEPTH
+            )
+        except Exception as e:
+            logger.error(
+                f"Error generating labyrinth page for path '{requested_path}': {e}",
+                exc_info=True,
+            )
+    elif GENERATOR_AVAILABLE:
         try:
             path_bytes = requested_path.encode("utf-8")
             path_hash = hashlib.sha256(path_bytes).hexdigest()
