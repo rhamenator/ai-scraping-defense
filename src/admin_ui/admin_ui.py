@@ -26,6 +26,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi import Header
+from fastapi.middleware.cors import CORSMiddleware
+from src.shared.audit import log_event
 import pyotp
 from src.shared.config import get_secret
 from jinja2 import pass_context
@@ -115,6 +117,24 @@ def _discover_plugins() -> list[str]:
 
 BASE_DIR = os.path.dirname(__file__)
 app = FastAPI()
+allowed_origins = os.getenv("ADMIN_UI_CORS_ORIGINS", "*").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+DEFAULT_CSP = "default-src 'self'"
+
+@app.middleware("http")
+async def csp_header(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault(
+        "Content-Security-Policy", os.getenv("ADMIN_UI_CSP", DEFAULT_CSP)
+    )
+    return response
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.mount(
     "/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"
@@ -126,6 +146,8 @@ RUNTIME_SETTINGS = {
     "ESCALATION_ENDPOINT": CONFIG.ESCALATION_ENDPOINT,
     "ALLOWED_PLUGINS": os.getenv("ALLOWED_PLUGINS", "ua_blocker"),
 }
+
+ADMIN_UI_ROLE = os.getenv("ADMIN_UI_ROLE", "admin")
 
 security = HTTPBasic()
 
@@ -167,6 +189,13 @@ def require_auth(
             )
 
     return credentials.username
+
+
+def require_admin(user: str = Depends(require_auth)) -> str:
+    """Ensure the authenticated user has admin privileges."""
+    if ADMIN_UI_ROLE != "admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    return user
 
 
 @pass_context
@@ -320,7 +349,7 @@ async def get_blocklist(user: str = Depends(require_auth)):
 
 
 @app.post("/block")
-async def block_ip(request: Request, user: str = Depends(require_auth)):
+async def block_ip(request: Request, user: str = Depends(require_admin)):
     json_data = await request.json()
     if not json_data:
         return JSONResponse(
@@ -336,11 +365,12 @@ async def block_ip(request: Request, user: str = Depends(require_auth)):
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
 
     redis_conn.sadd(tenant_key("blocklist"), ip)
+    log_event(user, "block_ip", {"ip": ip})
     return JSONResponse({"status": "success", "ip": ip})
 
 
 @app.post("/unblock")
-async def unblock_ip(request: Request, user: str = Depends(require_auth)):
+async def unblock_ip(request: Request, user: str = Depends(require_admin)):
     json_data = await request.json()
     if not json_data:
         return JSONResponse(
@@ -356,6 +386,7 @@ async def unblock_ip(request: Request, user: str = Depends(require_auth)):
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
 
     redis_conn.srem(tenant_key("blocklist"), ip)
+    log_event(user, "unblock_ip", {"ip": ip})
     return JSONResponse({"status": "success", "ip": ip})
 
 
@@ -385,7 +416,7 @@ async def settings_page(
 async def update_settings(
     request: Request,
     csrf_token: str | None = Cookie(None),
-    user: str = Depends(require_auth),
+    user: str = Depends(require_admin),
 ):
     """Update editable settings from form data, validating the CSRF token."""
     form = await request.form()
@@ -400,6 +431,8 @@ async def update_settings(
     if escalation_endpoint:
         RUNTIME_SETTINGS["ESCALATION_ENDPOINT"] = escalation_endpoint
         os.environ["ESCALATION_ENDPOINT"] = escalation_endpoint
+
+    log_event(user, "update_settings", {"log_level": log_level, "endpoint": escalation_endpoint})
 
     current_settings = {
         "Model URI": os.getenv("MODEL_URI", "Not Set"),
@@ -437,7 +470,7 @@ async def plugins_page(request: Request, user: str = Depends(require_auth)):
 
 
 @app.post("/plugins")
-async def update_plugins(request: Request, user: str = Depends(require_auth)):
+async def update_plugins(request: Request, user: str = Depends(require_admin)):
     """Update enabled plugins and notify the escalation engine."""
     form = await request.form()
     selected = form.getlist("plugins")
@@ -458,6 +491,7 @@ async def update_plugins(request: Request, user: str = Depends(require_auth)):
         )
     except Exception:
         pass
+    log_event(user, "update_plugins", {"plugins": selected})
     return RedirectResponse("/plugins", status_code=302)
 
 

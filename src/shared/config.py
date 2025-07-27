@@ -329,6 +329,10 @@ class Config:
     ANOMALY_MODEL_PATH: Optional[str] = field(
         default_factory=lambda: os.getenv("ANOMALY_MODEL_PATH")
     )
+
+    MODEL_VERSION: Optional[str] = field(
+        default_factory=lambda: os.getenv("MODEL_VERSION")
+    )
     ANOMALY_THRESHOLD: float = field(
         default_factory=lambda: float(os.getenv("ANOMALY_THRESHOLD", 0.7))
     )

@@ -22,6 +22,10 @@ This project provides a multi-layered, microservice-based defense system against
 - **Plugin API:** Drop-in Python modules allow custom rules to extend detection logic.
 - **Anomaly Detection via AI:** Move beyond heuristics and integrate anomaly detection models for more adaptive security. ✅
 - **Automated Configuration Recommendations:** AI-driven service that analyzes traffic patterns and suggests firewall and tarpit tuning.
+- **Audit Logging:** Sensitive actions are written to a rotating `audit.log` for forensic review.
+- **RBAC Controls:** Admin endpoints verify an `ADMIN_UI_ROLE` environment variable and reject non-admin users.
+- **Model Version Metrics:** Prometheus gauge `model_version_info` exposes the running ML model version.
+- **CORS & CSP Headers:** The Admin UI sets CORS policies and a default Content-Security-Policy header.
 
 ## Architecture Overview
 
