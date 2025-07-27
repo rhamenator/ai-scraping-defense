@@ -9,7 +9,8 @@ designed to be run as a standalone service or within Docker.
 import os
 import json
 import asyncio
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+import secrets
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Cookie
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -271,22 +272,29 @@ async def unblock_ip(request: Request):
 
 
 @app.get("/settings", response_class=HTMLResponse)
-async def settings_page(request: Request):
-    """Renders the system settings page."""
+async def settings_page(request: Request, csrf_token: str | None = Cookie(None)):
+    """Renders the system settings page with a CSRF token."""
+    if not csrf_token:
+        csrf_token = secrets.token_urlsafe(16)
     current_settings = {
         "Model URI": os.getenv("MODEL_URI", "Not Set"),
         "LOG_LEVEL": RUNTIME_SETTINGS["LOG_LEVEL"],
         "ESCALATION_ENDPOINT": RUNTIME_SETTINGS["ESCALATION_ENDPOINT"],
     }
-    return templates.TemplateResponse(
-        "settings.html", {"request": request, "settings": current_settings}
+    response = templates.TemplateResponse(
+        "settings.html",
+        {"request": request, "settings": current_settings, "csrf_token": csrf_token},
     )
+    response.set_cookie("csrf_token", csrf_token, httponly=True, secure=True)
+    return response
 
 
 @app.post("/settings", response_class=HTMLResponse)
-async def update_settings(request: Request):
-    """Update editable settings from form data."""
+async def update_settings(request: Request, csrf_token: str | None = Cookie(None)):
+    """Update editable settings from form data, validating the CSRF token."""
     form = await request.form()
+    if not csrf_token or form.get("csrf_token") != csrf_token:
+        return HTMLResponse("Invalid CSRF token", status_code=400)
     log_level = form.get("LOG_LEVEL")
     escalation_endpoint = form.get("ESCALATION_ENDPOINT")
 

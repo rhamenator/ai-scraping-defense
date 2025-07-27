@@ -173,7 +173,7 @@ MailHog is used to capture emails sent by the application for testing purposes. 
 
 ### **6.3. Adding Custom Rule Plugins**
 
-You can extend the detection heuristics by placing Python modules inside the `plugins/` directory. Set `ENABLE_PLUGINS=true` in your `.env` file and restart the stack. Each module should define a `check(metadata)` function returning a numeric adjustment.
+You can extend the detection heuristics by placing Python modules inside the `plugins/` directory. Set `ENABLE_PLUGINS=true` in your `.env` file and restart the stack. Each module should define a `check(metadata)` function returning a numeric adjustment. For security, only modules listed in the `ALLOWED_PLUGINS` environment variable will be loaded.
 
 ### **6.4. Running a WordPress Test Site**
 

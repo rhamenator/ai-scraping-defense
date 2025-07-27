@@ -109,6 +109,8 @@ python scripts/validate_env.py
 sudo ./quickstart_dev.sh   # use sudo on Linux/macOS; run quickstart_dev.ps1 on Windows
 ```
 
+For the Codex testing environment, a helper `setup.sh` script installs all Python requirements and security tools used by `security_scan.sh`.
+
 On Windows, open an **Administrator PowerShell** window and run `quickstart_dev.ps1` instead.
 
 The script generates secrets, installs Python requirements with
@@ -243,6 +245,8 @@ Several integrations are disabled by default to keep the stack lightweight. You 
 - `Dockerfile`: A single Dockerfile used to build the base image for all Python services.
 - `jszip-rs/`: Rust implementation of the fake JavaScript archive generator.
 - `markov-train-rs/`: Rust implementation of the Markov training utility.
+
+When running in Codex, execute `./setup.sh` first to install all dependencies required for the unit tests and security scans.
 
 ### Running Multiple Tenants
 
