@@ -25,6 +25,9 @@ from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import Header
+import pyotp
+from src.shared.config import get_secret
 from jinja2 import pass_context
 from src.shared.redis_client import get_redis_connection
 from src.shared.metrics import get_metrics
@@ -109,6 +112,7 @@ def _discover_plugins() -> list[str]:
                 names.append(fn[:-3])
     return sorted(names)
 
+
 BASE_DIR = os.path.dirname(__file__)
 app = FastAPI()
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -126,20 +130,42 @@ RUNTIME_SETTINGS = {
 security = HTTPBasic()
 
 
-def require_auth(credentials: HTTPBasicCredentials = Depends(security)) -> str:
-    """Validate HTTP Basic credentials from the request."""
+def require_auth(
+    credentials: HTTPBasicCredentials = Depends(security),
+    x_2fa_code: str | None = Header(None, alias="X-2FA-Code"),
+) -> str:
+    """Validate HTTP Basic credentials and optional TOTP code."""
     username = os.getenv("ADMIN_UI_USERNAME", "admin")
     password = os.getenv("ADMIN_UI_PASSWORD")
     if password is None:
         password = os.getenv("ADMIN_UI_PASSWORD_DEFAULT", "password")
-    valid = secrets.compare_digest(credentials.username, username) and secrets.compare_digest(
-        credentials.password, password
-    )
+    valid = secrets.compare_digest(
+        credentials.username, username
+    ) and secrets.compare_digest(credentials.password, password)
     if not valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             headers={"WWW-Authenticate": "Basic"},
         )
+
+    totp_secret = os.getenv("ADMIN_UI_2FA_SECRET") or get_secret(
+        "ADMIN_UI_2FA_SECRET_FILE"
+    )
+    if totp_secret:
+        if not x_2fa_code:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="2FA code required",
+                headers={"WWW-Authenticate": "Basic"},
+            )
+        totp = pyotp.TOTP(totp_secret)
+        if not totp.verify(x_2fa_code, valid_window=1):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid 2FA code",
+                headers={"WWW-Authenticate": "Basic"},
+            )
+
     return credentials.username
 
 
@@ -192,7 +218,9 @@ async def metrics_websocket(websocket: WebSocket):
                 decoded = b64decode(data).decode()
                 username, password = decoded.split(":", 1)
                 try:
-                    require_auth(HTTPBasicCredentials(username=username, password=password))
+                    require_auth(
+                        HTTPBasicCredentials(username=username, password=password)
+                    )
                 except HTTPException:
                     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
                     return
@@ -332,7 +360,11 @@ async def unblock_ip(request: Request, user: str = Depends(require_auth)):
 
 
 @app.get("/settings", response_class=HTMLResponse)
-async def settings_page(request: Request, csrf_token: str | None = Cookie(None), user: str = Depends(require_auth)):
+async def settings_page(
+    request: Request,
+    csrf_token: str | None = Cookie(None),
+    user: str = Depends(require_auth),
+):
     """Renders the system settings page with a CSRF token."""
     if not csrf_token:
         csrf_token = secrets.token_urlsafe(16)
@@ -350,7 +382,11 @@ async def settings_page(request: Request, csrf_token: str | None = Cookie(None),
 
 
 @app.post("/settings", response_class=HTMLResponse)
-async def update_settings(request: Request, csrf_token: str | None = Cookie(None), user: str = Depends(require_auth)):
+async def update_settings(
+    request: Request,
+    csrf_token: str | None = Cookie(None),
+    user: str = Depends(require_auth),
+):
     """Update editable settings from form data, validating the CSRF token."""
     form = await request.form()
     if not csrf_token or form.get("csrf_token") != csrf_token:
@@ -389,7 +425,11 @@ async def view_logs(request: Request, user: str = Depends(require_auth)):
 async def plugins_page(request: Request, user: str = Depends(require_auth)):
     """Show available plugins and which are enabled."""
     available = _discover_plugins()
-    enabled = RUNTIME_SETTINGS["ALLOWED_PLUGINS"].split(",") if RUNTIME_SETTINGS["ALLOWED_PLUGINS"] else []
+    enabled = (
+        RUNTIME_SETTINGS["ALLOWED_PLUGINS"].split(",")
+        if RUNTIME_SETTINGS["ALLOWED_PLUGINS"]
+        else []
+    )
     return templates.TemplateResponse(
         "plugins.html",
         {"request": request, "available": available, "enabled": enabled},
