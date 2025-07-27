@@ -320,12 +320,33 @@ services:
     depends_on:
       - nginx_proxy
 
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --api.insecure=true
+    ports:
+      - "8005:80"
+      - "8081:8080"
+    networks:
+      - defense_network
+    restart: unless-stopped
+
   llama3:
     image: ollama/ollama:latest
     container_name: llama3
     command: ["sh", "-c", "ollama pull llama3 && ollama serve"]
     ports:
       - "11434:11434"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.llm.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.llm.entrypoints=web"
+      - "traefik.http.services.llm.loadbalancer.server.port=11434"
+      - "traefik.http.services.llm.loadbalancer.weight=2"
     volumes:
       - ./models/shared-data:/root/.ollama
     healthcheck:
@@ -343,6 +364,12 @@ services:
     command: ["sh", "-c", "ollama pull mixtral && ollama serve"]
     ports:
       - "11435:11434"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.llm.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.llm.entrypoints=web"
+      - "traefik.http.services.llm.loadbalancer.server.port=11434"
+      - "traefik.http.services.llm.loadbalancer.weight=1"
     volumes:
       - ./models/shared-data:/root/.ollama
     healthcheck:
