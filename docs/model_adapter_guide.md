@@ -82,3 +82,16 @@ delay between them are controlled by the environment variables
 `1.0` seconds). If all attempts fail, the function returns `None` and the calling
 service should gracefully fall back to heuristic scoring or other local logic.
 
+## When Instantiation Fails
+
+If `get_model_adapter` cannot create an adapter after all retries, it returns `None`. The caller should switch to a local or mock model so predictions continue.
+
+For example:
+
+```python
+model_adapter = get_model_adapter(retries=3, delay=MODEL_ADAPTER_RETRY_DELAY)
+if model_adapter is None:
+    model_adapter = LocalHeuristicModel()
+```
+
+See [src/escalation/escalation_engine.py](../src/escalation/escalation_engine.py) for a real implementation.
