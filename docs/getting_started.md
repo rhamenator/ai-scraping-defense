@@ -73,6 +73,14 @@ To bring the stack up, only a handful of settings must be reviewed in `.env`:
 
 The `[scripts/interactive_setup.py](../scripts/interactive_setup.py)` helper referenced above will prompt for these values and update `.env` automatically.
 
+You can verify the file at any time using the validator:
+
+```bash
+python scripts/validate_env.py
+```
+
+The quickstart setup scripts call this command for you.
+
 ### **3. Set Up the Python Virtual Environment**
 
 To keep your project's Python dependencies isolated, we use a virtual environment. A setup script is provided to automate this process.
