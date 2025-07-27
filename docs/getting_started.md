@@ -68,6 +68,7 @@ To bring the stack up, only a handful of settings must be reviewed in `.env`:
 - The API key matching your chosen provider: `OPENAI_API_KEY`, `MISTRAL_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or `COHERE_API_KEY`.
 - `EXTERNAL_API_KEY` for optional integrations.
 - Port values such as `NGINX_HTTP_PORT`, `NGINX_HTTPS_PORT`, and `ADMIN_UI_PORT` typically work as-is.
+- `PROMPT_ROUTER_HOST` and `PROMPT_ROUTER_PORT` define where the Escalation Engine sends its LLM requests.
 - `REAL_BACKEND_HOST` tells Nginx where to forward requests that pass the bot checks when the defense stack sits in front of another web server.
 - `ALERT_SMTP_PASSWORD_FILE` or `ALERT_SMTP_PASSWORD` if you plan to send alert emails via SMTP.
 
@@ -156,6 +157,7 @@ Once the containers are running, you can access the key services in your web bro
 * **Peer Sync Daemon:** exchanges blocklisted IPs with configured peer deployments.
 * **Config Recommender:** [http://localhost:8010](http://localhost:8010) provides automated tuning suggestions.
 * **Cloud Proxy:** [http://localhost:8008](http://localhost:8008) forwards chat requests to your LLM provider.
+* **Prompt Router:** [http://localhost:8009](http://localhost:8009) automatically chooses between the local model and the cloud proxy.
 
 ### **6.1. Accessing the Admin UI**
 
