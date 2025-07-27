@@ -370,3 +370,12 @@ After installing the tools, you can run a basic stress test using the provided s
 ## Security Scan Helper
 
 The optional script `security_scan.sh` automates tools such as **Nmap**, **Nikto**, and **Trivy** to perform vulnerability checks. Install these dependencies and run the script with `sudo` so network scans can complete. See [docs/security_scan.md](docs/security_scan.md) for more details. **Use this script only on systems you own or have permission to test.**
+
+## Monitoring Stack
+
+Docker Compose includes a small Prometheus and Grafana setup. Prometheus scrapes the Python services every 15 seconds using `monitoring/prometheus.yml`, and Grafana exposes dashboards on `${GRAFANA_PORT:-3000}`.
+
+- **Prometheus UI:** [http://localhost:${PROMETHEUS_PORT:-9090}](http://localhost:9090) shows raw metrics and scrape targets.
+- **Grafana UI:** [http://localhost:${GRAFANA_PORT:-3000}](http://localhost:3000) (default login `admin` / `admin`). You can import a dashboard from Grafana's library or create your own to monitor request rates and response times.
+
+The stack also runs a `watchtower` container that checks for image updates every minute and restarts services automatically. Remove or comment out the `watchtower` section in `docker-compose.yaml` if you prefer manual updates.
