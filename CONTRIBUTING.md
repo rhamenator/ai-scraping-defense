@@ -27,12 +27,13 @@ We welcome meaningful contributions, including but not limited to:
 
 1. **Find an Issue or Propose an Idea:** Look through existing issues or propose a new feature/improvement in the Issues tab or Discussions.
 2. **Fork the Repository:** Create your own copy of the project.
-3. **Create a Feature Branch:** `git checkout -b feature/your-new-feature`
-4. **Make Your Changes:** Implement your feature or bug fix. Ensure code is linted and follows project style (if defined).
-5. **Test Your Changes:** Run existing tests or add new ones as appropriate. Test the functionality locally using Docker Compose.
-6. **Commit Your Changes:** Use clear and descriptive commit messages: `git commit -am 'feat: Add advanced header analysis heuristic'`
-7. **Push to Your Fork:** `git push origin feature/your-new-feature`
-8. **Submit a Pull Request:** Open a PR against the `main` branch of the original repository. Fill out the PR template clearly.
+3. **Install pre-commit Hooks:** After cloning, run `pre-commit install` so style checks run automatically.
+4. **Create a Feature Branch:** `git checkout -b feature/your-new-feature`
+5. **Make Your Changes:** Implement your feature or bug fix. Ensure code is linted and follows project style (if defined).
+6. **Test Your Changes:** Run existing tests or add new ones as appropriate. Test the functionality locally using Docker Compose.
+7. **Commit Your Changes:** Use clear and descriptive commit messages: `git commit -am 'feat: Add advanced header analysis heuristic'`
+8. **Push to Your Fork:** `git push origin feature/your-new-feature`
+9. **Submit a Pull Request:** Open a PR against the `main` branch of the original repository. Fill out the PR template clearly.
 
 ## Code Style (Example)
 
