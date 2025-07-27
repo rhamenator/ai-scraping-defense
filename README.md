@@ -242,6 +242,19 @@ Several integrations are disabled by default to keep the stack lightweight. You 
 - `Dockerfile`: A single Dockerfile used to build the base image for all Python services.
 - `jszip-rs/`: Rust implementation of the fake JavaScript archive generator.
 - `markov-train-rs/`: Rust implementation of the Markov training utility.
+
+### Running Multiple Tenants
+
+Create an `.env` file per tenant with a unique `TENANT_ID` and port mappings.
+Launch each stack with a distinct project name so Docker Compose keeps the
+services isolated:
+
+```bash
+docker compose --env-file .env.siteA -p siteA up -d
+docker compose --env-file .env.siteB -p siteB up -d
+```
+
+Redis keys and SQLite records are automatically prefixed with the tenant ID.
 ## Configuring AI Models
 
 The detection services load a model specified by the `MODEL_URI` value in `.env`. Examples include a local scikit-learn file or an external API:

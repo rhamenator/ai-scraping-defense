@@ -265,3 +265,18 @@ This script generates the required secrets and applies all manifests using `kube
 ## **Manual Kubernetes Deployment**
 
 For a detailed walkthrough see [kubernetes_deployment.md](kubernetes_deployment.md). The `deploy.sh` and `deploy.ps1` scripts allow you to apply the manifests manually when you need more control over the process.
+
+## **Running Multiple Tenants**
+
+You can launch several isolated environments on the same host by creating a
+separate `.env` file for each tenant and specifying a unique `TENANT_ID` along
+with non-conflicting service ports. Bring up each stack using the `-p` flag to
+set a project name:
+
+```bash
+docker compose --env-file .env.tenant1 -p tenant1 up -d
+docker compose --env-file .env.tenant2 -p tenant2 up -d
+```
+
+Redis keys and SQLite records are namespaced automatically. Review the exposed
+ports in each `.env` so the Admin UI and other services do not collide.

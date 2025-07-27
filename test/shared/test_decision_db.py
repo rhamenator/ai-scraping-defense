@@ -41,14 +41,23 @@ class TestRecordDecision(unittest.TestCase):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT ip, source, score, is_bot, action, timestamp FROM decisions"
+                "SELECT tenant_id, ip, source, score, is_bot, action, timestamp FROM decisions"
             )
             row = cur.fetchone()
         finally:
             conn.close()
 
         self.assertEqual(
-            row, ("1.2.3.4", "unit_test", 0.9, 1, "block", "2024-01-01T00:00:00Z")
+            row,
+            (
+                "default",
+                "1.2.3.4",
+                "unit_test",
+                0.9,
+                1,
+                "block",
+                "2024-01-01T00:00:00Z",
+            ),
         )
 
     def test_handles_none_is_bot(self):
@@ -61,12 +70,36 @@ class TestRecordDecision(unittest.TestCase):
         conn = sqlite3.connect(self.temp_db)
         try:
             cur = conn.cursor()
-            cur.execute("SELECT is_bot FROM decisions")
-            (value,) = cur.fetchone()
+            cur.execute("SELECT tenant_id, is_bot FROM decisions")
+            row = cur.fetchone()
         finally:
             conn.close()
 
-        self.assertIsNone(value)
+        self.assertEqual(row[0], "default")
+        self.assertIsNone(row[1])
+
+    def test_custom_tenant_id(self):
+        db_module = self.reload_module_with_temp_db()
+
+        db_module.record_decision(
+            "9.9.9.9",
+            "unit_test",
+            0.5,
+            0,
+            "flag",
+            "2024-03-03T00:00:00Z",
+            tenant_id="tenantX",
+        )
+
+        conn = sqlite3.connect(self.temp_db)
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT tenant_id FROM decisions WHERE ip='9.9.9.9'")
+            (tid,) = cur.fetchone()
+        finally:
+            conn.close()
+
+        self.assertEqual(tid, "tenantX")
 
 
 if __name__ == "__main__":
