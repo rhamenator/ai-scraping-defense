@@ -1,25 +1,25 @@
 # src/shared/model_provider.py
 """Factory for obtaining model adapters based on a URI."""
-import os
 import logging
+import os
 import time
 from typing import Optional
 
 # Import all adapter classes from the model_adapters module
 from src.shared.model_adapters import (
-    BaseModelAdapter,
-    SklearnAdapter,
-    MarkovAdapter,
-    HttpModelAdapter,
-    OpenAIAdapter,
     AnthropicAdapter,
-    GoogleGeminiAdapter,
+    BaseModelAdapter,
     CohereAdapter,
-    MistralAdapter,
-    OllamaAdapter,
+    ExternalAPIAdapter,
+    GoogleGeminiAdapter,
+    HttpModelAdapter,
     LlamaCppAdapter,
     LocalLLMApiAdapter,
-    ExternalAPIAdapter,
+    MarkovAdapter,
+    MistralAdapter,
+    OllamaAdapter,
+    OpenAIAdapter,
+    SklearnAdapter,
 )
 
 # The ADAPTER_MAP now maps the URI scheme (e.g., "openai") to the adapter class.
@@ -104,7 +104,9 @@ def get_model_adapter(
                 exc_info=True,
             )
             if attempt < retries:
-                time.sleep(delay)
+                backoff = delay * (2 ** (attempt - 1))
+                logging.info(f"Retrying in {backoff:.1f}s...")
+                time.sleep(backoff)
 
     logging.error(
         f"All {retries} attempts to instantiate model adapter for scheme '{scheme}' failed."
