@@ -46,6 +46,7 @@
                 </div>
 
                 <form method="post" class="mt-6 space-y-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     {% if updated %}
                     <div class="text-green-700">Settings updated.</div>
                     {% endif %}
