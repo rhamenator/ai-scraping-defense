@@ -325,6 +325,13 @@ class Config:
         default_factory=lambda: int(os.getenv("TARPIT_LLM_MAX_TOKENS", 400))
     )
 
+    ENABLE_AI_LABYRINTH: bool = field(
+        default_factory=lambda: os.getenv("ENABLE_AI_LABYRINTH", "false").lower() == "true"
+    )
+    TARPIT_LABYRINTH_DEPTH: int = field(
+        default_factory=lambda: int(os.getenv("TARPIT_LABYRINTH_DEPTH", 5))
+    )
+
     # Anomaly Detection
     ANOMALY_MODEL_PATH: Optional[str] = field(
         default_factory=lambda: os.getenv("ANOMALY_MODEL_PATH")

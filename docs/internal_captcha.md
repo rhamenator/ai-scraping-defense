@@ -1,6 +1,6 @@
 # Internal CAPTCHA Service
 
-The project ships with a lightweight CAPTCHA implementation that can be used instead of Google reCAPTCHA or Cloudflare Turnstile. The service presents a small math challenge and issues a signed token when solved. The Escalation Engine verifies this token via the `CAPTCHA_VERIFICATION_URL` setting.
+The project ships with a lightweight CAPTCHA implementation that can be used instead of Google reCAPTCHA or Turnstile-like service. The service presents a small math challenge and issues a signed token when solved. The Escalation Engine verifies this token via the `CAPTCHA_VERIFICATION_URL` setting.
 
 ## Endpoints
 
