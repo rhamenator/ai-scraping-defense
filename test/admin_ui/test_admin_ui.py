@@ -1,6 +1,7 @@
 # test/admin_ui/test_admin_ui.py
 import unittest
 import json
+import os
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from src.admin_ui import admin_ui
@@ -10,11 +11,14 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
     def setUp(self):
         """Set up the test client for the FastAPI app."""
+        os.environ["ADMIN_UI_USERNAME"] = "admin"
+        os.environ["ADMIN_UI_PASSWORD"] = "testpass"
         self.client = TestClient(admin_ui.app)
+        self.auth = ("admin", "testpass")
 
     def test_index_route_success(self):
         """Test the main dashboard page serves HTML correctly and contains key elements."""
-        response = self.client.get("/")
+        response = self.client.get("/", auth=self.auth)
         self.assertEqual(response.status_code, 200)
         content = response.content
         self.assertIn(b"AI Scraping Defense - Admin Dashboard", content)
@@ -34,7 +38,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         }
 
         with patch("src.admin_ui.admin_ui.METRICS_TRULY_AVAILABLE", True):
-            response = self.client.get("/metrics")
+            response = self.client.get("/metrics", auth=self.auth)
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -44,7 +48,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
     @patch("src.admin_ui.admin_ui.METRICS_TRULY_AVAILABLE", False)
     def test_metrics_endpoint_module_unavailable(self):
         """Test the /metrics endpoint when the metrics module is flagged as unavailable."""
-        response = self.client.get("/metrics")
+        response = self.client.get("/metrics", auth=self.auth)
         self.assertEqual(response.status_code, 503)
         data = response.json()
         self.assertEqual(data.get("error"), "Metrics module not available")
@@ -56,7 +60,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
     def test_metrics_endpoint_parsing_error(self, mock_get_metrics_dict):
         """Test the /metrics endpoint when parsing the Prometheus data fails."""
         with patch("src.admin_ui.admin_ui.METRICS_TRULY_AVAILABLE", True):
-            response = self.client.get("/metrics")
+            response = self.client.get("/metrics", auth=self.auth)
 
         self.assertEqual(response.status_code, 500)
         data = response.json()
@@ -70,7 +74,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         mock_redis_instance.smembers.return_value = {"1.1.1.1", "2.2.2.2"}
         mock_get_redis.return_value = mock_redis_instance
 
-        response = self.client.get("/blocklist")
+        response = self.client.get("/blocklist", auth=self.auth)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("1.1.1.1", data)
@@ -80,7 +84,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
     @patch("src.admin_ui.admin_ui.get_redis_connection", return_value=None)
     def test_get_blocklist_redis_unavailable(self, mock_get_redis):
         """Test the /blocklist endpoint when Redis is unavailable."""
-        response = self.client.get("/blocklist")
+        response = self.client.get("/blocklist", auth=self.auth)
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json(), {"error": "Redis service unavailable"})
 
@@ -91,7 +95,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         mock_redis_instance.sadd.return_value = 1  # Simulate adding a new member
         mock_get_redis.return_value = mock_redis_instance
 
-        response = self.client.post("/block", json={"ip": "3.3.3.3"})
+        response = self.client.post("/block", json={"ip": "3.3.3.3"}, auth=self.auth)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "success", "ip": "3.3.3.3"})
         mock_redis_instance.sadd.assert_called_once_with("default:blocklist", "3.3.3.3")
@@ -103,14 +107,14 @@ class TestAdminUIComprehensive(unittest.TestCase):
         mock_redis_instance.srem.return_value = 1  # Simulate removing a member
         mock_get_redis.return_value = mock_redis_instance
 
-        response = self.client.post("/unblock", json={"ip": "1.1.1.1"})
+        response = self.client.post("/unblock", json={"ip": "1.1.1.1"}, auth=self.auth)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "success", "ip": "1.1.1.1"})
         mock_redis_instance.srem.assert_called_once_with("default:blocklist", "1.1.1.1")
 
     def test_block_ip_invalid_payload(self):
         """Test the /block endpoint with an invalid payload."""
-        response = self.client.post("/block", json={"address": "3.3.3.3"})
+        response = self.client.post("/block", json={"address": "3.3.3.3"}, auth=self.auth)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json(), {"error": "Invalid request, missing ip"})
 
@@ -118,7 +122,8 @@ class TestAdminUIComprehensive(unittest.TestCase):
     def test_metrics_websocket_initial_message(self, mock_get_metrics):
         """Ensure the /ws/metrics endpoint streams metrics on connect."""
         mock_get_metrics.return_value = {"active_connections": 5}
-        with self.client.websocket_connect("/ws/metrics") as websocket:
+        headers = {"Authorization": "Basic YWRtaW46dGVzdHBhc3M="}
+        with self.client.websocket_connect("/ws/metrics", headers=headers) as websocket:
             data = websocket.receive_json()
         self.assertEqual(data, {"active_connections": 5})
         mock_get_metrics.assert_called()
@@ -126,7 +131,8 @@ class TestAdminUIComprehensive(unittest.TestCase):
     @patch("src.admin_ui.admin_ui.METRICS_TRULY_AVAILABLE", False)
     def test_metrics_websocket_module_unavailable(self):
         """WebSocket should send an error if metrics are unavailable."""
-        with self.client.websocket_connect("/ws/metrics") as websocket:
+        headers = {"Authorization": "Basic YWRtaW46dGVzdHBhc3M="}
+        with self.client.websocket_connect("/ws/metrics", headers=headers) as websocket:
             data = websocket.receive_json()
         self.assertEqual(data, {"error": "Metrics module not available"})
 
@@ -147,7 +153,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
             {"ip": "4.4.4.4", "reason": "test", "timestamp": "2025-01-01T00:00:00Z"}
         ]
 
-        response = self.client.get("/block_stats")
+        response = self.client.get("/block_stats", auth=self.auth)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["blocked_ip_count"], 1)
@@ -165,7 +171,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self, mock_load, mock_get_redis, mock_get_metrics
     ):
         """Test /block_stats handles missing data gracefully."""
-        response = self.client.get("/block_stats")
+        response = self.client.get("/block_stats", auth=self.auth)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["blocked_ip_count"], 0)

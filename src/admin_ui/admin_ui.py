@@ -10,10 +10,21 @@ import os
 import json
 import asyncio
 import secrets
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Cookie
-from fastapi.responses import JSONResponse, HTMLResponse
+from base64 import b64decode
+from fastapi import (
+    FastAPI,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+    Cookie,
+    Depends,
+    HTTPException,
+    status,
+)
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from jinja2 import pass_context
 from src.shared.redis_client import get_redis_connection
 from src.shared.metrics import get_metrics
@@ -87,6 +98,17 @@ def _load_recent_block_events(limit: int = 5) -> list[dict]:
 # Exposed for tests so they can patch the behaviour
 _load_recent_block_events_func = _load_recent_block_events
 
+
+def _discover_plugins() -> list[str]:
+    """Return a list of available plugin module names."""
+    plugin_dir = os.getenv("PLUGIN_DIR", "/app/plugins")
+    names: list[str] = []
+    if os.path.isdir(plugin_dir):
+        for fn in os.listdir(plugin_dir):
+            if fn.endswith(".py") and not fn.startswith("_"):
+                names.append(fn[:-3])
+    return sorted(names)
+
 BASE_DIR = os.path.dirname(__file__)
 app = FastAPI()
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -98,7 +120,27 @@ app.mount(
 RUNTIME_SETTINGS = {
     "LOG_LEVEL": os.getenv("LOG_LEVEL", "INFO"),
     "ESCALATION_ENDPOINT": CONFIG.ESCALATION_ENDPOINT,
+    "ALLOWED_PLUGINS": os.getenv("ALLOWED_PLUGINS", "ua_blocker"),
 }
+
+security = HTTPBasic()
+
+
+def require_auth(credentials: HTTPBasicCredentials = Depends(security)) -> str:
+    """Validate HTTP Basic credentials from the request."""
+    username = os.getenv("ADMIN_UI_USERNAME", "admin")
+    password = os.getenv("ADMIN_UI_PASSWORD")
+    if password is None:
+        password = os.getenv("ADMIN_UI_PASSWORD_DEFAULT", "password")
+    valid = secrets.compare_digest(credentials.username, username) and secrets.compare_digest(
+        credentials.password, password
+    )
+    if not valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
 
 
 @pass_context
@@ -114,13 +156,13 @@ templates.env.globals["url_for"] = _jinja_url_for
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+async def index(request: Request, user: str = Depends(require_auth)):
     """Serves the main dashboard HTML page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {"request": request, "user": user})
 
 
 @app.get("/metrics")
-async def metrics_endpoint():
+async def metrics_endpoint(user: str = Depends(require_auth)):
     """Return metrics in JSON form for the admin dashboard."""
     if not METRICS_TRULY_AVAILABLE:
         return JSONResponse({"error": "Metrics module not available"}, status_code=503)
@@ -142,6 +184,24 @@ async def metrics_endpoint():
 @app.websocket("/ws/metrics")
 async def metrics_websocket(websocket: WebSocket):
     """Stream metrics to the client over a WebSocket connection."""
+    auth = websocket.headers.get("Authorization")
+    if auth:
+        try:
+            scheme, data = auth.split(" ", 1)
+            if scheme.lower() == "basic":
+                decoded = b64decode(data).decode()
+                username, password = decoded.split(":", 1)
+                try:
+                    require_auth(HTTPBasicCredentials(username=username, password=password))
+                except HTTPException:
+                    await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                    return
+        except Exception:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+    else:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
     await websocket.accept()
 
     if not METRICS_TRULY_AVAILABLE:
@@ -179,7 +239,7 @@ async def metrics_websocket(websocket: WebSocket):
 
 
 @app.get("/block_stats")
-async def block_stats():
+async def block_stats(user: str = Depends(require_auth)):
     """Return blocklist counts and bot detection statistics."""
     metrics_dict = {}
     try:
@@ -216,7 +276,7 @@ async def block_stats():
 
 
 @app.get("/blocklist")
-async def get_blocklist():
+async def get_blocklist(user: str = Depends(require_auth)):
     redis_conn = get_redis_connection()
     if not redis_conn:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
@@ -232,7 +292,7 @@ async def get_blocklist():
 
 
 @app.post("/block")
-async def block_ip(request: Request):
+async def block_ip(request: Request, user: str = Depends(require_auth)):
     json_data = await request.json()
     if not json_data:
         return JSONResponse(
@@ -252,7 +312,7 @@ async def block_ip(request: Request):
 
 
 @app.post("/unblock")
-async def unblock_ip(request: Request):
+async def unblock_ip(request: Request, user: str = Depends(require_auth)):
     json_data = await request.json()
     if not json_data:
         return JSONResponse(
@@ -272,7 +332,7 @@ async def unblock_ip(request: Request):
 
 
 @app.get("/settings", response_class=HTMLResponse)
-async def settings_page(request: Request, csrf_token: str | None = Cookie(None)):
+async def settings_page(request: Request, csrf_token: str | None = Cookie(None), user: str = Depends(require_auth)):
     """Renders the system settings page with a CSRF token."""
     if not csrf_token:
         csrf_token = secrets.token_urlsafe(16)
@@ -290,7 +350,7 @@ async def settings_page(request: Request, csrf_token: str | None = Cookie(None))
 
 
 @app.post("/settings", response_class=HTMLResponse)
-async def update_settings(request: Request, csrf_token: str | None = Cookie(None)):
+async def update_settings(request: Request, csrf_token: str | None = Cookie(None), user: str = Depends(require_auth)):
     """Update editable settings from form data, validating the CSRF token."""
     form = await request.form()
     if not csrf_token or form.get("csrf_token") != csrf_token:
@@ -314,6 +374,51 @@ async def update_settings(request: Request, csrf_token: str | None = Cookie(None
         "settings.html",
         {"request": request, "settings": current_settings, "updated": True},
     )
+
+
+@app.get("/logs", response_class=HTMLResponse)
+async def view_logs(request: Request, user: str = Depends(require_auth)):
+    """Display recent block events."""
+    events = _load_recent_block_events_func(50)
+    return templates.TemplateResponse(
+        "logs.html", {"request": request, "events": events}
+    )
+
+
+@app.get("/plugins", response_class=HTMLResponse)
+async def plugins_page(request: Request, user: str = Depends(require_auth)):
+    """Show available plugins and which are enabled."""
+    available = _discover_plugins()
+    enabled = RUNTIME_SETTINGS["ALLOWED_PLUGINS"].split(",") if RUNTIME_SETTINGS["ALLOWED_PLUGINS"] else []
+    return templates.TemplateResponse(
+        "plugins.html",
+        {"request": request, "available": available, "enabled": enabled},
+    )
+
+
+@app.post("/plugins")
+async def update_plugins(request: Request, user: str = Depends(require_auth)):
+    """Update enabled plugins and notify the escalation engine."""
+    form = await request.form()
+    selected = form.getlist("plugins")
+    allowed = ",".join(selected)
+    RUNTIME_SETTINGS["ALLOWED_PLUGINS"] = allowed
+    os.environ["ALLOWED_PLUGINS"] = allowed
+    try:
+        import httpx
+
+        headers = {}
+        if CONFIG.ESCALATION_API_KEY:
+            headers["X-API-Key"] = CONFIG.ESCALATION_API_KEY
+        httpx.post(
+            f"{CONFIG.ESCALATION_ENGINE_URL}/admin/reload_plugins",
+            json={"allowed_plugins": selected},
+            headers=headers,
+            timeout=5.0,
+        )
+    except Exception:
+        pass
+    return RedirectResponse("/plugins", status_code=302)
 
 
 if __name__ == "__main__":

@@ -4,13 +4,15 @@ from typing import Callable, List
 
 # Only load plugins that are explicitly allowed. This prevents arbitrary code
 # execution if untrusted files are placed in the plugin directory.
-ALLOWED_PLUGINS = os.getenv("ALLOWED_PLUGINS", "ua_blocker").split(",")
+DEFAULT_ALLOWED_PLUGINS = os.getenv("ALLOWED_PLUGINS", "ua_blocker").split(",")
 
 PLUGIN_DIR = os.getenv("PLUGIN_DIR", "/app/plugins")
 
 
-def load_plugins() -> List[Callable[[object], float]]:
+def load_plugins(allowed_plugins: List[str] | None = None) -> List[Callable[[object], float]]:
     """Load plugin check functions from the plugins directory."""
+    if allowed_plugins is None:
+        allowed_plugins = DEFAULT_ALLOWED_PLUGINS
     plugins: List[Callable[[object], float]] = []
     if not os.path.isdir(PLUGIN_DIR):
         return plugins
@@ -18,7 +20,7 @@ def load_plugins() -> List[Callable[[object], float]]:
         if not filename.endswith(".py") or filename.startswith("_"):
             continue
         module_name = filename[:-3]
-        if module_name not in ALLOWED_PLUGINS:
+        if module_name not in allowed_plugins:
             continue
         path = os.path.join(PLUGIN_DIR, filename)
         if os.path.islink(path):

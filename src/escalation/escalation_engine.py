@@ -228,6 +228,14 @@ from src.plugins import load_plugins
 ENABLE_PLUGINS = os.getenv("ENABLE_PLUGINS", "false").lower() == "true"
 PLUGINS = load_plugins() if ENABLE_PLUGINS else []
 
+
+def reload_plugins(allowed: list[str]) -> list[str]:
+    """Reload plugins with the provided allowed list."""
+    global PLUGINS
+    os.environ["ALLOWED_PLUGINS"] = ",".join(allowed)
+    PLUGINS = load_plugins(allowed)
+    return [getattr(p, "__name__", "unknown") for p in PLUGINS]
+
 HEURISTIC_THRESHOLD_LOW = 0.3
 HEURISTIC_THRESHOLD_MEDIUM = 0.6
 HEURISTIC_THRESHOLD_HIGH = 0.8
@@ -1185,6 +1193,18 @@ async def health_check():
         "redis_frequency_connected": redis_ok,
         "model_loaded": MODEL_LOADED,
     }
+
+
+@app.post("/admin/reload_plugins")
+async def admin_reload_plugins(request: Request):
+    if ESCALATION_API_KEY and request.headers.get("X-API-Key") != ESCALATION_API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    data = await request.json()
+    allowed = data.get("allowed_plugins")
+    if not isinstance(allowed, list):
+        raise HTTPException(status_code=400, detail="Invalid allowed_plugins")
+    names = reload_plugins(allowed)
+    return {"status": "reloaded", "plugins": names}
 
 
 # --- Main (Preserved) ---
