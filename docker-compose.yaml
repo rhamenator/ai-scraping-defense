@@ -348,7 +348,8 @@ services:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
-      - --api.insecure=true
+      - --api.dashboard=true
+      - --api.insecure=false
     ports:
       - "8005:80"
       - "8081:8080"
