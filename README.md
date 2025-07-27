@@ -233,6 +233,7 @@ Several integrations are disabled by default to keep the stack lightweight. You 
     - **CAPTCHA Verification** – Populate `CAPTCHA_SECRET` to activate reCAPTCHA challenges.
 - **Fail2ban** – Start the `fail2ban` container to insert firewall rules based on blocked IPs. See [docs/fail2ban.md](docs/fail2ban.md) for details.
 - **LLM Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) – Use an LLM to generate fake pages when a model URI is provided.
+- **Admin UI Two-Factor Auth** – Set `ADMIN_UI_2FA_SECRET` (or `ADMIN_UI_2FA_SECRET_FILE`) and provide a TOTP in the `X-2FA-Code` header.
 
 ## Project Structure
 

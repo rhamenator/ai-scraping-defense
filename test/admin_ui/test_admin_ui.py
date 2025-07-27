@@ -2,6 +2,7 @@
 import unittest
 import json
 import os
+import pyotp
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from src.admin_ui import admin_ui
@@ -114,9 +115,38 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
     def test_block_ip_invalid_payload(self):
         """Test the /block endpoint with an invalid payload."""
-        response = self.client.post("/block", json={"address": "3.3.3.3"}, auth=self.auth)
+        response = self.client.post(
+            "/block", json={"address": "3.3.3.3"}, auth=self.auth
+        )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json(), {"error": "Invalid request, missing ip"})
+
+    def test_2fa_required_and_valid(self):
+        """Requests succeed when a valid TOTP code is supplied."""
+        secret = "JBSWY3DPEHPK3PXP"
+        os.environ["ADMIN_UI_2FA_SECRET"] = secret
+        code = pyotp.TOTP(secret).now()
+        headers = {"X-2FA-Code": code}
+        response = self.client.get("/", auth=self.auth, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        del os.environ["ADMIN_UI_2FA_SECRET"]
+
+    def test_2fa_missing_code(self):
+        """Missing TOTP code results in 401 when 2FA is enabled."""
+        secret = "JBSWY3DPEHPK3PXP"
+        os.environ["ADMIN_UI_2FA_SECRET"] = secret
+        response = self.client.get("/", auth=self.auth)
+        self.assertEqual(response.status_code, 401)
+        del os.environ["ADMIN_UI_2FA_SECRET"]
+
+    def test_2fa_invalid_code(self):
+        """Invalid TOTP code results in 401."""
+        secret = "JBSWY3DPEHPK3PXP"
+        os.environ["ADMIN_UI_2FA_SECRET"] = secret
+        headers = {"X-2FA-Code": "000000"}
+        response = self.client.get("/", auth=self.auth, headers=headers)
+        self.assertEqual(response.status_code, 401)
+        del os.environ["ADMIN_UI_2FA_SECRET"]
 
     @patch("src.admin_ui.admin_ui._get_metrics_dict_func")
     def test_metrics_websocket_initial_message(self, mock_get_metrics):
