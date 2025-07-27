@@ -14,6 +14,8 @@ class TestAdminUIComprehensive(unittest.TestCase):
         """Set up the test client for the FastAPI app."""
         os.environ["ADMIN_UI_USERNAME"] = "admin"
         os.environ["ADMIN_UI_PASSWORD"] = "testpass"
+        os.environ["ADMIN_UI_ROLE"] = "admin"
+        admin_ui.ADMIN_UI_ROLE = "admin"
         self.client = TestClient(admin_ui.app)
         self.auth = ("admin", "testpass")
 
@@ -27,6 +29,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertIn(b'id="blocklist-container"', content)
         self.assertIn(b'id="manual-ip-block"', content)
         self.assertIn(b"admin.js", content)
+        self.assertEqual(response.headers.get("content-security-policy"), "default-src 'self'")
 
     @patch("src.admin_ui.admin_ui._get_metrics_dict_func")
     def test_metrics_endpoint_success(self, mock_get_metrics_dict):
@@ -112,6 +115,19 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "success", "ip": "1.1.1.1"})
         mock_redis_instance.srem.assert_called_once_with("default:blocklist", "1.1.1.1")
+
+    @patch("src.admin_ui.admin_ui.get_redis_connection")
+    def test_block_ip_requires_admin(self, mock_get_redis):
+        """Non-admin users receive 403 when attempting to block an IP."""
+        os.environ["ADMIN_UI_ROLE"] = "viewer"
+        admin_ui.ADMIN_UI_ROLE = "viewer"
+        mock_redis_instance = MagicMock()
+        mock_redis_instance.sadd.return_value = 1
+        mock_get_redis.return_value = mock_redis_instance
+        response = self.client.post("/block", json={"ip": "4.4.4.4"}, auth=self.auth)
+        self.assertEqual(response.status_code, 403)
+        os.environ["ADMIN_UI_ROLE"] = "admin"
+        admin_ui.ADMIN_UI_ROLE = "admin"
 
     def test_block_ip_invalid_payload(self):
         """Test the /block endpoint with an invalid payload."""

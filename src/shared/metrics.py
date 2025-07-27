@@ -374,6 +374,12 @@ QUEUE_LENGTH = Gauge(
     ["queue_name"],
     registry=REGISTRY,
 )
+MODEL_VERSION_INFO = Gauge(
+    "model_version_info",
+    "Version of the ML model in use.",
+    ["version"],
+    registry=REGISTRY,
+)
 UPTIME_SECONDS = Gauge(
     "uptime_seconds_total", "System uptime in seconds.", registry=REGISTRY
 )

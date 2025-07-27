@@ -91,6 +91,7 @@ try:
         RF_MODEL_ERRORS,
         RF_MODEL_PREDICTIONS,
         SCORE_ADJUSTED_IP_REPUTATION,
+        MODEL_VERSION_INFO,
         get_metrics,
         increment_counter_metric,
     )
@@ -153,6 +154,7 @@ except ImportError:
     HUMANS_DETECTED_LOCAL_LLM = DummyCounter()
     BOTS_DETECTED_EXTERNAL_API = DummyCounter()
     HUMANS_DETECTED_EXTERNAL_API = DummyCounter()
+    MODEL_VERSION_INFO = DummyCounter()
     METRICS_SYSTEM_AVAILABLE = False
 
 # --- Configuration (Preserved) ---
@@ -267,6 +269,8 @@ try:
     if model_adapter and model_adapter.model:
         MODEL_LOADED = True
         logger.info(f"Model adapter '{os.getenv('MODEL_TYPE')}' loaded successfully.")
+        if METRICS_SYSTEM_AVAILABLE and CONFIG.MODEL_VERSION:
+            MODEL_VERSION_INFO.labels(version=CONFIG.MODEL_VERSION).set(1)
     else:
         logger.warning(
             "Model adapter failed to initialize or load model. Heuristic scoring only."
