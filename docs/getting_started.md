@@ -155,6 +155,7 @@ Once the containers are running, you can access the key services in your web bro
 * **Blocklist Sync Daemon:** runs automatically to pull updates from the community blocklist service.
 * **Peer Sync Daemon:** exchanges blocklisted IPs with configured peer deployments.
 * **Config Recommender:** [http://localhost:8010](http://localhost:8010) provides automated tuning suggestions.
+* **Cloud Proxy:** [http://localhost:8008](http://localhost:8008) forwards chat requests to your LLM provider.
 
 ### **6.1. Accessing the Admin UI**
 
