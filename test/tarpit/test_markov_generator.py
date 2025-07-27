@@ -351,7 +351,9 @@ class TestMarkovGenerator(unittest.TestCase):
             ) as mock_markov:
                 html = markov_generator.generate_dynamic_tarpit_page()
 
-            mock_get_adapter.assert_called_once_with("openai://test-model")
+            mock_get_adapter.assert_called_once_with(
+                "openai://test-model", retries=3, delay=1.0
+            )
             mock_markov.assert_not_called()
             self.assertIn("<p>Para one</p>", html)
 
