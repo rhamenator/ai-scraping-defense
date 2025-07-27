@@ -215,6 +215,7 @@ Follow these steps if you prefer to configure everything yourself.
 7. **Access the Services:**
     - **Admin UI:** `http://localhost:5002`
     - **Cloud Dashboard:** `http://localhost:5006`
+    - **Cloud Proxy:** `http://localhost:8008`
     - **Your Application:** `http://localhost:8080`
     - **HTTPS (if enabled):** `https://localhost:8443`
 
