@@ -245,6 +245,27 @@ services:
       timeout: 10s
       retries: 3
 
+  prompt_router:
+    build:
+      context: ./prompt-router
+      dockerfile: Dockerfile
+    container_name: prompt_router
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "${PROMPT_ROUTER_PORT:-8009}"]
+    env_file:
+      - .env
+    ports:
+      - "${PROMPT_ROUTER_PORT:-8009}:8009"
+    volumes:
+      - ./prompt-router:/app
+    networks:
+      - defense_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PROMPT_ROUTER_PORT:-8009}/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   postgres:
     image: postgres:15-alpine
     container_name: postgres_markov_db
@@ -381,6 +402,40 @@ services:
       - defense_network
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    networks:
+      - defense_network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - defense_network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 60 --cleanup
+    networks:
+      - defense_network
+    restart: always
+
 networks:
   defense_network:
     driver: bridge
@@ -394,3 +449,4 @@ volumes:
   nginx_uwsgi_temp:
   nginx_scgi_temp:
   nginx_logs:
+  grafana_data:

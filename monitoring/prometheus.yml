@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: ai-services
+    static_configs:
+      - targets:
+          - ai_service:8000
+          - escalation_engine:8003
+          - tarpit_api:8001
