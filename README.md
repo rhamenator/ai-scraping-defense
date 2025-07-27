@@ -103,14 +103,17 @@ Run the automated script after cloning the repository:
 git clone https://github.com/your-username/ai-scraping-defense.git
 cd ai-scraping-defense
 
+cp sample.env .env
+python scripts/validate_env.py
+
 sudo ./quickstart_dev.sh   # use sudo on Linux/macOS; run quickstart_dev.ps1 on Windows
 ```
 
 On Windows, open an **Administrator PowerShell** window and run `quickstart_dev.ps1` instead.
 
-The script copies `sample.env`, generates secrets, installs Python requirements using
-
-`pip install -r requirements.txt -c constraints.txt`, and launches Docker Compose for you.
+The script generates secrets, installs Python requirements with
+`pip install -r requirements.txt -c constraints.txt`, re-runs
+`python scripts/validate_env.py`, and launches Docker Compose for you.
 The stack requires Rust 1.78.0. `mise` (or `rustup`) installs this toolchain automatically.
 If you see a warning about `idiomatic_version_file_enable_tools`, silence it with:
 
