@@ -31,6 +31,9 @@ sudo bash ./reset_venv.sh
 # Install Python requirements with constraints
 ./.venv/bin/pip install -r requirements.txt -c constraints.txt
 
+# Validate .env configuration
+./.venv/bin/python scripts/validate_env.py
+
 # Run tests to ensure environment integrity
 ./.venv/bin/python test/run_all_tests.py
 
