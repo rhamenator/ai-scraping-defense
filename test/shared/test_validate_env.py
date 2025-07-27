@@ -13,7 +13,7 @@ NGINX_HTTPS_PORT=8443
 ADMIN_UI_PORT=5002
 PROMPT_ROUTER_PORT=8009
 PROMPT_ROUTER_HOST=router
-REAL_BACKEND_HOST=http://localhost
+REAL_BACKEND_HOSTS=http://localhost
 """
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".env"
@@ -32,7 +32,7 @@ PROMETHEUS_PORT=abc
 GRAFANA_PORT=99999
 PROMPT_ROUTER_PORT=8009
 PROMPT_ROUTER_HOST=router
-REAL_BACKEND_HOST=http://localhost
+REAL_BACKEND_HOSTS=http://localhost
 """
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".env"

@@ -158,7 +158,7 @@ Follow these steps if you prefer to configure everything yourself.
     database at `secrets/local_secrets.db`. Delete this file or answer **n**
     during the prompt to disable the database and clear stored values.
 
-    Open `.env` and review the defaults. Set `TENANT_ID` for isolated deployments and add any API keys you plan to use. For **production** deployments update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443`. `REAL_BACKEND_HOST` controls where allowed traffic is forwarded when the proxy sits in front of another site.
+    Open `.env` and review the defaults. Set `TENANT_ID` for isolated deployments and add any API keys you plan to use. For **production** deployments update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443`. Use `REAL_BACKEND_HOSTS` to supply a comma-separated list of backend servers for load balancing or `REAL_BACKEND_HOST` for a single destination.
 
 3. **Set Up Python Virtual Environment:**
     Run the setup script to create a virtual environment and install all Python dependencies.

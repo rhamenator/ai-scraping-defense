@@ -29,7 +29,6 @@ REQUIRED_KEYS = [
     "PROMETHEUS_PORT",
     "GRAFANA_PORT",
     "PROMPT_ROUTER_HOST",
-    "REAL_BACKEND_HOST",
 ]
 
 PROVIDER_KEYS = {
@@ -69,8 +68,8 @@ def validate_env(env: dict[str, str]) -> list[str]:
         except Exception:
             errors.append(f"{key} has invalid port value: {value}")
 
-    if not env.get("REAL_BACKEND_HOST"):
-        errors.append("REAL_BACKEND_HOST is missing or empty")
+    if not env.get("REAL_BACKEND_HOST") and not env.get("REAL_BACKEND_HOSTS"):
+        errors.append("REAL_BACKEND_HOST or REAL_BACKEND_HOSTS must be set")
     if not env.get("PROMPT_ROUTER_HOST"):
         errors.append("PROMPT_ROUTER_HOST is missing or empty")
 
