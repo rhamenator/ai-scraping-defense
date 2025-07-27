@@ -17,6 +17,7 @@ IMAGE="$3"
 CODE_DIR="${4:-.}"
 
 SQLMAP_URL="$5"
+PORTS="22,80,443,5432,6379"
 
 if [[ -z "$TARGET" ]]; then
     echo "Usage: sudo $0 <target_host_or_ip> [web_url_for_nikto] [docker_image] [code_dir] [sqlmap_url]"
@@ -26,10 +27,18 @@ fi
 mkdir -p reports
 
 echo "=== 1. Nmap Scan (version, OS, common vulns) ==="
-nmap -A --script=vuln -oN "reports/nmap_${TARGET}.txt" "$TARGET"
+if command -v nmap >/dev/null 2>&1; then
+    nmap -A -p "$PORTS" --script=vuln -oN "reports/nmap_${TARGET}.txt" "$TARGET"
+else
+    echo "nmap not installed. Skipping nmap scan."
+fi
 
 echo "=== 2. Nikto Web Scan ==="
-nikto -host "$WEB_URL" -output "reports/nikto_$(echo $WEB_URL | tr '/:' '_').txt"
+if command -v nikto >/dev/null 2>&1; then
+    nikto -host "$WEB_URL" -output "reports/nikto_$(echo $WEB_URL | tr '/:' '_').txt"
+else
+    echo "nikto not installed. Skipping Nikto scan."
+fi
 
 echo "=== 3. OWASP ZAP Baseline Scan ==="
 if command -v zap-baseline.py >/dev/null 2>&1; then
@@ -73,7 +82,11 @@ echo "  Ensure OpenVAS is initialized and running. Example gvm-cli command:"
 echo "      gvm-cli socket -- gmp start_task <task-id>"
 
 echo "=== 8. Lynis System Audit ==="
-lynis audit system --quiet --logfile reports/lynis.log --report-file reports/lynis-report.txt
+if command -v lynis >/dev/null 2>&1; then
+    lynis audit system --quiet --logfile reports/lynis.log --report-file reports/lynis-report.txt
+else
+    echo "lynis not installed. Skipping system audit."
+fi
 
 echo "=== 9. Optional Hydra Password Test ==="
 echo "  hydra -L users.txt -P passwords.txt ssh://$TARGET -o reports/hydra_${TARGET}.txt"
@@ -81,7 +94,7 @@ echo "  hydra -L users.txt -P passwords.txt ssh://$TARGET -o reports/hydra_${TAR
 echo "=== 10. Masscan Quick Sweep ==="
 if command -v masscan >/dev/null 2>&1; then
     echo "  Running a fast port sweep (rate 1000) on $TARGET"
-    masscan -p1-65535 "$TARGET" --rate=1000 -oL "reports/masscan_${TARGET}.txt"
+    masscan -p"$PORTS" "$TARGET" --rate=1000 -oL "reports/masscan_${TARGET}.txt"
 else
     echo "masscan not installed. Skipping quick sweep."
 fi
@@ -137,6 +150,69 @@ if command -v wfuzz >/dev/null 2>&1; then
     fi
 else
     echo "wfuzz not installed. Skipping parameter fuzzing."
+fi
+
+echo "=== 17. testssl TLS Scan ==="
+if command -v testssl.sh >/dev/null 2>&1; then
+    testssl.sh "$WEB_URL" > "reports/testssl_$(echo $WEB_URL | tr '/:' '_').txt"
+else
+    echo "testssl.sh not installed. Skipping TLS scan."
+fi
+
+echo "=== 18. WhatWeb Fingerprinting ==="
+if command -v whatweb >/dev/null 2>&1; then
+    whatweb "$WEB_URL" > "reports/whatweb_$(echo $WEB_URL | tr '/:' '_').txt"
+else
+    echo "whatweb not installed. Skipping fingerprinting."
+fi
+
+echo "=== 19. Gitleaks Secret Scan ==="
+if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks detect -s "$CODE_DIR" -v --report-path "reports/gitleaks_$(basename $CODE_DIR).txt" || true
+else
+    echo "gitleaks not installed. Skipping secrets scan."
+fi
+
+echo "=== 20. Grype Container Scan ==="
+if [[ -n "$IMAGE" ]] && command -v grype >/dev/null 2>&1; then
+    grype "$IMAGE" -o table > "reports/grype_$(echo $IMAGE | tr '/:' '_').txt"
+else
+    echo "grype not installed or no image specified. Skipping grype scan."
+fi
+
+echo "=== 21. ClamAV Malware Scan ==="
+if command -v clamscan >/dev/null 2>&1; then
+    clamscan -r "$CODE_DIR" > "reports/clamscan_$(basename $CODE_DIR).txt"
+else
+    echo "clamscan not installed. Skipping malware scan."
+fi
+
+echo "=== 22. Rkhunter Rootkit Check ==="
+if command -v rkhunter >/dev/null 2>&1; then
+    rkhunter --check --sk --rwo > "reports/rkhunter_${TARGET}.txt" || true
+else
+    echo "rkhunter not installed. Skipping rootkit check."
+fi
+
+echo "=== 23. Chkrootkit Rootkit Check ==="
+if command -v chkrootkit >/dev/null 2>&1; then
+    chkrootkit > "reports/chkrootkit_${TARGET}.txt"
+else
+    echo "chkrootkit not installed. Skipping rootkit check."
+fi
+
+echo "=== 24. Sublist3r Subdomain Enumeration ==="
+if command -v sublist3r >/dev/null 2>&1; then
+    sublist3r -d "$TARGET" -o "reports/sublist3r_${TARGET}.txt"
+else
+    echo "sublist3r not installed. Skipping subdomain enumeration."
+fi
+
+echo "=== 25. pip-audit Dependency Scan ==="
+if command -v pip-audit >/dev/null 2>&1; then
+    pip-audit -r requirements.txt -f plain > "reports/pip_audit.txt" || true
+else
+    echo "pip-audit not installed. Skipping Python dependency audit."
 fi
 
 echo "Reports saved in the 'reports' directory. Review them for potential issues." 

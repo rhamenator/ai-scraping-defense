@@ -142,4 +142,4 @@ old/
 *.swo
 *.swp
 
-.fake
+reports/
