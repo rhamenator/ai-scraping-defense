@@ -59,6 +59,8 @@ async def challenge_page(fp_id: str | None = Cookie(None)):
     b = secrets.randbelow(8) + 1
     expiry = int(datetime.datetime.utcnow().timestamp() + TOKEN_EXPIRY)
     token = _sign({"ans": a + b, "fp": fp_id, "exp": expiry})
+    from html import escape
+    escaped_token = escape(token)
     html = f"""<!DOCTYPE html>
 <html lang='en'>
 <head>
@@ -90,7 +92,7 @@ button{{padding:6px 12px;margin-top:8px;}}
 <p>What is {a} + {b}?</p>
 <form id='cform'>
 <input name='answer' required autofocus>
-<input type='hidden' name='token' value='{token}'>
+<input type='hidden' name='token' value='{escaped_token}'>
 <button type='submit'>Submit</button>
 </form>
 <div id='result'></div>
