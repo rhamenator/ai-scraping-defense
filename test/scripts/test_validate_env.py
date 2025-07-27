@@ -32,6 +32,9 @@ PROMPT_ROUTER_HOST=router
             env = validate_env.parse_env(path)
             errors = validate_env.validate_env(env)
             self.assertTrue(any("NGINX_HTTP_PORT" in e for e in errors))
+            self.assertTrue(any("PROMPT_ROUTER_PORT" in e for e in errors))
+            self.assertTrue(any("PROMETHEUS_PORT" in e for e in errors))
+            self.assertTrue(any("GRAFANA_PORT" in e for e in errors))
 
     def test_model_specific_key(self):
         content = """MODEL_URI=openai://gpt-4
