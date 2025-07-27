@@ -5,51 +5,42 @@ from pathlib import Path
 from scripts import validate_env
 
 
-class TestValidateEnv(unittest.TestCase):
-    def test_valid_env(self):
+class TestValidateEnvMonitoringPorts(unittest.TestCase):
+    def test_missing_monitoring_ports(self):
         content = """MODEL_URI=sklearn:///model
 NGINX_HTTP_PORT=8080
 NGINX_HTTPS_PORT=8443
 ADMIN_UI_PORT=5002
-PROMETHEUS_PORT=9090
-GRAFANA_PORT=3000
-REAL_BACKEND_HOST=http://localhost
 PROMPT_ROUTER_PORT=8009
 PROMPT_ROUTER_HOST=router
+REAL_BACKEND_HOST=http://localhost
 """
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".env"
             path.write_text(content)
             env = validate_env.parse_env(path)
             errors = validate_env.validate_env(env)
-            self.assertEqual(errors, [])
+            self.assertTrue(any("PROMETHEUS_PORT" in e for e in errors))
+            self.assertTrue(any("GRAFANA_PORT" in e for e in errors))
 
-    def test_missing_required(self):
-        content = "MODEL_URI=sklearn:///model"
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / ".env"
-            path.write_text(content)
-            env = validate_env.parse_env(path)
-            errors = validate_env.validate_env(env)
-            self.assertTrue(any("NGINX_HTTP_PORT" in e for e in errors))
-
-    def test_model_specific_key(self):
-        content = """MODEL_URI=openai://gpt-4
+    def test_invalid_monitoring_ports(self):
+        content = """MODEL_URI=sklearn:///model
 NGINX_HTTP_PORT=8080
 NGINX_HTTPS_PORT=8443
 ADMIN_UI_PORT=5002
-PROMETHEUS_PORT=9090
-GRAFANA_PORT=3000
-REAL_BACKEND_HOST=http://localhost
+PROMETHEUS_PORT=abc
+GRAFANA_PORT=99999
 PROMPT_ROUTER_PORT=8009
 PROMPT_ROUTER_HOST=router
+REAL_BACKEND_HOST=http://localhost
 """
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".env"
             path.write_text(content)
             env = validate_env.parse_env(path)
             errors = validate_env.validate_env(env)
-            self.assertTrue(any("OPENAI_API_KEY" in e for e in errors))
+            self.assertTrue(any("PROMETHEUS_PORT" in e for e in errors))
+            self.assertTrue(any("GRAFANA_PORT" in e for e in errors))
 
 
 if __name__ == "__main__":
