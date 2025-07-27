@@ -236,6 +236,19 @@ The `.env` file also contains toggles for several optional integrations:
 - **CAPTCHA Verification** activates when `CAPTCHA_SECRET` is supplied.
 - **LLM-Generated Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) require a `TARPIT_LLM_MODEL_URI`.
 
+## **Running Local LLM Containers**
+
+Docker Compose includes service definitions for the `llama3` and `mixtral` models via the Ollama project. They are disabled by default but can be started manually:
+
+```bash
+docker compose up -d llama3        # port 11434
+docker compose up -d mixtral       # port 11435
+```
+
+Each container pulls its model on the first run and stores it under `models/shared-data`. Health checks are available at `http://localhost:11434/api/health` inside the container. Mixtral is mapped to port `11435` on the host.
+
+Running these models locally consumes substantial memory and disk space &mdash; see [Hardware Recommendations](hardware_requirements.md) before enabling them.
+
 ## **Quick Kubernetes Deployment**
 
 To deploy the stack to a Kubernetes cluster in one step run:
