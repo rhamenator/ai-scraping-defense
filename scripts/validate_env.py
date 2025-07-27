@@ -18,11 +18,13 @@ def parse_env(path: Path) -> dict[str, str]:
     return env
 
 
+# Keys that must be present in the environment configuration
 REQUIRED_KEYS = [
     "MODEL_URI",
     "NGINX_HTTP_PORT",
     "NGINX_HTTPS_PORT",
     "ADMIN_UI_PORT",
+    # Internal service ports
     "PROMPT_ROUTER_PORT",
     "PROMETHEUS_PORT",
     "GRAFANA_PORT",
