@@ -101,7 +101,8 @@ class TestPromptRouterRouting(unittest.IsolatedAsyncioTestCase):
             async with httpx.AsyncClient(
                 transport=transport, base_url="http://test"
             ) as ac:
-                resp = await ac.post("/route", json={"prompt": "x" * 20})
+                long_prompt = " ".join(["x"] * 20)
+                resp = await ac.post("/route", json={"prompt": long_prompt})
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json(), {"route": "cloud"})
         client_inst = DummyClient.instances[-1]
