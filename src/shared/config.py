@@ -42,6 +42,9 @@ class Config:
             "CONFIG_RECOMMENDER_HOST", "config_recommender"
         )
     )
+    PROMPT_ROUTER_HOST: str = field(
+        default_factory=lambda: os.getenv("PROMPT_ROUTER_HOST", "prompt_router")
+    )
 
     # Service ports
     AI_SERVICE_PORT: int = field(
@@ -61,6 +64,9 @@ class Config:
     )
     CONFIG_RECOMMENDER_PORT: int = field(
         default_factory=lambda: int(os.getenv("CONFIG_RECOMMENDER_PORT", 8010))
+    )
+    PROMPT_ROUTER_PORT: int = field(
+        default_factory=lambda: int(os.getenv("PROMPT_ROUTER_PORT", 8009))
     )
 
     # Redis
@@ -374,22 +380,37 @@ class Config:
             "CONFIG_RECOMMENDER_URL",
             f"http://{self.CONFIG_RECOMMENDER_HOST}:{self.CONFIG_RECOMMENDER_PORT}",
         )
+        object.__setattr__(
+            self,
+            "PROMPT_ROUTER_URL",
+            f"http://{self.PROMPT_ROUTER_HOST}:{self.PROMPT_ROUTER_PORT}",
+        )
         object.__setattr__(self, "TENANT_PREFIX", f"{self.TENANT_ID}:")
 
 
 # Instantiate configuration once
 CONFIG = Config()
+_CONFIG_CACHE: Dict[str, Config] = {CONFIG.TENANT_ID: CONFIG}
 
 # Populate module level constants for backward compatibility
 for _k, _v in CONFIG.as_dict().items():
     globals()[_k] = _v
 
 
-def get_config() -> Dict[str, Any]:
-    """Return all configuration as a dictionary."""
-    return CONFIG.as_dict()
+def get_config(tenant_id: Optional[str] = None) -> Dict[str, Any]:
+    """Return configuration as a dictionary for the given tenant."""
+    if tenant_id is None or tenant_id == CONFIG.TENANT_ID:
+        return CONFIG.as_dict()
+
+    cfg = _CONFIG_CACHE.get(tenant_id)
+    if cfg is None:
+        cfg = Config(TENANT_ID=tenant_id)
+        _CONFIG_CACHE[tenant_id] = cfg
+    return cfg.as_dict()
 
 
-def tenant_key(base: str) -> str:
-    """Prefix a key with the configured tenant ID."""
-    return f"{CONFIG.TENANT_PREFIX}{base}"
+def tenant_key(base: str, tenant_id: Optional[str] = None) -> str:
+    """Prefix a key with the specified tenant ID or the default one."""
+    if tenant_id is None:
+        return f"{CONFIG.TENANT_PREFIX}{base}"
+    return f"{tenant_id}:{base}"

@@ -170,7 +170,9 @@ except ImportError:
     logger.warning("user-agents library not found. Detailed UA parsing disabled.")
 
 WEBHOOK_URL = CONFIG.ESCALATION_WEBHOOK_URL
-LOCAL_LLM_API_URL = CONFIG.LOCAL_LLM_API_URL
+PROMPT_ROUTER_HOST = CONFIG.PROMPT_ROUTER_HOST
+PROMPT_ROUTER_PORT = CONFIG.PROMPT_ROUTER_PORT
+LOCAL_LLM_API_URL = f"http://{PROMPT_ROUTER_HOST}:{PROMPT_ROUTER_PORT}/route"
 LOCAL_LLM_MODEL = CONFIG.LOCAL_LLM_MODEL
 LOCAL_LLM_TIMEOUT = CONFIG.LOCAL_LLM_TIMEOUT
 EXTERNAL_API_URL = CONFIG.EXTERNAL_API_URL
@@ -1205,7 +1207,7 @@ if __name__ == "__main__":
     if not disallowed_paths:
         logger.warning(f"No robots.txt rules loaded from {ROBOTS_TXT_PATH}.")
     logger.info(
-        f"Local LLM API configured: {'Yes (' + str(LOCAL_LLM_API_URL) + ')' if LOCAL_LLM_API_URL else 'No'}"
+        f"Prompt router configured: {'Yes (' + str(LOCAL_LLM_API_URL) + ')' if LOCAL_LLM_API_URL else 'No'}"
     )
     logger.info(
         f"External Classification API configured: {'Yes' if EXTERNAL_API_URL else 'No'}"

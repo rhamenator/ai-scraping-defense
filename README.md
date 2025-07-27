@@ -216,6 +216,7 @@ Follow these steps if you prefer to configure everything yourself.
     - **Admin UI:** `http://localhost:5002`
     - **Cloud Dashboard:** `http://localhost:5006`
     - **Cloud Proxy:** `http://localhost:8008`
+    - **Prompt Router:** `http://localhost:8009`
     - **Your Application:** `http://localhost:8080`
     - **HTTPS (if enabled):** `https://localhost:8443`
 
@@ -227,7 +228,7 @@ Several integrations are disabled by default to keep the stack lightweight. You 
 - **Global CDN** (`ENABLE_GLOBAL_CDN`) – Connects to your CDN provider using `CLOUD_CDN_API_TOKEN` for edge caching.
 - **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) – Reports malicious traffic to an external service configured by `DDOS_PROTECTION_API_KEY`.
 - **Managed TLS** (`ENABLE_MANAGED_TLS`) – Automatically issues certificates via `TLS_PROVIDER` with contact email `TLS_EMAIL`.
-- **CAPTCHA Verification** – Populate `CAPTCHA_SECRET` to activate reCAPTCHA challenges.
+    - **CAPTCHA Verification** – Populate `CAPTCHA_SECRET` to activate reCAPTCHA challenges.
 - **Fail2ban** – Start the `fail2ban` container to insert firewall rules based on blocked IPs. See [docs/fail2ban.md](docs/fail2ban.md) for details.
 - **LLM Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) – Use an LLM to generate fake pages when a model URI is provided.
 
@@ -242,6 +243,19 @@ Several integrations are disabled by default to keep the stack lightweight. You 
 - `Dockerfile`: A single Dockerfile used to build the base image for all Python services.
 - `jszip-rs/`: Rust implementation of the fake JavaScript archive generator.
 - `markov-train-rs/`: Rust implementation of the Markov training utility.
+
+### Running Multiple Tenants
+
+Create an `.env` file per tenant with a unique `TENANT_ID` and port mappings.
+Launch each stack with a distinct project name so Docker Compose keeps the
+services isolated:
+
+```bash
+docker compose --env-file .env.siteA -p siteA up -d
+docker compose --env-file .env.siteB -p siteB up -d
+```
+
+Redis keys and SQLite records are automatically prefixed with the tenant ID.
 ## Configuring AI Models
 
 The detection services load a model specified by the `MODEL_URI` value in `.env`. Examples include a local scikit-learn file or an external API:
@@ -253,6 +267,19 @@ MODEL_URI=mistral://mistral-large-latest
 ```
 
 For remote providers, set the corresponding API key in `.env` (`OPENAI_API_KEY`, `MISTRAL_API_KEY`, etc.).
+
+All LLM requests from the Escalation Engine are sent to the **Prompt Router**. The
+router constructs the final target URL from `PROMPT_ROUTER_HOST` and
+`PROMPT_ROUTER_PORT` and decides whether to use a local model or forward the
+prompt to the cloud proxy. The default port values are shown in
+`sample.env`:
+
+```env
+# excerpt from sample.env
+PROMPT_ROUTER_PORT=8009
+PROMETHEUS_PORT=9090
+GRAFANA_PORT=3000
+```
 
 ## Model Adapter Guide
 
@@ -354,3 +381,22 @@ After installing the tools, you can run a basic stress test using the provided s
 ## Security Scan Helper
 
 The optional script `security_scan.sh` automates tools such as **Nmap**, **Nikto**, and **Trivy** to perform vulnerability checks. Install these dependencies and run the script with `sudo` so network scans can complete. See [docs/security_scan.md](docs/security_scan.md) for more details. **Use this script only on systems you own or have permission to test.**
+
+## Monitoring Stack
+
+Docker Compose includes a small Prometheus and Grafana setup. Prometheus scrapes
+the Python services every 15 seconds using `monitoring/prometheus.yml`, and
+Grafana exposes dashboards on `${GRAFANA_PORT:-3000}`.
+
+```env
+# excerpt from sample.env
+PROMETHEUS_PORT=9090
+GRAFANA_PORT=3000
+```
+
+- **Prometheus UI:** [http://localhost:${PROMETHEUS_PORT:-9090}](http://localhost:9090) shows raw metrics and scrape targets.
+- **Grafana UI:** [http://localhost:${GRAFANA_PORT:-3000}](http://localhost:3000) (default login `admin` / `admin`). You can import a dashboard from Grafana's library or create your own to monitor request rates and response times.
+
+The stack also runs a `watchtower` container that checks for image updates every
+minute and restarts services automatically. Remove or comment out the
+`watchtower` section in `docker-compose.yaml` if you prefer manual updates.

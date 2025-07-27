@@ -68,6 +68,8 @@ To bring the stack up, only a handful of settings must be reviewed in `.env`:
 - The API key matching your chosen provider: `OPENAI_API_KEY`, `MISTRAL_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or `COHERE_API_KEY`.
 - `EXTERNAL_API_KEY` for optional integrations.
 - Port values such as `NGINX_HTTP_PORT`, `NGINX_HTTPS_PORT`, and `ADMIN_UI_PORT` typically work as-is.
+- `PROMPT_ROUTER_HOST` and `PROMPT_ROUTER_PORT` define where the Escalation Engine sends its LLM requests.
+- `PROMETHEUS_PORT` and `GRAFANA_PORT` control the monitoring dashboard ports.
 - `REAL_BACKEND_HOST` tells Nginx where to forward requests that pass the bot checks when the defense stack sits in front of another web server.
 - `ALERT_SMTP_PASSWORD_FILE` or `ALERT_SMTP_PASSWORD` if you plan to send alert emails via SMTP.
 - `PROMPT_ROUTER_PORT`, `PROMETHEUS_PORT`, `GRAFANA_PORT`, and `WATCHTOWER_INTERVAL` control the optional monitoring and routing services. Adjust them if the defaults conflict with other local services.
@@ -159,6 +161,7 @@ Once the containers are running, you can access the key services in your web bro
 * **Peer Sync Daemon:** exchanges blocklisted IPs with configured peer deployments.
 * **Config Recommender:** [http://localhost:8010](http://localhost:8010) provides automated tuning suggestions.
 * **Cloud Proxy:** [http://localhost:8008](http://localhost:8008) forwards chat requests to your LLM provider.
+* **Prompt Router:** [http://localhost:8009](http://localhost:8009) automatically chooses between the local model and the cloud proxy.
 
 ### **6.1. Accessing the Admin UI**
 
@@ -268,3 +271,18 @@ This script generates the required secrets and applies all manifests using `kube
 ## **Manual Kubernetes Deployment**
 
 For a detailed walkthrough see [kubernetes_deployment.md](kubernetes_deployment.md). The `deploy.sh` and `deploy.ps1` scripts allow you to apply the manifests manually when you need more control over the process.
+
+## **Running Multiple Tenants**
+
+You can launch several isolated environments on the same host by creating a
+separate `.env` file for each tenant and specifying a unique `TENANT_ID` along
+with non-conflicting service ports. Bring up each stack using the `-p` flag to
+set a project name:
+
+```bash
+docker compose --env-file .env.tenant1 -p tenant1 up -d
+docker compose --env-file .env.tenant2 -p tenant2 up -d
+```
+
+Redis keys and SQLite records are namespaced automatically. Review the exposed
+ports in each `.env` so the Admin UI and other services do not collide.

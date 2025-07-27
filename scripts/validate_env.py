@@ -18,11 +18,17 @@ def parse_env(path: Path) -> dict[str, str]:
     return env
 
 
+# Keys that must be present in the environment configuration
 REQUIRED_KEYS = [
     "MODEL_URI",
     "NGINX_HTTP_PORT",
     "NGINX_HTTPS_PORT",
     "ADMIN_UI_PORT",
+    # Internal service ports
+    "PROMPT_ROUTER_PORT",
+    "PROMETHEUS_PORT",
+    "GRAFANA_PORT",
+    "PROMPT_ROUTER_HOST",
     "REAL_BACKEND_HOST",
 ]
 
@@ -47,7 +53,14 @@ def validate_env(env: dict[str, str]) -> list[str]:
         if model_uri.startswith(prefix) and not env.get(key):
             errors.append(f"{key} required for MODEL_URI {model_uri}")
 
-    for key in ("NGINX_HTTP_PORT", "NGINX_HTTPS_PORT", "ADMIN_UI_PORT"):
+    for key in (
+        "NGINX_HTTP_PORT",
+        "NGINX_HTTPS_PORT",
+        "ADMIN_UI_PORT",
+        "PROMPT_ROUTER_PORT",
+        "PROMETHEUS_PORT",
+        "GRAFANA_PORT",
+    ):
         value = env.get(key)
         try:
             port = int(value)
@@ -58,6 +71,8 @@ def validate_env(env: dict[str, str]) -> list[str]:
 
     if not env.get("REAL_BACKEND_HOST"):
         errors.append("REAL_BACKEND_HOST is missing or empty")
+    if not env.get("PROMPT_ROUTER_HOST"):
+        errors.append("PROMPT_ROUTER_HOST is missing or empty")
 
     return errors
 

@@ -8,3 +8,6 @@ scrape_configs:
           - ai_service:8000
           - escalation_engine:8003
           - tarpit_api:8001
+          - config_recommender:8010
+          - cloud_proxy:8008
+          - prompt_router:8009
