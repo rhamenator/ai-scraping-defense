@@ -268,7 +268,18 @@ MODEL_URI=mistral://mistral-large-latest
 
 For remote providers, set the corresponding API key in `.env` (`OPENAI_API_KEY`, `MISTRAL_API_KEY`, etc.).
 
-All LLM requests from the Escalation Engine are sent to the **Prompt Router**. The router constructs the final target URL from `PROMPT_ROUTER_HOST` and `PROMPT_ROUTER_PORT` and decides whether to use a local model or forward the prompt to the cloud proxy.
+All LLM requests from the Escalation Engine are sent to the **Prompt Router**. The
+router constructs the final target URL from `PROMPT_ROUTER_HOST` and
+`PROMPT_ROUTER_PORT` and decides whether to use a local model or forward the
+prompt to the cloud proxy. The default port values are shown in
+`sample.env`:
+
+```env
+# excerpt from sample.env
+PROMPT_ROUTER_PORT=8009
+PROMETHEUS_PORT=9090
+GRAFANA_PORT=3000
+```
 
 ## Model Adapter Guide
 
@@ -373,9 +384,19 @@ The optional script `security_scan.sh` automates tools such as **Nmap**, **Nikto
 
 ## Monitoring Stack
 
-Docker Compose includes a small Prometheus and Grafana setup. Prometheus scrapes the Python services every 15 seconds using `monitoring/prometheus.yml`, and Grafana exposes dashboards on `${GRAFANA_PORT:-3000}`.
+Docker Compose includes a small Prometheus and Grafana setup. Prometheus scrapes
+the Python services every 15 seconds using `monitoring/prometheus.yml`, and
+Grafana exposes dashboards on `${GRAFANA_PORT:-3000}`.
+
+```env
+# excerpt from sample.env
+PROMETHEUS_PORT=9090
+GRAFANA_PORT=3000
+```
 
 - **Prometheus UI:** [http://localhost:${PROMETHEUS_PORT:-9090}](http://localhost:9090) shows raw metrics and scrape targets.
 - **Grafana UI:** [http://localhost:${GRAFANA_PORT:-3000}](http://localhost:3000) (default login `admin` / `admin`). You can import a dashboard from Grafana's library or create your own to monitor request rates and response times.
 
-The stack also runs a `watchtower` container that checks for image updates every minute and restarts services automatically. Remove or comment out the `watchtower` section in `docker-compose.yaml` if you prefer manual updates.
+The stack also runs a `watchtower` container that checks for image updates every
+minute and restarts services automatically. Remove or comment out the
+`watchtower` section in `docker-compose.yaml` if you prefer manual updates.
