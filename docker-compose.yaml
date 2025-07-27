@@ -431,7 +431,7 @@ services:
     container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 60 --cleanup
+    command: --interval ${WATCHTOWER_INTERVAL:-60} --cleanup
     networks:
       - defense_network
     restart: always
