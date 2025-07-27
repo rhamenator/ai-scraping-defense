@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Plugin Management - AI Scraping Defense</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+</head>
+<body>
+<div class="container">
+    <h1>Plugin Management</h1>
+    <form method="post">
+        <label for="plugins">Enabled Plugins</label>
+        <select id="plugins" name="plugins" multiple size="5">
+        {% for p in available %}
+            <option value="{{ p }}" {% if p in enabled %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+        </select>
+        <button type="submit">Save</button>
+    </form>
+</div>
+</body>
+</html>

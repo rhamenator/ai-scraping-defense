@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Block Events - AI Scraping Defense</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+</head>
+<body>
+<div class="container">
+    <h1>Recent Block Events</h1>
+    {% if events %}
+    <table class="min-w-full bg-white border">
+        <thead class="bg-gray-200"><tr><th>Time</th><th>IP</th><th>Reason</th></tr></thead>
+        <tbody>
+        {% for ev in events %}
+        <tr><td>{{ ev.timestamp }}</td><td>{{ ev.ip }}</td><td>{{ ev.reason }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No recent events.</p>
+    {% endif %}
+</div>
+</body>
+</html>
