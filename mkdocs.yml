@@ -50,6 +50,7 @@ nav:
     - Security Scan Helper: docs/security_scan.md
   - Microservices:
     - Tarpit Service: tarpit/README.md
+    - Internal CAPTCHA Service: docs/internal_captcha.md
     # Add READMEs for other services (escalation, admin_ui) here if they exist
   - Contributing:
     - How to Contribute: CONTRIBUTING.md

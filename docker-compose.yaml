@@ -176,6 +176,26 @@ services:
       timeout: 10s
       retries: 3
 
+  captcha_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: captcha_service
+    command: ["uvicorn", "src.captcha.custom_captcha_service:app", "--host", "0.0.0.0", "--port", "8004"]
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs
+    networks:
+      - defense_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/verify?token=test&ip=127.0.0.1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   cloud_dashboard:
     build:
       context: .
