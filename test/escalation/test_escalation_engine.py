@@ -433,6 +433,37 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()["detail"], "Unauthorized")
 
+    async def test_fallback_to_cloud_api_when_local_none(self):
+        """Local LLM returning None should trigger a cloud API call."""
+        self.mocks["classify_with_local_llm_api"].return_value = None
+        self.mocks["classify_with_external_api"].return_value = True
+        with (
+            patch("escalation.escalation_engine.ENABLE_LOCAL_LLM_CLASSIFICATION", True),
+            patch("escalation.escalation_engine.ENABLE_EXTERNAL_API_CLASSIFICATION", False),
+            patch("escalation.escalation_engine.external_api_adapter", MagicMock()),
+            patch(
+                "escalation.escalation_engine.run_heuristic_and_model_analysis",
+                return_value=0.7,
+            ),
+        ):
+            response = self.client.post(
+                "/escalate",
+                json={
+                    "timestamp": "2023-01-01T12:00:00Z",
+                    "ip": "9.9.9.9",
+                    "source": "test",
+                    "method": "GET",
+                },
+                headers={"X-API-Key": "testkey"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["action"], "webhook_triggered_external_api")
+        self.assertTrue(data["is_bot_decision"])
+        self.mocks["classify_with_local_llm_api"].assert_awaited_once()
+        self.mocks["classify_with_external_api"].assert_awaited_once()
+
 
 class TestExternalServiceFunctions(unittest.IsolatedAsyncioTestCase):
     """Direct tests for IP reputation and external classification helpers."""
