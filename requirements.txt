@@ -23,6 +23,7 @@ pyotp~=2.9
 httpx~=0.27
 requests~=2.31
 wikipedia~=1.4
+python-multipart~=0.0.9
 prometheus-client~=0.18
 
 # Kubernetes

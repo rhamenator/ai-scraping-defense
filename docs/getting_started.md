@@ -70,7 +70,7 @@ To bring the stack up, only a handful of settings must be reviewed in `.env`:
 - Port values such as `NGINX_HTTP_PORT`, `NGINX_HTTPS_PORT`, and `ADMIN_UI_PORT` typically work as-is.
 - `PROMPT_ROUTER_HOST` and `PROMPT_ROUTER_PORT` define where the Escalation Engine sends its LLM requests.
 - `PROMETHEUS_PORT` and `GRAFANA_PORT` control the monitoring dashboard ports.
-- `REAL_BACKEND_HOST` tells Nginx where to forward requests that pass the bot checks when the defense stack sits in front of another web server.
+- `REAL_BACKEND_HOSTS` can supply a comma-separated list of backend servers for load balancing. Use `REAL_BACKEND_HOST` for a single destination.
 - `ALERT_SMTP_PASSWORD_FILE` or `ALERT_SMTP_PASSWORD` if you plan to send alert emails via SMTP.
 - `PROMPT_ROUTER_PORT`, `PROMETHEUS_PORT`, `GRAFANA_PORT`, and `WATCHTOWER_INTERVAL` control the optional monitoring and routing services. Adjust them if the defaults conflict with other local services.
 
@@ -183,7 +183,7 @@ If you want to see how the defense stack performs in front of a real CMS, a help
 ./setup_wordpress_website.sh (or ./setup_wordpress_website.ps1 on Windows)
 ```
 
-The script starts the Docker Compose stack (if it is not already running) and then launches WordPress and its MariaDB database on the same `defense_network`. Traffic allowed by the proxy will reach WordPress via `REAL_BACKEND_HOST`. The helper sets this value in `.env` for you, and `setup_fake_website.sh` does the same when launching a simple nginx site. Once started you can visit the site directly at [http://localhost:8082](http://localhost:8082) or through the defense stack at [http://localhost:8080](http://localhost:8080).
+The script starts the Docker Compose stack (if it is not already running) and then launches WordPress and its MariaDB database on the same `defense_network`. Traffic allowed by the proxy will reach WordPress via `REAL_BACKEND_HOSTS` (or `REAL_BACKEND_HOST`). The helper sets this value in `.env` for you, and `setup_fake_website.sh` does the same when launching a simple nginx site. Once started you can visit the site directly at [http://localhost:8082](http://localhost:8082) or through the defense stack at [http://localhost:8080](http://localhost:8080).
 
 ### **7. Stopping the Application**
 

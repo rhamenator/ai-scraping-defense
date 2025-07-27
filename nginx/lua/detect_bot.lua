@@ -107,6 +107,7 @@ local ai_service_port = os.getenv("AI_SERVICE_PORT") or "8000"
 local ai_service_url = "http://" .. ai_service_host .. ":" .. ai_service_port .. "/webhook"
 local http = require "resty.http"
 local cjson = require "cjson.safe"
+math.randomseed(ngx.now() * 1000)
 
 local function forward_metadata(reason)
   local payload = {
@@ -133,7 +134,24 @@ local function forward_metadata(reason)
     ngx.log(ngx.ERR, "detect_bot: failed to forward metadata: ", err)
   end
 end
-local real_backend_host = os.getenv("REAL_BACKEND_HOST") -- For proxying allowed requests
+local backend_hosts_env = os.getenv("REAL_BACKEND_HOSTS")
+local real_backend_host = os.getenv("REAL_BACKEND_HOST")
+local backend_hosts = {}
+if backend_hosts_env and backend_hosts_env ~= "" then
+  for host in string.gmatch(backend_hosts_env, "[^,]+") do
+    table.insert(backend_hosts, host)
+  end
+elseif real_backend_host and real_backend_host ~= "" then
+  table.insert(backend_hosts, real_backend_host)
+end
+
+local function pick_backend()
+  if #backend_hosts == 0 then
+    return nil
+  end
+  local idx = math.random(#backend_hosts)
+  return backend_hosts[idx]
+end
 
 ngx.log(ngx.DEBUG, "[BOT CHECK] IP: ", sanitize_for_log(remote_addr),
        ", UA: ", sanitize_for_log(user_agent),
@@ -149,8 +167,9 @@ if is_benign then
     return ngx.exec("/api/tarpit") -- Send rule-violating benign bots to tarpit
   else
     ngx.log(ngx.INFO, "[BENIGN BOT ALLOWED] IP: ", remote_addr, ", UA: ", user_agent, " (Matched: ", benign_pattern, ")")
-    if real_backend_host and real_backend_host ~= "" then
-        ngx.var.lua_proxy_pass_upstream = real_backend_host
+    local chosen = pick_backend()
+    if chosen then
+        ngx.var.lua_proxy_pass_upstream = chosen
         return ngx.OK -- Signal to Nginx to use this upstream
     end
     return -- Allow request (ngx.OK is implicit if no upstream set by Lua)
@@ -211,8 +230,9 @@ if suspicion_score >= 0.7 then -- Adjust threshold as needed
 else
   -- Request passed bot checks or low suspicion score
   ngx.log(ngx.DEBUG, "[REQUEST ALLOWED] Score: ", string.format("%.2f", suspicion_score), ", IP: ", remote_addr, ", UA: ", user_agent)
-   if real_backend_host and real_backend_host ~= "" then
-        ngx.var.lua_proxy_pass_upstream = real_backend_host
+   local chosen = pick_backend()
+   if chosen then
+        ngx.var.lua_proxy_pass_upstream = chosen
         return ngx.OK -- Signal to Nginx to use this upstream
     end
   return -- Allow request
