@@ -6,6 +6,7 @@ The AI Scraping Defense system is designed as a distributed, microservice-based 
 
 - **Nginx Proxy:** The public-facing entry point for all traffic. It uses Lua scripting for high-performance initial request filtering, such as checking against a blocklist in Redis. Suspicious requests are asynchronously forwarded to the AI Service for deeper analysis.
 - **Traefik Router:** Provides internal load balancing for the optional local LLM containers. The Docker provider automatically discovers containers with Traefik labels, and the `llama3` and `mixtral` services assign routing rules and weights to distribute traffic.
+- **Prompt Router:** Routes LLM requests from the Escalation Engine to either a local model or the cloud proxy based on prompt size.
 
 - **Python Services:** A collection of specialized microservices that form the "brain" of the system. All Python services are built from a single, unified `Dockerfile` to ensure consistency and reduce build times.
 

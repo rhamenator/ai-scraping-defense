@@ -216,6 +216,7 @@ Follow these steps if you prefer to configure everything yourself.
     - **Admin UI:** `http://localhost:5002`
     - **Cloud Dashboard:** `http://localhost:5006`
     - **Cloud Proxy:** `http://localhost:8008`
+    - **Prompt Router:** `http://localhost:8009`
     - **Your Application:** `http://localhost:8080`
     - **HTTPS (if enabled):** `https://localhost:8443`
 
@@ -227,7 +228,7 @@ Several integrations are disabled by default to keep the stack lightweight. You 
 - **Global CDN** (`ENABLE_GLOBAL_CDN`) – Connects to your CDN provider using `CLOUD_CDN_API_TOKEN` for edge caching.
 - **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) – Reports malicious traffic to an external service configured by `DDOS_PROTECTION_API_KEY`.
 - **Managed TLS** (`ENABLE_MANAGED_TLS`) – Automatically issues certificates via `TLS_PROVIDER` with contact email `TLS_EMAIL`.
-- **CAPTCHA Verification** – Populate `CAPTCHA_SECRET` to activate reCAPTCHA challenges.
+    - **CAPTCHA Verification** – Populate `CAPTCHA_SECRET` to activate reCAPTCHA challenges.
 - **Fail2ban** – Start the `fail2ban` container to insert firewall rules based on blocked IPs. See [docs/fail2ban.md](docs/fail2ban.md) for details.
 - **LLM Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) – Use an LLM to generate fake pages when a model URI is provided.
 
@@ -266,6 +267,8 @@ MODEL_URI=mistral://mistral-large-latest
 ```
 
 For remote providers, set the corresponding API key in `.env` (`OPENAI_API_KEY`, `MISTRAL_API_KEY`, etc.).
+
+All LLM requests from the Escalation Engine are sent to the **Prompt Router**. The router constructs the final target URL from `PROMPT_ROUTER_HOST` and `PROMPT_ROUTER_PORT` and decides whether to use a local model or forward the prompt to the cloud proxy.
 
 ## Model Adapter Guide
 

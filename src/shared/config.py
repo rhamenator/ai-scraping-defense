@@ -42,6 +42,9 @@ class Config:
             "CONFIG_RECOMMENDER_HOST", "config_recommender"
         )
     )
+    PROMPT_ROUTER_HOST: str = field(
+        default_factory=lambda: os.getenv("PROMPT_ROUTER_HOST", "prompt_router")
+    )
 
     # Service ports
     AI_SERVICE_PORT: int = field(
@@ -61,6 +64,9 @@ class Config:
     )
     CONFIG_RECOMMENDER_PORT: int = field(
         default_factory=lambda: int(os.getenv("CONFIG_RECOMMENDER_PORT", 8010))
+    )
+    PROMPT_ROUTER_PORT: int = field(
+        default_factory=lambda: int(os.getenv("PROMPT_ROUTER_PORT", 8009))
     )
 
     # Redis
@@ -373,6 +379,11 @@ class Config:
             self,
             "CONFIG_RECOMMENDER_URL",
             f"http://{self.CONFIG_RECOMMENDER_HOST}:{self.CONFIG_RECOMMENDER_PORT}",
+        )
+        object.__setattr__(
+            self,
+            "PROMPT_ROUTER_URL",
+            f"http://{self.PROMPT_ROUTER_HOST}:{self.PROMPT_ROUTER_PORT}",
         )
         object.__setattr__(self, "TENANT_PREFIX", f"{self.TENANT_ID}:")
 

@@ -12,6 +12,8 @@ NGINX_HTTP_PORT=8080
 NGINX_HTTPS_PORT=8443
 ADMIN_UI_PORT=5002
 REAL_BACKEND_HOST=http://localhost
+PROMPT_ROUTER_PORT=8009
+PROMPT_ROUTER_HOST=router
 """
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".env"
@@ -35,6 +37,8 @@ NGINX_HTTP_PORT=8080
 NGINX_HTTPS_PORT=8443
 ADMIN_UI_PORT=5002
 REAL_BACKEND_HOST=http://localhost
+PROMPT_ROUTER_PORT=8009
+PROMPT_ROUTER_HOST=router
 """
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".env"
