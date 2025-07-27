@@ -239,12 +239,18 @@ KNOWN_BENIGN_CRAWLERS_UAS = [
 EXTERNAL_API_KEY = CONFIG.EXTERNAL_API_KEY
 IP_REPUTATION_API_KEY = CONFIG.IP_REPUTATION_API_KEY
 
+# Retry configuration for model adapters
+MODEL_ADAPTER_RETRIES = int(os.getenv("MODEL_ADAPTER_RETRIES", 3))
+MODEL_ADAPTER_RETRY_DELAY = float(os.getenv("MODEL_ADAPTER_RETRY_DELAY", 1.0))
+
 # --- Setup Clients & Load Resources ---
 # The manual joblib loading and redis pool have been replaced by these abstractions.
 model_adapter = None
 MODEL_LOADED = False
 try:
-    model_adapter = get_model_adapter()
+    model_adapter = get_model_adapter(
+        retries=MODEL_ADAPTER_RETRIES, delay=MODEL_ADAPTER_RETRY_DELAY
+    )
     if model_adapter and model_adapter.model:
         MODEL_LOADED = True
         logger.info(f"Model adapter '{os.getenv('MODEL_TYPE')}' loaded successfully.")
@@ -264,11 +270,15 @@ try:
         local_llm_adapter = get_model_adapter(
             model_uri=f"local-llm://{LOCAL_LLM_API_URL}",
             config={"model": LOCAL_LLM_MODEL, "timeout": LOCAL_LLM_TIMEOUT},
+            retries=MODEL_ADAPTER_RETRIES,
+            delay=MODEL_ADAPTER_RETRY_DELAY,
         )
     if EXTERNAL_API_URL:
         external_api_adapter = get_model_adapter(
             model_uri=f"external-api://{EXTERNAL_API_URL}",
             config={"api_key": EXTERNAL_API_KEY, "timeout": EXTERNAL_API_TIMEOUT},
+            retries=MODEL_ADAPTER_RETRIES,
+            delay=MODEL_ADAPTER_RETRY_DELAY,
         )
 except Exception as e:
     logger.error(f"Error initializing LLM adapters: {e}", exc_info=True)

@@ -45,11 +45,17 @@ ENABLE_TARPIT_LLM_GENERATOR = (
 )
 TARPIT_LLM_MODEL_URI = os.getenv("TARPIT_LLM_MODEL_URI")
 TARPIT_LLM_MAX_TOKENS = int(os.getenv("TARPIT_LLM_MAX_TOKENS", 400))
+MODEL_ADAPTER_RETRIES = int(os.getenv("MODEL_ADAPTER_RETRIES", 3))
+MODEL_ADAPTER_RETRY_DELAY = float(os.getenv("MODEL_ADAPTER_RETRY_DELAY", 1.0))
 
 LLM_ADAPTER = None
 if ENABLE_TARPIT_LLM_GENERATOR and TARPIT_LLM_MODEL_URI:
     try:
-        LLM_ADAPTER = get_model_adapter(TARPIT_LLM_MODEL_URI)
+        LLM_ADAPTER = get_model_adapter(
+            TARPIT_LLM_MODEL_URI,
+            retries=MODEL_ADAPTER_RETRIES,
+            delay=MODEL_ADAPTER_RETRY_DELAY,
+        )
         if LLM_ADAPTER:
             logger.info(f"LLM adapter initialized for {TARPIT_LLM_MODEL_URI}")
         else:

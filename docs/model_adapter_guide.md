@@ -71,3 +71,14 @@ classDiagram
     
     model_provider ..> BaseModelAdapter : creates
 ```
+
+## Handling Adapter Failures
+
+`model_provider.get_model_adapter` will retry adapter initialization several times
+in case of transient failures (for example, if a local model is still
+downloading or a remote API briefly times out). The number of attempts and the
+delay between them are controlled by the environment variables
+`MODEL_ADAPTER_RETRIES` and `MODEL_ADAPTER_RETRY_DELAY` (defaults are `3` and
+`1.0` seconds). If all attempts fail, the function returns `None` and the calling
+service should gracefully fall back to heuristic scoring or other local logic.
+
