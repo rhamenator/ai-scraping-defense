@@ -53,7 +53,9 @@ class TestRoutingBehavior(unittest.IsolatedAsyncioTestCase):
         with patch.object(pr_module, "httpx") as httpx_mod:
             httpx_mod.AsyncClient.return_value = async_client
             transport = httpx.ASGITransport(app=app)
-            async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://test"
+            ) as ac:
                 await ac.post("/route", json={"prompt": prompt})
         return calls
 
@@ -62,7 +64,7 @@ class TestRoutingBehavior(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(calls[0][0], "http://local")
 
     async def test_long_prompt_goes_cloud(self):
-        calls = await self._send_prompt("x" * 10)
+        calls = await self._send_prompt(" ".join(["x"] * 6))
         self.assertEqual(calls[0][0], "http://cloud")
 
 
