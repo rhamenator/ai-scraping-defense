@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import secrets
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -49,6 +50,11 @@ def pay(payload: PayPayload):
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
 )
 async def proxy(full_path: str, request: Request):
+    # Basic validation to prevent path traversal or absolute URLs
+    parsed = urlparse(full_path)
+    if parsed.scheme or parsed.netloc or ".." in full_path.split("/"):
+        raise HTTPException(status_code=400, detail="Invalid path")
+
     token = request.headers.get("X-API-Key")
     if not token:
         raise HTTPException(status_code=403, detail="Missing crawler token")
@@ -61,7 +67,7 @@ async def proxy(full_path: str, request: Request):
     if price > 0 and not charge(token, price):
         raise HTTPException(status_code=402, detail="Payment required")
 
-    upstream = f"{UPSTREAM_URL.rstrip('/')}/{full_path}"
+    upstream = urljoin(UPSTREAM_URL.rstrip('/') + '/', full_path.lstrip('/'))
     headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
     body = await request.body()
     async with httpx.AsyncClient() as client:
