@@ -3,6 +3,11 @@ from __future__ import annotations
 
 import hashlib
 import random
+from .obfuscation import (
+    generate_obfuscated_css,
+    generate_obfuscated_js,
+    generate_fingerprinting_script,
+)
 
 
 def generate_labyrinth_page(seed: str, depth: int = 5) -> str:
@@ -13,4 +18,10 @@ def generate_labyrinth_page(seed: str, depth: int = 5) -> str:
         links.append(f"/tarpit/{token}")
     random.shuffle(links)
     body = "".join(f"<a href='{link}'>Next</a><br/>" for link in links)
-    return f"<html><head><title>Loading...</title></head><body>{body}</body></html>"
+    css = generate_obfuscated_css()
+    js = generate_obfuscated_js()
+    fp = generate_fingerprinting_script()
+    return (
+        "<html><head><title>Loading...</title>" + css + "</head>"
+        "<body>" + body + js + fp + "</body></html>"
+    )

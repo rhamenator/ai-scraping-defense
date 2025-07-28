@@ -76,8 +76,13 @@ def generate_realistic_filename():
     return f"{prefix}{suffix}.{random_hash}{FILENAME_EXT}"
 
 
-def create_fake_js_zip(output_dir=DEFAULT_ARCHIVE_DIR, num_files=NUM_FAKE_FILES):
-    """Creates a ZIP archive with fake JS files."""
+def create_fake_js_zip(
+    output_dir=DEFAULT_ARCHIVE_DIR,
+    num_files=NUM_FAKE_FILES,
+    recursive_depth: int = 0,
+):
+    """Creates a ZIP archive with fake JS files. If ``recursive_depth`` is
+    greater than 0, an additional nested archive is added inside."""
     if RUST_ENABLED:
         try:
             return rs_create_zip(output_dir, num_files)
@@ -149,9 +154,23 @@ def create_fake_js_zip(output_dir=DEFAULT_ARCHIVE_DIR, num_files=NUM_FAKE_FILES)
 
                 # Add file to zip
                 zipf.writestr(fake_filename, content)
-                # print(f"  Added: {fake_filename} ({len(content)/1024:.1f} KB)")
 
-        logger.info(f"Successfully created {zip_filename} with {num_files} fake files.")
+            if recursive_depth > 0:
+                nested_name = "nested_" + generate_realistic_filename().replace(
+                    ".js", ".zip"
+                )
+                nested_path = create_fake_js_zip(
+                    output_dir=output_dir,
+                    num_files=max(1, num_files // 2),
+                    recursive_depth=recursive_depth - 1,
+                )
+                if nested_path:
+                    with open(nested_path, "rb") as nf:
+                        zipf.writestr(nested_name, nf.read())
+
+        logger.info(
+            f"Successfully created {zip_filename} with {num_files} fake files."
+        )
         return zip_filename
 
     except Exception as e:
