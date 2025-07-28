@@ -243,7 +243,7 @@ Several integrations are disabled by default to keep the stack lightweight. You 
 - **Global CDN** (`ENABLE_GLOBAL_CDN`) – Connects to your CDN provider using `CLOUD_CDN_API_TOKEN` for edge caching.
 - **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) – Reports malicious traffic to an external service configured by `DDOS_PROTECTION_API_KEY`.
 - **Managed TLS** (`ENABLE_MANAGED_TLS`) – Automatically issues certificates via `TLS_PROVIDER` with contact email `TLS_EMAIL`.
-    - **CAPTCHA Verification** – Populate `CAPTCHA_SECRET` to activate reCAPTCHA challenges.
+- **CAPTCHA Verification** – Populate `CAPTCHA_SECRET` to activate reCAPTCHA challenges.
 - **Fail2ban** – Start the `fail2ban` container to insert firewall rules based on blocked IPs. See [docs/fail2ban.md](docs/fail2ban.md) for details.
 - **LLM Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) – Use an LLM to generate fake pages when a model URI is provided.
 - **Admin UI Two-Factor Auth** – Set `ADMIN_UI_2FA_SECRET` (or `ADMIN_UI_2FA_SECRET_FILE`) and provide a TOTP in the `X-2FA-Code` header.
@@ -261,7 +261,7 @@ Several integrations are disabled by default to keep the stack lightweight. You 
 - `jszip-rs/`: Rust implementation of the fake JavaScript archive generator.
 - `markov-train-rs/`: Rust implementation of the Markov training utility.
 
-When running in Codex, execute `./security_setup.sh` first to install all dependencies required for the unit tests and security scans.
+When running in the security testing environment, execute `./security_setup.sh` first to install all dependencies required for the unit tests and security scans.
 
 ### Running Multiple Tenants
 
