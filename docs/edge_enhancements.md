@@ -10,6 +10,10 @@ This release adds experimental features inspired by services offered by large CD
 
 `src/tarpit/labyrinth.py` generates deterministic maze pages. When `ENABLE_AI_LABYRINTH=true`, the Tarpit API will serve these pages to suspicious clients.
 
+### Browser Fingerprinting
+
+`src/tarpit.labyrinth.generate_labyrinth_page` can optionally embed a fingerprinting script that collects extensive browser details. Set `ENABLE_FINGERPRINTING=true` in your environment to include this JavaScript in responses.
+
 ## Risk and Attack Scoring
 
 `src/security/risk_scoring.py` and `src/security/attack_score.py` provide placeholder scoring logic that can feed into future Zero Trust models and WAF policies.

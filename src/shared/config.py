@@ -1,8 +1,8 @@
 """Central configuration dataclass and helpers for environment settings."""
 
-from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, Optional
 import os
+from dataclasses import asdict, dataclass, field
+from typing import Any, Dict, Optional
 
 
 def get_secret(file_variable_name: str) -> Optional[str]:
@@ -299,7 +299,11 @@ class Config:
     KNOWN_BAD_UAS: str = field(
         default_factory=lambda: os.getenv(
             "KNOWN_BAD_UAS",
-            "python-requests,curl,wget,scrapy,java/,ahrefsbot,semrushbot,mj12bot,dotbot,petalbot,bytespider,gptbot,ccbot,claude-web,google-extended,dataprovider,purebot,scan,masscan,zgrab,nmap",
+            (
+                "python-requests,curl,wget,scrapy,java/,ahrefsbot,semrushbot,"
+                "mj12bot,dotbot,petalbot,bytespider,gptbot,ccbot,claude-web,"
+                "google-extended,dataprovider,purebot,scan,masscan,zgrab,nmap"
+            ),
         )
     )
     KNOWN_BENIGN_CRAWLERS_UAS: str = field(
@@ -326,10 +330,15 @@ class Config:
     )
 
     ENABLE_AI_LABYRINTH: bool = field(
-        default_factory=lambda: os.getenv("ENABLE_AI_LABYRINTH", "false").lower() == "true"
+        default_factory=lambda: os.getenv("ENABLE_AI_LABYRINTH", "false").lower()
+        == "true"
     )
     TARPIT_LABYRINTH_DEPTH: int = field(
         default_factory=lambda: int(os.getenv("TARPIT_LABYRINTH_DEPTH", 5))
+    )
+    ENABLE_FINGERPRINTING: bool = field(
+        default_factory=lambda: os.getenv("ENABLE_FINGERPRINTING", "false").lower()
+        == "true"
     )
 
     # Anomaly Detection
