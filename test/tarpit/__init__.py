@@ -4,6 +4,7 @@ from src.tarpit import (
     js_zip_generator,
     markov_generator,
     rotating_archive,
+    obfuscation,
     tarpit_api,
     bad_api_generator,
 )
@@ -13,6 +14,7 @@ __all__ = [
     "js_zip_generator",
     "markov_generator",
     "rotating_archive",
+    "obfuscation",
     "tarpit_api",
     "bad_api_generator",
 ]

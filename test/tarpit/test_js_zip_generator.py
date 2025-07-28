@@ -71,6 +71,16 @@ class TestJsZipGeneratorComprehensive(unittest.TestCase):
             with zipfile.ZipFile(zip_path, "r") as zf:
                 self.assertEqual(len(zf.namelist()), 0)
 
+    def test_create_fake_js_zip_recursive(self):
+        """Ensure nested archives are created when recursive_depth > 0."""
+        zip_path = js_zip_generator.create_fake_js_zip(
+            output_dir=self.test_dir, num_files=3, recursive_depth=1
+        )
+        self.assertIsNotNone(zip_path)
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            names = zf.namelist()
+            self.assertTrue(any(name.endswith('.zip') for name in names))
+
     @patch("zipfile.ZipFile", side_effect=IOError("Disk full or permissions error"))
     def test_create_fake_js_zip_handles_zip_exception(self, mock_zipfile):
         """Test that exceptions during ZIP file creation are handled gracefully."""
