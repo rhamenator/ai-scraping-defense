@@ -122,7 +122,7 @@ python scripts/validate_env.py
 sudo ./quickstart_dev.sh   # use sudo on Linux/macOS; run quickstart_dev.ps1 on Windows
 ```
 
-For the Codex testing environment, a helper `setup.sh` script installs all Python requirements and security tools used by `security_scan.sh`.
+For the security testing environment, a helper `setup.sh` script installs all Python requirements and security tools used by `security_scan.sh`.
 
 On Windows, open an **Administrator PowerShell** window and run `quickstart_dev.ps1` instead.
 
