@@ -393,7 +393,7 @@ After installing the tools, you can run a basic stress test using the provided s
 
 ## Security Scan Helper
 
-The optional script `security_scan.sh` automates tools such as **Nmap**, **Nikto**, and **Trivy** to perform vulnerability checks. Install these dependencies and run the script with `sudo` so network scans can complete. See [docs/security_scan.md](docs/security_scan.md) for more details. **Use this script only on systems you own or have permission to test.**
+The optional scripts `security_scan.sh` and `security_scan.ps1` automate tools such as **Nmap**, **Nikto**, and **Trivy** to perform vulnerability checks. Install these dependencies and run them with the appropriate privileges so network scans can complete. See [docs/security_scan.md](docs/security_scan.md) for more details. **Use these scripts only on systems you own or have permission to test.**
 
 ## Monitoring Stack
 
