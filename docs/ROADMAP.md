@@ -1,6 +1,6 @@
 # **Roadmap**
 
-## **Current Version: v0.x (Initial Release)**
+## **Current Version: v0.x (Pre-Release)**
 
 The AI Scraping Defense Stack is in its early stages, providing a containerized anti-scraping defense system with real-time filtering, tarpitting, behavioral analysis, and AI-driven threat assessment.
 
