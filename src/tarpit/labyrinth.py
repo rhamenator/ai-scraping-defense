@@ -1,12 +1,15 @@
 """Generate endless labyrinth pages for bots."""
+
 from __future__ import annotations
 
 import hashlib
+import os
 import random
+
 from .obfuscation import (
+    generate_fingerprinting_script,
     generate_obfuscated_css,
     generate_obfuscated_js,
-    generate_fingerprinting_script,
 )
 
 
@@ -20,7 +23,9 @@ def generate_labyrinth_page(seed: str, depth: int = 5) -> str:
     body = "".join(f"<a href='{link}'>Next</a><br/>" for link in links)
     css = generate_obfuscated_css()
     js = generate_obfuscated_js()
-    fp = generate_fingerprinting_script()
+    fp = ""
+    if os.getenv("ENABLE_FINGERPRINTING", "false").lower() == "true":
+        fp = generate_fingerprinting_script()
     return (
         "<html><head><title>Loading...</title>" + css + "</head>"
         "<body>" + body + js + fp + "</body></html>"

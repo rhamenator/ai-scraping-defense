@@ -1,10 +1,16 @@
+import os
 import unittest
+from unittest.mock import patch
 
-from src.bot_control.crawler_auth import register_crawler, verify_crawler, get_crawler_info
-from src.bot_control.pricing import set_price, record_crawl, get_usage
-from src.tarpit.labyrinth import generate_labyrinth_page
-from src.security.risk_scoring import RiskScorer
+from src.bot_control.crawler_auth import (
+    get_crawler_info,
+    register_crawler,
+    verify_crawler,
+)
+from src.bot_control.pricing import get_usage, record_crawl, set_price
 from src.security.attack_score import compute_attack_score
+from src.security.risk_scoring import RiskScorer
+from src.tarpit.labyrinth import generate_labyrinth_page
 
 
 class TestCrawlerFeatures(unittest.TestCase):
@@ -20,9 +26,15 @@ class TestCrawlerFeatures(unittest.TestCase):
         self.assertEqual(charge, 0.01)
         self.assertAlmostEqual(get_usage("token123"), 0.01)
 
-    def test_labyrinth_generation(self):
+    def test_labyrinth_generation_no_fp(self):
         html = generate_labyrinth_page("seed", depth=3)
         self.assertIn("/tarpit/", html)
+        self.assertNotIn("navigator.userAgent", html)
+
+    def test_labyrinth_generation_with_fp(self):
+        with patch.dict(os.environ, {"ENABLE_FINGERPRINTING": "true"}):
+            html = generate_labyrinth_page("seed", depth=3)
+        self.assertIn("navigator.userAgent", html)
 
     def test_risk_and_attack_scores(self):
         scorer = RiskScorer()
