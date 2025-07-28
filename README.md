@@ -253,7 +253,8 @@ Several integrations are disabled by default to keep the stack lightweight. You 
 - `src/`: Contains all Python source code for the microservices.
 - `kubernetes/`: Contains all Kubernetes manifests for production deployment.
 - `nginx/`: Nginx and Lua configuration files.
-- `docs/`: Project documentation, including architecture and data flows.
+- `docs/`: Project documentation, including architecture and data flows. See
+  [docs/antivirus.md](docs/antivirus.md) if your antivirus flags any files.
 - `test/`: Unit tests for the Python services.
 - `sample.env`: Template for local development configuration.
 - `Dockerfile`: A single Dockerfile used to build the base image for all Python services.
