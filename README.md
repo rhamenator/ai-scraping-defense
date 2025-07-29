@@ -111,8 +111,9 @@ graph TD
 ## Beginner Quickstart
 
 Below are platform-specific steps to install the prerequisites and run the helper script. The
-script copies `sample.env`, generates secrets, installs dependencies, and starts Docker
-Compose. See [docs/getting_started.md](docs/getting_started.md) for a deeper walkthrough.
+script copies `sample.env` (use `sample.env.min` for a minimal config), generates secrets,
+installs dependencies, and starts Docker Compose. See
+[docs/getting_started.md](docs/getting_started.md) for a deeper walkthrough.
 
 ### Linux
 1. [Install Docker Engine](https://docs.docker.com/engine/install/) and ensure it is running.
