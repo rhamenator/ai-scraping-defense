@@ -9,7 +9,7 @@ This system combats scraping by unauthorized AI bots targeting FOSS or documenta
 * **Tarpit API (FastAPI):** Slow responses and dynamic fake content endpoints to waste bot resources and time. [cite: 2098, 2105, 2111, 2116, 2139, 2207, 2211, updated]
 * **Escalation Engine (FastAPI):** Processes suspicious requests, applies heuristic scoring (including frequency analysis), uses a trained Random Forest model, and can trigger further analysis (e.g., via local LLM or external APIs). [cite: 2098, 2109, 2116, 2129, 2140, updated]
 * **AI Service (FastAPI):** Receives escalation webhooks, manages the Redis blocklist, and handles configurable alerting (Slack, SMTP, Webhook). [cite: new/updated]
-* **Admin UI (Flask):** Real-time metrics dashboard visualizing honeypot hits, escalations, and system activity. [cite: 2098, 2116, 2123]
+* **Admin UI (FastAPI):** Real-time metrics dashboard visualizing honeypot hits, escalations, and system activity. [cite: 2098, 2116, 2123]
 * **Email Entropy Analysis:** Scores email addresses during registration to detect potentially bot-generated accounts (utility script provided). [cite: 2098, 2130]
 * **JavaScript ZIP Honeypots:** Dynamically generated and rotated ZIP archives containing decoy JavaScript files to trap bots attempting to download assets. [cite: 2098, 2118, 2120]
 * **Markov Fake Content Generator:** Creates plausible-looking but nonsensical text for fake documentation pages served by the tarpit. [cite: 2098, 2121]
