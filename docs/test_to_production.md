@@ -132,6 +132,7 @@ This is the most important step. You need to edit two files: .env and docker-com
 
 This diagram shows how traffic flows in the live production environment.
 
+``` mermaid
 graph TD  
     A[User on the Internet] -->|Request to https://your-cool-site.com| B(Firewall/Cloud Provider);  
     B -->|Ports 80/443| C[NGINX Reverse Proxy];  
@@ -139,6 +140,7 @@ graph TD
     D -->|Is the request safe?| C;  
     C -->|Forwards safe traffic| E[Your Live Website];  
     D -->|Blocks or Tarpits malicious traffic| F[Action Taken];
+```
 
 ### **How to Stop the Application**
 
