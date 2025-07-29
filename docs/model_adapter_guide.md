@@ -11,11 +11,17 @@ The format is `scheme://path_or_model_name`.
 | Scheme          | Example URI                                      | Adapter Loaded        | Description                                      |
 | --------------- | ------------------------------------------------ | --------------------- | ------------------------------------------------ |
 | `sklearn`       | `sklearn:///app/models/model.joblib`             | `SklearnAdapter`      | Loads a local scikit-learn model file.           |
+| `markov`        | `markov://unused`                                | `MarkovAdapter`       | Generates a dynamic tarpit page using Markov chains. |
 | `openai`        | `openai://gpt-4-turbo`                           | `OpenAIAdapter`       | Uses the OpenAI API with the specified model.    |
+| `anthropic`     | `anthropic://claude-3-opus-20240229`             | `AnthropicAdapter`    | Calls the Anthropic API with the specified model. |
+| `cohere`        | `cohere://command-r-plus`                        | `CohereAdapter`       | Uses the Cohere API with the specified model.    |
 | `mistral`       | `mistral://mistral-large-latest`                 | `MistralAdapter`      | Uses the Mistral API with the specified model.   |
 | `google-gemini` | `google-gemini://gemini-1.5-flash`               | `GoogleGeminiAdapter` | Uses the Google GenAI SDK with the specified model. |
 | `ollama`        | `ollama://llama3`                                | `OllamaAdapter`       | Connects to a local Ollama server to use a model. |
-| `http` / `https` | `https://my-custom-api.com/predict`              | `HttpModelAdapter`    | Calls a generic, external prediction API.        |
+| `llamacpp`      | `llamacpp:///app/models/model.gguf`              | `LlamaCppAdapter`     | Loads a local `gguf` model with llama-cpp-python. |
+| `local-llm`     | `local-llm://http://localhost:8000/v1/chat/completions` | `LocalLLMApiAdapter` | Sends prompts to a locally hosted OpenAI-compatible API. |
+| `external-api`  | `external-api://https://example.com/predict`     | `ExternalAPIAdapter`  | Calls the system's external classification API.  |
+| `http` / `https` | `https://my-custom-api.com/predict`              | `HttpModelAdapter`    | Calls a generic external prediction API.         |
 
 ## API Key Management
 
