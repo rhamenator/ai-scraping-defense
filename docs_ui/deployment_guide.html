@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deployment Guide - AI Scraping Defense</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        html {
+            scroll-padding-top: 80px;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F9FAFB;
+        }
+        .code-block {
+            position: relative;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: #4A5568;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .code-block:hover .copy-btn {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <header class="bg-white/80 backdrop-blur-lg sticky top-0 z-50 shadow-sm">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold">Deployment Guide</h1>
+            <a href="index.html" class="text-amber-600 font-semibold hover:text-amber-700">Back to Dashboard &rarr;</a>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-6 py-12">
+        <div class="max-w-4xl mx-auto">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-bold text-gray-900">From Zero to Protected</h2>
+                <p class="mt-4 text-lg text-gray-600">This guide provides everything you need to know to deploy and manage your AI Scraping Defense system.</p>
+            </div>
+
+            <div class="space-y-16">
+                <section id="initial-setup">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4 border-b-2 border-amber-500 pb-2">Initial System Setup</h3>
+                    <p class="mb-4 text-gray-600">First, get the core system running on your server. This involves installing prerequisites and running the deployment script.</p>
+                    <h4 class="font-semibold text-lg mb-2">1. Prerequisites</h4>
+                    <p class="mb-4 text-gray-600">Ensure your server has <strong class="font-semibold text-gray-700">Git</strong> and <strong class="font-semibold text-gray-700">Docker Engine</strong> installed.</p>
+                    <h4 class="font-semibold text-lg mb-2">2. Download and Deploy</h4>
+                    <p class="mb-2 text-gray-600">Run this command to clone the repository and start the initial deployment. This will launch the services and display the Welcome Page.</p>
+                    <div class="code-block mb-4">
+                        <pre class="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto"><code class="language-bash">git clone https://github.com/rhamenator/ai-scraping-defense.git
+cd ai-scraping-defense
+./deploy.sh</code></pre>
+                        <button class="copy-btn">Copy</button>
+                    </div>
+                    <p class="text-gray-600">After running the script, you should be able to access your server's IP address in a browser and see the "Installation Successful!" welcome page.</p>
+                </section>
+
+                <section id="adding-sites">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4 border-b-2 border-amber-500 pb-2">Adding Your Websites</h3>
+                    <p class="mb-6 text-gray-600">The system is designed to protect multiple websites. Here’s how to add them.</p>
+
+                    <div class="space-y-8">
+                        <div>
+                            <h4 class="font-semibold text-lg mb-2">Method 1: Using Setup Scripts (Recommended for New Sites)</h4>
+                            <p class="mb-4 text-gray-600">For popular CMS platforms, you can use the provided scripts to automatically set up a new, protected installation.</p>
+                            <div class="code-block mb-4">
+                                <pre class="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto"><code class="language-bash"># For a new WordPress site
+./setup_wordpress_website.sh
+
+# For a new Drupal site
+./setup_drupal_website.sh
+
+# For a new Joomla site
+./setup_joomla_website.sh</code></pre>
+                                <button class="copy-btn">Copy</button>
+                            </div>
+                            <p class="text-gray-600">After running the script for your chosen CMS, simply restart the system with <code class="bg-gray-200 text-sm p-1 rounded">docker-compose up -d --build</code>. Then, navigate to the domain you configured to complete the CMS installation.</p>
+                        </div>
+
+                        <div>
+                            <h4 class="font-semibold text-lg mb-2">Method 2: Manually Protecting an Existing Website</h4>
+                            <p class="mb-4 text-gray-600">To protect an existing website (whether it's running on the same server in Docker or on a different machine), you need to manually create an NGINX configuration file.</p>
+                            <p class="mb-2 text-gray-600"><strong>Step 1:</strong> Create a new configuration file inside the <code class="bg-gray-200 text-sm p-1 rounded">nginx/sites-enabled/</code> directory. For example, <code class="bg-gray-200 text-sm p-1 rounded">my-app.conf</code>.</p>
+                            <p class="mb-2 text-gray-600"><strong>Step 2:</strong> Add the following server block to the file, replacing the placeholder values.</p>
+                            <div class="code-block mb-4">
+                                <pre class="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto"><code class="language-nginx">server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        # This line sends the request to the AI Service for analysis first
+        # It will then be forwarded to your actual website if deemed safe
+        proxy_pass http://ai-service:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Define your actual website's address here
+        # Example: proxy_set_header X-Upstream-Host http://192.168.1.10:3000;
+        proxy_set_header X-Upstream-Host YOUR_WEBSITE_INTERNAL_URL;
+    }
+}</code></pre>
+                                <button class="copy-btn">Copy</button>
+                            </div>
+                            <p class="mb-2 text-gray-600"><strong>Step 3:</strong> Restart the system: <code class="bg-gray-200 text-sm p-1 rounded">docker-compose restart nginx</code>.</p>
+                            <p class="text-gray-600">Your existing website is now protected. Update your DNS to point your domain to this server's IP address.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <footer class="text-center p-6 text-gray-500 text-sm">
+        <p>AI Scraping Defense Proxy</p>
+    </footer>
+    <script>
+        document.querySelectorAll('.copy-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const code = button.previousElementSibling.querySelector('code').innerText;
+                const textarea = document.createElement('textarea');
+                textarea.value = code;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                button.innerText = 'Copied!';
+                setTimeout(() => {
+                    button.innerText = 'Copy';
+                }, 2000);
+            });
+        });
+    </script>
+</body>
+</html>
