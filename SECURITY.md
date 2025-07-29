@@ -16,7 +16,7 @@ We encourage users to stay on the latest stable release for the most up-to-date 
 We appreciate responsible disclosure of security vulnerabilities. If you discover a potential security issue in this project:
 
 1. **Do NOT open a public GitHub issue.** Public disclosure could put users at risk before a fix is available.
-2. **Email us directly** at **[security@yourdomain.org]** (replace with a dedicated security contact email).
+2. **Email us directly** at **[rhamenator@gmail.com]**.
 3. **Provide detailed information** in your report, including:
     * A clear description of the vulnerability.
     * Steps to reproduce the issue (code snippets, configurations, or sequences of requests are helpful).
