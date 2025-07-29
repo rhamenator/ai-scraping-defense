@@ -4,7 +4,7 @@ This project leverages Docker for containerization, ensuring a consistent and re
 
 ## **The Core Principle: A Single Base Image**
 
-Instead of creating a separate, complex Dockerfile for each microservice, we use a single Dockerfile located in the root of the project.
+Instead of creating a separate, complex Dockerfile for each microservice, we use a single Dockerfile located in the root of the project. Python services share this root Dockerfile, while separate Dockerfiles reside in `proxy/`, `cloud-proxy/`, and `prompt-router`.
 
 **File:** Dockerfile
 
