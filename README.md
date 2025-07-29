@@ -301,7 +301,7 @@ Several integrations are disabled by default to keep the stack lightweight. You 
 - `docs/`: Project documentation, including architecture and data flows. See
   [docs/antivirus.md](docs/antivirus.md) if your antivirus flags any files.
 - `test/`: Unit tests for the Python services.
-- `sample.env`: Template for local development configuration.
+- `sample.env`: Template for local development configuration. See the [Configuration Reference](docs/configuration.md) for a description of every variable.
 - `Dockerfile`: A single Dockerfile used to build the base image for all Python services.
 - `jszip-rs/`: Rust implementation of the fake JavaScript archive generator.
 - `markov-train-rs/`: Rust implementation of the Markov training utility.
