@@ -236,3 +236,18 @@ blocklist TTL.
 Fail2ban runs with `NET_ADMIN` and `NET_RAW` capabilities so it can modify host
 firewall rules. Review these permissions and adjust `bantime` and `findtime`
 within the jail to fit your security policy.
+
+## Suricata Network IDS
+
+The optional `suricata` service captures network traffic and writes EVE JSON
+logs to `/var/log/suricata/eve.json`. Alerts are forwarded to the Escalation
+Engine by `src/util/suricata_manager.py`.
+
+### Activation Steps
+
+1. **Docker Compose** – Start the service alongside the stack:
+   ```bash
+   docker compose up -d suricata
+   ```
+2. **Kubernetes** – Deploy `suricata-deployment.yaml` in the `ai-defense`
+   namespace.

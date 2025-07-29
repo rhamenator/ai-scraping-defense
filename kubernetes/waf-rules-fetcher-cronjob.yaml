@@ -1,0 +1,23 @@
+# kubernetes/waf-rules-fetcher-cronjob.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: owasp-crs-fetcher
+  namespace: ai-defense
+spec:
+  # Runs daily at 3 AM.
+  schedule: "0 3 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: waf-rules-updater-sa
+          containers:
+          - name: owasp-crs-fetcher
+            image: your-registry/ai-scraping-defense:latest
+            imagePullPolicy: Always
+            command: ["python", "src/util/rules_fetcher.py"]
+            env:
+            - name: CRS_DOWNLOAD_URL
+              value: "https://github.com/coreruleset/coreruleset/archive/refs/heads/v3.3/main.tar.gz"
+          restartPolicy: OnFailure

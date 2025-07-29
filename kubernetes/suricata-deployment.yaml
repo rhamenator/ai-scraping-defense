@@ -1,0 +1,61 @@
+# kubernetes/suricata-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: suricata
+  namespace: ai-defense
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: suricata
+  template:
+    metadata:
+      labels:
+        app: suricata
+    spec:
+      containers:
+      - name: suricata
+        image: jasonish/suricata:latest
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN", "NET_RAW"]
+        args: ["-c", "/etc/suricata/suricata.yaml", "-i", "eth0"]
+        volumeMounts:
+        - name: suricata-config
+          mountPath: /etc/suricata
+        - name: suricata-logs
+          mountPath: /var/log/suricata
+      volumes:
+      - name: suricata-config
+        configMap:
+          name: suricata-config
+      - name: suricata-logs
+        emptyDir: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: suricata-config
+  namespace: ai-defense
+binaryData:
+  suricata.yaml: |
+    vars:
+      address-groups:
+        HOME_NET: "[any]"
+    
+    default-log-dir: /var/log/suricata
+    
+    autogroups: yes
+    
+    outputs:
+      - eve-log:
+          enabled: yes
+          filetype: regular
+          filename: eve.json
+          types:
+            - alert
+            - http
+
+

@@ -1,0 +1,34 @@
+# kubernetes/waf-rules-fetcher-rbac.yaml
+# Defines the ServiceAccount and RBAC permissions used by the waf-rules-fetcher CronJob
+# to update the waf-rules ConfigMap.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: waf-rules-updater-sa
+  namespace: ai-defense
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: waf-rules-editor-role
+  namespace: ai-defense
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["waf-rules"]
+  verbs: ["get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: waf-rules-editor-binding
+  namespace: ai-defense
+subjects:
+- kind: ServiceAccount
+  name: waf-rules-updater-sa
+  namespace: ai-defense
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: waf-rules-editor-role

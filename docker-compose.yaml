@@ -361,6 +361,21 @@ services:
     depends_on:
       - nginx_proxy
 
+  suricata:
+    image: jasonish/suricata:latest
+    container_name: suricata
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./suricata:/etc/suricata:ro
+      - suricata_logs:/var/log/suricata
+    command: ["-c", "/etc/suricata/suricata.yaml", "-i", "${SURICATA_INTERFACE:-eth0}"]
+    restart: unless-stopped
+    depends_on:
+      - nginx_proxy
+
   traefik:
     image: traefik:v2.11
     container_name: traefik
@@ -471,3 +486,4 @@ volumes:
   nginx_scgi_temp:
   nginx_logs:
   grafana_data:
+  suricata_logs:
