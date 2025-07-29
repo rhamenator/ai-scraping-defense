@@ -1,6 +1,6 @@
 # Pay-Per-Crawl Proxy
 
-This experimental proxy charges registered crawlers per request using HTTP 402 when payment is required. Pricing rules are loaded from `config/pricing.yaml`.
+This proxy charges registered crawlers per request using HTTP 402 when payment is required. Pricing rules are loaded from `config/pricing.yaml`.
 
 ```yaml
 # pricing.yaml

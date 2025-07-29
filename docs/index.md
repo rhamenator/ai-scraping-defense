@@ -47,7 +47,7 @@ To get a full understanding of the project, please review the following document
 - [**Kubernetes Deployment**](kubernetes_deployment.md)**:** A step-by-step guide for deploying the entire application stack to a production-ready Kubernetes cluster.
 - [**Fail2ban**](fail2ban.md)**:** Configuration and deployment instructions for the optional firewall banning service.
 - [**Web Application Firewall**](waf_setup.md)**:** How to load ModSecurity rules and enable request filtering.
-- [**Edge Provider Enhancements**](edge_enhancements.md)**:** Overview of experimental crawler tokens, AI labyrinths, and risk scoring.
+- [**Edge Provider Enhancements**](edge_enhancements.md)**:** Overview of advanced crawler tokens, AI labyrinths, and risk scoring.
 
 ---
 

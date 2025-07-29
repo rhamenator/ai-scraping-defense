@@ -1,6 +1,6 @@
 # Edge Provider Enhancements
 
-This release adds experimental features inspired by services offered by large CDN providers.
+This release adds new features inspired by services offered by large CDN providers.
 
 ## Crawler Tokens
 
