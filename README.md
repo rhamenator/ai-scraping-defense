@@ -107,6 +107,11 @@ graph TD
 
     TarpitAPI -- "Reads" --> Postgres
 ```
+## Threat Model
+
+See [docs/threat_model.md](docs/threat_model.md) for the adversaries and attack vectors this project targets.
+
+
 
 ## Beginner Quickstart
 

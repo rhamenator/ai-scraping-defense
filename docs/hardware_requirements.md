@@ -30,3 +30,8 @@ Both containers store their downloads in `models/shared-data`, so ensure adequat
 ## Performance Benchmarks
 
 On an 8-core VM with 16&nbsp;GB of RAM the stack handled roughly **3,000 req/s** when only the tarpit service was active. Running the full suite of analysis services reduced throughput to around **1,500 req/s**. Actual performance varies based on network latency and storage speed.
+
+## Scaling Recommendations
+
+For high traffic deployments, run multiple instances of the microservices and Nginx behind a load balancer.
+Redis and PostgreSQL can be clustered for reliability. Monitor resource usage with Prometheus and add replicas as needed.
