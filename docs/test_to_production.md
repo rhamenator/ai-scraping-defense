@@ -24,20 +24,26 @@ Follow these steps in your **Terminal (Mac/Linux)** or **PowerShell (Windows)**.
 
 1. Download or Update the Code:  
    Run the following command to download the project files:  
+   ```
    git clone https://github.com/rhamenator/ai-scraping-defense.git
+   ```
 
    **Note:** If you see an error that the folder ai-scraping-defense already exists, it just means you've downloaded it before. In that case, run these two commands instead to make sure you have the latest version:  
+   ```
    cd ai-scraping-defense  
    git pull
+   ```
 
 2. Navigate into the Project Directory:  
    If you just ran the git clone command, you now need to move into the directory it created:  
+   ```
    cd ai-scraping-defense
+   ```
 
    *(If you ran git pull above, you can skip this step as you are already in the correct directory.)*  
 3. **Run the Quick Deploy Script:** This is the easiest way to start the system locally. It will use test ports like 8080 to avoid conflicting with other services on your computer.  
-   * **Mac/Linux:** ./quick_deploy.sh  
-   * **Windows:** ./quick_deploy.ps1
+   * **Mac/Linux:** ```./quick_deploy.sh```
+   * **Windows:** ```./quick_deploy.ps1```
 
 At this point, you can connect the system to a local or test website. The key thing to remember is that this local setup uses http://localhost:8080 for the website and http://localhost:8081 for the admin panel.
 
@@ -61,7 +67,10 @@ Log into your server's terminal and perform the initial setup.
 1. **Install Git and Docker Engine (If Not Already Installed):** Your server will need Git and the Docker Engine. Most modern server images come with Git. You can check if they are installed by running ```git --version``` and ```docker --version```. If you get an error, you'll need to install them. You can find instructions for installing the Docker Engine here: [Install Docker Engine](https://docs.docker.com/engine/install/).  
 2. Download or Update the Code:  
    Run the following command to download the project files:  
+   
+   ```
    git clone https://github.com/rhamenator/ai-scraping-defense.git
+   ```
 
    **Note:** If you see an error that the folder ai-scraping-defense already exists, run these two commands instead to get the latest version:  
    
@@ -110,7 +119,10 @@ This is the most important step. You need to edit two files: .env and docker-com
 
 1. **Run the Deployment Script:** This project includes a script that builds the containers and requests the SSL certificate for you.  
    * **On your server's terminal:**  
+     
+     ```
      ./deploy.sh
+     ```
 
 2. **Verify It's Working:**  
    * Open a web browser and navigate to https://your-cool-site.com. You should see your website, now secured with an "https://" connection.  
