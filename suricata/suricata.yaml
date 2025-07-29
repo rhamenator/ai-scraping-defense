@@ -1,0 +1,16 @@
+vars:
+  address-groups:
+    HOME_NET: "[any]"
+
+default-log-dir: /var/log/suricata
+
+autogroups: yes
+
+outputs:
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: eve.json
+      types:
+        - alert
+        - http
