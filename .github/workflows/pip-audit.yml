@@ -1,4 +1,7 @@
 name: pip-audit
+permissions:
+  contents: read
+  security-events: write
 
 on:
   workflow_dispatch:
