@@ -20,7 +20,7 @@ This project provides a multi-layered, microservice-based defense system against
 - **Multi-Tenant Ready:** Namespace configuration and Redis keys with `TENANT_ID` for easy isolation.
 - **Optional Cloud Integrations:** Toggle CDN caching, DDoS mitigation, managed TLS, and a Web Application Firewall using environment variables.
 - **Plugin API:** Drop-in Python modules allow custom rules to extend detection logic.
-- **Anomaly Detection via AI:** Move beyond heuristics and integrate anomaly detection models for more adaptive security. ✅
+- **Anomaly Detection via AI:** Move beyond heuristics and integrate anomaly detection models for more adaptive security.
 - **API Sequence Anomaly Detection:** Markov-based scoring highlights unusual request patterns.
 - **Crawler Authentication & Pay-Per-Crawl:** Token registry and usage accounting enable monetization experiments.
 - **Payment Gateway Integration:** Multi-provider gateways (`StripeGateway`,
