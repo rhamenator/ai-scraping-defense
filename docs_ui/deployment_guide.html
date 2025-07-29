@@ -8,35 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        html {
-            scroll-padding-top: 80px;
-        }
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #F9FAFB;
-        }
-        .code-block {
-            position: relative;
-        }
-        .copy-btn {
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            background-color: #4A5568;
-            color: white;
-            border: none;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            font-size: 0.75rem;
-            cursor: pointer;
-            opacity: 0.7;
-            transition: opacity 0.2s;
-        }
-        .code-block:hover .copy-btn {
-            opacity: 1;
-        }
-    </style>
+    <link rel="stylesheet" href="css/deployment_guide.css">
 </head>
 <body class="text-gray-800">
 
@@ -131,22 +103,6 @@ cd ai-scraping-defense
     <footer class="text-center p-6 text-gray-500 text-sm">
         <p>AI Scraping Defense Proxy</p>
     </footer>
-    <script>
-        document.querySelectorAll('.copy-btn').forEach(button => {
-            button.addEventListener('click', () => {
-                const code = button.previousElementSibling.querySelector('code').innerText;
-                const textarea = document.createElement('textarea');
-                textarea.value = code;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                button.innerText = 'Copied!';
-                setTimeout(() => {
-                    button.innerText = 'Copy';
-                }, 2000);
-            });
-        });
-    </script>
+    <script src="js/deployment_guide.js"></script>
 </body>
 </html>

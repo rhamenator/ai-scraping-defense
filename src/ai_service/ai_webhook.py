@@ -8,37 +8,38 @@ blocklisting in Redis, optional reporting to community services and alert
 notifications through webhooks, Slack or SMTP email.
 """
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional, Union
+import asyncio
 import datetime
-import pprint
-import os
-from redis.exceptions import ConnectionError, RedisError
-from src.shared.config import CONFIG, tenant_key
-from src.shared.redis_client import get_redis_connection as shared_get_redis_connection
 import json
-import httpx
+import logging
+import os
+import pprint
 import smtplib
 import ssl
 from email.mime.text import MIMEText
+from typing import Any, Dict, Optional, Union
+
+import httpx
 import requests
-import asyncio
-import logging
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+from redis.exceptions import ConnectionError, RedisError
+
+from src.shared.config import CONFIG, tenant_key
+from src.shared.redis_client import get_redis_connection as shared_get_redis_connection
 
 # --- Updated Metrics Import ---
 try:
-    from shared.metrics import (
-        increment_counter_metric,  # Use the helper for counters
+    from shared.metrics import increment_counter_metric  # Use the helper for counters
+    from shared.metrics import (  # Add other specific metrics if ai_webhook needs to increment them directly
         COMMUNITY_REPORTS_ATTEMPTED,
-        COMMUNITY_REPORTS_SUCCESS,
-        COMMUNITY_REPORTS_ERRORS_TIMEOUT,
         COMMUNITY_REPORTS_ERRORS_REQUEST,
-        COMMUNITY_REPORTS_ERRORS_STATUS,
         COMMUNITY_REPORTS_ERRORS_RESPONSE_DECODE,
+        COMMUNITY_REPORTS_ERRORS_STATUS,
+        COMMUNITY_REPORTS_ERRORS_TIMEOUT,
         COMMUNITY_REPORTS_ERRORS_UNEXPECTED,
-        # Add other specific metrics if ai_webhook needs to increment them directly
+        COMMUNITY_REPORTS_SUCCESS,
     )
 
     METRICS_SYSTEM_AVAILABLE = True
@@ -629,7 +630,8 @@ if __name__ == "__main__":
     # ... (startup logging remains the same) ...
     uvicorn.run(
         "src.ai_service.ai_webhook:app",
-        host="0.0.0.0",
+        # Bind to localhost by default to reduce exposure
+        host=os.getenv("WEBHOOK_HOST", "127.0.0.1"),
         port=port,
         workers=workers,
         log_level=log_level,

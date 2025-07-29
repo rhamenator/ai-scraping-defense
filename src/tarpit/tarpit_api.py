@@ -1,22 +1,26 @@
 # anti_scrape/tarpit/tarpit_api.py
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse
 import asyncio
-import httpx
+import datetime
+import hashlib
+import logging
 import os
 import random
-import datetime
 import sys
-import logging
-import hashlib
 from typing import Dict
 
+import httpx
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, StreamingResponse
+
 # The direct 'redis' import is no longer needed as the client handles it.
-from redis.exceptions import ConnectionError, RedisError
+from redis.exceptions import RedisError
 
 # --- Setup Logging ---
 # Preserved from your original file.
 from src.shared.config import CONFIG, tenant_key
+from src.shared.redis_client import get_redis_connection
+
+from .bad_api_generator import register_bad_endpoints
 
 logging.basicConfig(
     level=CONFIG.LOG_LEVEL.upper(),
@@ -67,6 +71,7 @@ except ImportError as e:
 
 try:
     from .labyrinth import generate_labyrinth_page
+
     LABYRINTH_AVAILABLE = True
 except Exception:
     LABYRINTH_AVAILABLE = False
@@ -122,9 +127,6 @@ ENABLE_TARPIT_CATCH_ALL = CONFIG.ENABLE_TARPIT_CATCH_ALL
 
 # --- THIS IS THE SOLE REFACTORING CHANGE ---
 # Replaced the manual Redis Connection Pools with calls to the centralized client.
-from src.shared.redis_client import get_redis_connection
-from .bad_api_generator import register_bad_endpoints, GENERATED_BAD_API_ENDPOINTS
-
 redis_hops = get_redis_connection(db_number=REDIS_DB_TAR_PIT_HOPS)
 redis_blocklist = get_redis_connection(db_number=REDIS_DB_BLOCKLIST)
 
@@ -275,11 +277,17 @@ async def tarpit_handler(request: Request, path: str = ""):
             )
             if response.status_code >= 400:
                 logger.warning(
-                    f"Escalation request for IP {client_ip} failed with status {response.status_code}. Response: {response.text[:200]}"
+                    "Escalation request for IP %s failed with status %s. Response: %s",
+                    client_ip,
+                    response.status_code,
+                    response.text[:200],
                 )
     except Exception as e:
         logger.error(
-            f"Error escalating request for IP {client_ip} to {ESCALATION_ENDPOINT}: {e}",
+            "Error escalating request for IP %s to %s: %s",
+            client_ip,
+            ESCALATION_ENDPOINT,
+            e,
             exc_info=True,
         )
 
@@ -360,11 +368,18 @@ if __name__ == "__main__":
     logger.info(f"Escalation Endpoint: {ESCALATION_ENDPOINT}")
     logger.info(f"Generator Available: {GENERATOR_AVAILABLE}")
     logger.info(f"IP Flagging Available: {FLAGGING_AVAILABLE}")
-    logger.info(
-        f"System Seed Loaded: {'Yes' if SYSTEM_SEED != 'default_system_seed_value_change_me' else 'No (Using Default)'}"
+    seed_loaded = (
+        "Yes"
+        if SYSTEM_SEED != "default_system_seed_value_change_me"
+        else "No (Using Default)"
     )
+    logger.info("System Seed Loaded: %s", seed_loaded)
     logger.info(
-        f"Hop Limit Enabled: {HOP_LIMIT_ENABLED} (Max Hops: {TAR_PIT_MAX_HOPS}, Window: {TAR_PIT_HOP_WINDOW_SECONDS}s, DB: {REDIS_DB_TAR_PIT_HOPS})"
+        "Hop Limit Enabled: %s (Max Hops: %s, Window: %ss, DB: %s)",
+        HOP_LIMIT_ENABLED,
+        TAR_PIT_MAX_HOPS,
+        TAR_PIT_HOP_WINDOW_SECONDS,
+        REDIS_DB_TAR_PIT_HOPS,
     )
     logger.info(f"Redis Blocklist DB for Trigger: {REDIS_DB_BLOCKLIST}")
     logger.info(
@@ -378,7 +393,7 @@ if __name__ == "__main__":
     logger.info(f"Starting Tarpit API on port {port}")
     uvicorn.run(
         "tarpit_api:app",
-        host="0.0.0.0",
+        host=os.getenv("TARPIT_HOST", "127.0.0.1"),
         port=port,
         workers=workers,
         log_level=log_level,

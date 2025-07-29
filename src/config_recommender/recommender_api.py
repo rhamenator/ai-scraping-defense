@@ -1,7 +1,10 @@
-from fastapi import FastAPI
+import os
 from typing import Dict
-from src.shared.metrics import get_metrics
+
+from fastapi import FastAPI
+
 from src.shared.config import CONFIG
+from src.shared.metrics import get_metrics
 
 app = FastAPI()
 
@@ -62,4 +65,8 @@ async def recommendations() -> Dict[str, Dict[str, int]]:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("src.config_recommender.recommender_api:app", host="0.0.0.0", port=8010)
+    uvicorn.run(
+        "src.config_recommender.recommender_api:app",
+        host=os.getenv("RECOMMENDER_HOST", "127.0.0.1"),
+        port=8010,
+    )
