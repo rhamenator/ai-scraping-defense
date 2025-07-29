@@ -1,4 +1,5 @@
 <script>
+// Dashboard script v1.0
 document.addEventListener('DOMContentLoaded', () => {
 
     const archData = {
