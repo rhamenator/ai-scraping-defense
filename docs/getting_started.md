@@ -15,6 +15,7 @@ sudo ./quickstart_dev.sh  # use sudo on Linux/macOS; run quickstart_dev.ps1 on W
 On Windows, run `quickstart_dev.ps1` from an **Administrator PowerShell** window instead of the shell script.
 
 The script copies `sample.env`, generates secrets, installs dependencies, and launches Docker Compose.
+If you encounter setup issues, see [Troubleshooting](troubleshooting.md) for common fixes.
 
 ## **Prerequisites**
 

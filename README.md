@@ -181,6 +181,7 @@ You can ignore the message if Rust 1.78.0 is already installed.
 
 
 For a step-by-step explanation of each setup script, see [docs/getting_started.md](docs/getting_started.md).
+If you run into errors during setup, consult [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Manual Local Setup
 
