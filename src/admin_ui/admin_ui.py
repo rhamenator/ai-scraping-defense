@@ -6,34 +6,38 @@ administrators. It provides endpoints for viewing Prometheus metrics, managing
 IP block lists stored in Redis and adjusting basic settings. The application is
 designed to be run as a standalone service or within Docker.
 """
-import os
-import json
 import asyncio
+import json
+import logging
+import os
 import secrets
 from base64 import b64decode
+
+import pyotp
 from fastapi import (
+    Cookie,
+    Depends,
     FastAPI,
+    Header,
+    HTTPException,
     Request,
     WebSocket,
     WebSocketDisconnect,
-    Cookie,
-    Depends,
-    HTTPException,
     status,
 )
-from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from fastapi import Header
 from fastapi.middleware.cors import CORSMiddleware
-from src.shared.audit import log_event
-import pyotp
-from src.shared.config import get_secret
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
-from src.shared.redis_client import get_redis_connection
+
+from src.shared.audit import log_event
+from src.shared.config import CONFIG, get_secret, tenant_key
 from src.shared.metrics import get_metrics
-from src.shared.config import CONFIG, tenant_key
+from src.shared.redis_client import get_redis_connection
+
+logger = logging.getLogger(__name__)
 
 # Flag to indicate if metrics collection is actually available. Tests patch this
 # to simulate metrics being disabled.
@@ -93,9 +97,11 @@ def _load_recent_block_events(limit: int = 5) -> list[dict]:
                         "reason": data.get("reason"),
                     }
                 )
-            except Exception:
+            except Exception as exc:
+                logger.error("Failed to parse block event line: %s", line, exc_info=exc)
                 continue
-    except Exception:
+    except Exception as exc:
+        logger.error("Error reading block events log", exc_info=exc)
         return []
     return events
 
@@ -128,6 +134,7 @@ app.add_middleware(
 
 DEFAULT_CSP = "default-src 'self'"
 
+
 @app.middleware("http")
 async def csp_header(request: Request, call_next):
     response = await call_next(request)
@@ -135,6 +142,8 @@ async def csp_header(request: Request, call_next):
         "Content-Security-Policy", os.getenv("ADMIN_UI_CSP", DEFAULT_CSP)
     )
     return response
+
+
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.mount(
     "/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"
@@ -225,9 +234,7 @@ async def metrics_endpoint(user: str = Depends(require_auth)):
     try:
         metrics_dict = _get_metrics_dict_func()
     except Exception as exc:  # pragma: no cover - defensive
-        import logging
-
-        logging.error("An error occurred in the metrics endpoint", exc_info=True)
+        logger.error("An error occurred in the metrics endpoint", exc_info=exc)
         return JSONResponse({"error": "An internal error occurred"}, status_code=500)
 
     if isinstance(metrics_dict, dict) and metrics_dict.get("error"):
@@ -253,7 +260,8 @@ async def metrics_websocket(websocket: WebSocket):
                 except HTTPException:
                     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
                     return
-        except Exception:
+        except Exception as exc:
+            logger.error("Error during websocket auth", exc_info=exc)
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
     else:
@@ -270,12 +278,10 @@ async def metrics_websocket(websocket: WebSocket):
         while True:
             try:
                 metrics_dict = _get_metrics_dict_func()
-            except Exception:  # pragma: no cover - defensive
-                import logging
-
-                logging.error(
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error(
                     "An error occurred in the websocket metrics endpoint",
-                    exc_info=True,
+                    exc_info=exc,
                 )
                 await websocket.send_json({"error": "An internal error occurred"})
                 await websocket.close()
@@ -301,7 +307,8 @@ async def block_stats(user: str = Depends(require_auth)):
     metrics_dict = {}
     try:
         metrics_dict = _get_metrics_dict_func()
-    except Exception:
+    except Exception as exc:
+        logger.error("Failed to load metrics", exc_info=exc)
         metrics_dict = {}
     total_bots = sum(
         float(v) for k, v in metrics_dict.items() if k.startswith("bots_detected")
@@ -317,8 +324,8 @@ async def block_stats(user: str = Depends(require_auth)):
         try:
             blocked_ips = redis_conn.smembers(tenant_key("blocklist")) or set()
             temp_block_count = len(redis_conn.keys(tenant_key("blocklist:ip:*")))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.error("Error loading blocklist from redis", exc_info=exc)
 
     recent_events = _load_recent_block_events_func(5)
     return JSONResponse(
@@ -432,7 +439,11 @@ async def update_settings(
         RUNTIME_SETTINGS["ESCALATION_ENDPOINT"] = escalation_endpoint
         os.environ["ESCALATION_ENDPOINT"] = escalation_endpoint
 
-    log_event(user, "update_settings", {"log_level": log_level, "endpoint": escalation_endpoint})
+    log_event(
+        user,
+        "update_settings",
+        {"log_level": log_level, "endpoint": escalation_endpoint},
+    )
 
     current_settings = {
         "Model URI": os.getenv("MODEL_URI", "Not Set"),
@@ -489,8 +500,8 @@ async def update_plugins(request: Request, user: str = Depends(require_admin)):
             headers=headers,
             timeout=5.0,
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.error("Failed to notify escalation engine", exc_info=exc)
     log_event(user, "update_plugins", {"plugins": selected})
     return RedirectResponse("/plugins", status_code=302)
 
@@ -498,7 +509,8 @@ async def update_plugins(request: Request, user: str = Depends(require_admin)):
 if __name__ == "__main__":
     import uvicorn
 
-    host = os.getenv("FLASK_RUN_HOST", "0.0.0.0")
+    # Bind to localhost by default to avoid exposing the service on all interfaces
+    host = os.getenv("FLASK_RUN_HOST", "127.0.0.1")
     port = int(os.getenv("ADMIN_UI_PORT", 5002))
     log_level = os.getenv("LOG_LEVEL", "info").lower()
     uvicorn.run("src.admin_ui.admin_ui:app", host=host, port=port, log_level=log_level)

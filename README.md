@@ -213,6 +213,7 @@ Follow these steps if you prefer to configure everything yourself.
     during the prompt to disable the database and clear stored values.
 
     Open `.env` and review the defaults. Set `TENANT_ID` for isolated deployments and add any API keys you plan to use. For **production** deployments update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443`. Use `REAL_BACKEND_HOSTS` to supply a comma-separated list of backend servers for load balancing or `REAL_BACKEND_HOST` for a single destination.
+For a full walkthrough of bringing the stack live, review [docs/test_to_production.md](docs/test_to_production.md).
 
 3. **Set Up Python Virtual Environment:**
     Run the setup script to create a virtual environment and install all Python dependencies.

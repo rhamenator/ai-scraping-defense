@@ -58,6 +58,7 @@ When run, the helper can store your secrets in a SQLite database at `secrets/loc
 
 Now, open the .env file in your code editor. For now, you can leave the default values as they are. This is where you would add your real API keys for services like OpenAI or Mistral when you're ready to use them. For **production** deployments, update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443` so the proxy listens on the standard web ports.
 
+For a step-by-step path from local testing to a hardened production environment, see [test_to_production.md](test_to_production.md).
 #### **Minimal Required Variables**
 
 To bring the stack up, only a handful of settings must be reviewed in `.env`:

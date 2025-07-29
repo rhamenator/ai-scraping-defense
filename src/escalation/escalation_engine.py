@@ -87,11 +87,11 @@ try:
         LOCAL_LLM_ERRORS_TIMEOUT,
         LOCAL_LLM_ERRORS_UNEXPECTED,
         LOCAL_LLM_ERRORS_UNEXPECTED_RESPONSE,
+        MODEL_VERSION_INFO,
         REDIS_ERRORS_FREQUENCY,
         RF_MODEL_ERRORS,
         RF_MODEL_PREDICTIONS,
         SCORE_ADJUSTED_IP_REPUTATION,
-        MODEL_VERSION_INFO,
         get_metrics,
         increment_counter_metric,
     )
@@ -237,6 +237,7 @@ def reload_plugins(allowed: list[str]) -> list[str]:
     os.environ["ALLOWED_PLUGINS"] = ",".join(allowed)
     PLUGINS = load_plugins(allowed)
     return [getattr(p, "__name__", "unknown") for p in PLUGINS]
+
 
 HEURISTIC_THRESHOLD_LOW = 0.3
 HEURISTIC_THRESHOLD_MEDIUM = 0.6
@@ -1249,7 +1250,7 @@ if __name__ == "__main__":
     logger.info(f"Starting Escalation Engine on port {port}")
     uvicorn.run(
         "src.escalation.escalation_engine:app",
-        host="0.0.0.0",
+        host=os.getenv("ESCALATION_HOST", "127.0.0.1"),
         port=port,
         workers=workers,
         log_level=log_level,

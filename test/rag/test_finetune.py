@@ -1,11 +1,12 @@
 # test/rag/finetune.test.py
-import unittest
-from unittest.mock import patch, MagicMock
-import os
 import json
-import numpy as np
-import tempfile
+import os
 import shutil
+import tempfile
+import unittest
+from unittest.mock import MagicMock, patch
+
+import numpy as np
 
 from rag import finetune
 
@@ -174,10 +175,15 @@ class TestFinetuneScriptComprehensive(unittest.TestCase):
         finetune.fine_tune_model()
 
         # Assert that the main components were called as expected
-        mock_tokenizer.assert_called_with("distilbert-base-uncased")
+        mock_tokenizer.assert_called_with(
+            "distilbert-base-uncased",
+            revision="0123456789abcdef0123456789abcdef01234567",
+        )
         self.assertEqual(mock_load_data.call_count, 2)
         mock_model_cls.from_pretrained.assert_called_with(
-            "distilbert-base-uncased", num_labels=2
+            "distilbert-base-uncased",
+            num_labels=2,
+            revision="0123456789abcdef0123456789abcdef01234567",
         )
         mock_train_args.assert_called()
         mock_trainer.assert_called()

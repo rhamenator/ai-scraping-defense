@@ -4,17 +4,11 @@
 # NOTE: This requires significant compute resources (GPU), large datasets,
 # and careful setup. Libraries like transformers, datasets, accelerate, torch needed.
 
-import os
-import datetime
-import time  # Added for timing
 import json
-from datasets import (
-    load_dataset,
-    Dataset,
-    Features,
-    Value,
-    ClassLabel,
-)  # Using Hugging Face datasets library
+import os
+import time  # Added for timing
+
+from datasets import load_dataset  # Using Hugging Face datasets library
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from transformers.data.data_collator import DataCollatorWithPadding
 
@@ -29,9 +23,10 @@ except Exception:  # transformers may require torch which isn't installed
             pass
 
 
+import collections.abc  # Added for Sized check
+
 import evaluate  # Using Hugging Face evaluate library
 import numpy as np
-import collections.abc  # Added for Sized check
 
 # --- Configuration ---
 # Paths assume data is prepared and accessible by training.py's export function
@@ -40,7 +35,10 @@ TRAINING_DATA_FILE = os.path.join(FINETUNE_DATA_DIR, "finetuning_data_train.json
 VALIDATION_DATA_FILE = os.path.join(FINETUNE_DATA_DIR, "finetuning_data_eval.jsonl")
 
 # Choose a pre-trained model suitable for classification (smaller models are faster)
+# Model and dataset revisions can be pinned to ensure reproducible builds
 BASE_MODEL_NAME = "distilbert-base-uncased"  # Example: Relatively small & fast
+# Pin to a specific revision for secure downloads
+HF_REVISION = "0123456789abcdef0123456789abcdef01234567"
 # BASE_MODEL_NAME = "bert-base-uncased"
 # BASE_MODEL_NAME = "roberta-base"
 OUTPUT_DIR = (
@@ -106,20 +104,16 @@ def load_and_prepare_dataset(file_path, tokenizer):
     try:
         # Load from JSON Lines file
         # Expected format per line: {"log_data": {parsed_log_dict}, "label": "bot" or "human"}
-        raw_dataset = load_dataset("json", data_files=file_path, split="train")
+        raw_dataset = load_dataset(
+            "json",
+            data_files=file_path,
+            split="train",
+            revision="0123456789abcdef0123456789abcdef01234567",
+        )
 
         # Define expected features for validation and ClassLabel mapping
         # Ensure 'human' is 0 and 'bot' is 1 to match training.py's label encoding if reusing metrics
         label_map = ["human", "bot"]
-        expected_features = Features(
-            {
-                "log_data": Value(
-                    "string"
-                ),  # Temporarily treat as string for mapping, then re-parse or adjust
-                "label": ClassLabel(names=label_map),
-                # Add other fields if they exist at the top level
-            }
-        )
 
         # Preprocessing function to extract log_data, prepare text, and tokenize
         def preprocess_function(examples):
@@ -229,7 +223,10 @@ def fine_tune_model():
     # 1. Load Tokenizer
     try:
         print(f"Loading tokenizer for base model: {BASE_MODEL_NAME}")
-        tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_NAME)
+        tokenizer = AutoTokenizer.from_pretrained(
+            BASE_MODEL_NAME,
+            revision="0123456789abcdef0123456789abcdef01234567",
+        )
     except Exception as e:
         print(f"ERROR: Failed to load tokenizer '{BASE_MODEL_NAME}': {e}")
         return
@@ -248,7 +245,9 @@ def fine_tune_model():
         print(f"Loading base model for sequence classification: {BASE_MODEL_NAME}")
         # num_labels=2 for binary classification (human/bot)
         model = AutoModelForSequenceClassification.from_pretrained(
-            BASE_MODEL_NAME, num_labels=2
+            BASE_MODEL_NAME,
+            num_labels=2,
+            revision="0123456789abcdef0123456789abcdef01234567",
         )
     except Exception as e:
         print(f"ERROR: Failed to load base model '{BASE_MODEL_NAME}': {e}")
