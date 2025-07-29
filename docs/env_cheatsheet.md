@@ -1,6 +1,6 @@
 # Environment Variable Cheat Sheet
 
-The following variables from `.env` are the minimum values to review or set manually before starting the stack. Most defaults work for local testing, but production deployments may require changes.
+The following variables from `.env` are the minimum values to review or set manually before starting the stack. Most defaults work for local testing, but production deployments may require changes. A template with just these settings is provided in `sample.env.min`.
 
 | Variable | Purpose |
 | --- | --- |
