@@ -108,6 +108,18 @@ graph TD
     TarpitAPI -- "Reads" --> Postgres
 ```
 
+## Beginner Quickstart
+
+Make sure **Docker** and **Python 3.10+** are installed. Then clone the repo and run the helper script:
+
+```bash
+git clone https://github.com/your-username/ai-scraping-defense.git
+cd ai-scraping-defense
+./quickstart_dev.sh       # use ./quickstart_dev.ps1 on Windows
+```
+
+This script copies `sample.env`, generates secrets, installs dependencies, and launches Docker Compose. See [docs/getting_started.md](docs/getting_started.md) for a deeper walkthrough.
+
 ## Quick Local Setup
 
 Run the automated script after cloning the repository:
