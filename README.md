@@ -110,15 +110,43 @@ graph TD
 
 ## Beginner Quickstart
 
-Make sure **Docker** and **Python 3.10+** are installed. Then clone the repo and run the helper script:
+Below are platform-specific steps to install the prerequisites and run the helper script. The
+script copies `sample.env`, generates secrets, installs dependencies, and starts Docker
+Compose. See [docs/getting_started.md](docs/getting_started.md) for a deeper walkthrough.
 
-```bash
-git clone https://github.com/your-username/ai-scraping-defense.git
-cd ai-scraping-defense
-./quickstart_dev.sh       # use ./quickstart_dev.ps1 on Windows
-```
+### Linux
+1. [Install Docker Engine](https://docs.docker.com/engine/install/) and ensure it is running.
+2. Install Python 3.10 or newer (`sudo apt install python3 python3-venv` on Debian-based distros).
+3. Clone the repository and execute the quickstart script:
+   ```bash
+   git clone https://github.com/your-username/ai-scraping-defense.git
+   cd ai-scraping-defense
+   sudo ./quickstart_dev.sh
+   ```
+4. If you see "Cannot connect to the Docker daemon," start the service with
+   `sudo systemctl start docker` and verify it with `docker info`.
 
-This script copies `sample.env`, generates secrets, installs dependencies, and launches Docker Compose. See [docs/getting_started.md](docs/getting_started.md) for a deeper walkthrough.
+### macOS
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop) and start the application.
+2. Install Python 3.10+ using [Homebrew](https://brew.sh/): `brew install python`.
+3. Clone the repository and run:
+   ```bash
+   git clone https://github.com/your-username/ai-scraping-defense.git
+   cd ai-scraping-defense
+   sudo ./quickstart_dev.sh
+   ```
+4. If containers fail to start, confirm Docker Desktop is running by opening the Docker menu.
+
+### Windows
+1. Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop) and ensure it is running.
+2. Install Python 3.10+ from [python.org](https://www.python.org/downloads/windows/).
+3. In an **Administrator PowerShell** window run:
+   ```powershell
+   git clone https://github.com/your-username/ai-scraping-defense.git
+   cd ai-scraping-defense
+   .\quickstart_dev.ps1
+   ```
+4. If Docker commands are not found, verify Docker Desktop is running and try `docker version`.
 
 ## Quick Local Setup
 
