@@ -124,7 +124,8 @@ installs dependencies, and starts Docker Compose. See
    cd ai-scraping-defense
    sudo ./quickstart_dev.sh
    ```
-4. If you see "Cannot connect to the Docker daemon," start the service with
+4. When the containers finish starting, open [http://localhost:5002](http://localhost:5002) to view the Admin UI dashboard.
+5. If you see "Cannot connect to the Docker daemon," start the service with
    `sudo systemctl start docker` and verify it with `docker info`.
 
 ### macOS
@@ -136,7 +137,8 @@ installs dependencies, and starts Docker Compose. See
    cd ai-scraping-defense
    sudo ./quickstart_dev.sh
    ```
-4. If containers fail to start, confirm Docker Desktop is running by opening the Docker menu.
+4. When the containers finish starting, visit [http://localhost:5002](http://localhost:5002) to open the Admin UI.
+5. If containers fail to start, confirm Docker Desktop is running by opening the Docker menu.
 
 ### Windows
 1. Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop) and ensure it is running.
@@ -147,7 +149,8 @@ installs dependencies, and starts Docker Compose. See
    cd ai-scraping-defense
    .\quickstart_dev.ps1
    ```
-4. If Docker commands are not found, verify Docker Desktop is running and try `docker version`.
+4. After the containers start, browse to [http://localhost:5002](http://localhost:5002) to access the Admin UI.
+5. If Docker commands are not found, verify Docker Desktop is running and try `docker version`.
 
 ## Quick Local Setup
 
