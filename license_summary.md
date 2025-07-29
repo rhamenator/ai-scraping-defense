@@ -26,3 +26,4 @@ This summary helps you understand the key permissions and restrictions but does 
 **In short:** You have a lot of freedom, but the core requirement is that if you share this code or your modifications, you must share under the same open terms (GPL-3.0) and provide the source code. This ensures the software remains free and open for everyone.
 
 🔗 **Full legal text:** [https://www.gnu.org/licenses/gpl-3.0.html](https://www.gnu.org/licenses/gpl-3.0.html)
+For the specific terms that apply to this project, see the [LICENSE](LICENSE) file in the repository root.

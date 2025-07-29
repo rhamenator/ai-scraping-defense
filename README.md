@@ -239,7 +239,7 @@ Follow these steps if you prefer to configure everything yourself.
 
 Several integrations are disabled by default to keep the stack lightweight. You can enable them by editing `.env`:
 
-- **Web Application Firewall** (`ENABLE_WAF`) – Mounts ModSecurity rules from `WAF_RULES_PATH` for additional filtering.
+ - **Web Application Firewall** (`ENABLE_WAF`) – Mounts ModSecurity rules from `WAF_RULES_PATH` for additional filtering. See [docs/waf_setup.md](docs/waf_setup.md) for setup steps.
 - **Global CDN** (`ENABLE_GLOBAL_CDN`) – Connects to your CDN provider using `CLOUD_CDN_API_TOKEN` for edge caching.
 - **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) – Reports malicious traffic to an external service configured by `DDOS_PROTECTION_API_KEY`.
 - **Managed TLS** (`ENABLE_MANAGED_TLS`) – Automatically issues certificates via `TLS_PROVIDER` with contact email `TLS_EMAIL`.

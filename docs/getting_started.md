@@ -255,7 +255,7 @@ docker compose up -d mixtral       # port 11435
 
 Each container pulls its model on the first run and stores it under `models/shared-data`. Health checks are available at `http://localhost:11434/api/health` inside the container. Mixtral is mapped to port `11435` on the host.
 
-Running these models locally consumes substantial memory and disk space &mdash; see [Hardware Recommendations](hardware_requirements.md) before enabling them.
+Running these models locally consumes substantial memory and disk space &mdash; see [Hardware Recommendations](docs/hardware_requirements.md) before enabling them.
 
 ## **Quick Kubernetes Deployment**
 
