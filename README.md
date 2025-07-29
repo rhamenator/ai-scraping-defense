@@ -39,6 +39,7 @@ This project provides a multi-layered, microservice-based defense system against
 ## Architecture Overview
 
 The following diagram provides a high-level view of how the major components interact. See [docs/architecture.md](docs/architecture.md) for a deeper explanation.
+The AI Service merely receives webhook data and enqueues it for the Escalation Engine, which performs the actual analysis.
 
 ```mermaid
 graph TD
