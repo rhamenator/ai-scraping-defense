@@ -58,7 +58,7 @@ This page documents all environment variables consumed by the Python services. D
 | `TAR_PIT_MAX_HOPS` | `250` | Max recorded tarpit hops |
 | `TAR_PIT_HOP_WINDOW_SECONDS` | `86400` | Sliding window for hop counts |
 | `BLOCKLIST_TTL_SECONDS` | `86400` | How long IPs remain blocked |
-| `ENABLE_TARPIT_CATCH_ALL` | `false` | Send unmatched requests to the tarpit |
+| `ENABLE_TARPIT_CATCH_ALL` | `true` | Send unmatched requests to the tarpit |
 
 ## Alerts and Webhooks
 
@@ -75,7 +75,7 @@ This page documents all environment variables consumed by the Python services. D
 | `ALERT_EMAIL_FROM` | `$ALERT_SMTP_USER` | Sender address for alerts |
 | `ALERT_EMAIL_TO` | *(none)* | Destination email addresses |
 | `ALERT_MIN_REASON_SEVERITY` | `Local LLM` | Minimum reason to trigger alerts |
-| `ENABLE_COMMUNITY_REPORTING` | `false` | Report IPs to community blocklist |
+| `ENABLE_COMMUNITY_REPORTING` | `true` | Report IPs to community blocklist |
 | `COMMUNITY_BLOCKLIST_REPORT_URL` | *(none)* | URL to send community reports |
 | `COMMUNITY_BLOCKLIST_API_KEY_FILE` | `/run/secrets/community_blocklist_api_key` | API key file for community reports |
 | `COMMUNITY_BLOCKLIST_REPORT_TIMEOUT` | `10.0` | HTTP timeout for reporting |
@@ -126,9 +126,9 @@ This page documents all environment variables consumed by the Python services. D
 | `ENABLE_TARPIT_LLM_GENERATOR` | `false` | Use an LLM to generate tarpit pages |
 | `TARPIT_LLM_MODEL_URI` | *(none)* | Model URI for tarpit generator |
 | `TARPIT_LLM_MAX_TOKENS` | `400` | Max tokens for tarpit LLM |
-| `ENABLE_AI_LABYRINTH` | `false` | Enable endless labyrinth pages |
+| `ENABLE_AI_LABYRINTH` | `true` | Enable endless labyrinth pages |
 | `TARPIT_LABYRINTH_DEPTH` | `5` | Depth for AI labyrinth |
-| `ENABLE_FINGERPRINTING` | `false` | Track browser fingerprints |
+| `ENABLE_FINGERPRINTING` | `true` | Track browser fingerprints |
 
 ## Tracking Windows
 
