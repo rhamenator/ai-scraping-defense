@@ -8,12 +8,10 @@ This helper prompts for key configuration values, writes them to
 
 from __future__ import annotations
 
-import os
 import platform
 import sqlite3
 import subprocess
 from pathlib import Path
-
 
 KEY_SETTINGS = [
     "MODEL_URI",
@@ -29,6 +27,36 @@ KEY_SETTINGS = [
     "ADMIN_UI_PORT",
     "REAL_BACKEND_HOST",
 ]
+
+OPTIONAL_FEATURES = {
+    "ENABLE_GLOBAL_CDN": {
+        "prompt": "Enable CDN caching?",
+        "extras": [
+            ("CLOUD_CDN_PROVIDER", "CDN provider", "cloudflare"),
+            ("CLOUD_CDN_API_TOKEN", "CDN API token", ""),
+        ],
+    },
+    "ENABLE_DDOS_PROTECTION": {
+        "prompt": "Enable DDoS mitigation service?",
+        "extras": [
+            ("DDOS_PROTECTION_PROVIDER_URL", "External provider URL", ""),
+            ("DDOS_PROTECTION_API_KEY", "API key", ""),
+        ],
+    },
+    "ENABLE_MANAGED_TLS": {
+        "prompt": "Enable Managed TLS certificates?",
+        "extras": [
+            ("TLS_PROVIDER", "TLS provider", "certbot"),
+            ("TLS_EMAIL", "Contact email", ""),
+        ],
+    },
+    "ENABLE_WAF": {
+        "prompt": "Enable Web Application Firewall?",
+        "extras": [
+            ("WAF_RULES_PATH", "Rules file path", "/etc/nginx/waf_rules.conf"),
+        ],
+    },
+}
 
 
 def parse_env(path: Path) -> dict[str, str]:
@@ -105,6 +133,18 @@ def main() -> None:
         val = input(prompt).strip()
         updates[key] = val if val else default
 
+    print("\nConfigure optional features:")
+    for feature, info in OPTIONAL_FEATURES.items():
+        resp = input(f"{info['prompt']} [y/N]: ").strip().lower()
+        enabled = resp == "y"
+        updates[feature] = "true" if enabled else "false"
+        if enabled:
+            for var, desc, default in info.get("extras", []):
+                current = env.get(var, default)
+                prompt = f"  {desc} [{current}]: " if current else f"  {desc}: "
+                val = input(prompt).strip()
+                updates[var] = val if val else current
+
     env.update(updates)
     update_env_file(env_file, updates)
     store_secrets(root, env)
@@ -113,7 +153,9 @@ def main() -> None:
     if is_windows:
         subprocess.run(["powershell", "./Generate-Secrets.ps1"], cwd=root, check=True)
     else:
-        subprocess.run(["bash", "generate_secrets.sh", "--update-env"], cwd=root, check=True)
+        subprocess.run(
+            ["bash", "generate_secrets.sh", "--update-env"], cwd=root, check=True
+        )
     print("Setup complete. Updated .env and generated secrets.")
 
     resp = input("Launch the local Docker Compose stack now? [y/N]: ").strip().lower()
@@ -123,7 +165,9 @@ def main() -> None:
         else:
             subprocess.run(["bash", "quickstart_dev.sh"], cwd=root, check=True)
 
-    resp = input("Deploy to Kubernetes using quick_deploy.sh now? [y/N]: ").strip().lower()
+    resp = (
+        input("Deploy to Kubernetes using quick_deploy.sh now? [y/N]: ").strip().lower()
+    )
     if resp == "y":
         if is_windows:
             subprocess.run(["powershell", "./quick_deploy.ps1"], cwd=root, check=True)

@@ -210,7 +210,7 @@ graph TD
 The stack can integrate with external services for enhanced protection. Each integration is controlled via environment variables and is disabled by default:
 
 - **Global CDN (`ENABLE_GLOBAL_CDN`)** – Connects to a a major CDN provider for worldwide edge caching.
-- **DDoS Mitigation (`ENABLE_DDOS_PROTECTION`)** – Reports suspicious traffic to a third-party anti-DDoS service.
+- **DDoS Mitigation (`ENABLE_DDOS_PROTECTION`)** – The `ddos_guard.py` tool watches access logs for flooding patterns, categorizes them as HTTP floods or volumetric attacks, and submits offenders to the local escalation engine. Requests can also be forwarded to an external provider when configured.
 - **Managed TLS (`ENABLE_MANAGED_TLS`)** – Automatically requests and renews TLS certificates.
 - **Web Application Firewall (`ENABLE_WAF`)** – Applies additional request filtering using customizable rules.
 
