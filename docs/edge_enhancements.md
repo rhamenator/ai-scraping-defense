@@ -4,7 +4,7 @@ This release adds new features inspired by services offered by large CDN provide
 
 ## Crawler Tokens
 
-`src/bot_control/crawler_auth.py` implements a simple in-memory registry for crawl tokens. A crawler can register a token and purpose which is later validated for every request. Combined with `src/bot_control/pricing.py`, usage can be tracked for pay-per-crawl experiments.
+`src/bot_control/crawler_auth.py` implements a simple in-memory registry for crawl tokens. A crawler can register a token and purpose which is later validated for every request. Combined with `src/bot_control/pricing.py`, usage can be tracked for pay-per-crawl experiments. Allowing these paying crawlers through is optional and fully under your control.
 
 ## AI Labyrinth Honeypots
 
