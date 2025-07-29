@@ -21,6 +21,16 @@ This project includes:
 - ✅ Anomaly Detection via AI – Move beyond heuristics and integrate anomaly detection models for more adaptive security.
 
 > This stack is modular, extensible, and designed for privacy-conscious and resource-constrained FOSS projects.
+
+### Architecture Diagram
+
+```mermaid
+graph TD
+    Nginx[Nginx Proxy] --> Services(Python Services)
+    Services --> UI[Admin UI]
+    UI --> Redis[(Redis)]
+    Services --> Tarpit[Tarpit API]
+```
 ---
 
 ## **Key Documentation Pages**
