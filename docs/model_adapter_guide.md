@@ -23,6 +23,9 @@ The format is `scheme://path_or_model_name`.
 | `external-api`  | `external-api://https://example.com/predict`     | `ExternalAPIAdapter`  | Calls the system's external classification API.  |
 | `http` / `https` | `https://my-custom-api.com/predict`              | `HttpModelAdapter`    | Calls a generic external prediction API.         |
 
+> **Note**
+> Use `HttpModelAdapter` when you simply need to POST JSON to any URL and interpret the response. `ExternalAPIAdapter` is a thin wrapper around this project's own classification API and assumes that service's request and response format.
+
 ## API Key Management
 
 Each external service adapter is hardcoded to look for its own, uniquely named environment variable for its API key. This is a security best practice that prevents key confusion and ensures clear separation of credentials.
