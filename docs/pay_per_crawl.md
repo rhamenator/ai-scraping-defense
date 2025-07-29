@@ -2,6 +2,11 @@
 
 This proxy charges registered crawlers per request using HTTP 402 when payment is required. Pricing rules are loaded from `config/pricing.yaml`.
 
+This monetization approach is optional. You can continue blocking automated
+traffic entirely, or allow certain bots to proceed only if they pay according to
+your own policies. The system merely tracks usage and handles payments; whether
+to grant paying bots access is ultimately your decision.
+
 ```yaml
 # pricing.yaml
 # path prefix : price in USD

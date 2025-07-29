@@ -22,7 +22,7 @@ This project provides a multi-layered, microservice-based defense system against
 - **Plugin API:** Drop-in Python modules allow custom rules to extend detection logic.
 - **Anomaly Detection via AI:** Move beyond heuristics and integrate anomaly detection models for more adaptive security.
 - **API Sequence Anomaly Detection:** Markov-based scoring highlights unusual request patterns.
-- **Crawler Authentication & Pay-Per-Crawl:** Token registry and usage accounting enable monetization experiments.
+- **Crawler Authentication & Pay-Per-Crawl:** Token registry and usage accounting enable monetization experiments. Whether you actually permit bots to pay for access or keep them blocked is entirely your choice.
 - **Payment Gateway Integration:** Multi-provider gateways (`StripeGateway`,
   `PayPalGateway`, `BraintreeGateway`, `SquareGateway`,
   `AdyenGateway`, `AuthorizeNetGateway`, or a generic HTTP backend) handle crawler account creation,
