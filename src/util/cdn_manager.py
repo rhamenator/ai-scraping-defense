@@ -1,10 +1,12 @@
-import os
 import logging
+import os
+
 import httpx
+
 from src.shared.config import get_secret
 
 ENABLE_GLOBAL_CDN = os.getenv("ENABLE_GLOBAL_CDN", "false").lower() == "true"
-CLOUD_CDN_PROVIDER = os.getenv("CLOUD_CDN_PROVIDER", "genericcdn")
+CLOUD_CDN_PROVIDER = os.getenv("CLOUD_CDN_PROVIDER", "cloudflare")
 CLOUD_CDN_API_TOKEN = os.getenv("CLOUD_CDN_API_TOKEN") or get_secret(
     "CLOUD_CDN_API_TOKEN_FILE"
 )
@@ -21,7 +23,7 @@ async def purge_cache() -> bool:
         logger.debug("CDN integration disabled or API token unavailable.")
         return False
     api_url = os.getenv(
-        "CDN_PURGE_URL", "https://api.genericcdn.com/client/v4/zones/purge_cache"
+        "CDN_PURGE_URL", "https://api.cloudflare.com/client/v4/zones/purge_cache"
     )
     headers = {"Authorization": f"Bearer {CLOUD_CDN_API_TOKEN}"}
     try:

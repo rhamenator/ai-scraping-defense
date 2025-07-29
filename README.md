@@ -292,7 +292,7 @@ Several integrations are disabled by default to keep the stack lightweight. You 
 
  - **Web Application Firewall** (`ENABLE_WAF`) – Mounts ModSecurity rules from `WAF_RULES_PATH` for additional filtering. See [docs/waf_setup.md](docs/waf_setup.md) for setup steps.
 - **Global CDN** (`ENABLE_GLOBAL_CDN`) – Connects to your CDN provider using `CLOUD_CDN_API_TOKEN` for edge caching.
-- **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) – Reports malicious traffic to an external service configured by `DDOS_PROTECTION_API_KEY`.
+- **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) – The optional `ddos_guard.py` log monitor detects flooding patterns, classifies them as HTTP floods or volumetric attacks, and reports offenders to the local escalation engine. Requests may also be forwarded to an external provider.
 - **Managed TLS** (`ENABLE_MANAGED_TLS`) – Automatically issues certificates via `TLS_PROVIDER` with contact email `TLS_EMAIL`.
 - **CAPTCHA Verification** – Populate `CAPTCHA_SECRET` to activate reCAPTCHA challenges.
 - **Fail2ban** – Start the `fail2ban` container to insert firewall rules based on blocked IPs. See [docs/fail2ban.md](docs/fail2ban.md) for details.
