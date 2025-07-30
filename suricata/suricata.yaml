@@ -6,6 +6,9 @@ default-log-dir: /var/log/suricata
 
 autogroups: yes
 
+rule-files:
+  - ddos.rules
+
 outputs:
   - eve-log:
       enabled: yes
