@@ -31,15 +31,6 @@ You can script this setup with `iis/configure_proxy.ps1` or perform the steps ma
 3. Check **Enable proxy** and apply the change.
 4. Under your site, open **URL Rewrite** and add rules that forward traffic to the running Python services. The script will create rules for the Admin UI and a catch‑all backend route automatically.
 
-Example rule for the Admin UI:
-
-| Setting       | Value                                  |
-|---------------|----------------------------------------|
-| Pattern       | `admin/(.*)`                           |
-| Rewrite URL   | `http://localhost:5002/{R:1}`          |
-
-Add similar rules for the other services. A catch‑all rule can forward the rest of the traffic to your main backend on port 8080.
-
 To automate these settings, run:
 
 ```powershell
@@ -69,6 +60,8 @@ python -m src.iis_gateway.main
 ```
 
 Set the `BACKEND_URL` environment variable to the address of your application.
+The gateway also supports per-IP rate limiting and header validation. Set
+`RATE_LIMIT_PER_MINUTE` to a positive value to enable basic throttling.
 
 ## 4. Managing Secrets
 
