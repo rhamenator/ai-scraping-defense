@@ -27,7 +27,7 @@ python-multipart~=0.0.9
 prometheus-client~=0.18
 
 # Kubernetes
-kubernetes~=29.0
+kubernetes~=33.1
 
 # LLM and AI Libraries
 openai>=1.17,<2.0
