@@ -427,6 +427,10 @@ To deploy the stack to a managed Kubernetes service such as Google Kubernetes En
 ./gke_deploy.sh       # or .\gke_deploy.ps1 on Windows
 ```
 
+### GitHub Actions Runner Deployment
+
+A workflow named `deploy.yml` now demonstrates a deployment to the GitHub runner environment. Trigger it from the **Actions** tab to see a deployment artifact uploaded. See [docs/github_actions_deployment.md](docs/github_actions_deployment.md) for more information.
+
 
 ## Load Testing Helpers
 
