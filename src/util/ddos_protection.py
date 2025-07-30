@@ -7,7 +7,7 @@ import httpx
 
 from src.shared.config import CONFIG, get_secret
 
-ENABLE_DDOS_PROTECTION = os.getenv("ENABLE_DDOS_PROTECTION", "false").lower() == "true"
+ENABLE_DDOS_PROTECTION = os.getenv("ENABLE_DDOS_PROTECTION", "true").lower() == "true"
 DDOS_PROTECTION_PROVIDER_URL = os.getenv("DDOS_PROTECTION_PROVIDER_URL")
 DDOS_PROTECTION_API_KEY = os.getenv("DDOS_PROTECTION_API_KEY") or get_secret(
     "DDOS_PROTECTION_API_KEY_FILE"

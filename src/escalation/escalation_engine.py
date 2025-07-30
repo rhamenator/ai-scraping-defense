@@ -227,7 +227,7 @@ if ANOMALY_MODEL_PATH:
 # --- Plugin System ---
 from src.plugins import load_plugins
 
-ENABLE_PLUGINS = os.getenv("ENABLE_PLUGINS", "false").lower() == "true"
+ENABLE_PLUGINS = os.getenv("ENABLE_PLUGINS", "true").lower() == "true"
 PLUGINS = load_plugins() if ENABLE_PLUGINS else []
 
 

@@ -1,8 +1,8 @@
-import os
 import logging
+import os
 import subprocess
 
-ENABLE_WAF = os.getenv("ENABLE_WAF", "false").lower() == "true"
+ENABLE_WAF = os.getenv("ENABLE_WAF", "true").lower() == "true"
 WAF_RULES_PATH = os.getenv(
     "WAF_RULES_PATH",
     "/etc/nginx/modsecurity/rules/custom.rules",

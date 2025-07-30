@@ -6,6 +6,8 @@
 
 The repository ships with a minimal jail and filter under `fail2ban/`. The `nginx-blocklist` jail bans an address whenever the log line `check_blocklist: Blocking IP <ip>` appears. By default the jail uses a `bantime` of **86400** seconds (one day) and a `findtime` of **300** seconds with `maxretry` set to **1**.
 
+By default the jail now relies on an **ipset** based action named `ipset-ddos`. When Fail2ban starts it creates an `ipset` called `ddos-block` and inserts a global iptables rule dropping any packets from addresses in this set. Banned IPs are added to `ddos-block` for efficient kernel-level filtering.
+
 These values can be tuned by editing `fail2ban/jail.d/nginx-blocklist.conf` or the corresponding ConfigMap in `kubernetes/fail2ban-deployment.yaml`.
 
 - `bantime` – how long an IP remains blocked.
