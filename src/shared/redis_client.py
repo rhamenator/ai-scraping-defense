@@ -1,8 +1,26 @@
 """Convenience functions for creating Redis connections."""
 
-import redis
-import os
 import logging
+import os
+
+import redis
+from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
+
+
+@retry(wait=wait_exponential(multiplier=1, min=1, max=10), stop=stop_after_attempt(3))
+def _create_client(
+    redis_host: str, redis_port: int, password: str | None, db_number: int
+) -> redis.Redis:
+    """Attempt to create and ping a Redis client with retries."""
+    client = redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        password=password,
+        db=db_number,
+        decode_responses=True,
+    )
+    client.ping()
+    return client
 
 
 def get_redis_connection(db_number=0):
@@ -24,14 +42,7 @@ def get_redis_connection(db_number=0):
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
 
     try:
-        r = redis.Redis(
-            host=redis_host,
-            port=redis_port,
-            password=password,
-            db=db_number,
-            decode_responses=True,  # Decode responses to UTF-8 by default
-        )
-        r.ping()
+        r = _create_client(redis_host, redis_port, password, db_number)
         logging.info(
             f"Successfully connected to Redis at {redis_host} on DB {db_number}"
         )
@@ -40,6 +51,16 @@ def get_redis_connection(db_number=0):
         logging.error(
             f"Redis authentication failed for DB {db_number}. Check password."
         )
+        return None
+    except RetryError as e:
+        if isinstance(e.last_attempt.exception(), redis.AuthenticationError):
+            logging.error(
+                f"Redis authentication failed for DB {db_number}. Check password."
+            )
+        else:
+            logging.error(
+                f"Failed to connect to Redis at {redis_host} on DB {db_number}: {e}"
+            )
         return None
     except Exception as e:
         logging.error(
