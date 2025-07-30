@@ -11,44 +11,57 @@ This guide describes how to run the AI Scraping Defense stack on a Windows serve
 
 ## 1. Start the Python Services
 
-Use PowerShell to create a virtual environment and install the project dependencies:
+
+Run the helper script to launch all required services:
 
 ```powershell
-# From the repository root
-./reset_venv.ps1
+./iis/start_services.ps1
 ```
 
-Start each service in its own terminal. Example for the AI Service:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-uvicorn src.ai_service.ai_webhook:app --host 127.0.0.1 --port 8000
-```
-
-Repeat for the other services, matching the ports defined in `docker-compose.yaml`.
+This script resets the virtual environment (unless `-NoReset` is supplied) and
+starts the AI Service, Escalation Engine, Tarpit API, and Admin UI in separate
+PowerShell windows. Ports are read from environment variables or fall back to the
+defaults in `sample.env`.
 
 ## 2. Configure IIS as a Reverse Proxy
+
+You can script this setup with `iis/configure_proxy.ps1` or perform the steps manually:
 
 1. Open **IIS Manager** and choose your server in the **Connections** pane.
 2. Double-click **Application Request Routing Cache** and select **Server Proxy Settings**.
 3. Check **Enable proxy** and apply the change.
-4. Under your site, open **URL Rewrite** and add rules that forward traffic to the running Python services.
+4. Under your site, open **URL Rewrite** and add rules that forward traffic to the running Python services. The script will create rules for the Admin UI and a catch‑all backend route automatically.
 
-Example rule for the Admin UI:
+To automate these settings, run:
 
-| Setting       | Value                                  |
-|---------------|----------------------------------------|
-| Pattern       | `admin/(.*)`                           |
-| Rewrite URL   | `http://localhost:5002/{R:1}`          |
-
-Add similar rules for the other services. A catch‑all rule can forward the rest of the traffic to your main backend on port 8080.
+```powershell
+./iis/configure_proxy.ps1
+```
 
 ## 3. Recreating Lua Logic
 
 The Nginx deployment uses Lua scripts for bot detection. With IIS you have two options:
 
-1. **Custom HttpModule** – Write a .NET module to inspect requests, query Redis for blocklisted IPs, and forward suspicious requests to the AI service.
-2. **Gateway Service** – Route all traffic to a small Python service that performs the same checks before proxying to the backend.
+
+1. **Custom HttpModule** – Compile the sample module in `iis/DefenseModule` and register it with your site. The module checks the Redis blocklist and can escalate suspicious requests to the AI service.
+2. **Gateway Service** – Launch `src/iis_gateway/main.py` to run a lightweight proxy that applies similar checks in Python before forwarding to the real backend.
+
+To build the HttpModule open a Developer Command Prompt for Visual Studio and run:
+
+```cmd
+msbuild iis\DefenseModule\DefenseModule.csproj /p:Configuration=Release
+```
+
+Copy the resulting DLL to your IIS modules folder and add it under **Modules** in IIS Manager.
+
+To start the gateway service:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python -m src.iis_gateway.main
+```
+
+Set the `BACKEND_URL` environment variable to the address of your application.
 
 ## 4. Managing Secrets
 
