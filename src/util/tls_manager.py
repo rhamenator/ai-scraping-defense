@@ -1,8 +1,7 @@
-import os
 import logging
-from src.shared.config import get_secret
+import os
 
-ENABLE_MANAGED_TLS = os.getenv("ENABLE_MANAGED_TLS", "false").lower() == "true"
+ENABLE_MANAGED_TLS = os.getenv("ENABLE_MANAGED_TLS", "true").lower() == "true"
 TLS_PROVIDER = os.getenv("TLS_PROVIDER", "certbot")
 TLS_EMAIL = os.getenv("TLS_EMAIL")
 

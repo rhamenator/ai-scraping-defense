@@ -125,7 +125,7 @@ class Config:
         default_factory=lambda: int(os.getenv("BLOCKLIST_TTL_SECONDS", 86400))
     )
     ENABLE_TARPIT_CATCH_ALL: bool = field(
-        default_factory=lambda: os.getenv("ENABLE_TARPIT_CATCH_ALL", "false").lower()
+        default_factory=lambda: os.getenv("ENABLE_TARPIT_CATCH_ALL", "true").lower()
         == "true"
     )
 
@@ -172,7 +172,7 @@ class Config:
         default_factory=lambda: os.getenv("ALERT_MIN_REASON_SEVERITY", "Local LLM")
     )
     ENABLE_COMMUNITY_REPORTING: bool = field(
-        default_factory=lambda: os.getenv("ENABLE_COMMUNITY_REPORTING", "false").lower()
+        default_factory=lambda: os.getenv("ENABLE_COMMUNITY_REPORTING", "true").lower()
         == "true"
     )
     COMMUNITY_BLOCKLIST_REPORT_URL: Optional[str] = field(

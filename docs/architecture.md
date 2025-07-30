@@ -243,6 +243,10 @@ The optional `suricata` service captures network traffic and writes EVE JSON
 logs to `/var/log/suricata/eve.json`. Alerts are forwarded to the Escalation
 Engine by `src/util/suricata_manager.py`.
 
+The configuration includes a small rule file `ddos.rules` that looks for common
+HTTP floods and SYN storms. When these signatures match Suricata emits an alert
+which the manager forwards to the escalation engine for blocking.
+
 ### Activation Steps
 
 1. **Docker Compose** – Start the service alongside the stack:
