@@ -48,6 +48,7 @@ To get a full understanding of the project, please review the following document
 - [**Fail2ban**](fail2ban.md)**:** Configuration and deployment instructions for the optional firewall banning service.
 - [**Web Application Firewall**](waf_setup.md)**:** How to load ModSecurity rules and enable request filtering.
 - [**Edge Provider Enhancements**](edge_enhancements.md)**:** Overview of advanced crawler tokens, AI labyrinths, and risk scoring.
+- [**IIS Deployment**](iis_deployment.md)**:** Running the stack on Windows with IIS as the reverse proxy.
 
 ---
 
