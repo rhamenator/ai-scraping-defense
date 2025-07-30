@@ -62,6 +62,8 @@ python -m src.iis_gateway.main
 ```
 
 Set the `BACKEND_URL` environment variable to the address of your application.
+The gateway also supports per-IP rate limiting and header validation. Set
+`RATE_LIMIT_PER_MINUTE` to a positive value to enable basic throttling.
 
 ## 4. Managing Secrets
 
