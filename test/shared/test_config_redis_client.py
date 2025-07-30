@@ -1,11 +1,10 @@
 # test/shared/config_redis_client.test.py
-import unittest
-from unittest.mock import patch, mock_open, MagicMock
 import importlib
 import os
+import unittest
+from unittest.mock import MagicMock, mock_open, patch
 
-from src.shared import config
-from src.shared import redis_client
+from src.shared import config, redis_client
 
 
 class TestGetSecret(unittest.TestCase):
@@ -59,12 +58,12 @@ class TestRedisClient(unittest.TestCase):
             "logging.error"
         ) as mock_log:
             conn = redis_client.get_redis_connection()
-            mock_instance.ping.assert_called_once()
+            self.assertEqual(mock_instance.ping.call_count, 3)
             mock_log.assert_called_once_with(
                 "Redis authentication failed for DB 0. Check password."
             )
             self.assertIsNone(conn)
-            mock_redis.assert_called_once()
+            self.assertEqual(mock_redis.call_count, 3)
 
 
 if __name__ == "__main__":

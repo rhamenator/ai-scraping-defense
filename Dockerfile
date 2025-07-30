@@ -18,6 +18,11 @@ RUN cd tarpit-rs && cargo build --release && \
 ### Final runtime image without the Rust toolchain
 FROM python:3.11-slim
 
+# Install system packages needed for psycopg2 and other compiled dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libpq-dev gcc && \
+    rm -rf /var/lib/apt/lists/*
+
 # Set the working directory in the container to /app
 WORKDIR /app
 
