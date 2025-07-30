@@ -47,6 +47,7 @@ nav:
     - Key Data Flows: docs/key_data_flows.md
     - API Reference: docs/model_adapter_guide.md
     - Monitoring Stack: docs/monitoring_stack.md
+    - GitHub Actions Runner Deployment: docs/github_actions_deployment.md
     - Security Scan Helper: docs/security_scan.md
   - Microservices:
     - Tarpit Service: tarpit/README.md

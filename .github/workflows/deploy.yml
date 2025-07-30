@@ -1,0 +1,22 @@
+name: Runner Deployment
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: runner
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build deployment artifact
+        run: |
+          echo "Deploying $GITHUB_SHA to runner environment" > deployment.txt
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-artifact
+          path: deployment.txt
