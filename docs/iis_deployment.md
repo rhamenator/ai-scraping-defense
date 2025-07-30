@@ -11,7 +11,6 @@ This guide describes how to run the AI Scraping Defense stack on a Windows serve
 
 ## 1. Start the Python Services
 
-
 Run the helper script to launch all required services:
 
 ```powershell
@@ -41,7 +40,6 @@ To automate these settings, run:
 ## 3. Recreating Lua Logic
 
 The Nginx deployment uses Lua scripts for bot detection. With IIS you have two options:
-
 
 1. **Custom HttpModule** – Compile the sample module in `iis/DefenseModule` and register it with your site. The module checks the Redis blocklist and can escalate suspicious requests to the AI service.
 2. **Gateway Service** – Launch `src/iis_gateway/main.py` to run a lightweight proxy that applies similar checks in Python before forwarding to the real backend.

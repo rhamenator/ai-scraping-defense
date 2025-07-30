@@ -37,7 +37,6 @@ namespace AntiScrape.IIS
             var dbIndex = int.Parse(ConfigurationManager.AppSettings["REDIS_DB_BLOCKLIST"] ?? "2");
             var tenant = ConfigurationManager.AppSettings["TENANT_ID"] ?? "default";
             var db = _redis.GetDatabase(dbIndex);
-
             var cacheKey = $"block:{ip}";
             var cached = BlockCache.Get(cacheKey) as bool?;
             bool isBlocked;
@@ -69,6 +68,7 @@ namespace AntiScrape.IIS
             {
                 await EscalateAsync(ip, "MissingUA");
             }
+            
             else if (ctx.Request.UserAgent.Contains("curl") || ctx.Request.UserAgent.Contains("wget"))
             {
                 await EscalateAsync(ip, "BadUA");
