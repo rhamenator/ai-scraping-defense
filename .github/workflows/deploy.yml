@@ -1,4 +1,6 @@
 name: Runner Deployment
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:
