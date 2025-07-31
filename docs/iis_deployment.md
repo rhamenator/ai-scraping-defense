@@ -8,6 +8,11 @@ This guide describes how to run the AI Scraping Defense stack on a Windows serve
 - [Application Request Routing](https://learn.microsoft.com/iis/extensions/planning-for-arr/) and [URL Rewrite](https://learn.microsoft.com/iis/extensions/url-rewrite-module/) modules enabled.
 - Python installed and able to create virtual environments.
 - Redis and PostgreSQL running locally or accessible on the network.
+  The `iis-deploy.yml` workflow in `.github/workflows` shows how this
+  configuration can run end-to-end on a Windows runner.
+### Quick Setup
+Run `./quick_iis.ps1` (or `./quick_iis.sh` on WSL) to start all services and configure IIS automatically.
+
 
 ## 1. Start the Python Services
 
