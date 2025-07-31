@@ -1,0 +1,583 @@
+﻿2025-07-31T08:33:14.6978821Z ##[group]Run docker compose logs
+2025-07-31T08:33:14.6979280Z [36;1mdocker compose logs[0m
+2025-07-31T08:33:14.7767912Z shell: /usr/bin/bash -e {0}
+2025-07-31T08:33:14.7768345Z env:
+2025-07-31T08:33:14.7768763Z   pythonLocation: /opt/hostedtoolcache/Python/3.10.18/x64
+2025-07-31T08:33:14.7769830Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.10.18/x64/lib/pkgconfig
+2025-07-31T08:33:14.7770557Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.10.18/x64
+2025-07-31T08:33:14.7771173Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.10.18/x64
+2025-07-31T08:33:14.7771800Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.10.18/x64
+2025-07-31T08:33:14.7772439Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.10.18/x64/lib
+2025-07-31T08:33:14.7772957Z ##[endgroup]
+2025-07-31T08:33:14.9807794Z time="2025-07-31T08:33:14Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:14.9809354Z time="2025-07-31T08:33:14Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:14.9810843Z time="2025-07-31T08:33:14Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:14.9867864Z time="2025-07-31T08:33:14Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:14.9869334Z time="2025-07-31T08:33:14Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:14.9870787Z time="2025-07-31T08:33:14Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.0305519Z time="2025-07-31T08:33:15Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.0306849Z time="2025-07-31T08:33:15Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.0308180Z time="2025-07-31T08:33:15Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.0309499Z time="2025-07-31T08:33:15Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.0310709Z time="2025-07-31T08:33:15Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.0311878Z time="2025-07-31T08:33:15Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1593148Z time="2025-07-31T08:33:15Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1676258Z time="2025-07-31T08:33:15Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1677463Z time="2025-07-31T08:33:15Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1678626Z time="2025-07-31T08:33:15Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1679735Z time="2025-07-31T08:33:15Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1680887Z time="2025-07-31T08:33:15Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1681971Z time="2025-07-31T08:33:15Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1683041Z time="2025-07-31T08:33:15Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1687198Z time="2025-07-31T08:33:15Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1688386Z time="2025-07-31T08:33:15Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1689493Z time="2025-07-31T08:33:15Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1691084Z time="2025-07-31T08:33:15Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1726091Z time="2025-07-31T08:33:15Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1727666Z time="2025-07-31T08:33:15Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1728832Z time="2025-07-31T08:33:15Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1729972Z time="2025-07-31T08:33:15Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1730973Z time="2025-07-31T08:33:15Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1732087Z time="2025-07-31T08:33:15Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1734746Z time="2025-07-31T08:33:15Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1737228Z time="2025-07-31T08:33:15Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1740648Z time="2025-07-31T08:33:15Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1743110Z time="2025-07-31T08:33:15Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1745603Z time="2025-07-31T08:33:15Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1748047Z time="2025-07-31T08:33:15Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1751441Z time="2025-07-31T08:33:15Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1754933Z time="2025-07-31T08:33:15Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1759226Z time="2025-07-31T08:33:15Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1762600Z time="2025-07-31T08:33:15Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1765409Z time="2025-07-31T08:33:15Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1770634Z time="2025-07-31T08:33:15Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1771855Z time="2025-07-31T08:33:15Z" level=warning msg="The \"wIvE\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1772912Z time="2025-07-31T08:33:15Z" level=warning msg="The \"g1Pal6\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.1774227Z time="2025-07-31T08:33:15Z" level=warning msg="The \"p8DpuWdYhnubLqX\" variable is not set. Defaulting to a blank string."
+2025-07-31T08:33:15.2090173Z grafana  | logger=settings t=2025-07-31T08:33:14.189779023Z level=info msg="Starting Grafana" version=12.2.0-16636675413 commit=8729ea2dbad9d3ee8cd49cb0fbf5d060a083a661 branch=main compiled=2025-07-31T08:33:14Z
+2025-07-31T08:33:15.2092089Z grafana  | logger=settings t=2025-07-31T08:33:14.191924751Z level=info msg="Config loaded from" file=/usr/share/grafana/conf/defaults.ini
+2025-07-31T08:33:15.2117715Z grafana  | logger=settings t=2025-07-31T08:33:14.192016341Z level=info msg="Config loaded from" file=/etc/grafana/grafana.ini
+2025-07-31T08:33:15.2119691Z grafana  | logger=settings t=2025-07-31T08:33:14.19202637Z level=info msg="Config overridden from command line" arg="default.paths.data=/var/lib/grafana"
+2025-07-31T08:33:15.2121929Z grafana  | logger=settings t=2025-07-31T08:33:14.192032642Z level=info msg="Config overridden from command line" arg="default.paths.logs=/var/log/grafana"
+2025-07-31T08:33:15.2125714Z grafana  | logger=settings t=2025-07-31T08:33:14.192037811Z level=info msg="Config overridden from command line" arg="default.paths.plugins=/var/lib/grafana/plugins"
+2025-07-31T08:33:15.2127799Z grafana  | logger=settings t=2025-07-31T08:33:14.192042891Z level=info msg="Config overridden from command line" arg="default.paths.provisioning=/etc/grafana/provisioning"
+2025-07-31T08:33:15.2129445Z grafana  | logger=settings t=2025-07-31T08:33:14.19204803Z level=info msg="Config overridden from command line" arg="default.log.mode=console"
+2025-07-31T08:33:15.2130925Z grafana  | logger=settings t=2025-07-31T08:33:14.192052829Z level=info msg="Config overridden from Environment variable" var="GF_PATHS_DATA=/var/lib/grafana"
+2025-07-31T08:33:15.2132501Z grafana  | logger=settings t=2025-07-31T08:33:14.192058289Z level=info msg="Config overridden from Environment variable" var="GF_PATHS_LOGS=/var/log/grafana"
+2025-07-31T08:33:15.2148083Z grafana  | logger=settings t=2025-07-31T08:33:14.192063058Z level=info msg="Config overridden from Environment variable" var="GF_PATHS_PLUGINS=/var/lib/grafana/plugins"
+2025-07-31T08:33:15.2155212Z grafana  | logger=settings t=2025-07-31T08:33:14.192067827Z level=info msg="Config overridden from Environment variable" var="GF_PATHS_PROVISIONING=/etc/grafana/provisioning"
+2025-07-31T08:33:15.2159642Z grafana  | logger=settings t=2025-07-31T08:33:14.192072826Z level=info msg=Target target=[all]
+2025-07-31T08:33:15.2162682Z grafana  | logger=settings t=2025-07-31T08:33:14.192088796Z level=info msg="Path Home" path=/usr/share/grafana
+2025-07-31T08:33:15.2165455Z grafana  | logger=settings t=2025-07-31T08:33:14.192093475Z level=info msg="Path Data" path=/var/lib/grafana
+2025-07-31T08:33:15.2169144Z grafana  | logger=settings t=2025-07-31T08:33:14.192098174Z level=info msg="Path Logs" path=/var/log/grafana
+2025-07-31T08:33:15.2170360Z grafana  | logger=settings t=2025-07-31T08:33:14.192102531Z level=info msg="Path Plugins" path=/var/lib/grafana/plugins
+2025-07-31T08:33:15.2175629Z grafana  | logger=settings t=2025-07-31T08:33:14.1921069Z level=info msg="Path Provisioning" path=/etc/grafana/provisioning
+2025-07-31T08:33:15.2176636Z grafana  | logger=settings t=2025-07-31T08:33:14.192111378Z level=info msg="App mode production"
+2025-07-31T08:33:15.2198829Z grafana  | logger=featuremgmt t=2025-07-31T08:33:14.214454491Z level=info msg=FeatureToggles alertingRuleRecoverDeleted=true logsContextDatasourceUi=true awsDatasourcesTempCredentials=true azureMonitorPrometheusExemplars=true logRowsPopoverMenu=true improvedExternalSessionHandling=true cloudWatchRoundUpEndTime=true groupToNestedTableTransformation=true lokiQuerySplitting=true useSessionStorageForRedirection=true alertingMigrationUI=true nestedFolders=true grafanaconThemes=true influxdbBackendMigration=true annotationPermissionUpdate=true alertingRuleVersionHistoryRestore=true azureMonitorEnableUserAuth=true dashboardSceneSolo=true formatString=true dataplaneFrontendFallback=true ssoSettingsLDAP=true promQLScope=true improvedExternalSessionHandlingSAML=true dashgpt=true onPremToCloudMigrations=true pinNavItems=true alertingBulkActionsInUI=true recordedQueriesMulti=true logsInfiniteScrolling=true unifiedStorageHistoryPruner=true logsExploreTableVisualisation=true correlations=true unifiedRequestLog=true cloudWatchCrossAccountQuerying=true dashboardSceneForViewers=true tlsMemcached=true cloudWatchNewLabelParsing=true awsAsyncQueryCaching=true alertingImportYAMLUI=true newPDFRendering=true publicDashboardsScene=true unifiedStorageSearchPermissionFiltering=true teamHttpHeadersMimir=true addFieldFromCalculationStatFunctions=true logsPanelControls=true prometheusAzureOverrideAudience=true panelMonitoring=true skipTokenRotationIfRecent=true preinstallAutoUpdate=true lokiLabelNamesQueryApi=true alertingRulePermanentlyDelete=true alertRuleRestore=true alertingQueryAndExpressionsStepMode=true alertingUIOptimizeReducer=true newDashboardSharingComponent=true dashboardScene=true transformationsRedesign=true newFiltersUI=true alertingNotificationsStepMode=true
+2025-07-31T08:33:15.2241133Z grafana  | logger=sqlstore t=2025-07-31T08:33:14.214614849Z level=info msg="Connecting to DB" dbtype=sqlite3
+2025-07-31T08:33:15.2242357Z grafana  | logger=sqlstore t=2025-07-31T08:33:14.214644324Z level=info msg="Creating SQLite database file" path=/var/lib/grafana/grafana.db
+2025-07-31T08:33:15.2243915Z grafana  | logger=migrator t=2025-07-31T08:33:14.226833472Z level=info msg="Locking database"
+2025-07-31T08:33:15.2244860Z grafana  | logger=migrator t=2025-07-31T08:33:14.226867866Z level=info msg="Starting DB migrations"
+2025-07-31T08:33:15.2245942Z grafana  | logger=migrator t=2025-07-31T08:33:14.230277845Z level=info msg="Executing migration" id="create migration_log table"
+2025-07-31T08:33:15.2247342Z grafana  | logger=migrator t=2025-07-31T08:33:14.232594792Z level=info msg="Migration successfully executed" id="create migration_log table" duration=2.313811ms
+2025-07-31T08:33:15.2248675Z grafana  | logger=migrator t=2025-07-31T08:33:14.235247237Z level=info msg="Executing migration" id="create user table"
+2025-07-31T08:33:15.2249717Z prompt_router  | INFO:     Uvicorn running on http://0.0.0.0:8009 (Press CTRL+C to quit)
+2025-07-31T08:33:15.2250442Z prompt_router  | INFO:     Started parent process [1]
+2025-07-31T08:33:15.2250991Z prompt_router  | INFO:     Started server process [9]
+2025-07-31T08:33:15.2251509Z prompt_router  | INFO:     Waiting for application startup.
+2025-07-31T08:33:15.2252084Z prompt_router  | INFO:     Application startup complete.
+2025-07-31T08:33:15.2252617Z prompt_router  | INFO:     Started server process [8]
+2025-07-31T08:33:15.2253158Z prompt_router  | INFO:     Waiting for application startup.
+2025-07-31T08:33:15.2253866Z prompt_router  | INFO:     Application startup complete.
+2025-07-31T08:33:15.2254511Z captcha_service  | INFO:     Uvicorn running on http://0.0.0.0:8004 (Press CTRL+C to quit)
+2025-07-31T08:33:15.2255139Z captcha_service  | INFO:     Started parent process [1]
+2025-07-31T08:33:15.2255631Z captcha_service  | INFO:     Started server process [7]
+2025-07-31T08:33:15.2256169Z captcha_service  | INFO:     Waiting for application startup.
+2025-07-31T08:33:15.2256704Z captcha_service  | INFO:     Application startup complete.
+2025-07-31T08:33:15.2257227Z captcha_service  | INFO:     Started server process [8]
+2025-07-31T08:33:15.2257746Z captcha_service  | INFO:     Waiting for application startup.
+2025-07-31T08:33:15.2258305Z captcha_service  | INFO:     Application startup complete.
+2025-07-31T08:33:15.2259692Z grafana          | logger=migrator t=2025-07-31T08:33:14.236037866Z level=info msg="Migration successfully executed" id="create user table" duration=790.679µs
+2025-07-31T08:33:15.2261012Z grafana          | logger=migrator t=2025-07-31T08:33:14.242096709Z level=info msg="Executing migration" id="add unique index user.login"
+2025-07-31T08:33:15.2262304Z grafana          | logger=migrator t=2025-07-31T08:33:14.249765234Z level=info msg="Migration successfully executed" id="add unique index user.login" duration=7.66584ms
+2025-07-31T08:33:15.2310627Z grafana          | logger=migrator t=2025-07-31T08:33:14.252110306Z level=info msg="Executing migration" id="add unique index user.email"
+2025-07-31T08:33:15.2374075Z grafana          | logger=migrator t=2025-07-31T08:33:14.254834119Z level=info msg="Migration successfully executed" id="add unique index user.email" duration=2.722811ms
+2025-07-31T08:33:15.2375771Z grafana          | logger=migrator t=2025-07-31T08:33:14.260414392Z level=info msg="Executing migration" id="drop index UQE_user_login - v1"
+2025-07-31T08:33:15.2377325Z grafana          | logger=migrator t=2025-07-31T08:33:14.26196249Z level=info msg="Migration successfully executed" id="drop index UQE_user_login - v1" duration=1.547967ms
+2025-07-31T08:33:15.2378876Z grafana          | logger=migrator t=2025-07-31T08:33:14.267722597Z level=info msg="Executing migration" id="drop index UQE_user_email - v1"
+2025-07-31T08:33:15.2380423Z grafana          | logger=migrator t=2025-07-31T08:33:14.271627335Z level=info msg="Migration successfully executed" id="drop index UQE_user_email - v1" duration=3.90567ms
+2025-07-31T08:33:15.2382233Z grafana          | logger=migrator t=2025-07-31T08:33:14.279412189Z level=info msg="Executing migration" id="Rename table user to user_v1 - v1"
+2025-07-31T08:33:15.2434967Z grafana          | logger=migrator t=2025-07-31T08:33:14.293024052Z level=info msg="Migration successfully executed" id="Rename table user to user_v1 - v1" duration=13.608767ms
+2025-07-31T08:33:15.2439488Z grafana          | logger=migrator t=2025-07-31T08:33:14.297830223Z level=info msg="Executing migration" id="create user table v2"
+2025-07-31T08:33:15.2455948Z grafana          | logger=migrator t=2025-07-31T08:33:14.298779488Z level=info msg="Migration successfully executed" id="create user table v2" duration=949.956µs
+2025-07-31T08:33:15.2461157Z grafana          | logger=migrator t=2025-07-31T08:33:14.303593978Z level=info msg="Executing migration" id="create index UQE_user_login - v2"
+2025-07-31T08:33:15.2479954Z grafana          | logger=migrator t=2025-07-31T08:33:14.304260577Z level=info msg="Migration successfully executed" id="create index UQE_user_login - v2" duration=666.007µs
+2025-07-31T08:33:15.2486164Z grafana          | logger=migrator t=2025-07-31T08:33:14.309740166Z level=info msg="Executing migration" id="create index UQE_user_email - v2"
+2025-07-31T08:33:15.2487691Z grafana          | logger=migrator t=2025-07-31T08:33:14.311128096Z level=info msg="Migration successfully executed" id="create index UQE_user_email - v2" duration=1.387018ms
+2025-07-31T08:33:15.2489190Z grafana          | logger=migrator t=2025-07-31T08:33:14.317179374Z level=info msg="Executing migration" id="copy data_source v1 to v2"
+2025-07-31T08:33:15.2490963Z grafana          | logger=migrator t=2025-07-31T08:33:14.31760223Z level=info msg="Migration successfully executed" id="copy data_source v1 to v2" duration=423.507µs
+2025-07-31T08:33:15.2492377Z grafana          | logger=migrator t=2025-07-31T08:33:14.323771528Z level=info msg="Executing migration" id="Drop old table user_v1"
+2025-07-31T08:33:15.2494344Z grafana          | logger=migrator t=2025-07-31T08:33:14.324432828Z level=info msg="Migration successfully executed" id="Drop old table user_v1" duration=661.36µs
+2025-07-31T08:33:15.2496069Z grafana          | logger=migrator t=2025-07-31T08:33:14.329804433Z level=info msg="Executing migration" id="Add column help_flags1 to user table"
+2025-07-31T08:33:15.2497603Z grafana          | logger=migrator t=2025-07-31T08:33:14.334756839Z level=info msg="Migration successfully executed" id="Add column help_flags1 to user table" duration=4.951865ms
+2025-07-31T08:33:15.2499143Z grafana          | logger=migrator t=2025-07-31T08:33:14.339222289Z level=info msg="Executing migration" id="Update user table charset"
+2025-07-31T08:33:15.2500835Z grafana          | logger=migrator t=2025-07-31T08:33:14.339301076Z level=info msg="Migration successfully executed" id="Update user table charset" duration=79.668µs
+2025-07-31T08:33:15.2502330Z grafana          | logger=migrator t=2025-07-31T08:33:14.347111144Z level=info msg="Executing migration" id="Add last_seen_at column to user"
+2025-07-31T08:33:15.2504028Z grafana          | logger=migrator t=2025-07-31T08:33:14.348810452Z level=info msg="Migration successfully executed" id="Add last_seen_at column to user" duration=1.70017ms
+2025-07-31T08:33:15.2505567Z grafana          | logger=migrator t=2025-07-31T08:33:14.352398713Z level=info msg="Executing migration" id="Add missing user data"
+2025-07-31T08:33:15.2507272Z grafana          | logger=migrator t=2025-07-31T08:33:14.353153225Z level=info msg="Migration successfully executed" id="Add missing user data" duration=755.816µs
+2025-07-31T08:33:15.2508728Z grafana          | logger=migrator t=2025-07-31T08:33:14.361591491Z level=info msg="Executing migration" id="Add is_disabled column to user"
+2025-07-31T08:33:15.2510202Z grafana          | logger=migrator t=2025-07-31T08:33:14.363034513Z level=info msg="Migration successfully executed" id="Add is_disabled column to user" duration=1.445096ms
+2025-07-31T08:33:15.2512032Z grafana          | logger=migrator t=2025-07-31T08:33:14.366747345Z level=info msg="Executing migration" id="Add index user.login/user.email"
+2025-07-31T08:33:15.2522773Z grafana          | logger=migrator t=2025-07-31T08:33:14.368822002Z level=info msg="Migration successfully executed" id="Add index user.login/user.email" duration=2.074195ms
+2025-07-31T08:33:15.2524614Z grafana          | logger=migrator t=2025-07-31T08:33:14.370482428Z level=info msg="Executing migration" id="Add is_service_account column to user"
+2025-07-31T08:33:15.2526154Z grafana          | logger=migrator t=2025-07-31T08:33:14.372579556Z level=info msg="Migration successfully executed" id="Add is_service_account column to user" duration=2.093512ms
+2025-07-31T08:33:15.2527731Z grafana          | logger=migrator t=2025-07-31T08:33:14.374619539Z level=info msg="Executing migration" id="Update is_service_account column to nullable"
+2025-07-31T08:33:15.2529328Z grafana          | logger=migrator t=2025-07-31T08:33:14.389667511Z level=info msg="Migration successfully executed" id="Update is_service_account column to nullable" duration=15.042582ms
+2025-07-31T08:33:15.2530796Z grafana          | logger=migrator t=2025-07-31T08:33:14.393373881Z level=info msg="Executing migration" id="Add uid column to user"
+2025-07-31T08:33:15.2532190Z grafana          | logger=migrator t=2025-07-31T08:33:14.397394003Z level=info msg="Migration successfully executed" id="Add uid column to user" duration=4.019973ms
+2025-07-31T08:33:15.2533809Z grafana          | logger=migrator t=2025-07-31T08:33:14.400280569Z level=info msg="Executing migration" id="Update uid column values for users"
+2025-07-31T08:33:15.2535622Z grafana          | logger=migrator t=2025-07-31T08:33:14.400578363Z level=info msg="Migration successfully executed" id="Update uid column values for users" duration=297.834µs
+2025-07-31T08:33:15.2537116Z grafana          | logger=migrator t=2025-07-31T08:33:14.403003321Z level=info msg="Executing migration" id="Make sure users uid are set"
+2025-07-31T08:33:15.2539032Z grafana          | logger=migrator t=2025-07-31T08:33:14.404025551Z level=info msg="Migration successfully executed" id="Make sure users uid are set" duration=815.315µs
+2025-07-31T08:33:15.2540503Z grafana          | logger=migrator t=2025-07-31T08:33:14.409575547Z level=info msg="Executing migration" id="Add unique index user_uid"
+2025-07-31T08:33:15.2541927Z grafana          | logger=migrator t=2025-07-31T08:33:14.410886905Z level=info msg="Migration successfully executed" id="Add unique index user_uid" duration=1.311719ms
+2025-07-31T08:33:15.2543704Z grafana          | logger=migrator t=2025-07-31T08:33:14.414865491Z level=info msg="Executing migration" id="Add is_provisioned column to user"
+2025-07-31T08:33:15.2545244Z grafana          | logger=migrator t=2025-07-31T08:33:14.416115414Z level=info msg="Migration successfully executed" id="Add is_provisioned column to user" duration=1.249432ms
+2025-07-31T08:33:15.2547315Z grafana          | logger=migrator t=2025-07-31T08:33:14.418917473Z level=info msg="Executing migration" id="update login field with orgid to allow for multiple service accounts with same name across orgs"
+2025-07-31T08:33:15.2559398Z grafana          | logger=migrator t=2025-07-31T08:33:14.419294774Z level=info msg="Migration successfully executed" id="update login field with orgid to allow for multiple service accounts with same name across orgs" duration=376.72µs
+2025-07-31T08:33:15.2561492Z grafana          | logger=migrator t=2025-07-31T08:33:14.423672171Z level=info msg="Executing migration" id="update service accounts login field orgid to appear only once"
+2025-07-31T08:33:15.2572503Z grafana          | logger=migrator t=2025-07-31T08:33:14.424310418Z level=info msg="Migration successfully executed" id="update service accounts login field orgid to appear only once" duration=638.016µs
+2025-07-31T08:33:15.2586965Z grafana          | logger=migrator t=2025-07-31T08:33:14.425785379Z level=info msg="Executing migration" id="update login and email fields to lowercase"
+2025-07-31T08:33:15.2589343Z grafana          | logger=migrator t=2025-07-31T08:33:14.426286511Z level=info msg="Migration successfully executed" id="update login and email fields to lowercase" duration=500.861µs
+2025-07-31T08:33:15.2591354Z grafana          | logger=migrator t=2025-07-31T08:33:14.42956079Z level=info msg="Executing migration" id="update login and email fields to lowercase2"
+2025-07-31T08:33:15.2594532Z grafana          | logger=migrator t=2025-07-31T08:33:14.4300985Z level=info msg="Migration successfully executed" id="update login and email fields to lowercase2" duration=537.529µs
+2025-07-31T08:33:15.2596648Z grafana          | logger=migrator t=2025-07-31T08:33:14.436723462Z level=info msg="Executing migration" id="Add index on user.is_service_account and user.last_seen_at"
+2025-07-31T08:33:15.2598823Z grafana          | logger=migrator t=2025-07-31T08:33:14.437614318Z level=info msg="Migration successfully executed" id="Add index on user.is_service_account and user.last_seen_at" duration=893.881µs
+2025-07-31T08:33:15.2600536Z grafana          | logger=migrator t=2025-07-31T08:33:14.442996673Z level=info msg="Executing migration" id="create temp user table v1-7"
+2025-07-31T08:33:15.2602356Z grafana          | logger=migrator t=2025-07-31T08:33:14.443838729Z level=info msg="Migration successfully executed" id="create temp user table v1-7" duration=841.565µs
+2025-07-31T08:33:15.2624279Z grafana          | logger=migrator t=2025-07-31T08:33:14.449071536Z level=info msg="Executing migration" id="create index IDX_temp_user_email - v1-7"
+2025-07-31T08:33:15.2626195Z grafana          | logger=migrator t=2025-07-31T08:33:14.449792696Z level=info msg="Migration successfully executed" id="create index IDX_temp_user_email - v1-7" duration=722.813µs
+2025-07-31T08:33:15.2627773Z grafana          | logger=migrator t=2025-07-31T08:33:14.452996441Z level=info msg="Executing migration" id="create index IDX_temp_user_org_id - v1-7"
+2025-07-31T08:33:15.2629401Z grafana          | logger=migrator t=2025-07-31T08:33:14.456211107Z level=info msg="Migration successfully executed" id="create index IDX_temp_user_org_id - v1-7" duration=3.214224ms
+2025-07-31T08:33:15.2645962Z grafana          | logger=migrator t=2025-07-31T08:33:14.461669414Z level=info msg="Executing migration" id="create index IDX_temp_user_code - v1-7"
+2025-07-31T08:33:15.2659565Z grafana          | logger=migrator t=2025-07-31T08:33:14.46526105Z level=info msg="Migration successfully executed" id="create index IDX_temp_user_code - v1-7" duration=3.591216ms
+2025-07-31T08:33:15.2664879Z grafana          | logger=migrator t=2025-07-31T08:33:14.474766299Z level=info msg="Executing migration" id="create index IDX_temp_user_status - v1-7"
+2025-07-31T08:33:15.2684038Z grafana          | logger=migrator t=2025-07-31T08:33:14.477017694Z level=info msg="Migration successfully executed" id="create index IDX_temp_user_status - v1-7" duration=2.251526ms
+2025-07-31T08:33:15.2685733Z grafana          | logger=migrator t=2025-07-31T08:33:14.483964327Z level=info msg="Executing migration" id="Update temp_user table charset"
+2025-07-31T08:33:15.2687591Z grafana          | logger=migrator t=2025-07-31T08:33:14.484009221Z level=info msg="Migration successfully executed" id="Update temp_user table charset" duration=46.346µs
+2025-07-31T08:33:15.2689164Z grafana          | logger=migrator t=2025-07-31T08:33:14.486395977Z level=info msg="Executing migration" id="drop index IDX_temp_user_email - v1"
+2025-07-31T08:33:15.2691078Z grafana          | logger=migrator t=2025-07-31T08:33:14.487219488Z level=info msg="Migration successfully executed" id="drop index IDX_temp_user_email - v1" duration=823.791µs
+2025-07-31T08:33:15.2692631Z grafana          | logger=migrator t=2025-07-31T08:33:14.492356357Z level=info msg="Executing migration" id="drop index IDX_temp_user_org_id - v1"
+2025-07-31T08:33:15.2715556Z grafana          | logger=migrator t=2025-07-31T08:33:14.493270536Z level=info msg="Migration successfully executed" id="drop index IDX_temp_user_org_id - v1" duration=914.87µs
+2025-07-31T08:33:15.2726942Z grafana          | logger=migrator t=2025-07-31T08:33:14.496717904Z level=info msg="Executing migration" id="drop index IDX_temp_user_code - v1"
+2025-07-31T08:33:15.2737946Z grafana          | logger=migrator t=2025-07-31T08:33:14.497614962Z level=info msg="Migration successfully executed" id="drop index IDX_temp_user_code - v1" duration=896.617µs
+2025-07-31T08:33:15.2742783Z grafana          | logger=migrator t=2025-07-31T08:33:14.502588858Z level=info msg="Executing migration" id="drop index IDX_temp_user_status - v1"
+2025-07-31T08:33:15.2749370Z grafana          | logger=migrator t=2025-07-31T08:33:14.503352387Z level=info msg="Migration successfully executed" id="drop index IDX_temp_user_status - v1" duration=763.92µs
+2025-07-31T08:33:15.2758508Z grafana          | logger=migrator t=2025-07-31T08:33:14.50580686Z level=info msg="Executing migration" id="Rename table temp_user to temp_user_tmp_qwerty - v1"
+2025-07-31T08:33:15.2760274Z grafana          | logger=migrator t=2025-07-31T08:33:14.515361691Z level=info msg="Migration successfully executed" id="Rename table temp_user to temp_user_tmp_qwerty - v1" duration=9.550393ms
+2025-07-31T08:33:15.2761837Z grafana          | logger=migrator t=2025-07-31T08:33:14.517048136Z level=info msg="Executing migration" id="create temp_user v2"
+2025-07-31T08:33:15.2763946Z grafana          | logger=migrator t=2025-07-31T08:33:14.518020193Z level=info msg="Migration successfully executed" id="create temp_user v2" duration=972.587µs
+2025-07-31T08:33:15.2765511Z grafana          | logger=migrator t=2025-07-31T08:33:14.522721211Z level=info msg="Executing migration" id="create index IDX_temp_user_email - v2"
+2025-07-31T08:33:15.2767338Z grafana          | logger=migrator t=2025-07-31T08:33:14.523620603Z level=info msg="Migration successfully executed" id="create index IDX_temp_user_email - v2" duration=898.851µs
+2025-07-31T08:33:15.2768870Z grafana          | logger=migrator t=2025-07-31T08:33:14.52939103Z level=info msg="Executing migration" id="create index IDX_temp_user_org_id - v2"
+2025-07-31T08:33:15.2770428Z grafana          | logger=migrator t=2025-07-31T08:33:14.530668524Z level=info msg="Migration successfully executed" id="create index IDX_temp_user_org_id - v2" duration=1.275892ms
+2025-07-31T08:33:15.2813878Z grafana          | logger=migrator t=2025-07-31T08:33:14.53538929Z level=info msg="Executing migration" id="create index IDX_temp_user_code - v2"
+2025-07-31T08:33:15.2815638Z grafana          | logger=migrator t=2025-07-31T08:33:14.53650857Z level=info msg="Migration successfully executed" id="create index IDX_temp_user_code - v2" duration=1.119931ms
+2025-07-31T08:33:15.2817300Z grafana          | logger=migrator t=2025-07-31T08:33:14.539702027Z level=info msg="Executing migration" id="create index IDX_temp_user_status - v2"
+2025-07-31T08:33:15.2819296Z grafana          | logger=migrator t=2025-07-31T08:33:14.540614843Z level=info msg="Migration successfully executed" id="create index IDX_temp_user_status - v2" duration=912.056µs
+2025-07-31T08:33:15.2820902Z grafana          | logger=migrator t=2025-07-31T08:33:14.544949621Z level=info msg="Executing migration" id="copy temp_user v1 to v2"
+2025-07-31T08:33:15.2877560Z grafana          | logger=migrator t=2025-07-31T08:33:14.545488363Z level=info msg="Migration successfully executed" id="copy temp_user v1 to v2" duration=537.229µs
+2025-07-31T08:33:15.2879003Z grafana          | logger=migrator t=2025-07-31T08:33:14.547468363Z level=info msg="Executing migration" id="drop temp_user_tmp_qwerty"
+2025-07-31T08:33:15.2880655Z grafana          | logger=migrator t=2025-07-31T08:33:14.548040497Z level=info msg="Migration successfully executed" id="drop temp_user_tmp_qwerty" duration=572.083µs
+2025-07-31T08:33:15.2882314Z grafana          | logger=migrator t=2025-07-31T08:33:14.552617585Z level=info msg="Executing migration" id="Set created for temp users that will otherwise prematurely expire"
+2025-07-31T08:33:15.2950719Z grafana          | logger=migrator t=2025-07-31T08:33:14.553063484Z level=info msg="Migration successfully executed" id="Set created for temp users that will otherwise prematurely expire" duration=443.765µs
+2025-07-31T08:33:15.2959768Z grafana          | logger=migrator t=2025-07-31T08:33:14.554421168Z level=info msg="Executing migration" id="create star table"
+2025-07-31T08:33:15.2973010Z grafana          | logger=migrator t=2025-07-31T08:33:14.555059464Z level=info msg="Migration successfully executed" id="create star table" duration=638.146µs
+2025-07-31T08:33:15.2985517Z grafana          | logger=migrator t=2025-07-31T08:33:14.558532139Z level=info msg="Executing migration" id="add unique index star.user_id_dashboard_id"
+2025-07-31T08:33:15.2997163Z grafana          | logger=migrator t=2025-07-31T08:33:14.559311588Z level=info msg="Migration successfully executed" id="add unique index star.user_id_dashboard_id" duration=779.078µs
+2025-07-31T08:33:15.2998841Z grafana          | logger=migrator t=2025-07-31T08:33:14.565569598Z level=info msg="Executing migration" id="Add column dashboard_uid in star"
+2025-07-31T08:33:15.3000442Z grafana          | logger=migrator t=2025-07-31T08:33:14.577467345Z level=info msg="Migration successfully executed" id="Add column dashboard_uid in star" duration=11.717782ms
+2025-07-31T08:33:15.3001997Z grafana          | logger=migrator t=2025-07-31T08:33:14.58012223Z level=info msg="Executing migration" id="Add column org_id in star"
+2025-07-31T08:33:15.3003745Z grafana          | logger=migrator t=2025-07-31T08:33:14.581683692Z level=info msg="Migration successfully executed" id="Add column org_id in star" duration=1.561422ms
+2025-07-31T08:33:15.3005175Z grafana          | logger=migrator t=2025-07-31T08:33:14.585636019Z level=info msg="Executing migration" id="Add column updated in star"
+2025-07-31T08:33:15.3006562Z grafana          | logger=migrator t=2025-07-31T08:33:14.587230724Z level=info msg="Migration successfully executed" id="Add column updated in star" duration=1.594814ms
+2025-07-31T08:33:15.3019389Z grafana          | logger=migrator t=2025-07-31T08:33:14.59480866Z level=info msg="Executing migration" id="add index in star table on dashboard_uid, org_id and user_id columns"
+2025-07-31T08:33:15.3027200Z grafana          | logger=migrator t=2025-07-31T08:33:14.595665202Z level=info msg="Migration successfully executed" id="add index in star table on dashboard_uid, org_id and user_id columns" duration=856.422µs
+2025-07-31T08:33:15.3029757Z grafana          | logger=migrator t=2025-07-31T08:33:14.602905301Z level=info msg="Executing migration" id="create org table v1"
+2025-07-31T08:33:15.3031174Z grafana          | logger=migrator t=2025-07-31T08:33:14.604101945Z level=info msg="Migration successfully executed" id="create org table v1" duration=1.196685ms
+2025-07-31T08:33:15.3032664Z grafana          | logger=migrator t=2025-07-31T08:33:14.606549435Z level=info msg="Executing migration" id="create index UQE_org_name - v1"
+2025-07-31T08:33:15.3034354Z grafana          | logger=migrator t=2025-07-31T08:33:14.60920957Z level=info msg="Migration successfully executed" id="create index UQE_org_name - v1" duration=2.659865ms
+2025-07-31T08:33:15.3035862Z grafana          | logger=migrator t=2025-07-31T08:33:14.61180829Z level=info msg="Executing migration" id="create org_user table v1"
+2025-07-31T08:33:15.3037605Z grafana          | logger=migrator t=2025-07-31T08:33:14.612659693Z level=info msg="Migration successfully executed" id="create org_user table v1" duration=852.655µs
+2025-07-31T08:33:15.3039107Z grafana          | logger=migrator t=2025-07-31T08:33:14.616715042Z level=info msg="Executing migration" id="create index IDX_org_user_org_id - v1"
+2025-07-31T08:33:15.3057774Z grafana          | logger=migrator t=2025-07-31T08:33:14.61766624Z level=info msg="Migration successfully executed" id="create index IDX_org_user_org_id - v1" duration=950.778µs
+2025-07-31T08:33:15.3106016Z grafana          | logger=migrator t=2025-07-31T08:33:14.621061461Z level=info msg="Executing migration" id="create index UQE_org_user_org_id_user_id - v1"
+2025-07-31T08:33:15.3108024Z grafana          | logger=migrator t=2025-07-31T08:33:14.625243765Z level=info msg="Migration successfully executed" id="create index UQE_org_user_org_id_user_id - v1" duration=4.181122ms
+2025-07-31T08:33:15.3109649Z grafana          | logger=migrator t=2025-07-31T08:33:14.627757468Z level=info msg="Executing migration" id="create index IDX_org_user_user_id - v1"
+2025-07-31T08:33:15.3111623Z grafana          | logger=migrator t=2025-07-31T08:33:14.628733753Z level=info msg="Migration successfully executed" id="create index IDX_org_user_user_id - v1" duration=975.984µs
+2025-07-31T08:33:15.3113102Z grafana          | logger=migrator t=2025-07-31T08:33:14.631030662Z level=info msg="Executing migration" id="Update org table charset"
+2025-07-31T08:33:15.3114968Z grafana          | logger=migrator t=2025-07-31T08:33:14.631097607Z level=info msg="Migration successfully executed" id="Update org table charset" duration=67.375µs
+2025-07-31T08:33:15.3116372Z grafana          | logger=migrator t=2025-07-31T08:33:14.633362708Z level=info msg="Executing migration" id="Update org_user table charset"
+2025-07-31T08:33:15.3118006Z grafana          | logger=migrator t=2025-07-31T08:33:14.633397402Z level=info msg="Migration successfully executed" id="Update org_user table charset" duration=35.015µs
+2025-07-31T08:33:15.3119519Z grafana          | logger=migrator t=2025-07-31T08:33:14.636916824Z level=info msg="Executing migration" id="Migrate all Read Only Viewers to Viewers"
+2025-07-31T08:33:15.3121062Z grafana          | logger=migrator t=2025-07-31T08:33:14.639535792Z level=info msg="Migration successfully executed" id="Migrate all Read Only Viewers to Viewers" duration=2.619228ms
+2025-07-31T08:33:15.3122456Z grafana          | logger=migrator t=2025-07-31T08:33:14.641729Z level=info msg="Executing migration" id="create dashboard table"
+2025-07-31T08:33:15.3124307Z grafana          | logger=migrator t=2025-07-31T08:33:14.642577366Z level=info msg="Migration successfully executed" id="create dashboard table" duration=847.996µs
+2025-07-31T08:33:15.3125798Z grafana          | logger=migrator t=2025-07-31T08:33:14.64890013Z level=info msg="Executing migration" id="add index dashboard.account_id"
+2025-07-31T08:33:15.3127287Z grafana          | logger=migrator t=2025-07-31T08:33:14.651443911Z level=info msg="Migration successfully executed" id="add index dashboard.account_id" duration=2.542409ms
+2025-07-31T08:33:15.3128816Z grafana          | logger=migrator t=2025-07-31T08:33:14.664284648Z level=info msg="Executing migration" id="add unique index dashboard_account_id_slug"
+2025-07-31T08:33:15.3130414Z grafana          | logger=migrator t=2025-07-31T08:33:14.66567935Z level=info msg="Migration successfully executed" id="add unique index dashboard_account_id_slug" duration=1.395584ms
+2025-07-31T08:33:15.3131933Z grafana          | logger=migrator t=2025-07-31T08:33:14.674133956Z level=info msg="Executing migration" id="create dashboard_tag table"
+2025-07-31T08:33:15.3133924Z grafana          | logger=migrator t=2025-07-31T08:33:14.675032827Z level=info msg="Migration successfully executed" id="create dashboard_tag table" duration=900.213µs
+2025-07-31T08:33:15.3135508Z grafana          | logger=migrator t=2025-07-31T08:33:14.679287977Z level=info msg="Executing migration" id="add unique index dashboard_tag.dasboard_id_term"
+2025-07-31T08:33:15.3137072Z grafana          | logger=migrator t=2025-07-31T08:33:14.680584427Z level=info msg="Migration successfully executed" id="add unique index dashboard_tag.dasboard_id_term" duration=1.296159ms
+2025-07-31T08:33:15.3138745Z grafana          | logger=migrator t=2025-07-31T08:33:14.682667499Z level=info msg="Executing migration" id="drop index UQE_dashboard_tag_dashboard_id_term - v1"
+2025-07-31T08:33:15.3140437Z grafana          | logger=migrator t=2025-07-31T08:33:14.68575583Z level=info msg="Migration successfully executed" id="drop index UQE_dashboard_tag_dashboard_id_term - v1" duration=3.086818ms
+2025-07-31T08:33:15.3142486Z grafana          | logger=migrator t=2025-07-31T08:33:14.688264794Z level=info msg="Executing migration" id="Rename table dashboard to dashboard_v1 - v1"
+2025-07-31T08:33:15.3144242Z grafana          | logger=migrator t=2025-07-31T08:33:14.694007729Z level=info msg="Migration successfully executed" id="Rename table dashboard to dashboard_v1 - v1" duration=5.740079ms
+2025-07-31T08:33:15.3146027Z grafana          | logger=migrator t=2025-07-31T08:33:14.696488571Z level=info msg="Executing migration" id="create dashboard v2"
+2025-07-31T08:33:15.3147738Z grafana          | logger=migrator t=2025-07-31T08:33:14.697377984Z level=info msg="Migration successfully executed" id="create dashboard v2" duration=908.379µs
+2025-07-31T08:33:15.3149202Z grafana          | logger=migrator t=2025-07-31T08:33:14.701599151Z level=info msg="Executing migration" id="create index IDX_dashboard_org_id - v2"
+2025-07-31T08:33:15.3150708Z grafana          | logger=migrator t=2025-07-31T08:33:14.702887426Z level=info msg="Migration successfully executed" id="create index IDX_dashboard_org_id - v2" duration=1.287493ms
+2025-07-31T08:33:15.3152387Z grafana          | logger=migrator t=2025-07-31T08:33:14.704553693Z level=info msg="Executing migration" id="create index UQE_dashboard_org_id_slug - v2"
+2025-07-31T08:33:15.3154235Z grafana          | logger=migrator t=2025-07-31T08:33:14.705710583Z level=info msg="Migration successfully executed" id="create index UQE_dashboard_org_id_slug - v2" duration=1.15634ms
+2025-07-31T08:33:15.3207423Z grafana          | logger=migrator t=2025-07-31T08:33:14.707902558Z level=info msg="Executing migration" id="copy dashboard v1 to v2"
+2025-07-31T08:33:15.3209624Z grafana          | logger=migrator t=2025-07-31T08:33:14.708815755Z level=info msg="Migration successfully executed" id="copy dashboard v1 to v2" duration=912.667µs
+2025-07-31T08:33:15.3211216Z grafana          | logger=migrator t=2025-07-31T08:33:14.71173418Z level=info msg="Executing migration" id="drop table dashboard_v1"
+2025-07-31T08:33:15.3212816Z grafana          | logger=migrator t=2025-07-31T08:33:14.712814208Z level=info msg="Migration successfully executed" id="drop table dashboard_v1" duration=1.080288ms
+2025-07-31T08:33:15.3214771Z grafana          | logger=migrator t=2025-07-31T08:33:14.718916912Z level=info msg="Executing migration" id="alter dashboard.data to mediumtext v1"
+2025-07-31T08:33:15.3216711Z grafana          | logger=migrator t=2025-07-31T08:33:14.718944223Z level=info msg="Migration successfully executed" id="alter dashboard.data to mediumtext v1" duration=27.181µs
+2025-07-31T08:33:15.3218285Z grafana          | logger=migrator t=2025-07-31T08:33:14.723374128Z level=info msg="Executing migration" id="Add column updated_by in dashboard - v2"
+2025-07-31T08:33:15.3219884Z grafana          | logger=migrator t=2025-07-31T08:33:14.725594235Z level=info msg="Migration successfully executed" id="Add column updated_by in dashboard - v2" duration=2.220197ms
+2025-07-31T08:33:15.3221507Z grafana          | logger=migrator t=2025-07-31T08:33:14.728969349Z level=info msg="Executing migration" id="Add column created_by in dashboard - v2"
+2025-07-31T08:33:15.3223468Z grafana          | logger=migrator t=2025-07-31T08:33:14.731005995Z level=info msg="Migration successfully executed" id="Add column created_by in dashboard - v2" duration=2.036104ms
+2025-07-31T08:33:15.3225249Z grafana          | logger=migrator t=2025-07-31T08:33:14.734869646Z level=info msg="Executing migration" id="Add column gnetId in dashboard"
+2025-07-31T08:33:15.3226931Z grafana          | logger=migrator t=2025-07-31T08:33:14.737022478Z level=info msg="Migration successfully executed" id="Add column gnetId in dashboard" duration=2.153053ms
+2025-07-31T08:33:15.3228482Z grafana          | logger=migrator t=2025-07-31T08:33:14.739625657Z level=info msg="Executing migration" id="Add index for gnetId in dashboard"
+2025-07-31T08:33:15.3230578Z grafana          | logger=migrator t=2025-07-31T08:33:14.740521553Z level=info msg="Migration successfully executed" id="Add index for gnetId in dashboard" duration=896.096µs
+2025-07-31T08:33:15.3232741Z grafana          | logger=migrator t=2025-07-31T08:33:14.742758811Z level=info msg="Executing migration" id="Add column plugin_id in dashboard"
+2025-07-31T08:33:15.3235658Z grafana          | logger=migrator t=2025-07-31T08:33:14.745056222Z level=info msg="Migration successfully executed" id="Add column plugin_id in dashboard" duration=2.314382ms
+2025-07-31T08:33:15.3238253Z grafana          | logger=migrator t=2025-07-31T08:33:14.749255187Z level=info msg="Executing migration" id="Add index for plugin_id in dashboard"
+2025-07-31T08:33:15.3240722Z grafana          | logger=migrator t=2025-07-31T08:33:14.750524447Z level=info msg="Migration successfully executed" id="Add index for plugin_id in dashboard" duration=1.2699ms
+2025-07-31T08:33:15.3242530Z grafana          | logger=migrator t=2025-07-31T08:33:14.7523605Z level=info msg="Executing migration" id="Add index for dashboard_id in dashboard_tag"
+2025-07-31T08:33:15.3245242Z grafana          | logger=migrator t=2025-07-31T08:33:14.753189881Z level=info msg="Migration successfully executed" id="Add index for dashboard_id in dashboard_tag" duration=829.111µs
+2025-07-31T08:33:15.3246841Z grafana          | logger=migrator t=2025-07-31T08:33:14.757616681Z level=info msg="Executing migration" id="Update dashboard table charset"
+2025-07-31T08:33:15.3248980Z grafana          | logger=migrator t=2025-07-31T08:33:14.75776185Z level=info msg="Migration successfully executed" id="Update dashboard table charset" duration=145.802µs
+2025-07-31T08:33:15.3251013Z grafana          | logger=migrator t=2025-07-31T08:33:14.764301487Z level=info msg="Executing migration" id="Update dashboard_tag table charset"
+2025-07-31T08:33:15.3252845Z grafana          | logger=migrator t=2025-07-31T08:33:14.764409858Z level=info msg="Migration successfully executed" id="Update dashboard_tag table charset" duration=109.083µs
+2025-07-31T08:33:15.3254566Z grafana          | logger=migrator t=2025-07-31T08:33:14.772047876Z level=info msg="Executing migration" id="Add column folder_id in dashboard"
+2025-07-31T08:33:15.3256072Z grafana          | logger=migrator t=2025-07-31T08:33:14.775221285Z level=info msg="Migration successfully executed" id="Add column folder_id in dashboard" duration=3.174601ms
+2025-07-31T08:33:15.3257593Z grafana          | logger=migrator t=2025-07-31T08:33:14.781374714Z level=info msg="Executing migration" id="Add column isFolder in dashboard"
+2025-07-31T08:33:15.3259086Z grafana          | logger=migrator t=2025-07-31T08:33:14.786685276Z level=info msg="Migration successfully executed" id="Add column isFolder in dashboard" duration=5.308178ms
+2025-07-31T08:33:15.3260588Z grafana          | logger=migrator t=2025-07-31T08:33:14.791568082Z level=info msg="Executing migration" id="Add column has_acl in dashboard"
+2025-07-31T08:33:15.3262064Z grafana          | logger=migrator t=2025-07-31T08:33:14.795627177Z level=info msg="Migration successfully executed" id="Add column has_acl in dashboard" duration=4.060017ms
+2025-07-31T08:33:15.3263845Z grafana          | logger=migrator t=2025-07-31T08:33:14.797670816Z level=info msg="Executing migration" id="Add column uid in dashboard"
+2025-07-31T08:33:15.3265301Z grafana          | logger=migrator t=2025-07-31T08:33:14.800920106Z level=info msg="Migration successfully executed" id="Add column uid in dashboard" duration=3.246525ms
+2025-07-31T08:33:15.3266873Z grafana          | logger=migrator t=2025-07-31T08:33:14.805982477Z level=info msg="Executing migration" id="Update uid column values in dashboard"
+2025-07-31T08:33:15.3268810Z grafana          | logger=migrator t=2025-07-31T08:33:14.806517121Z level=info msg="Migration successfully executed" id="Update uid column values in dashboard" duration=532.35µs
+2025-07-31T08:33:15.3270940Z grafana          | logger=migrator t=2025-07-31T08:33:14.811922909Z level=info msg="Executing migration" id="Add unique index dashboard_org_id_uid"
+2025-07-31T08:33:15.3272525Z grafana          | logger=migrator t=2025-07-31T08:33:14.815083394Z level=info msg="Migration successfully executed" id="Add unique index dashboard_org_id_uid" duration=3.160986ms
+2025-07-31T08:33:15.3274481Z grafana          | logger=migrator t=2025-07-31T08:33:14.817499656Z level=info msg="Executing migration" id="Remove unique index org_id_slug"
+2025-07-31T08:33:15.3276089Z grafana          | logger=migrator t=2025-07-31T08:33:14.818627833Z level=info msg="Migration successfully executed" id="Remove unique index org_id_slug" duration=1.127587ms
+2025-07-31T08:33:15.3277520Z grafana          | logger=migrator t=2025-07-31T08:33:14.821252913Z level=info msg="Executing migration" id="Update dashboard title length"
+2025-07-31T08:33:15.3279206Z grafana          | logger=migrator t=2025-07-31T08:33:14.821279141Z level=info msg="Migration successfully executed" id="Update dashboard title length" duration=26.84µs
+2025-07-31T08:33:15.3280831Z grafana          | logger=migrator t=2025-07-31T08:33:14.823752268Z level=info msg="Executing migration" id="Add unique index for dashboard_org_id_title_folder_id"
+2025-07-31T08:33:15.3282631Z grafana          | logger=migrator t=2025-07-31T08:33:14.827865274Z level=info msg="Migration successfully executed" id="Add unique index for dashboard_org_id_title_folder_id" duration=4.111162ms
+2025-07-31T08:33:15.3284530Z grafana          | logger=migrator t=2025-07-31T08:33:14.832401196Z level=info msg="Executing migration" id="create dashboard_provisioning"
+2025-07-31T08:33:15.3286391Z grafana          | logger=migrator t=2025-07-31T08:33:14.833224867Z level=info msg="Migration successfully executed" id="create dashboard_provisioning" duration=824.423µs
+2025-07-31T08:33:15.3288218Z grafana          | logger=migrator t=2025-07-31T08:33:14.842647572Z level=info msg="Executing migration" id="Rename table dashboard_provisioning to dashboard_provisioning_tmp_qwerty - v1"
+2025-07-31T08:33:15.3290306Z grafana          | logger=migrator t=2025-07-31T08:33:14.852262456Z level=info msg="Migration successfully executed" id="Rename table dashboard_provisioning to dashboard_provisioning_tmp_qwerty - v1" duration=9.614041ms
+2025-07-31T08:33:15.3292614Z grafana          | logger=migrator t=2025-07-31T08:33:14.854109589Z level=info msg="Executing migration" id="create dashboard_provisioning v2"
+2025-07-31T08:33:15.3294354Z grafana          | logger=migrator t=2025-07-31T08:33:14.855559574Z level=info msg="Migration successfully executed" id="create dashboard_provisioning v2" duration=1.450607ms
+2025-07-31T08:33:15.3296288Z grafana          | logger=migrator t=2025-07-31T08:33:14.858256478Z level=info msg="Executing migration" id="create index IDX_dashboard_provisioning_dashboard_id - v2"
+2025-07-31T08:33:15.3298895Z grafana          | logger=migrator t=2025-07-31T08:33:14.859071252Z level=info msg="Migration successfully executed" id="create index IDX_dashboard_provisioning_dashboard_id - v2" duration=814.524µs
+2025-07-31T08:33:15.3301088Z grafana          | logger=migrator t=2025-07-31T08:33:14.86237303Z level=info msg="Executing migration" id="create index IDX_dashboard_provisioning_dashboard_id_name - v2"
+2025-07-31T08:33:15.3302944Z grafana          | logger=migrator t=2025-07-31T08:33:14.863455812Z level=info msg="Migration successfully executed" id="create index IDX_dashboard_provisioning_dashboard_id_name - v2" duration=1.081911ms
+2025-07-31T08:33:15.3304949Z grafana          | logger=migrator t=2025-07-31T08:33:14.865207348Z level=info msg="Executing migration" id="copy dashboard_provisioning v1 to v2"
+2025-07-31T08:33:15.3307211Z grafana          | logger=migrator t=2025-07-31T08:33:14.865720923Z level=info msg="Migration successfully executed" id="copy dashboard_provisioning v1 to v2" duration=513.515µs
+2025-07-31T08:33:15.3308884Z grafana          | logger=migrator t=2025-07-31T08:33:14.868677339Z level=info msg="Executing migration" id="drop dashboard_provisioning_tmp_qwerty"
+2025-07-31T08:33:15.3310810Z grafana          | logger=migrator t=2025-07-31T08:33:14.869475352Z level=info msg="Migration successfully executed" id="drop dashboard_provisioning_tmp_qwerty" duration=797.823µs
+2025-07-31T08:33:15.3312631Z grafana          | logger=migrator t=2025-07-31T08:33:14.871595764Z level=info msg="Executing migration" id="Add check_sum column"
+2025-07-31T08:33:15.3314226Z grafana          | logger=migrator t=2025-07-31T08:33:14.873825068Z level=info msg="Migration successfully executed" id="Add check_sum column" duration=2.228683ms
+2025-07-31T08:33:15.3315983Z grafana          | logger=migrator t=2025-07-31T08:33:14.876155059Z level=info msg="Executing migration" id="Add index for dashboard_title"
+2025-07-31T08:33:15.3317531Z grafana          | logger=migrator t=2025-07-31T08:33:14.87808678Z level=info msg="Migration successfully executed" id="Add index for dashboard_title" duration=1.931981ms
+2025-07-31T08:33:15.3319106Z grafana          | logger=migrator t=2025-07-31T08:33:14.879834518Z level=info msg="Executing migration" id="delete tags for deleted dashboards"
+2025-07-31T08:33:15.3320992Z grafana          | logger=migrator t=2025-07-31T08:33:14.880270379Z level=info msg="Migration successfully executed" id="delete tags for deleted dashboards" duration=435.59µs
+2025-07-31T08:33:15.3322566Z grafana          | logger=migrator t=2025-07-31T08:33:14.883255868Z level=info msg="Executing migration" id="delete stars for deleted dashboards"
+2025-07-31T08:33:15.3325029Z grafana          | logger=migrator t=2025-07-31T08:33:14.883477851Z level=info msg="Migration successfully executed" id="delete stars for deleted dashboards" duration=222.243µs
+2025-07-31T08:33:15.3326565Z grafana          | logger=migrator t=2025-07-31T08:33:14.885008747Z level=info msg="Executing migration" id="Add index for dashboard_is_folder"
+2025-07-31T08:33:15.3328249Z grafana          | logger=migrator t=2025-07-31T08:33:14.887387669Z level=info msg="Migration successfully executed" id="Add index for dashboard_is_folder" duration=2.380344ms
+2025-07-31T08:33:15.3330058Z grafana          | logger=migrator t=2025-07-31T08:33:14.888975731Z level=info msg="Executing migration" id="Add isPublic for dashboard"
+2025-07-31T08:33:15.3331953Z grafana          | logger=migrator t=2025-07-31T08:33:14.891204564Z level=info msg="Migration successfully executed" id="Add isPublic for dashboard" duration=2.228342ms
+2025-07-31T08:33:15.3334310Z grafana          | logger=migrator t=2025-07-31T08:33:14.893313725Z level=info msg="Executing migration" id="Add deleted for dashboard"
+2025-07-31T08:33:15.3336314Z grafana          | logger=migrator t=2025-07-31T08:33:14.898401071Z level=info msg="Migration successfully executed" id="Add deleted for dashboard" duration=5.084362ms
+2025-07-31T08:33:15.3338336Z grafana          | logger=migrator t=2025-07-31T08:33:14.900964276Z level=info msg="Executing migration" id="Add index for deleted"
+2025-07-31T08:33:15.3348711Z grafana          | logger=migrator t=2025-07-31T08:33:14.902755165Z level=info msg="Migration successfully executed" id="Add index for deleted" duration=1.789556ms
+2025-07-31T08:33:15.3350781Z grafana          | logger=migrator t=2025-07-31T08:33:14.906266272Z level=info msg="Executing migration" id="Add column dashboard_uid in dashboard_tag"
+2025-07-31T08:33:15.3353831Z grafana          | logger=migrator t=2025-07-31T08:33:14.910754205Z level=info msg="Migration successfully executed" id="Add column dashboard_uid in dashboard_tag" duration=4.486881ms
+2025-07-31T08:33:15.3356365Z grafana          | logger=migrator t=2025-07-31T08:33:14.913226931Z level=info msg="Executing migration" id="Add column org_id in dashboard_tag"
+2025-07-31T08:33:15.3358779Z grafana          | logger=migrator t=2025-07-31T08:33:14.915728651Z level=info msg="Migration successfully executed" id="Add column org_id in dashboard_tag" duration=2.501159ms
+2025-07-31T08:33:15.3361220Z grafana          | logger=migrator t=2025-07-31T08:33:14.917586705Z level=info msg="Executing migration" id="Add missing dashboard_uid and org_id to dashboard_tag"
+2025-07-31T08:33:15.3364530Z grafana          | logger=migrator t=2025-07-31T08:33:14.918055857Z level=info msg="Migration successfully executed" id="Add missing dashboard_uid and org_id to dashboard_tag" duration=468.832µs
+2025-07-31T08:33:15.3370076Z grafana          | logger=migrator t=2025-07-31T08:33:14.920915924Z level=info msg="Executing migration" id="Add apiVersion for dashboard"
+2025-07-31T08:33:15.3372519Z grafana          | logger=migrator t=2025-07-31T08:33:14.923122055Z level=info msg="Migration successfully executed" id="Add apiVersion for dashboard" duration=2.205991ms
+2025-07-31T08:33:15.3385013Z grafana          | logger=migrator t=2025-07-31T08:33:14.92746627Z level=info msg="Executing migration" id="Add index for dashboard_uid on dashboard_tag table"
+2025-07-31T08:33:15.3394472Z grafana          | logger=migrator t=2025-07-31T08:33:14.92894038Z level=info msg="Migration successfully executed" id="Add index for dashboard_uid on dashboard_tag table" duration=1.471966ms
+2025-07-31T08:33:15.3398283Z grafana          | logger=migrator t=2025-07-31T08:33:14.932413276Z level=info msg="Executing migration" id="Add missing dashboard_uid and org_id to star"
+2025-07-31T08:33:15.3402570Z grafana          | logger=migrator t=2025-07-31T08:33:14.932888449Z level=info msg="Migration successfully executed" id="Add missing dashboard_uid and org_id to star" duration=475.224µs
+2025-07-31T08:33:15.3404218Z grafana          | logger=migrator t=2025-07-31T08:33:14.934457115Z level=info msg="Executing migration" id="create data_source table"
+2025-07-31T08:33:15.3412917Z grafana          | logger=migrator t=2025-07-31T08:33:14.93653984Z level=info msg="Migration successfully executed" id="create data_source table" duration=2.082655ms
+2025-07-31T08:33:15.3424496Z grafana          | logger=migrator t=2025-07-31T08:33:14.939874228Z level=info msg="Executing migration" id="add index data_source.account_id"
+2025-07-31T08:33:15.3426426Z grafana          | logger=migrator t=2025-07-31T08:33:14.940690916Z level=info msg="Migration successfully executed" id="add index data_source.account_id" duration=819.082µs
+2025-07-31T08:33:15.3427836Z grafana          | logger=migrator t=2025-07-31T08:33:14.942519164Z level=info msg="Executing migration" id="add unique index data_source.account_id_name"
+2025-07-31T08:33:15.3429273Z grafana          | logger=migrator t=2025-07-31T08:33:14.944089443Z level=info msg="Migration successfully executed" id="add unique index data_source.account_id_name" duration=1.570249ms
+2025-07-31T08:33:15.3430691Z grafana          | logger=migrator t=2025-07-31T08:33:14.946809991Z level=info msg="Executing migration" id="drop index IDX_data_source_account_id - v1"
+2025-07-31T08:33:15.3432096Z grafana          | logger=migrator t=2025-07-31T08:33:14.948441774Z level=info msg="Migration successfully executed" id="drop index IDX_data_source_account_id - v1" duration=1.631463ms
+2025-07-31T08:33:15.3433808Z grafana          | logger=migrator t=2025-07-31T08:33:14.950374627Z level=info msg="Executing migration" id="drop index UQE_data_source_account_id_name - v1"
+2025-07-31T08:33:15.3435563Z grafana          | logger=migrator t=2025-07-31T08:33:14.952608139Z level=info msg="Migration successfully executed" id="drop index UQE_data_source_account_id_name - v1" duration=2.2327ms
+2025-07-31T08:33:15.3438482Z grafana          | logger=migrator t=2025-07-31T08:33:14.956668386Z level=info msg="Executing migration" id="Rename table data_source to data_source_v1 - v1"
+2025-07-31T08:33:15.3440003Z grafana          | logger=migrator t=2025-07-31T08:33:14.974414724Z level=info msg="Migration successfully executed" id="Rename table data_source to data_source_v1 - v1" duration=17.741459ms
+2025-07-31T08:33:15.3441935Z grafana          | logger=migrator t=2025-07-31T08:33:14.976579288Z level=info msg="Executing migration" id="create data_source table v2"
+2025-07-31T08:33:15.3443081Z grafana          | logger=migrator t=2025-07-31T08:33:14.978113149Z level=info msg="Migration successfully executed" id="create data_source table v2" duration=1.533571ms
+2025-07-31T08:33:15.3444602Z grafana          | logger=migrator t=2025-07-31T08:33:14.987777975Z level=info msg="Executing migration" id="create index IDX_data_source_org_id - v2"
+2025-07-31T08:33:15.3446770Z grafana          | logger=migrator t=2025-07-31T08:33:14.98874383Z level=info msg="Migration successfully executed" id="create index IDX_data_source_org_id - v2" duration=970.203µs
+2025-07-31T08:33:15.3449068Z grafana          | logger=migrator t=2025-07-31T08:33:14.991961679Z level=info msg="Executing migration" id="create index UQE_data_source_org_id_name - v2"
+2025-07-31T08:33:15.3450978Z grafana          | logger=migrator t=2025-07-31T08:33:14.992708918Z level=info msg="Migration successfully executed" id="create index UQE_data_source_org_id_name - v2" duration=745.075µs
+2025-07-31T08:33:15.3452570Z grafana          | logger=migrator t=2025-07-31T08:33:14.997796646Z level=info msg="Executing migration" id="Drop old table data_source_v1 #2"
+2025-07-31T08:33:15.3454606Z grafana          | logger=migrator t=2025-07-31T08:33:14.998408112Z level=info msg="Migration successfully executed" id="Drop old table data_source_v1 #2" duration=611.567µs
+2025-07-31T08:33:15.3456159Z grafana          | logger=migrator t=2025-07-31T08:33:15.000521611Z level=info msg="Executing migration" id="Add column with_credentials"
+2025-07-31T08:33:15.3457626Z grafana          | logger=migrator t=2025-07-31T08:33:15.003767084Z level=info msg="Migration successfully executed" id="Add column with_credentials" duration=3.245422ms
+2025-07-31T08:33:15.3459107Z grafana          | logger=migrator t=2025-07-31T08:33:15.005960431Z level=info msg="Executing migration" id="Add secure json data column"
+2025-07-31T08:33:15.3460551Z grafana          | logger=migrator t=2025-07-31T08:33:15.008491499Z level=info msg="Migration successfully executed" id="Add secure json data column" duration=2.530186ms
+2025-07-31T08:33:15.3462081Z grafana          | logger=migrator t=2025-07-31T08:33:15.010374549Z level=info msg="Executing migration" id="Update data_source table charset"
+2025-07-31T08:33:15.3464156Z grafana          | logger=migrator t=2025-07-31T08:33:15.010491096Z level=info msg="Migration successfully executed" id="Update data_source table charset" duration=88.825µs
+2025-07-31T08:33:15.3465721Z grafana          | logger=migrator t=2025-07-31T08:33:15.012971898Z level=info msg="Executing migration" id="Update initial version to 1"
+2025-07-31T08:33:15.3467529Z grafana          | logger=migrator t=2025-07-31T08:33:15.013251137Z level=info msg="Migration successfully executed" id="Update initial version to 1" duration=279.129µs
+2025-07-31T08:33:15.3469050Z grafana          | logger=migrator t=2025-07-31T08:33:15.016017569Z level=info msg="Executing migration" id="Add read_only data column"
+2025-07-31T08:33:15.3470533Z grafana          | logger=migrator t=2025-07-31T08:33:15.019120146Z level=info msg="Migration successfully executed" id="Add read_only data column" duration=3.099822ms
+2025-07-31T08:33:15.3472056Z grafana          | logger=migrator t=2025-07-31T08:33:15.024278415Z level=info msg="Executing migration" id="Migrate logging ds to loki ds"
+2025-07-31T08:33:15.3474042Z grafana          | logger=migrator t=2025-07-31T08:33:15.024561571Z level=info msg="Migration successfully executed" id="Migrate logging ds to loki ds" duration=282.736µs
+2025-07-31T08:33:15.3475600Z grafana          | logger=migrator t=2025-07-31T08:33:15.029958463Z level=info msg="Executing migration" id="Update json_data with nulls"
+2025-07-31T08:33:15.3477400Z grafana          | logger=migrator t=2025-07-31T08:33:15.030405044Z level=info msg="Migration successfully executed" id="Update json_data with nulls" duration=447.141µs
+2025-07-31T08:33:15.3478865Z grafana          | logger=migrator t=2025-07-31T08:33:15.035175682Z level=info msg="Executing migration" id="Add uid column"
+2025-07-31T08:33:15.3480258Z grafana          | logger=migrator t=2025-07-31T08:33:15.039641981Z level=info msg="Migration successfully executed" id="Add uid column" duration=4.466419ms
+2025-07-31T08:33:15.3481663Z grafana          | logger=migrator t=2025-07-31T08:33:15.042514258Z level=info msg="Executing migration" id="Update uid value"
+2025-07-31T08:33:15.3483754Z grafana          | logger=migrator t=2025-07-31T08:33:15.042684274Z level=info msg="Migration successfully executed" id="Update uid value" duration=169.755µs
+2025-07-31T08:33:15.3485200Z grafana          | logger=migrator t=2025-07-31T08:33:15.050661192Z level=info msg="Executing migration" id="Add unique index datasource_org_id_uid"
+2025-07-31T08:33:15.3487220Z grafana          | logger=migrator t=2025-07-31T08:33:15.051609044Z level=info msg="Migration successfully executed" id="Add unique index datasource_org_id_uid" duration=950.356µs
+2025-07-31T08:33:15.3488795Z grafana          | logger=migrator t=2025-07-31T08:33:15.054619059Z level=info msg="Executing migration" id="add unique index datasource_org_id_is_default"
+2025-07-31T08:33:15.3490490Z grafana          | logger=migrator t=2025-07-31T08:33:15.055723632Z level=info msg="Migration successfully executed" id="add unique index datasource_org_id_is_default" duration=1.104153ms
+2025-07-31T08:33:15.3492041Z grafana          | logger=migrator t=2025-07-31T08:33:15.058476539Z level=info msg="Executing migration" id="Add is_prunable column"
+2025-07-31T08:33:15.3493584Z grafana          | logger=migrator t=2025-07-31T08:33:15.063494407Z level=info msg="Migration successfully executed" id="Add is_prunable column" duration=5.014722ms
+2025-07-31T08:33:15.3495067Z grafana          | logger=migrator t=2025-07-31T08:33:15.067580763Z level=info msg="Executing migration" id="Add api_version column"
+2025-07-31T08:33:15.3496444Z grafana          | logger=migrator t=2025-07-31T08:33:15.070783928Z level=info msg="Migration successfully executed" id="Add api_version column" duration=3.203335ms
+2025-07-31T08:33:15.3497919Z grafana          | logger=migrator t=2025-07-31T08:33:15.073364424Z level=info msg="Executing migration" id="Update secure_json_data column to MediumText"
+2025-07-31T08:33:15.3500434Z grafana          | logger=migrator t=2025-07-31T08:33:15.073428814Z level=info msg="Migration successfully executed" id="Update secure_json_data column to MediumText" duration=66.815µs
+2025-07-31T08:33:15.3502333Z grafana          | logger=migrator t=2025-07-31T08:33:15.074939061Z level=info msg="Executing migration" id="create api_key table"
+2025-07-31T08:33:15.3504482Z grafana          | logger=migrator t=2025-07-31T08:33:15.07575048Z level=info msg="Migration successfully executed" id="create api_key table" duration=811.168µs
+2025-07-31T08:33:15.3505943Z grafana          | logger=migrator t=2025-07-31T08:33:15.083939522Z level=info msg="Executing migration" id="add index api_key.account_id"
+2025-07-31T08:33:15.3507719Z grafana          | logger=migrator t=2025-07-31T08:33:15.084866265Z level=info msg="Migration successfully executed" id="add index api_key.account_id" duration=926.192µs
+2025-07-31T08:33:15.3509170Z grafana          | logger=migrator t=2025-07-31T08:33:15.086810679Z level=info msg="Executing migration" id="add index api_key.key"
+2025-07-31T08:33:15.3510626Z grafana          | logger=migrator t=2025-07-31T08:33:15.087932655Z level=info msg="Migration successfully executed" id="add index api_key.key" duration=1.121605ms
+2025-07-31T08:33:15.3512227Z grafana          | logger=migrator t=2025-07-31T08:33:15.090771993Z level=info msg="Executing migration" id="add index api_key.account_id_name"
+2025-07-31T08:33:15.3514216Z grafana          | logger=migrator t=2025-07-31T08:33:15.091639285Z level=info msg="Migration successfully executed" id="add index api_key.account_id_name" duration=865.459µs
+2025-07-31T08:33:15.3515737Z grafana          | logger=migrator t=2025-07-31T08:33:15.093123614Z level=info msg="Executing migration" id="drop index IDX_api_key_account_id - v1"
+2025-07-31T08:33:15.3517260Z grafana          | logger=migrator t=2025-07-31T08:33:15.095761989Z level=info msg="Migration successfully executed" id="drop index IDX_api_key_account_id - v1" duration=2.632964ms
+2025-07-31T08:33:15.3518750Z grafana          | logger=migrator t=2025-07-31T08:33:15.097451339Z level=info msg="Executing migration" id="drop index UQE_api_key_key - v1"
+2025-07-31T08:33:15.3520473Z grafana          | logger=migrator t=2025-07-31T08:33:15.098539281Z level=info msg="Migration successfully executed" id="drop index UQE_api_key_key - v1" duration=1.085517ms
+2025-07-31T08:33:15.3521998Z grafana          | logger=migrator t=2025-07-31T08:33:15.104575943Z level=info msg="Executing migration" id="drop index UQE_api_key_account_id_name - v1"
+2025-07-31T08:33:15.3524220Z grafana          | logger=migrator t=2025-07-31T08:33:15.105496844Z level=info msg="Migration successfully executed" id="drop index UQE_api_key_account_id_name - v1" duration=920.882µs
+2025-07-31T08:33:15.3525784Z grafana          | logger=migrator t=2025-07-31T08:33:15.107767626Z level=info msg="Executing migration" id="Rename table api_key to api_key_v1 - v1"
+2025-07-31T08:33:15.3527334Z grafana          | logger=migrator t=2025-07-31T08:33:15.115658714Z level=info msg="Migration successfully executed" id="Rename table api_key to api_key_v1 - v1" duration=7.887783ms
+2025-07-31T08:33:15.3528813Z grafana          | logger=migrator t=2025-07-31T08:33:15.118172206Z level=info msg="Executing migration" id="create api_key table v2"
+2025-07-31T08:33:15.3530552Z grafana          | logger=migrator t=2025-07-31T08:33:15.119077259Z level=info msg="Migration successfully executed" id="create api_key table v2" duration=904.942µs
+2025-07-31T08:33:15.3532030Z grafana          | logger=migrator t=2025-07-31T08:33:15.121986397Z level=info msg="Executing migration" id="create index IDX_api_key_org_id - v2"
+2025-07-31T08:33:15.3537374Z grafana          | logger=migrator t=2025-07-31T08:33:15.12326863Z level=info msg="Migration successfully executed" id="create index IDX_api_key_org_id - v2" duration=1.282144ms
+2025-07-31T08:33:15.3540996Z grafana          | logger=migrator t=2025-07-31T08:33:15.124863143Z level=info msg="Executing migration" id="create index UQE_api_key_key - v2"
+2025-07-31T08:33:15.3542891Z grafana          | logger=migrator t=2025-07-31T08:33:15.125576228Z level=info msg="Migration successfully executed" id="create index UQE_api_key_key - v2" duration=712.554µs
+2025-07-31T08:33:15.3549712Z grafana          | logger=migrator t=2025-07-31T08:33:15.129531114Z level=info msg="Executing migration" id="create index UQE_api_key_org_id_name - v2"
+2025-07-31T08:33:15.3555346Z grafana          | logger=migrator t=2025-07-31T08:33:15.130290385Z level=info msg="Migration successfully executed" id="create index UQE_api_key_org_id_name - v2" duration=757.208µs
+2025-07-31T08:33:15.3558358Z grafana          | logger=migrator t=2025-07-31T08:33:15.1336446Z level=info msg="Executing migration" id="copy api_key v1 to v2"
+2025-07-31T08:33:15.3562617Z grafana          | logger=migrator t=2025-07-31T08:33:15.133958424Z level=info msg="Migration successfully executed" id="copy api_key v1 to v2" duration=313.733µs
+2025-07-31T08:33:15.3566304Z grafana          | logger=migrator t=2025-07-31T08:33:15.138500006Z level=info msg="Executing migration" id="Drop old table api_key_v1"
+2025-07-31T08:33:15.3570710Z grafana          | logger=migrator t=2025-07-31T08:33:15.139122643Z level=info msg="Migration successfully executed" id="Drop old table api_key_v1" duration=622.697µs
+2025-07-31T08:33:15.3574586Z grafana          | logger=migrator t=2025-07-31T08:33:15.142384978Z level=info msg="Executing migration" id="Update api_key table charset"
+2025-07-31T08:33:15.3577837Z grafana          | logger=migrator t=2025-07-31T08:33:15.142419542Z level=info msg="Migration successfully executed" id="Update api_key table charset" duration=35.356µs
+2025-07-31T08:33:15.3580578Z grafana          | logger=migrator t=2025-07-31T08:33:15.144753791Z level=info msg="Executing migration" id="Add expires to api_key table"
+2025-07-31T08:33:15.3583527Z grafana          | logger=migrator t=2025-07-31T08:33:15.149604458Z level=info msg="Migration successfully executed" id="Add expires to api_key table" duration=4.849986ms
+2025-07-31T08:33:15.3585436Z grafana          | logger=migrator t=2025-07-31T08:33:15.151252501Z level=info msg="Executing migration" id="Add service account foreign key"
+2025-07-31T08:33:15.3588801Z grafana          | logger=migrator t=2025-07-31T08:33:15.1537531Z level=info msg="Migration successfully executed" id="Add service account foreign key" duration=2.499948ms
+2025-07-31T08:33:15.3592491Z grafana          | logger=migrator t=2025-07-31T08:33:15.155250413Z level=info msg="Executing migration" id="set service account foreign key to nil if 0"
+2025-07-31T08:33:15.3599719Z grafana          | logger=migrator t=2025-07-31T08:33:15.15600752Z level=info msg="Migration successfully executed" id="set service account foreign key to nil if 0" duration=756.937µs
+2025-07-31T08:33:15.3601518Z grafana          | logger=migrator t=2025-07-31T08:33:15.157701439Z level=info msg="Executing migration" id="Add last_used_at to api_key table"
+2025-07-31T08:33:15.3603084Z grafana          | logger=migrator t=2025-07-31T08:33:15.16120423Z level=info msg="Migration successfully executed" id="Add last_used_at to api_key table" duration=3.502381ms
+2025-07-31T08:33:15.3607925Z grafana          | logger=migrator t=2025-07-31T08:33:15.163267496Z level=info msg="Executing migration" id="Add is_revoked column to api_key table"
+2025-07-31T08:33:15.3609579Z grafana          | logger=migrator t=2025-07-31T08:33:15.166565086Z level=info msg="Migration successfully executed" id="Add is_revoked column to api_key table" duration=3.29754ms
+2025-07-31T08:33:15.3611198Z grafana          | logger=migrator t=2025-07-31T08:33:15.169180791Z level=info msg="Executing migration" id="create dashboard_snapshot table v4"
+2025-07-31T08:33:15.3619490Z grafana          | logger=migrator t=2025-07-31T08:33:15.171747231Z level=info msg="Migration successfully executed" id="create dashboard_snapshot table v4" duration=2.565458ms
+2025-07-31T08:33:15.3621141Z grafana          | logger=migrator t=2025-07-31T08:33:15.175006658Z level=info msg="Executing migration" id="drop table dashboard_snapshot_v4 #1"
+2025-07-31T08:33:15.3623456Z grafana          | logger=migrator t=2025-07-31T08:33:15.175644313Z level=info msg="Migration successfully executed" id="drop table dashboard_snapshot_v4 #1" duration=637.886µs
+2025-07-31T08:33:15.3625090Z grafana          | logger=migrator t=2025-07-31T08:33:15.185986067Z level=info msg="Executing migration" id="create dashboard_snapshot table v5 #2"
+2025-07-31T08:33:15.3626976Z grafana          | logger=migrator t=2025-07-31T08:33:15.186855042Z level=info msg="Migration successfully executed" id="create dashboard_snapshot table v5 #2" duration=869.046µs
+2025-07-31T08:33:15.3628657Z grafana          | logger=migrator t=2025-07-31T08:33:15.189536908Z level=info msg="Executing migration" id="create index UQE_dashboard_snapshot_key - v5"
+2025-07-31T08:33:15.3630628Z grafana          | logger=migrator t=2025-07-31T08:33:15.1904261Z level=info msg="Migration successfully executed" id="create index UQE_dashboard_snapshot_key - v5" duration=891.127µs
+2025-07-31T08:33:15.3632086Z prometheus       | time=2025-07-31T08:33:11.729Z level=INFO source=main.go:1544 msg="updated GOGC" old=100 new=75
+2025-07-31T08:33:15.3635833Z prometheus       | time=2025-07-31T08:33:11.731Z level=INFO source=main.go:676 msg="Leaving GOMAXPROCS=4: CPU quota undefined" component=automaxprocs
+2025-07-31T08:33:15.3637914Z prometheus       | time=2025-07-31T08:33:11.731Z level=INFO source=memlimit.go:198 msg="GOMEMLIMIT is updated" component=automemlimit package=github.com/KimMachineGun/automemlimit/memlimit GOMEMLIMIT=15095314022 previous=9223372036854775807
+2025-07-31T08:33:15.3639988Z prometheus       | time=2025-07-31T08:33:11.731Z level=INFO source=main.go:718 msg="No time or size retention was set so using the default time retention" duration=15d
+2025-07-31T08:33:15.3641818Z prometheus       | time=2025-07-31T08:33:11.731Z level=INFO source=main.go:769 msg="Starting Prometheus Server" mode=server version="(version=3.5.0, branch=HEAD, revision=8be3a9560fbdd18a94dedec4b747c35178177202)"
+2025-07-31T08:33:15.3647087Z prometheus       | time=2025-07-31T08:33:11.731Z level=INFO source=main.go:774 msg="operational information" build_context="(go=go1.24.5, platform=linux/amd64, user=root@4451b64cb451, date=20250714-16:15:23, tags=netgo,builtinassets)" host_details="(Linux 6.11.0-1018-azure #18~24.04.1-Ubuntu SMP Sat Jun 28 04:46:03 UTC 2025 x86_64 baca5eab0147 (none))" fd_limits="(soft=1048576, hard=1048576)" vm_limits="(soft=unlimited, hard=unlimited)"
+2025-07-31T08:33:15.3650726Z prometheus       | time=2025-07-31T08:33:11.735Z level=INFO source=web.go:656 msg="Start listening for connections" component=web address=0.0.0.0:9090
+2025-07-31T08:33:15.3652004Z prometheus       | time=2025-07-31T08:33:11.738Z level=INFO source=main.go:1288 msg="Starting TSDB ..."
+2025-07-31T08:33:15.3653169Z prometheus       | time=2025-07-31T08:33:11.742Z level=INFO source=tls_config.go:347 msg="Listening on" component=web address=[::]:9090
+2025-07-31T08:33:15.3654640Z prometheus       | time=2025-07-31T08:33:11.742Z level=INFO source=tls_config.go:350 msg="TLS is disabled." component=web http2=false address=[::]:9090
+2025-07-31T08:33:15.3656062Z prometheus       | time=2025-07-31T08:33:11.752Z level=INFO source=head.go:657 msg="Replaying on-disk memory mappable chunks if any" component=tsdb
+2025-07-31T08:33:15.3658805Z prometheus       | time=2025-07-31T08:33:11.753Z level=INFO source=head.go:744 msg="On-disk memory mappable chunks replay completed" component=tsdb duration=1.513µs
+2025-07-31T08:33:15.3660423Z prometheus       | time=2025-07-31T08:33:11.753Z level=INFO source=head.go:752 msg="Replaying WAL, this may take a while" component=tsdb
+2025-07-31T08:33:15.3662213Z prometheus       | time=2025-07-31T08:33:11.753Z level=INFO source=head.go:825 msg="WAL segment loaded" component=tsdb segment=0 maxSegment=0 duration=190.013µs
+2025-07-31T08:33:15.3665470Z prometheus       | time=2025-07-31T08:33:11.753Z level=INFO source=head.go:862 msg="WAL replay completed" component=tsdb checkpoint_replay_duration=57.187µs wal_replay_duration=214.278µs wbl_replay_duration=181ns chunk_snapshot_load_duration=0s mmap_chunk_replay_duration=1.513µs total_replay_duration=348.618µs
+2025-07-31T08:33:15.3667705Z prometheus       | time=2025-07-31T08:33:11.757Z level=INFO source=main.go:1309 msg="filesystem information" fs_type=EXT4_SUPER_MAGIC
+2025-07-31T08:33:15.3668789Z prometheus       | time=2025-07-31T08:33:11.761Z level=INFO source=main.go:1312 msg="TSDB started"
+2025-07-31T08:33:15.3669987Z prometheus       | time=2025-07-31T08:33:11.761Z level=INFO source=main.go:1497 msg="Loading configuration file" filename=/etc/prometheus/prometheus.yml
+2025-07-31T08:33:15.3672940Z prometheus       | time=2025-07-31T08:33:11.762Z level=INFO source=main.go:1537 msg="Completed loading of configuration file" db_storage=1.272µs remote_storage=1.723µs web_handler=951ns query_engine=1.412µs scrape=274.58µs scrape_sd=54µs notify=1.402µs notify_sd=822ns rules=1.674µs tracing=8.024µs filename=/etc/prometheus/prometheus.yml totalDuration=624.941µs
+2025-07-31T08:33:15.3675415Z prometheus       | time=2025-07-31T08:33:11.762Z level=INFO source=main.go:1273 msg="Server is ready to receive web requests."
+2025-07-31T08:33:15.3676824Z prometheus       | time=2025-07-31T08:33:11.762Z level=INFO source=manager.go:176 msg="Starting rule manager..." component="rule manager"
+2025-07-31T08:33:15.3677809Z watchtower       | time="2025-07-31T08:33:12Z" level=info msg="Watchtower 1.7.1"
+2025-07-31T08:33:15.3679164Z watchtower       | time="2025-07-31T08:33:12Z" level=info msg="Using no notifications"
+2025-07-31T08:33:15.3680200Z watchtower       | time="2025-07-31T08:33:12Z" level=info msg="Checking all containers (except explicitly disabled with label)"
+2025-07-31T08:33:15.3681353Z watchtower       | time="2025-07-31T08:33:12Z" level=info msg="Scheduling first run: 2025-07-31 08:34:12 +0000 UTC"
+2025-07-31T08:33:15.3682450Z watchtower       | time="2025-07-31T08:33:12Z" level=info msg="Note that the first check will be performed in 59 seconds"
+2025-07-31T08:33:15.3683435Z redis_store      | 
+2025-07-31T08:33:15.3683891Z redis_store      | *** FATAL CONFIG FILE ERROR (Redis 7.4.5) ***
+2025-07-31T08:33:15.3684521Z redis_store      | Reading the configuration file, at line 2
+2025-07-31T08:33:15.3685347Z redis_store      | >>> 'requirepass'
+2025-07-31T08:33:15.3685791Z redis_store      | wrong number of arguments
+2025-07-31T08:33:15.3686227Z redis_store      | 
+2025-07-31T08:33:15.3686643Z redis_store      | *** FATAL CONFIG FILE ERROR (Redis 7.4.5) ***
+2025-07-31T08:33:15.3687511Z redis_store      | Reading the configuration file, at line 2
+2025-07-31T08:33:15.3688187Z redis_store      | >>> 'requirepass'
+2025-07-31T08:33:15.3688644Z redis_store      | wrong number of arguments
+2025-07-31T08:33:15.3689090Z redis_store      | 
+2025-07-31T08:33:15.3689511Z redis_store      | *** FATAL CONFIG FILE ERROR (Redis 7.4.5) ***
+2025-07-31T08:33:15.3690412Z redis_store      | Reading the configuration file, at line 2
+2025-07-31T08:33:15.3691005Z redis_store      | >>> 'requirepass'
+2025-07-31T08:33:15.3691452Z redis_store      | wrong number of arguments
+2025-07-31T08:33:15.3691882Z redis_store      | 
+2025-07-31T08:33:15.3692291Z redis_store      | *** FATAL CONFIG FILE ERROR (Redis 7.4.5) ***
+2025-07-31T08:33:15.3692925Z redis_store      | Reading the configuration file, at line 2
+2025-07-31T08:33:15.3693847Z redis_store      | >>> 'requirepass'
+2025-07-31T08:33:15.3694298Z redis_store      | wrong number of arguments
+2025-07-31T08:33:15.3694820Z mailhog          | [HTTP] Binding to address: 0.0.0.0:8025
+2025-07-31T08:33:15.3695373Z mailhog          | Creating API v1 with WebPath: 
+2025-07-31T08:33:15.3695866Z mailhog          | Creating API v2 with WebPath: 
+2025-07-31T08:33:15.3696654Z mailhog          | 2025/07/31 08:33:11 Using in-memory storage
+2025-07-31T08:33:15.3697601Z mailhog          | 2025/07/31 08:33:11 Serving under http://0.0.0.0:8025/
+2025-07-31T08:33:15.3698301Z mailhog          | 2025/07/31 08:33:11 [SMTP] Binding to address: 0.0.0.0:1025
+2025-07-31T08:33:15.3699100Z traefik          | time="2025-07-31T08:33:11Z" level=info msg="Configuration loaded from flags."
+2025-07-31T08:33:15.3700746Z traefik          | time="2025-07-31T08:33:11Z" level=error msg="Failed to retrieve information of the docker client and server host: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?" providerName=docker
+2025-07-31T08:33:15.3703425Z traefik          | time="2025-07-31T08:33:11Z" level=error msg="Provider connection error Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?, retrying in 631.816894ms" providerName=docker
+2025-07-31T08:33:15.3706451Z traefik          | time="2025-07-31T08:33:12Z" level=error msg="Failed to retrieve information of the docker client and server host: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?" providerName=docker
+2025-07-31T08:33:15.3709495Z traefik          | time="2025-07-31T08:33:12Z" level=error msg="Provider connection error Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?, retrying in 663.043303ms" providerName=docker
+2025-07-31T08:33:15.3712088Z traefik          | time="2025-07-31T08:33:12Z" level=error msg="Failed to retrieve information of the docker client and server host: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?" providerName=docker
+2025-07-31T08:33:15.3718732Z traefik          | time="2025-07-31T08:33:12Z" level=error msg="Provider connection error Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?, retrying in 763.935311ms" providerName=docker
+2025-07-31T08:33:15.3722393Z traefik          | time="2025-07-31T08:33:13Z" level=error msg="Failed to retrieve information of the docker client and server host: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?" providerName=docker
+2025-07-31T08:33:15.3725412Z traefik          | time="2025-07-31T08:33:13Z" level=error msg="Provider connection error Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?, retrying in 2.294169639s" providerName=docker
+2025-07-31T08:33:15.3727233Z cloud_proxy      | INFO:     Uvicorn running on http://0.0.0.0:8008 (Press CTRL+C to quit)
+2025-07-31T08:33:15.3727958Z cloud_proxy      | INFO:     Started parent process [1]
+2025-07-31T08:33:15.3728754Z cloud_proxy      | INFO:     Started server process [8]
+2025-07-31T08:33:15.3729345Z cloud_proxy      | INFO:     Waiting for application startup.
+2025-07-31T08:33:15.3729933Z cloud_proxy      | INFO:     Application startup complete.
+2025-07-31T08:33:15.3730482Z cloud_proxy      | INFO:     Started server process [9]
+2025-07-31T08:33:15.3731010Z cloud_proxy      | INFO:     Waiting for application startup.
+2025-07-31T08:33:15.3731567Z cloud_proxy      | INFO:     Application startup complete.
+2025-07-31T08:33:15.3732108Z llama3           | Error: unknown command "sh" for "ollama"
+2025-07-31T08:33:15.3732556Z llama3           | 
+2025-07-31T08:33:15.3732877Z llama3           | Did you mean this?
+2025-07-31T08:33:15.3733507Z llama3           | 	show
+2025-07-31T08:33:15.3733863Z llama3           | 	push
+2025-07-31T08:33:15.3734184Z llama3           | 	ps
+2025-07-31T08:33:15.3734510Z llama3           | 	cp
+2025-07-31T08:33:15.3734815Z llama3           | 	rm
+2025-07-31T08:33:15.3735132Z llama3           | 
+2025-07-31T08:33:15.3735502Z llama3           | Error: unknown command "sh" for "ollama"
+2025-07-31T08:33:15.3735972Z llama3           | 
+2025-07-31T08:33:15.3736292Z llama3           | Did you mean this?
+2025-07-31T08:33:15.3736670Z llama3           | 	show
+2025-07-31T08:33:15.3736990Z llama3           | 	push
+2025-07-31T08:33:15.3737310Z llama3           | 	ps
+2025-07-31T08:33:15.3737618Z llama3           | 	cp
+2025-07-31T08:33:15.3737895Z llama3           | 	rm
+2025-07-31T08:33:15.3738213Z llama3           | 
+2025-07-31T08:33:15.3738607Z llama3           | Error: unknown command "sh" for "ollama"
+2025-07-31T08:33:15.3739098Z llama3           | 
+2025-07-31T08:33:15.3739422Z llama3           | Did you mean this?
+2025-07-31T08:33:15.3739839Z llama3           | 	show
+2025-07-31T08:33:15.3741127Z llama3           | 	push
+2025-07-31T08:33:15.3741720Z llama3           | 	ps
+2025-07-31T08:33:15.3742067Z llama3           | 	cp
+2025-07-31T08:33:15.3742382Z llama3           | 	rm
+2025-07-31T08:33:15.3742708Z llama3           | 
+2025-07-31T08:33:15.4141420Z mixtral          | Error: unknown command "sh" for "ollama"
+2025-07-31T08:33:15.4143773Z mixtral          | 
+2025-07-31T08:33:15.4144148Z mixtral          | Did you mean this?
+2025-07-31T08:33:15.4144565Z mixtral          | 	show
+2025-07-31T08:33:15.4144920Z mixtral          | 	push
+2025-07-31T08:33:15.4145265Z mixtral          | 	ps
+2025-07-31T08:33:15.4145597Z mixtral          | 	cp
+2025-07-31T08:33:15.4145907Z mixtral          | 	rm
+2025-07-31T08:33:15.4146231Z mixtral          | 
+2025-07-31T08:33:15.4146630Z mixtral          | Error: unknown command "sh" for "ollama"
+2025-07-31T08:33:15.4147135Z mixtral          | 
+2025-07-31T08:33:15.4147461Z mixtral          | Did you mean this?
+2025-07-31T08:33:15.4147892Z mixtral          | 	show
+2025-07-31T08:33:15.4148233Z mixtral          | 	push
+2025-07-31T08:33:15.4148581Z mixtral          | 	ps
+2025-07-31T08:33:15.4148910Z mixtral          | 	cp
+2025-07-31T08:33:15.4149218Z mixtral          | 	rm
+2025-07-31T08:33:15.4149554Z mixtral          | 
+2025-07-31T08:33:15.4149937Z mixtral          | Error: unknown command "sh" for "ollama"
+2025-07-31T08:33:15.4150419Z mixtral          | 
+2025-07-31T08:33:15.4150728Z mixtral          | Did you mean this?
+2025-07-31T08:33:15.4151131Z mixtral          | 	show
+2025-07-31T08:33:15.4151469Z mixtral          | 	push
+2025-07-31T08:33:15.4151809Z mixtral          | 	ps
+2025-07-31T08:33:15.4152131Z mixtral          | 	cp
+2025-07-31T08:33:15.4152451Z mixtral          | 	rm
+2025-07-31T08:33:15.4152760Z mixtral          | 
+2025-07-31T08:33:15.4931584Z postgres_markov_db  | Error: Database is uninitialized and superuser password is not specified.
+2025-07-31T08:33:15.4932804Z postgres_markov_db  |        You must specify POSTGRES_PASSWORD to a non-empty value for the
+2025-07-31T08:33:15.4945683Z postgres_markov_db  |        superuser. For example, "-e POSTGRES_PASSWORD=password" on "docker run".
+2025-07-31T08:33:15.4947764Z postgres_markov_db  | 
+2025-07-31T08:33:15.4952381Z postgres_markov_db  |        You may also use "POSTGRES_HOST_AUTH_METHOD=trust" to allow all
+2025-07-31T08:33:15.4964144Z postgres_markov_db  |        connections without a password. This is *not* recommended.
+2025-07-31T08:33:15.4966243Z postgres_markov_db  | 
+2025-07-31T08:33:15.4967695Z postgres_markov_db  |        See PostgreSQL documentation about "trust":
+2025-07-31T08:33:15.4987104Z postgres_markov_db  |        https://www.postgresql.org/docs/current/auth-trust.html
+2025-07-31T08:33:15.4988042Z postgres_markov_db  | Error: Database is uninitialized and superuser password is not specified.
+2025-07-31T08:33:15.4988972Z postgres_markov_db  |        You must specify POSTGRES_PASSWORD to a non-empty value for the
+2025-07-31T08:33:15.4989912Z postgres_markov_db  |        superuser. For example, "-e POSTGRES_PASSWORD=password" on "docker run".
+2025-07-31T08:33:15.4990655Z postgres_markov_db  | 
+2025-07-31T08:33:15.4991213Z postgres_markov_db  |        You may also use "POSTGRES_HOST_AUTH_METHOD=trust" to allow all
+2025-07-31T08:33:15.4992112Z postgres_markov_db  |        connections without a password. This is *not* recommended.
+2025-07-31T08:33:15.4992860Z postgres_markov_db  | 
+2025-07-31T08:33:15.5024571Z postgres_markov_db  |        See PostgreSQL documentation about "trust":
+2025-07-31T08:33:15.5025387Z postgres_markov_db  |        https://www.postgresql.org/docs/current/auth-trust.html
+2025-07-31T08:33:15.5026355Z postgres_markov_db  | Error: Database is uninitialized and superuser password is not specified.
+2025-07-31T08:33:15.5027343Z postgres_markov_db  |        You must specify POSTGRES_PASSWORD to a non-empty value for the
+2025-07-31T08:33:15.5028282Z postgres_markov_db  |        superuser. For example, "-e POSTGRES_PASSWORD=password" on "docker run".
+2025-07-31T08:33:15.5029007Z postgres_markov_db  | 
+2025-07-31T08:33:15.5029556Z postgres_markov_db  |        You may also use "POSTGRES_HOST_AUTH_METHOD=trust" to allow all
+2025-07-31T08:33:15.5030443Z postgres_markov_db  |        connections without a password. This is *not* recommended.
+2025-07-31T08:33:15.5031110Z postgres_markov_db  | 
+2025-07-31T08:33:15.5031624Z postgres_markov_db  |        See PostgreSQL documentation about "trust":
+2025-07-31T08:33:15.5032415Z postgres_markov_db  |        https://www.postgresql.org/docs/current/auth-trust.html
+2025-07-31T08:33:15.5033994Z postgres_markov_db  | Error: Database is uninitialized and superuser password is not specified.
+2025-07-31T08:33:15.5040767Z postgres_markov_db  |        You must specify POSTGRES_PASSWORD to a non-empty value for the
+2025-07-31T08:33:15.5044927Z postgres_markov_db  |        superuser. For example, "-e POSTGRES_PASSWORD=password" on "docker run".
+2025-07-31T08:33:15.5053168Z postgres_markov_db  | 
+2025-07-31T08:33:15.5077441Z postgres_markov_db  |        You may also use "POSTGRES_HOST_AUTH_METHOD=trust" to allow all
+2025-07-31T08:33:15.5079715Z postgres_markov_db  |        connections without a password. This is *not* recommended.
+2025-07-31T08:33:15.5080616Z postgres_markov_db  | 
+2025-07-31T08:33:15.5081335Z postgres_markov_db  |        See PostgreSQL documentation about "trust":
+2025-07-31T08:33:15.5083186Z postgres_markov_db  |        https://www.postgresql.org/docs/current/auth-trust.html
