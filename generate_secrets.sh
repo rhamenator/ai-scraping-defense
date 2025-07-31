@@ -34,10 +34,12 @@ done
 
 update_var() {
   local key="$1" value="$2" file="$3"
+  # Escape dollar signs so docker compose doesn't treat them as variables
+  local escaped="${value//\$/\$\$}"
   if grep -q "^${key}=" "$file"; then
-    sed -i.bak "s|^${key}=.*|${key}=${value}|" "$file" && rm -f "${file}.bak"
+    sed -i.bak "s|^${key}=.*|${key}=${escaped}|" "$file" && rm -f "${file}.bak"
   else
-    echo "${key}=${value}" >> "$file"
+    echo "${key}=${escaped}" >> "$file"
   fi
 }
 
