@@ -47,8 +47,8 @@ ENV PYTHONPATH "${PYTHONPATH}:/app"
 
 COPY requirements.txt constraints.txt ./
 
-RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt
-
+RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt && \
+    rm -rf /root/.cache/pip
 COPY src/ /app/src/
 
 # Copy the pre-built shared libraries from the builder stage
