@@ -17,6 +17,8 @@ Below are solutions for common issues encountered when setting up or running the
   - Install dependencies with `pip install -r requirements.txt`
 - **Permission denied writing files**
   - Verify file paths exist and adjust ownership with `chown` or run commands with `sudo`
+- **Could not build wheels for psycopg2 or llama-cpp-python**
+  - Install system build tools inside the container or host: `build-essential`, `cmake`, `python3-dev`, `libpq-dev`, `libxml2-dev`, `libxslt1-dev`
 
 ## Rust build failures
 
