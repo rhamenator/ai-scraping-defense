@@ -36,6 +36,11 @@ jobs:
       - name: Generate local secrets
         run: bash ./generate_secrets.sh --update-env
 
+      - name: Create /app directories for tests
+        run: |
+          sudo mkdir -p /app/logs /app/data
+          sudo chown $(id -u):$(id -g) /app /app/logs /app/data
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
