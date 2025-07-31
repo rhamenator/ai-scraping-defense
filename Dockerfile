@@ -17,6 +17,7 @@ RUN cd tarpit-rs && cargo build --release && \
     cd ../markov-train-rs && cargo build --release
 
 # --- Final Stage: Python 3.11 app with built Rust shared libraries ---
+# FROM ubuntu:22.04
 FROM python:3.11-slim
 
 # Update system packages and install dependencies with security upgrades
@@ -36,8 +37,7 @@ RUN apt-get update && \
         g++ \
         cmake && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    apt-get purge -y --auto-remove build-essential
+    rm -rf /var/lib/apt/lists/*
 
 RUN pip check
 
