@@ -242,12 +242,12 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     ```
 
 4. **Generate Secrets:**
-    Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console. If you used `interactive_setup.py` above, this step has already been performed.
+    Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console. When run with `--update-env` (as in the interactive setup), the script also updates `.env` and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose.
 
     *On Linux or macOS:*
 
     ```bash
-    bash ./generate_secrets.sh
+    bash ./generate_secrets.sh --update-env
     # export credentials to a JSON file
     bash ./generate_secrets.sh --export-path my_secrets.json
     ```
