@@ -19,16 +19,20 @@ RUN cd tarpit-rs && cargo build --release && \
 FROM python:3.11-slim
 
 # Install system packages needed for psycopg2 and other compiled dependencies
+# The --no-install-recommends option is used to avoid installing unnecessary packages,
+# which helps keep the image size smaller.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
-        cmake \
         python3-dev \
         libpq-dev \
         libxml2-dev \
         libxslt1-dev \
         libc6-dev \
         git && \
+           gcc \
+           g++ \
+           cmake && \
     rm -rf /var/lib/apt/lists/*
 
 # Set the working directory in the container to /app
