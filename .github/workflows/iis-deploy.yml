@@ -1,0 +1,41 @@
+name: IIS Deployment
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: windows-latest
+    environment: iis
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+      - name: Build IIS module
+        run: msbuild iis\DefenseModule\DefenseModule.csproj /p:Configuration=Release
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iis-module
+          path: iis/DefenseModule/bin/Release
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\pip install -r requirements.txt
+      - name: Launch stack with IIS
+        run: ./quick_iis.ps1 -NoReset
+        shell: pwsh
+      - name: Verify Admin UI
+        run: |
+          Start-Sleep -Seconds 10
+          Invoke-WebRequest http://localhost:5002 -UseBasicParsing
+        shell: pwsh
