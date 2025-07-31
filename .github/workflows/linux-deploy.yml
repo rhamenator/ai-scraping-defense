@@ -3,82 +3,67 @@ permissions:
   contents: read
 
 on:
-  # push:
-  #   branches:
-  #     - main
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    environment: linux
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Free up disk space
-      run: |
-        sudo rm -rf /usr/local/lib/android
-        sudo rm -rf /usr/share/dotnet
-        docker system prune -af
-        sudo apt-get clean
-        df -h
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/dotnet
+          docker system prune -af
+          sudo apt-get clean
+          df -h
 
-    - name: Ensure .env exists
-      run: |
-        if [ ! -f .env ]; then
-          cp sample.env .env
-        fi
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Prepare local directories
-      run: bash ./setup_local_dirs.sh
+      - name: Ensure .env exists
+        run: |
+          if [ ! -f .env ]; then
+            cp sample.env .env
+          fi
 
-    - name: Generate local secrets
-      run: bash ./generate_secrets.sh
+      - name: Prepare local directories
+        run: bash ./setup_local_dirs.sh
 
-    - name: Validate environment configuration
-      run: |
-        if [ -x ./.venv/bin/python ]; then
-          ./.venv/bin/python scripts/validate_env.py
-        else
-          python3 scripts/validate_env.py
-        fi
+      - name: Generate local secrets
+        run: bash ./generate_secrets.sh --update-env
 
-    # Optional: Run tests to ensure environment integrity
-    - name: Run environment tests
-      run: |
-        if [ -x ./.venv/bin/python ]; then
-          ./.venv/bin/python test/run_all_tests.py
-        else
-          python3 test/run_all_tests.py
-        fi
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    # Build and launch stack (Docker Compose)
-    - name: Build and start services
-      run: docker-compose up --build -d
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -c constraints.txt
 
-    # Optionally, monitor container health
-    - name: Check running containers and health
-      run: docker ps --format '{{.Names}}\t{{.Status}}'
+      - name: Validate environment configuration
+        run: python scripts/validate_env.py
 
-    # Optionally, show logs for debugging if the job fails
-    - name: Show failing container logs
-      if: failure()
-      run: docker-compose logs
+      - name: Run environment tests
+        run: python test/run_all_tests.py
 
-    # Always cleanup containers and disk space, even if job fails or is cancelled
-    - name: Cleanup containers and disk
-      if: always()
-      run: |
-        echo "Stopping all running containers..."
-        docker ps -q | xargs -r docker stop
-        echo "Removing all containers..."
-        docker ps -aq | xargs -r docker rm
-        echo "Pruning unused Docker resources..."
-        docker system prune -af
-        echo "Disk usage after cleanup:"
-        df -h
+      - name: Build and launch stack
+        run: |
+          docker compose build --no-cache
+          docker compose up -d
 
-    # For Kubernetes deployment instead, swap this step:
-    # - name: Deploy to Kubernetes
-    #   run: bash ./deploy.sh
+      - name: Check running containers
+        run: docker compose ps
+
+      - name: Show failing container logs
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down

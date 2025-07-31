@@ -45,6 +45,7 @@ services:
       - ./nginx/certs:/etc/nginx/certs:ro
       - ./nginx/.htpasswd:/etc/nginx/secrets/.htpasswd:ro
       - ./waf:/etc/nginx/modsecurity:ro
+      - ./secrets:/run/secrets:ro
       # Restored Nginx cache volumes for stability and performance
       - nginx_client_body_temp:/var/run/openresty/nginx-client-body
       - nginx_proxy_temp:/var/cache/nginx/proxy_temp
@@ -85,6 +86,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
+      - ./secrets:/run/secrets:ro
     depends_on:
       - escalation_engine
     networks:
@@ -110,6 +112,7 @@ services:
       - ./models:/app/models
       - ./data:/app/data
       - ./docker-entrypoint.sh:/app/docker-entrypoint.sh
+      - ./secrets:/run/secrets:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,6 +138,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./archives:/app/archives
+      - ./secrets:/run/secrets:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -162,6 +166,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
+      - ./secrets:/run/secrets:ro
     depends_on:
       redis:
         condition: service_healthy
@@ -187,6 +192,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
+      - ./secrets:/run/secrets:ro
     networks:
       - defense_network
     restart: unless-stopped
@@ -208,6 +214,7 @@ services:
       - "${CLOUD_DASHBOARD_PORT:-5006}:5006"
     volumes:
       - ./src:/app/src
+      - ./secrets:/run/secrets:ro
     depends_on:
       redis:
         condition: service_healthy
@@ -232,6 +239,7 @@ services:
       - "8010:8010"
     volumes:
       - ./src:/app/src
+      - ./secrets:/run/secrets:ro
     depends_on:
       redis:
         condition: service_healthy
@@ -256,6 +264,7 @@ services:
       - "${CLOUD_PROXY_PORT:-8008}:8008"
     volumes:
       - ./cloud-proxy:/app
+      - ./secrets:/run/secrets:ro
     networks:
       - defense_network
     restart: unless-stopped
@@ -277,6 +286,7 @@ services:
       - "${PROMPT_ROUTER_PORT:-8009}:8009"
     volumes:
       - ./prompt-router:/app
+      - ./secrets:/run/secrets:ro
     networks:
       - defense_network
     restart: unless-stopped
@@ -292,6 +302,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init_markov.sql:/docker-entrypoint-initdb.d/init_markov.sql
+      - ./secrets:/run/secrets:ro
     environment:
       # The official Postgres image expects the POSTGRES_* variables, but
       # our .env uses the newer PG_* naming. Map them here so both the
@@ -319,6 +330,7 @@ services:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
+      - ./secrets:/run/secrets:ro
     environment:
       - REDIS_PASSWORD_FILE=${REDIS_PASSWORD_FILE}
     networks:
@@ -338,6 +350,8 @@ services:
     command: ["python", "-m", "scripts.blocklist_sync_daemon"]
     env_file:
       - .env
+    volumes:
+      - ./secrets:/run/secrets:ro
     depends_on:
       redis:
         condition: service_healthy
