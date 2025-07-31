@@ -29,10 +29,10 @@ RUN apt-get update && \
         libxml2-dev \
         libxslt1-dev \
         libc6-dev \
-        git && \
-           gcc \
-           g++ \
-           cmake && \
+        git \
+        gcc \
+        g++ \
+        cmake && \
     rm -rf /var/lib/apt/lists/*
 
 # Set the working directory in the container to /app
