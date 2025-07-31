@@ -17,9 +17,9 @@ jobs:
       - name: Copy env file
         run: cp sample.env .env
       - name: Build and launch stack
-        run: docker-compose up --build -d
+        run: docker compose up --build -d
       - name: Show running containers
-        run: docker-compose ps
+        run: docker compose ps
       - name: Tear down stack
         if: always()
-        run: docker-compose down
+        run: docker compose down
