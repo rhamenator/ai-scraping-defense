@@ -2,7 +2,7 @@
 # Use an official Python runtime as a parent image.
 # Using a slim image reduces the final image size.
 ### Builder stage used to compile the Rust extensions
-FROM rust:latest AS builder
+FROM rust:latest-slim AS builder
 WORKDIR /build
 
 # Copy only the Rust crates needed for compilation
@@ -16,14 +16,12 @@ RUN cd tarpit-rs && cargo build --release && \
     cd ../markov-train-rs && cargo build --release
 
 ### Final runtime image without the Rust toolchain
-FROM python:3.11-slim
+FROM python:3.1x-latest
 
-# Install system packages needed for psycopg2 and other compiled dependencies
-# The --no-install-recommends option is used to avoid installing unnecessary packages,
-# which helps keep the image size smaller.
+# Update system packages and install dependencies with security upgrades
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        build-essential \
+    apt-get upgrade -y && \
+    apt-get install -y \
         python3-dev \
         libpq-dev \
         libxml2-dev \
@@ -33,7 +31,12 @@ RUN apt-get update && \
         gcc \
         g++ \
         cmake && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get purge -y --auto-remove build-essential
+
+# Optionally, run pip check to ensure no dependency issues
+RUN pip check
 
 # Set the working directory in the container to /app
 WORKDIR /app
