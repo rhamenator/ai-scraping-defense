@@ -22,6 +22,9 @@ FROM python:3.1x-latest
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y \
+        apt-transport-https \
+        ca-certificates \
+        curl \
         python3-dev \
         libpq-dev \
         libxml2-dev \
