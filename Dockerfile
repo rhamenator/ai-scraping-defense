@@ -1,21 +1,22 @@
-# Dockerfile
-# Use an official Python runtime as a parent image.
-# Using a slim image reduces the final image size.
-### Builder stage used to compile the Rust extensions
-FROM rust:1.78-slim AS builder
+# --- Builder Stage: Rust + Python 3 for building Rust libraries ---
+FROM rust:latest AS builder
+
+# Install Python 3 and pip for PyO3 build scripts
+RUN apt-get update && apt-get install -y python3 python3-pip
+
 WORKDIR /build
 
-# Copy only the Rust crates needed for compilation
-COPY tarpit-rs/ ./tarpit-rs/
-COPY frequency-rs/ ./frequency-rs/
-COPY markov-train-rs/ ./markov-train-rs/
+# Copy Rust sources
+COPY tarpit-rs ./tarpit-rs
+COPY frequency-rs ./frequency-rs
+COPY markov-train-rs ./markov-train-rs
 
-# Build the crates in release mode to produce shared libraries
+# Build Rust libraries (assumes they are setup to build *.so files)
 RUN cd tarpit-rs && cargo build --release && \
     cd ../frequency-rs && cargo build --release && \
     cd ../markov-train-rs && cargo build --release
 
-### Final runtime image without the Rust toolchain
+# --- Final Stage: Python 3.11 app with built Rust shared libraries ---
 FROM python:3.11-slim
 
 # Update system packages and install dependencies with security upgrades
@@ -38,26 +39,16 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get purge -y --auto-remove build-essential
 
-# Optionally, run pip check to ensure no dependency issues
 RUN pip check
 
-# Set the working directory in the container to /app
 WORKDIR /app
 
-# Set the PYTHONPATH environment variable.
-# This ensures that Python can find modules within the /app directory,
-# which is crucial for making absolute imports from 'src' work correctly.
 ENV PYTHONPATH "${PYTHONPATH}:/app"
 
-# Copy the dependency files into the container.
 COPY requirements.txt constraints.txt ./
 
-# Install the Python dependencies specified in requirements.txt.
-# --no-cache-dir is used to reduce the image size by not storing the pip cache.
-# -c constraints.txt is used to enforce specific versions for dependencies if needed.
 RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
-# Copy the application source code
 COPY src/ /app/src/
 
 # Copy the pre-built shared libraries from the builder stage
@@ -65,12 +56,8 @@ COPY --from=builder /build/tarpit-rs/target/release/libtarpit_rs.so /app/tarpit_
 COPY --from=builder /build/frequency-rs/target/release/libfrequency_rs.so /app/frequency_rs.so
 COPY --from=builder /build/markov-train-rs/target/release/libmarkov_train_rs.so /app/markov_train_rs.so
 
-# Copy the entrypoint script into the container and make it executable.
-# This script often contains logic to wait for dependencies (like databases)
-# or run initial setup tasks before the main application starts.
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
 # The CMD or ENTRYPOINT to run the specific service will be provided
-# in the docker-compose.yaml or Kubernetes manifest. This makes the image
-# reusable for different services (e.g., ai_service, tarpit_api, etc.).
+# in the docker-compose.yaml or Kubernetes manifest.
