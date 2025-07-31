@@ -26,7 +26,9 @@ RUN apt-get update && \
         python3-dev \
         libpq-dev \
         libxml2-dev \
-        libxslt1-dev && \
+        libxslt1-dev \
+        libc6-dev \
+        git && \
     rm -rf /var/lib/apt/lists/*
 
 # Set the working directory in the container to /app
