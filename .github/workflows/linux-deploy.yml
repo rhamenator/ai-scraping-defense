@@ -1,0 +1,84 @@
+name: Linux Deployment
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Free up disk space
+      run: |
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /usr/share/dotnet
+        docker system prune -af
+        sudo apt-get clean
+        df -h
+
+    - name: Ensure .env exists
+      run: |
+        if [ ! -f .env ]; then
+          cp sample.env .env
+        fi
+
+    - name: Prepare local directories
+      run: bash ./setup_local_dirs.sh
+
+    - name: Generate local secrets
+      run: bash ./generate_secrets.sh
+
+    - name: Validate environment configuration
+      run: |
+        if [ -x ./.venv/bin/python ]; then
+          ./.venv/bin/python scripts/validate_env.py
+        else
+          python3 scripts/validate_env.py
+        fi
+
+    # Optional: Run tests to ensure environment integrity
+    - name: Run environment tests
+      run: |
+        if [ -x ./.venv/bin/python ]; then
+          ./.venv/bin/python test/run_all_tests.py
+        else
+          python3 test/run_all_tests.py
+        fi
+
+    # Build and launch stack (Docker Compose)
+    - name: Build and start services
+      run: docker-compose up --build -d
+
+    # Optionally, monitor container health
+    - name: Check running containers and health
+      run: docker ps --format '{{.Names}}\t{{.Status}}'
+
+    # Optionally, show logs for debugging if the job fails
+    - name: Show failing container logs
+      if: failure()
+      run: docker-compose logs
+
+    # Always cleanup containers and disk space, even if job fails or is cancelled
+    - name: Cleanup containers and disk
+      if: always()
+      run: |
+        echo "Stopping all running containers..."
+        docker ps -q | xargs -r docker stop
+        echo "Removing all containers..."
+        docker ps -aq | xargs -r docker rm
+        echo "Pruning unused Docker resources..."
+        docker system prune -af
+        echo "Disk usage after cleanup:"
+        df -h
+
+    # For Kubernetes deployment instead, swap this step:
+    # - name: Deploy to Kubernetes
+    #   run: bash ./deploy.sh
