@@ -20,7 +20,13 @@ FROM python:3.11-slim
 
 # Install system packages needed for psycopg2 and other compiled dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libpq-dev gcc && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
+        python3-dev \
+        libpq-dev \
+        libxml2-dev \
+        libxslt1-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Set the working directory in the container to /app
