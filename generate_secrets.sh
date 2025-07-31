@@ -199,6 +199,14 @@ if [ "$update_env" = true ]; then
   update_var EXTERNAL_API_KEY "$EXTERNAL_API_KEY" "$ENV_FILE"
   update_var IP_REPUTATION_API_KEY "$IP_REPUTATION_API_KEY" "$ENV_FILE"
   update_var COMMUNITY_BLOCKLIST_API_KEY "$COMMUNITY_BLOCKLIST_API_KEY" "$ENV_FILE"
+
+  # Write secret files for Docker Compose
+  SECRETS_DIR="$SCRIPT_DIR/secrets"
+  mkdir -p "$SECRETS_DIR"
+  echo -n "$POSTGRES_PASSWORD" > "$SECRETS_DIR/pg_password.txt"
+  echo -n "$REDIS_PASSWORD" > "$SECRETS_DIR/redis_password.txt"
+  chmod 600 "$SECRETS_DIR/pg_password.txt" "$SECRETS_DIR/redis_password.txt"
+  echo -e "${CYAN}Secret files written to ${SECRETS_DIR}${NC}"
 fi
 
 echo -e "${GREEN}Secrets Generation Complete!${NC}"
