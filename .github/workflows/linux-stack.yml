@@ -17,7 +17,7 @@ jobs:
       - name: Copy env file
         run: cp sample.env .env
       - name: Build and launch stack
-        run: docker compose up --build --nocache -d
+        run: docker compose up --build --no-cache -d
       - name: Show running containers
         run: docker compose ps
       - name: Tear down stack
