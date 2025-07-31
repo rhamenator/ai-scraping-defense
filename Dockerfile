@@ -2,7 +2,7 @@
 # Use an official Python runtime as a parent image.
 # Using a slim image reduces the final image size.
 ### Builder stage used to compile the Rust extensions
-FROM rust:latest-slim AS builder
+FROM rust:latest AS builder
 WORKDIR /build
 
 # Copy only the Rust crates needed for compilation
