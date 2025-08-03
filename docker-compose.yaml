@@ -75,6 +75,27 @@ services:
       - defense_network
     restart: unless-stopped
 
+  apache_proxy:
+    image: httpd:2.4
+    container_name: apache_proxy
+    ports:
+      - "${APACHE_HTTP_PORT:-8080}:80"
+    volumes:
+      - ./apache/httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
+    depends_on:
+      escalation_engine:
+        condition: service_healthy
+      tarpit_api:
+        condition: service_healthy
+      admin_ui:
+        condition: service_healthy
+      ai_service:
+        condition: service_healthy
+    networks:
+      - defense_network
+    restart: unless-stopped
+
+
   ai_service:
     build:
       context: .
