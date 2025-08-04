@@ -26,6 +26,7 @@ class Settings:
     TENANT_ID: str = os.getenv("TENANT_ID", "default")
     RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", 0))
 
+
 settings = Settings()
 
 BAD_BOTS = [
@@ -87,6 +88,7 @@ async def escalate(ip: str, reason: str) -> None:
         except httpx.HTTPError:
             logger.exception("Escalation failed")
 
+
 @app.api_route(
     "/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
 )
@@ -105,7 +107,6 @@ async def proxy(path: str, request: Request) -> Response:
         await escalate(client_ip, "BadUA")
         return PlainTextResponse("Forbidden", status_code=403)
 
-    url = f"{CONFIG['BACKEND_URL'].rstrip('/')}/{path}"
     if not request.headers.get("accept-language"):
         await escalate(client_ip, "MissingAcceptLanguage")
     accept = request.headers.get("accept")
