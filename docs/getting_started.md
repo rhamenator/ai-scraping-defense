@@ -17,6 +17,13 @@ On Windows, run `quickstart_dev.ps1` from an **Administrator PowerShell** window
 The script copies `sample.env`, generates secrets, installs dependencies, and launches Docker Compose.
 If you encounter setup issues, see [Troubleshooting](troubleshooting.md) for common fixes.
 
+## **Project Structure**
+
+- `src/` – core Python microservices and shared modules.
+- `scripts/` – setup helpers and deployment utilities.
+- `rag/` – retrieval-augmented generation resources and training tools.
+- `docs/` – project documentation.
+
 ## **Prerequisites**
 
 * **Docker & Docker Compose:** Ensure they are installed and running on your system.

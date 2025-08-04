@@ -22,6 +22,13 @@ This project includes:
 
 > This stack is modular, extensible, and designed for privacy-conscious and resource-constrained FOSS projects.
 
+## Repository Structure
+
+- `src/` – core Python microservices and shared modules.
+- `scripts/` – setup helpers and deployment utilities.
+- `rag/` – retrieval-augmented generation resources and training tools.
+- `docs/` – project documentation.
+
 ### Architecture Diagram
 
 ```mermaid

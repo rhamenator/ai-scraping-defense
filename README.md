@@ -36,6 +36,13 @@ This project provides a multi-layered, microservice-based defense system against
 - **CORS & CSP Headers:** The Admin UI sets CORS policies and a default Content-Security-Policy header.
 - **Additional Security Headers:** Nginx now sends `Referrer-Policy`, `Permissions-Policy`, and `X-Permitted-Cross-Domain-Policies` headers by default.
 
+## Repository Structure
+
+- `src/` – core Python microservices and shared modules.
+- `scripts/` – setup helpers and deployment utilities.
+- `rag/` – retrieval-augmented generation resources and training tools.
+- `docs/` – project documentation.
+
 ## Architecture Overview
 
 The following diagram provides a high-level view of how the major components interact. Note that the AI Service merely receives webhook data and enqueues it for the Escalation Engine, which performs the actual analysis. See [docs/architecture.md](docs/architecture.md) for a deeper explanation.
