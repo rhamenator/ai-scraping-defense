@@ -143,3 +143,12 @@ old/
 *.swp
 
 reports/
+# Temporary files created by .NET
+*.tmp
+*.temp
+*.cache
+*.obj
+*.log
+*.vspscc
+iis/DefenseModule/bin/
+iis/DefenseModule/obj/Debug/
