@@ -15,6 +15,7 @@ from src.pay_per_crawl.payment_gateway import (
 from src.pay_per_crawl.tokens import secure_hash, tokenize_card
 
 
+
 class TestPaymentGateway(unittest.TestCase):
     def test_charge_returns_false_without_config(self):
         gateway = HTTPPaymentGateway(base_url=None, api_key=None)
@@ -87,6 +88,7 @@ class TestPaymentGateway(unittest.TestCase):
     def test_audit_logging(self):
         async def run():
             gateway = HTTPPaymentGateway(base_url="https://api", api_key="k")
+
             with self.assertLogs("pay_per_crawl.audit", level="INFO") as cm:
                 with patch.object(
                     HTTPPaymentGateway,
