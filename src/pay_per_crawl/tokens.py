@@ -62,5 +62,5 @@ def tokenize_card(
         raise ValueError("invalid card number")
     token = secure_hash(cleaned, secret=secret, salt=salt)
     # best effort to clear sensitive data
-    cleaned = ""  # pragma: no cover - can't reliably ensure in CPython
+    del cleaned  # pragma: no cover - can't reliably ensure in CPython
     return token
