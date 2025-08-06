@@ -12,7 +12,8 @@ from src.pay_per_crawl.payment_gateway import (
     StripeGateway,
     get_payment_gateway,
 )
-from src.pay_per_crawl.tokens import tokenize_card
+from src.pay_per_crawl.tokens import secure_hash, tokenize_card
+
 
 
 class TestPaymentGateway(unittest.TestCase):
@@ -32,7 +33,7 @@ class TestPaymentGateway(unittest.TestCase):
                 "src.pay_per_crawl.payment_gateway.httpx.AsyncClient",
                 return_value=mock_client,
             ):
-                gateway = HTTPPaymentGateway(base_url="http://api", api_key="k")
+                gateway = HTTPPaymentGateway(base_url="https://api", api_key="k")
                 ok = await gateway.create_customer("tok", "name", "purpose")
                 self.assertTrue(ok)
 
@@ -69,15 +70,25 @@ class TestPaymentGateway(unittest.TestCase):
         self.assertIsInstance(gateway, AuthorizeNetGateway)
 
     def test_tokenize_and_rotate(self):
-        token = tokenize_card("4111111111111111")
+        token = tokenize_card("4111 1111-1111 1111", secret="s")
         self.assertNotIn("4111", token)
-        gateway = HTTPPaymentGateway(base_url="http://api", api_key="old")
+        with self.assertRaises(ValueError):
+            tokenize_card("1234", secret="s")
+        gateway = HTTPPaymentGateway(base_url="https://api", api_key="old")
         gateway.rotate_api_key("new")
         self.assertEqual(gateway.api_key, "new")
 
+    def test_secure_hash(self):
+        h1 = secure_hash("data", secret="a")
+        h2 = secure_hash("data", secret="a")
+        self.assertEqual(h1, h2)
+        h3 = secure_hash("data", secret="b")
+        self.assertNotEqual(h1, h3)
+
     def test_audit_logging(self):
         async def run():
-            gateway = HTTPPaymentGateway(base_url="http://api", api_key="k")
+            gateway = HTTPPaymentGateway(base_url="https://api", api_key="k")
+
             with self.assertLogs("pay_per_crawl.audit", level="INFO") as cm:
                 with patch.object(
                     HTTPPaymentGateway,

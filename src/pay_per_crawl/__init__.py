@@ -11,7 +11,7 @@ from .payment_gateway import (
     get_payment_gateway,
 )
 from .pricing import PricingEngine, load_pricing
-from .tokens import tokenize_card
+from .tokens import secure_hash, tokenize_card
 
 __all__ = [
     "init_db",
@@ -31,4 +31,5 @@ __all__ = [
     "AuthorizeNetGateway",
     "get_payment_gateway",
     "tokenize_card",
+    "secure_hash"
 ]

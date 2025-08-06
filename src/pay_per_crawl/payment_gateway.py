@@ -90,6 +90,8 @@ class HTTPPaymentGateway(BaseGateway):
         self.audit_logger = AUDIT_LOGGER
         if not self.base_url:
             logging.warning("Payment gateway URL not configured")
+        elif not self.base_url.lower().startswith("https://"):
+            raise ValueError("Payment gateway URL must use HTTPS")
         if not self.api_key:
             logging.warning("Payment gateway API key not configured")
 
@@ -104,7 +106,15 @@ class HTTPPaymentGateway(BaseGateway):
                     method, f"{self.base_url}{path}", headers=headers, **kwargs
                 )
             resp.raise_for_status()
-            return resp.json()
+            try:
+                return resp.json()
+            except ValueError:
+                logging.error(
+                    "Invalid JSON from payment provider (status=%s, body=%r)",
+                    resp.status_code,
+                    resp.text,
+                )
+                return None
         except Exception as exc:  # pragma: no cover - network issues
             logging.error(
                 "Payment request failed (%s): %s",
@@ -156,10 +166,15 @@ class HTTPPaymentGateway(BaseGateway):
         logging.info("Payment gateway API key rotated: %s", _redact(new_key))
 
     async def charge_card(
-        self, card_number: str, amount: float, *, salt: Optional[str] = None
+        self,
+        card_number: str,
+        amount: float,
+        *,
+        salt: Optional[str] = None,
+        secret: Optional[str] = None,
     ) -> bool:
         """Tokenize ``card_number`` and charge the resulting token."""
-        token = tokenize_card(card_number, salt=salt)
+        token = tokenize_card(card_number, salt=salt, secret=secret)
         return await self.charge(token, amount)
 
 
