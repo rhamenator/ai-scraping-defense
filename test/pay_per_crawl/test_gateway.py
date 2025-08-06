@@ -3,15 +3,16 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.pay_per_crawl.payment_gateway import (
-    HTTPPaymentGateway,
-    StripeGateway,
-    PayPalGateway,
-    BraintreeGateway,
-    SquareGateway,
     AdyenGateway,
     AuthorizeNetGateway,
+    BraintreeGateway,
+    HTTPPaymentGateway,
+    PayPalGateway,
+    SquareGateway,
+    StripeGateway,
     get_payment_gateway,
 )
+from src.pay_per_crawl.tokens import tokenize_card
 
 
 class TestPaymentGateway(unittest.TestCase):
@@ -66,6 +67,27 @@ class TestPaymentGateway(unittest.TestCase):
 
         gateway = get_payment_gateway("authorizenet")
         self.assertIsInstance(gateway, AuthorizeNetGateway)
+
+    def test_tokenize_and_rotate(self):
+        token = tokenize_card("4111111111111111")
+        self.assertNotIn("4111", token)
+        gateway = HTTPPaymentGateway(base_url="http://api", api_key="old")
+        gateway.rotate_api_key("new")
+        self.assertEqual(gateway.api_key, "new")
+
+    def test_audit_logging(self):
+        async def run():
+            gateway = HTTPPaymentGateway(base_url="http://api", api_key="k")
+            with self.assertLogs("pay_per_crawl.audit", level="INFO") as cm:
+                with patch.object(
+                    HTTPPaymentGateway,
+                    "_request",
+                    new=AsyncMock(return_value={"success": True}),
+                ):
+                    await gateway.charge("tok", 1.0)
+            self.assertTrue(any("charge" in msg for msg in cm.output))
+
+        asyncio.run(run())
 
 
 if __name__ == "__main__":
