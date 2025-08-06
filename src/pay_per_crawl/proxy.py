@@ -68,6 +68,11 @@ async def proxy(full_path: str, request: Request):
         raise HTTPException(status_code=402, detail="Payment required")
 
     upstream = urljoin(UPSTREAM_URL.rstrip('/') + '/', full_path.lstrip('/'))
+    # Ensure the upstream URL stays within the intended host and scheme
+    parsed_upstream = urlparse(upstream)
+    parsed_base = urlparse(UPSTREAM_URL)
+    if parsed_upstream.scheme != parsed_base.scheme or parsed_upstream.netloc != parsed_base.netloc:
+        raise HTTPException(status_code=400, detail="Invalid upstream URL")
     headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
     body = await request.body()
     async with httpx.AsyncClient() as client:
