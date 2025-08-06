@@ -109,7 +109,11 @@ class HTTPPaymentGateway(BaseGateway):
             try:
                 return resp.json()
             except ValueError:
-                logging.error("Invalid JSON from payment provider")
+                logging.error(
+                    "Invalid JSON from payment provider (status=%s, body=%r)",
+                    resp.status_code,
+                    resp.text,
+                )
                 return None
         except Exception as exc:  # pragma: no cover - network issues
             logging.error(
