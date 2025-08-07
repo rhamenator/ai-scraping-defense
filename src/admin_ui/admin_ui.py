@@ -334,6 +334,8 @@ async def webauthn_login_begin(data: dict):
 async def webauthn_login_complete(data: dict):
     """Complete WebAuthn authentication and return a token."""
     username = data.get("username")
+    if not isinstance(username, str) or not username:
+        raise HTTPException(status_code=400, detail="Invalid or missing username")
     cred = WEBAUTHN_CREDENTIALS.get(username)
     if not cred:
         raise HTTPException(status_code=400, detail="Unknown user")
