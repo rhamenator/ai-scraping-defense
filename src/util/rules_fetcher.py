@@ -153,7 +153,7 @@ def download_and_extract_crs(url: str, dest_dir: str) -> bool:
         if os.path.islink(setup_file):
             logger.warning("Skipping symlink setup file: %s", setup_file)
         else:
-                shutil.copy(setup_file, os.path.join(dest_dir, "crs-setup.conf"))
+            shutil.copy(setup_file, os.path.join(dest_dir, "crs-setup.conf"))
 
         dest_rules = os.path.join(dest_dir, "rules")
         if os.path.exists(dest_rules):
