@@ -5,19 +5,17 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
-
+from pathlib import Path
 import httpx
 
 
 def _is_trusted_model_path(path: str) -> bool:
     """Return True if path is within the trusted model directory."""
-    trusted_dir = os.path.abspath(
-        os.environ.get("TRUSTED_MODEL_DIR", os.path.join(os.getcwd(), "models"))
-    )
-    abs_path = os.path.abspath(path)
+    trusted_dir = Path(os.environ.get("TRUSTED_MODEL_DIR", os.path.join(os.getcwd(), "models"))).resolve()
+    abs_path = Path(path).resolve()
     try:
-        return os.path.commonpath([abs_path, trusted_dir]) == trusted_dir
-    except ValueError:
+        return trusted_dir in abs_path.parents or abs_path == trusted_dir
+    except Exception:
         return False
 
 
