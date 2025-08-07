@@ -194,7 +194,7 @@ ADMIN_UI_ROLE = os.getenv("ADMIN_UI_ROLE", "admin")
 security = HTTPBasic()
 
 # In-memory stores for WebAuthn credentials and tokens
-WEBAUTHN_CREDENTIALS: dict[str, dict] = {}
+# Persistent store for WebAuthn credentials using Redis
 WEBAUTHN_CHALLENGES: dict[str, bytes] = {}
 VALID_WEBAUTHN_TOKENS: dict[str, str] = {}
 
