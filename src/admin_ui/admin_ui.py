@@ -316,6 +316,8 @@ async def webauthn_register_complete(data: dict, user: str = Depends(require_aut
 async def webauthn_login_begin(data: dict):
     """Begin WebAuthn authentication and return options."""
     username = data.get("username")
+    if not isinstance(username, str) or not username:
+        raise HTTPException(status_code=400, detail="Missing or invalid username")
     cred = WEBAUTHN_CREDENTIALS.get(username)
     if not cred:
         raise HTTPException(status_code=400, detail="Unknown user")
