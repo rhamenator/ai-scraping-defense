@@ -186,9 +186,12 @@ def require_auth(
 ) -> str:
     """Validate HTTP Basic credentials and optional TOTP code."""
     username = os.getenv("ADMIN_UI_USERNAME", "admin")
-    password = os.getenv("ADMIN_UI_PASSWORD")
-    if password is None:
-        raise RuntimeError("ADMIN_UI_PASSWORD environment variable must be set")
+    try:
+        password = os.environ["ADMIN_UI_PASSWORD"]
+    except KeyError as exc:  # pragma: no cover - defensive
+        raise RuntimeError(
+            "ADMIN_UI_PASSWORD environment variable must be set"
+        ) from exc
     valid = secrets.compare_digest(
         credentials.username, username
     ) and secrets.compare_digest(credentials.password, password)
