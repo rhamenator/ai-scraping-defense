@@ -98,6 +98,30 @@ class TestAIWebhookComprehensive(unittest.TestCase):
             "default:ip_flag:40.0.0.4"
         )
 
+    def test_webhook_receiver_invalid_ip(self):
+        """Test that an invalid IP returns a 400 error and does not touch Redis."""
+        invalid_ip = "999.999.999.999"
+        actions = [
+            ("block_ip", self.mock_redis_client.sadd, {}),
+            ("allow_ip", self.mock_redis_client.srem, {}),
+            ("flag_ip", self.mock_redis_client.set, {"reason": "x"}),
+            ("unflag_ip", self.mock_redis_client.delete, {}),
+        ]
+
+        for action, redis_mock, extra in actions:
+            with self.subTest(action=action):
+                payload = {"action": action, "ip": invalid_ip, **extra}
+                response = self.client.post(
+                    "/webhook", json=payload, headers=self.headers
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(
+                    response.json()["detail"],
+                    f"Invalid IP address: {invalid_ip}",
+                )
+                redis_mock.assert_not_called()
+                redis_mock.reset_mock()
+
     def test_webhook_receiver_invalid_action(self):
         """Test that an unsupported action returns a 400 error."""
         payload = {"action": "reboot_server", "ip": "1.2.3.4"}
