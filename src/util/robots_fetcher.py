@@ -67,8 +67,11 @@ def fetch_robots_txt(
         logger.error(f"Invalid URL provided: {url}")
         return get_default_robots_txt()
 
-    if parsed_url.scheme not in ("http", "https") or not parsed_url.netloc:
-        logger.error("URL must include http or https scheme and a host.")
+    if parsed_url.scheme not in ("http", "https"):
+        logger.error("URL scheme must be 'http' or 'https'.")
+        return get_default_robots_txt()
+    if not parsed_url.netloc:
+        logger.error("URL must include a host (netloc).")
         return get_default_robots_txt()
 
     hostname = parsed_url.hostname or ""
