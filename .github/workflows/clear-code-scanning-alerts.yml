@@ -11,8 +11,8 @@ jobs:
   clear-alerts:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up GitHub CLI
-        uses: actions/setup-gh@v3
+      - name: Install GitHub CLI
+        run: sudo apt-get update && sudo apt-get install -y gh
 
       - name: List and dismiss all code scanning alerts
         env:
