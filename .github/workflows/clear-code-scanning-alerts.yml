@@ -11,8 +11,8 @@ jobs:
   clear-alerts:
     runs-on: ubuntu-latest
     steps:
-      - name: Install GitHub CLI
-        run: sudo apt-get update && sudo apt-get install -y gh
+      - name: Set up GitHub CLI
+        uses: actions/setup-gh@v3
 
       - name: List and dismiss all code scanning alerts
         env:
@@ -29,6 +29,6 @@ jobs:
             gh api -X PATCH -H "Accept: application/vnd.github+json" \
               /repos/$OWNER/$REPO/code-scanning/alerts/$number \
               -f state="dismissed" \
-              -f dismissed_reason="used_in_tests" \
+              -f dismissed_reason="used in tests" \
               -f dismissed_comment="Bulk dismissal via workflow"
           done
