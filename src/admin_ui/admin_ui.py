@@ -385,7 +385,7 @@ async def webauthn_login_begin(data: dict):
         rp_id=RP_ID,
         allow_credentials=[descriptor],
     )
-    WEBAUTHN_CHALLENGES[username] = options.challenge
+    WEBAUTHN_CHALLENGES[username] = (options.challenge, time.time())
     return JSONResponse(json.loads(options_to_json(options)))
 
 
