@@ -4,14 +4,17 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import httpx
 
 
 def _is_trusted_model_path(path: str) -> bool:
     """Return True if path is within the trusted model directory."""
-    trusted_dir = Path(os.environ.get("TRUSTED_MODEL_DIR", os.path.join(os.getcwd(), "models"))).resolve()
+    trusted_dir = Path(
+        os.environ.get("TRUSTED_MODEL_DIR", os.path.join(os.getcwd(), "models"))
+    ).resolve()
     abs_path = Path(path).resolve()
     try:
         return trusted_dir in abs_path.parents or abs_path == trusted_dir
@@ -72,7 +75,7 @@ try:
 except ImportError:
     MARKOV_AVAILABLE = False
 
-    def generate_dynamic_tarpit_page() -> str:
+    def generate_dynamic_tarpit_page(rng=None) -> str:  # type: ignore[override]
         return "Markov model unavailable."
 
 

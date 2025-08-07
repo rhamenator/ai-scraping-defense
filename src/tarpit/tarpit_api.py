@@ -64,7 +64,7 @@ except ImportError as e:
             f"Could not import markov_generator: {e2}. Dynamic content generation disabled."
         )
 
-        def generate_dynamic_tarpit_page() -> str:
+        def generate_dynamic_tarpit_page(rng=None) -> str:
             return "<html><body>Tarpit Error</body></html>"
 
         GENERATOR_AVAILABLE = False
@@ -319,9 +319,10 @@ async def tarpit_handler(request: Request, path: str = ""):
             path_bytes = requested_path.encode("utf-8")
             path_hash = hashlib.sha256(path_bytes).hexdigest()
             combined_seed = f"{SYSTEM_SEED}-{path_hash}"
-            random.seed(combined_seed)
+            rng = random.Random()
+            rng.seed(combined_seed)
             logger.debug(f"Seeded RNG for path '{requested_path}' with combined seed.")
-            content = generate_dynamic_tarpit_page()
+            content = generate_dynamic_tarpit_page(rng)
         except Exception as e:
             logger.error(
                 f"Error generating dynamic page for path '{requested_path}': {e}",
