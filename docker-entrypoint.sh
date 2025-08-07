@@ -28,7 +28,7 @@ if [ "$RUN_MODEL_TRAINING" == "true" ] && [ ! -f "$MODEL_FILE" ]; then
   # Ensure the target directory exists.
   mkdir -p /app/models
   # Run the training script from its new location in src/
-  PGPASSWORD=$(cat "$PG_PASSWORD_FILE") python src/rag/training.py
+  PGPASSWORD="$PGPASSWORD" python src/rag/training.py
   echo "Training complete. Model saved to $MODEL_FILE"
 else
   echo "Skipping bot detection model training."
