@@ -36,4 +36,4 @@ fi
 
 # Execute the main command passed to the container (e.g., uvicorn, gunicorn).
 echo "Launching main command: $@"
-PGPASSWORD=$(cat "$PG_PASSWORD_FILE") exec "$@"
+PGPASSWORD="$PGPASSWORD_VALUE" exec "$@"
