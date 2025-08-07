@@ -420,7 +420,7 @@ async def settings_page(
         csrf_token,
         httponly=True,
         secure=True,
-        samesite="strict",
+        samesite="Strict",
     )
     return response
 
