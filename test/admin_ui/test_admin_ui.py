@@ -44,28 +44,24 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
     def test_load_recent_block_events_streaming(self):
         """Ensure _load_recent_block_events reads only the last N lines."""
-        fd, path = tempfile.mkstemp()
-        os.close(fd)
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                for i in range(10):
-                    f.write(
-                        json.dumps(
-                            {
-                                "timestamp": f"t{i}",
-                                "ip_address": f"1.1.1.{i}",
-                                "reason": "r",
-                            }
-                        )
-                        + "\n"
+        with tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8", delete=True) as tmp:
+            for i in range(10):
+                tmp.write(
+                    json.dumps(
+                        {
+                            "timestamp": f"t{i}",
+                            "ip_address": f"1.1.1.{i}",
+                            "reason": "r",
+                        }
                     )
-            with patch("src.admin_ui.admin_ui.BLOCK_LOG_FILE", path):
+                    + "\n"
+                )
+            tmp.flush()
+            with patch("src.admin_ui.admin_ui.BLOCK_LOG_FILE", tmp.name):
                 events = admin_ui._load_recent_block_events(limit=5)
-        finally:
-            os.remove(path)
-        self.assertEqual(len(events), 5)
-        self.assertEqual(events[0]["ip"], "1.1.1.5")
-        self.assertEqual(events[-1]["ip"], "1.1.1.9")
+            self.assertEqual(len(events), 5)
+            self.assertEqual(events[0]["ip"], "1.1.1.5")
+            self.assertEqual(events[-1]["ip"], "1.1.1.9")
 
     @patch("src.admin_ui.admin_ui._get_metrics_dict_func")
     def test_metrics_endpoint_success(self, mock_get_metrics_dict):
