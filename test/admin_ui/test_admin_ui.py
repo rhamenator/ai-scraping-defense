@@ -2,6 +2,7 @@
 import json
 import os
 import tempfile
+import time
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -18,9 +19,14 @@ class TestAdminUIComprehensive(unittest.TestCase):
         os.environ["ADMIN_UI_USERNAME"] = "admin"
         os.environ["ADMIN_UI_PASSWORD"] = "testpass"
         os.environ["ADMIN_UI_ROLE"] = "admin"
+        os.environ["ADMIN_UI_2FA_SECRET"] = "JBSWY3DPEHPK3PXP"
         admin_ui.ADMIN_UI_ROLE = "admin"
         self.client = TestClient(admin_ui.app)
         self.auth = ("admin", "testpass")
+
+    def _totp_headers(self) -> dict:
+        secret = os.environ["ADMIN_UI_2FA_SECRET"]
+        return {"X-2FA-Code": pyotp.TOTP(secret).now()}
 
     def test_reject_wildcard_cors_origin(self):
         """Wildcard CORS origin should be rejected when credentials are allowed."""
@@ -30,7 +36,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
     def test_index_route_success(self):
         """Test the main dashboard page serves HTML correctly and contains key elements."""
-        response = self.client.get("/", auth=self.auth)
+        response = self.client.get("/", auth=self.auth, headers=self._totp_headers())
         self.assertEqual(response.status_code, 200)
         content = response.content
         self.assertIn(b"AI Scraping Defense - Admin Dashboard", content)
@@ -44,7 +50,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
     def test_load_recent_block_events_streaming(self):
         """Ensure _load_recent_block_events reads only the last N lines."""
-        with tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8", delete=True) as tmp:
+        with tempfile.NamedTemporaryFile(
+            mode="w+", encoding="utf-8", delete=True
+        ) as tmp:
             for i in range(10):
                 tmp.write(
                     json.dumps(
@@ -74,7 +82,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
         }
 
         with patch("src.admin_ui.admin_ui.METRICS_TRULY_AVAILABLE", True):
-            response = self.client.get("/metrics", auth=self.auth)
+            response = self.client.get(
+                "/metrics", auth=self.auth, headers=self._totp_headers()
+            )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -84,7 +94,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
     @patch("src.admin_ui.admin_ui.METRICS_TRULY_AVAILABLE", False)
     def test_metrics_endpoint_module_unavailable(self):
         """Test the /metrics endpoint when the metrics module is flagged as unavailable."""
-        response = self.client.get("/metrics", auth=self.auth)
+        response = self.client.get(
+            "/metrics", auth=self.auth, headers=self._totp_headers()
+        )
         self.assertEqual(response.status_code, 503)
         data = response.json()
         self.assertEqual(data.get("error"), "Metrics module not available")
@@ -96,7 +108,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
     def test_metrics_endpoint_parsing_error(self, mock_get_metrics_dict):
         """Test the /metrics endpoint when parsing the Prometheus data fails."""
         with patch("src.admin_ui.admin_ui.METRICS_TRULY_AVAILABLE", True):
-            response = self.client.get("/metrics", auth=self.auth)
+            response = self.client.get(
+                "/metrics", auth=self.auth, headers=self._totp_headers()
+            )
 
         self.assertEqual(response.status_code, 500)
         data = response.json()
@@ -110,7 +124,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
         mock_redis_instance.smembers.return_value = {"1.1.1.1", "2.2.2.2"}
         mock_get_redis.return_value = mock_redis_instance
 
-        response = self.client.get("/blocklist", auth=self.auth)
+        response = self.client.get(
+            "/blocklist", auth=self.auth, headers=self._totp_headers()
+        )
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("1.1.1.1", data)
@@ -120,7 +136,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
     @patch("src.admin_ui.admin_ui.get_redis_connection", return_value=None)
     def test_get_blocklist_redis_unavailable(self, mock_get_redis):
         """Test the /blocklist endpoint when Redis is unavailable."""
-        response = self.client.get("/blocklist", auth=self.auth)
+        response = self.client.get(
+            "/blocklist", auth=self.auth, headers=self._totp_headers()
+        )
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json(), {"error": "Redis service unavailable"})
 
@@ -131,7 +149,12 @@ class TestAdminUIComprehensive(unittest.TestCase):
         mock_redis_instance.sadd.return_value = 1  # Simulate adding a new member
         mock_get_redis.return_value = mock_redis_instance
 
-        response = self.client.post("/block", json={"ip": "3.3.3.3"}, auth=self.auth)
+        response = self.client.post(
+            "/block",
+            json={"ip": "3.3.3.3"},
+            auth=self.auth,
+            headers=self._totp_headers(),
+        )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "success", "ip": "3.3.3.3"})
         mock_redis_instance.sadd.assert_called_once_with("default:blocklist", "3.3.3.3")
@@ -143,7 +166,12 @@ class TestAdminUIComprehensive(unittest.TestCase):
         mock_redis_instance.srem.return_value = 1  # Simulate removing a member
         mock_get_redis.return_value = mock_redis_instance
 
-        response = self.client.post("/unblock", json={"ip": "1.1.1.1"}, auth=self.auth)
+        response = self.client.post(
+            "/unblock",
+            json={"ip": "1.1.1.1"},
+            auth=self.auth,
+            headers=self._totp_headers(),
+        )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "success", "ip": "1.1.1.1"})
         mock_redis_instance.srem.assert_called_once_with("default:blocklist", "1.1.1.1")
@@ -156,7 +184,12 @@ class TestAdminUIComprehensive(unittest.TestCase):
         mock_redis_instance = MagicMock()
         mock_redis_instance.sadd.return_value = 1
         mock_get_redis.return_value = mock_redis_instance
-        response = self.client.post("/block", json={"ip": "4.4.4.4"}, auth=self.auth)
+        response = self.client.post(
+            "/block",
+            json={"ip": "4.4.4.4"},
+            auth=self.auth,
+            headers=self._totp_headers(),
+        )
         self.assertEqual(response.status_code, 403)
         os.environ["ADMIN_UI_ROLE"] = "admin"
         admin_ui.ADMIN_UI_ROLE = "admin"
@@ -164,7 +197,10 @@ class TestAdminUIComprehensive(unittest.TestCase):
     def test_block_ip_invalid_payload(self):
         """Test the /block endpoint with an invalid payload."""
         response = self.client.post(
-            "/block", json={"address": "3.3.3.3"}, auth=self.auth
+            "/block",
+            json={"address": "3.3.3.3"},
+            auth=self.auth,
+            headers=self._totp_headers(),
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json(), {"error": "Invalid request, missing ip"})
@@ -196,13 +232,53 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         del os.environ["ADMIN_UI_2FA_SECRET"]
 
+    def test_webauthn_token_allows_login(self):
+        """A valid WebAuthn token satisfies the 2FA requirement."""
+        secret = "JBSWY3DPEHPK3PXP"
+        os.environ["ADMIN_UI_2FA_SECRET"] = secret
+        token = "tok123"
+        admin_ui.VALID_WEBAUTHN_TOKENS[token] = ("admin", time.time() + 60)
+        headers = {"X-2FA-Token": token}
+        with patch("src.admin_ui.admin_ui.get_redis_connection", return_value=None):
+            response = self.client.get("/", auth=self.auth, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        del os.environ["ADMIN_UI_2FA_SECRET"]
+        admin_ui.VALID_WEBAUTHN_TOKENS.clear()
+
+    def test_webauthn_token_invalid(self):
+        """Invalid WebAuthn tokens are rejected."""
+        secret = "JBSWY3DPEHPK3PXP"
+        os.environ["ADMIN_UI_2FA_SECRET"] = secret
+        admin_ui.VALID_WEBAUTHN_TOKENS["good"] = ("admin", time.time() + 60)
+        headers = {"X-2FA-Token": "bad"}
+        with patch("src.admin_ui.admin_ui.get_redis_connection", return_value=None):
+            response = self.client.get("/", auth=self.auth, headers=headers)
+        self.assertEqual(response.status_code, 401)
+        del os.environ["ADMIN_UI_2FA_SECRET"]
+        admin_ui.VALID_WEBAUTHN_TOKENS.clear()
+
+    def test_webauthn_login_begin_invalid_username(self):
+        """Login begin rejects missing username."""
+        response = self.client.post("/webauthn/login/begin", json={})
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertIn("username", data["detail"])
+
+    def test_webauthn_login_complete_invalid_username(self):
+        """Login complete rejects invalid username before processing."""
+        payload = {"username": "", "credential": {}}
+        response = self.client.post("/webauthn/login/complete", json=payload)
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertIn("username", data["detail"])
+
     def test_missing_admin_password(self):
         """Service raises an error when ADMIN_UI_PASSWORD is unset."""
         original_password = os.environ.get("ADMIN_UI_PASSWORD")
         try:
             del os.environ["ADMIN_UI_PASSWORD"]
             with self.assertRaises(RuntimeError):
-                self.client.get("/", auth=self.auth)
+                self.client.get("/", auth=self.auth, headers=self._totp_headers())
         finally:
             if original_password is not None:
                 os.environ["ADMIN_UI_PASSWORD"] = original_password
@@ -211,7 +287,10 @@ class TestAdminUIComprehensive(unittest.TestCase):
     def test_metrics_websocket_initial_message(self, mock_get_metrics):
         """Ensure the /ws/metrics endpoint streams metrics on connect."""
         mock_get_metrics.return_value = {"active_connections": 5}
-        headers = {"Authorization": "Basic YWRtaW46dGVzdHBhc3M="}
+        headers = {
+            "Authorization": "Basic YWRtaW46dGVzdHBhc3M=",
+            **self._totp_headers(),
+        }
         with self.client.websocket_connect("/ws/metrics", headers=headers) as websocket:
             data = websocket.receive_json()
         self.assertEqual(data, {"active_connections": 5})
@@ -220,7 +299,10 @@ class TestAdminUIComprehensive(unittest.TestCase):
     @patch("src.admin_ui.admin_ui.METRICS_TRULY_AVAILABLE", False)
     def test_metrics_websocket_module_unavailable(self):
         """WebSocket should send an error if metrics are unavailable."""
-        headers = {"Authorization": "Basic YWRtaW46dGVzdHBhc3M="}
+        headers = {
+            "Authorization": "Basic YWRtaW46dGVzdHBhc3M=",
+            **self._totp_headers(),
+        }
         with self.client.websocket_connect("/ws/metrics", headers=headers) as websocket:
             data = websocket.receive_json()
         self.assertEqual(data, {"error": "Metrics module not available"})
@@ -242,7 +324,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
             {"ip": "4.4.4.4", "reason": "test", "timestamp": "2025-01-01T00:00:00Z"}
         ]
 
-        response = self.client.get("/block_stats", auth=self.auth)
+        response = self.client.get(
+            "/block_stats", auth=self.auth, headers=self._totp_headers()
+        )
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["blocked_ip_count"], 1)
@@ -260,7 +344,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self, mock_load, mock_get_redis, mock_get_metrics
     ):
         """Test /block_stats handles missing data gracefully."""
-        response = self.client.get("/block_stats", auth=self.auth)
+        response = self.client.get(
+            "/block_stats", auth=self.auth, headers=self._totp_headers()
+        )
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["blocked_ip_count"], 0)
