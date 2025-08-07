@@ -555,10 +555,8 @@ async def send_alert(event_data: WebhookEvent):
 @app.post("/webhook")
 async def webhook_receiver(request: Request):
     """Handle blocklist/flag actions from the escalation engine tests."""
-    if (
-        WEBHOOK_API_KEY is not None
-        and request.headers.get("X-API-Key") != WEBHOOK_API_KEY
-    ):
+    api_key = request.headers.get("X-API-Key")
+    if not WEBHOOK_API_KEY or api_key != WEBHOOK_API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
     payload = (
         await request.json()
