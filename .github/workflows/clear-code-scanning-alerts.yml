@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set up GitHub CLI
-        uses: cli/cli-action@v2
+        uses: actions/setup-gh@v4
 
       - name: List and dismiss all code scanning alerts
         env:
