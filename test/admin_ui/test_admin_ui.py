@@ -170,9 +170,14 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
     def test_missing_admin_password(self):
         """Service raises an error when ADMIN_UI_PASSWORD is unset."""
-        del os.environ["ADMIN_UI_PASSWORD"]
-        with self.assertRaises(RuntimeError):
-            self.client.get("/", auth=self.auth)
+        original_password = os.environ.get("ADMIN_UI_PASSWORD")
+        try:
+            del os.environ["ADMIN_UI_PASSWORD"]
+            with self.assertRaises(RuntimeError):
+                self.client.get("/", auth=self.auth)
+        finally:
+            if original_password is not None:
+                os.environ["ADMIN_UI_PASSWORD"] = original_password
 
     @patch("src.admin_ui.admin_ui._get_metrics_dict_func")
     def test_metrics_websocket_initial_message(self, mock_get_metrics):
