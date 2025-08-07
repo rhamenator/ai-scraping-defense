@@ -10,6 +10,7 @@ notifications through webhooks, Slack or SMTP email.
 
 import asyncio
 import datetime
+import ipaddress
 import json
 import logging
 import os
@@ -570,10 +571,17 @@ async def webhook_receiver(request: Request):
     action = payload.get("action")
     ip = payload.get("ip")
 
-    if action in {"block_ip", "allow_ip", "flag_ip", "unflag_ip"} and not ip:
-        raise HTTPException(
-            status_code=400, detail=f"Missing 'ip' in payload for action '{action}'."
-        )
+    actions_requiring_ip = {"block_ip", "allow_ip", "flag_ip", "unflag_ip"}
+    if action in actions_requiring_ip:
+        if not ip:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Missing 'ip' in payload for action '{action}'.",
+            )
+        try:
+            ipaddress.ip_address(ip)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip}")
 
     try:
         if action == "block_ip":
