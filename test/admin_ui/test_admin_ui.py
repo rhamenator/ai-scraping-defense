@@ -1,10 +1,12 @@
 # test/admin_ui/test_admin_ui.py
-import unittest
 import json
 import os
+import unittest
+from unittest.mock import MagicMock, patch
+
 import pyotp
-from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
+
 from src.admin_ui import admin_ui
 
 
@@ -29,7 +31,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertIn(b'id="blocklist-container"', content)
         self.assertIn(b'id="manual-ip-block"', content)
         self.assertIn(b"admin.js", content)
-        self.assertEqual(response.headers.get("content-security-policy"), "default-src 'self'")
+        self.assertEqual(
+            response.headers.get("content-security-policy"), "default-src 'self'"
+        )
 
     @patch("src.admin_ui.admin_ui._get_metrics_dict_func")
     def test_metrics_endpoint_success(self, mock_get_metrics_dict):
@@ -163,6 +167,12 @@ class TestAdminUIComprehensive(unittest.TestCase):
         response = self.client.get("/", auth=self.auth, headers=headers)
         self.assertEqual(response.status_code, 401)
         del os.environ["ADMIN_UI_2FA_SECRET"]
+
+    def test_missing_admin_password(self):
+        """Service raises an error when ADMIN_UI_PASSWORD is unset."""
+        del os.environ["ADMIN_UI_PASSWORD"]
+        with self.assertRaises(RuntimeError):
+            self.client.get("/", auth=self.auth)
 
     @patch("src.admin_ui.admin_ui._get_metrics_dict_func")
     def test_metrics_websocket_initial_message(self, mock_get_metrics):

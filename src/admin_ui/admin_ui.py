@@ -169,7 +169,7 @@ def require_auth(
     username = os.getenv("ADMIN_UI_USERNAME", "admin")
     password = os.getenv("ADMIN_UI_PASSWORD")
     if password is None:
-        password = os.getenv("ADMIN_UI_PASSWORD_DEFAULT", "password")
+        raise RuntimeError("ADMIN_UI_PASSWORD environment variable must be set")
     valid = secrets.compare_digest(
         credentials.username, username
     ) and secrets.compare_digest(credentials.password, password)
