@@ -15,7 +15,6 @@ from src.pay_per_crawl.payment_gateway import (
 from src.pay_per_crawl.tokens import secure_hash, tokenize_card
 
 
-
 class TestPaymentGateway(unittest.TestCase):
     def test_charge_returns_false_without_config(self):
         gateway = HTTPPaymentGateway(base_url=None, api_key=None)
@@ -72,11 +71,21 @@ class TestPaymentGateway(unittest.TestCase):
     def test_tokenize_and_rotate(self):
         token = tokenize_card("4111 1111-1111 1111", secret="s")
         self.assertNotIn("4111", token)
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "invalid card number"):
             tokenize_card("1234", secret="s")
         gateway = HTTPPaymentGateway(base_url="https://api", api_key="old")
         gateway.rotate_api_key("new")
         self.assertEqual(gateway.api_key, "new")
+
+    def test_tokenize_12_digit_luhn_card(self):
+        token = tokenize_card("100000000008", secret="s")
+        self.assertTrue(token)
+        self.assertNotIn("1000", token)
+
+    def test_tokenize_19_digit_luhn_card(self):
+        token = tokenize_card("1000000000000000009", secret="s")
+        self.assertTrue(token)
+        self.assertNotIn("1000", token)
 
     def test_secure_hash(self):
         h1 = secure_hash("data", secret="a")
