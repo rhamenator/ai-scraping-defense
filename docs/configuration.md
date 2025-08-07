@@ -54,11 +54,13 @@ This page documents all environment variables consumed by the Python services. D
 | `ESCALATION_ENDPOINT` | `http://escalation_engine:8003/escalate` | URL used by Nginx Lua to send escalation data |
 | `TAR_PIT_MIN_DELAY_SEC` | `0.6` | Minimum tarpit delay |
 | `TAR_PIT_MAX_DELAY_SEC` | `1.2` | Maximum tarpit delay |
-| `SYSTEM_SEED` | `default_system_seed_value_change_me` | Seed for tarpit text generation |
+| `SYSTEM_SEED` | `default_system_seed_value_change_me` | Seed for tarpit text generation; **must be overridden** |
 | `TAR_PIT_MAX_HOPS` | `250` | Max recorded tarpit hops |
 | `TAR_PIT_HOP_WINDOW_SECONDS` | `86400` | Sliding window for hop counts |
 | `BLOCKLIST_TTL_SECONDS` | `86400` | How long IPs remain blocked |
 | `ENABLE_TARPIT_CATCH_ALL` | `true` | Send unmatched requests to the tarpit |
+
+> **Note:** `SYSTEM_SEED` must be set to a unique value. The Tarpit API raises an error if the default placeholder is used.
 
 ## Alerts and Webhooks
 
