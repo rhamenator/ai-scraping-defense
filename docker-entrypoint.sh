@@ -12,9 +12,9 @@ MODEL_FILE="${MODEL_PATH:-/app/models/bot_detection_rf_model.joblib}"
 # --- Wait for PostgreSQL ---
 # Ensures the database is ready before any application logic runs.
 echo "Waiting for postgres..."
-# The password file is used securely.
-export PGPASSWORD=$(cat "$PG_PASSWORD_FILE")
-while ! pg_isready -h "$PG_HOST" -p 5432 -q -U "$PG_USER"; do
+# The password file is used securely without exporting the password.
+PGPASSWORD_VALUE=$(cat "$PG_PASSWORD_FILE")
+while ! PGPASSWORD="$PGPASSWORD_VALUE" pg_isready -h "$PG_HOST" -p 5432 -q -U "$PG_USER"; do
   echo "PostgreSQL is unavailable - sleeping"
   sleep 2
 done
@@ -28,7 +28,7 @@ if [ "$RUN_MODEL_TRAINING" == "true" ] && [ ! -f "$MODEL_FILE" ]; then
   # Ensure the target directory exists.
   mkdir -p /app/models
   # Run the training script from its new location in src/
-  python src/rag/training.py
+  PGPASSWORD="$PGPASSWORD" python src/rag/training.py
   echo "Training complete. Model saved to $MODEL_FILE"
 else
   echo "Skipping bot detection model training."
@@ -36,4 +36,4 @@ fi
 
 # Execute the main command passed to the container (e.g., uvicorn, gunicorn).
 echo "Launching main command: $@"
-exec "$@"
+PGPASSWORD="$PGPASSWORD_VALUE" exec "$@"
