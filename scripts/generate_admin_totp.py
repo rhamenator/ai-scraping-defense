@@ -28,7 +28,11 @@ def main() -> None:
     out_file = Path("admin-2fa.png")
     img.save(out_file)
     if args.show_secret:
-        print(f"TOTP secret: {secret}")
+        confirm = input("Are you sure you want to display the TOTP secret? Type 'YES' to confirm: ")
+        if confirm == "YES":
+            print(f"TOTP secret: {secret}")
+        else:
+            print("TOTP secret not displayed.")
     print(f"QR code written to {out_file.resolve()}")
 
 
