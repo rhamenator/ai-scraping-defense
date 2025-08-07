@@ -38,14 +38,36 @@ class TestRulesFetcher(unittest.TestCase):
 
     def test_fetch_rules_success(self):
         self.mock_get.return_value = MockResponse("SecRule ...", 200)
-        content = rules_fetcher.fetch_rules("http://example.com/rules")
+        content = rules_fetcher.fetch_rules("https://example.com/rules")
         self.assertEqual(content, "SecRule ...")
         self.mock_get.assert_called_once()
 
     def test_fetch_rules_error(self):
         self.mock_get.side_effect = rules_fetcher.requests.exceptions.RequestException()
+        content = rules_fetcher.fetch_rules("https://example.com/rules")
+        self.assertEqual(content, "")
+
+    def test_fetch_rules_rejects_non_https(self):
         content = rules_fetcher.fetch_rules("http://example.com/rules")
         self.assertEqual(content, "")
+        self.mock_get.assert_not_called()
+
+    def test_fetch_rules_domain_not_allowed(self):
+        allowed = ["example.com"]
+        content = rules_fetcher.fetch_rules(
+            "https://notallowed.com/rules", allowed_domains=allowed
+        )
+        self.assertEqual(content, "")
+        self.mock_get.assert_not_called()
+
+    def test_fetch_rules_domain_allowed(self):
+        allowed = ["example.com"]
+        self.mock_get.return_value = MockResponse("SecRule ...", 200)
+        content = rules_fetcher.fetch_rules(
+            "https://example.com/rules", allowed_domains=allowed
+        )
+        self.assertEqual(content, "SecRule ...")
+        self.mock_get.assert_called_once()
 
     @unittest.skipIf(
         not rules_fetcher.KUBE_AVAILABLE, "Kubernetes library not installed"
@@ -59,7 +81,7 @@ class TestRulesFetcher(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True), patch(
             "src.util.rules_fetcher.reload_waf_rules"
         ) as mock_reload, patch.object(
-            rules_fetcher, "RULES_URL", "http://example.com/rules"
+            rules_fetcher, "RULES_URL", "https://example.com/rules"
         ):
             self.mock_get.return_value = MockResponse("SecRule ...", 200)
             rules_fetcher._run_as_script()
