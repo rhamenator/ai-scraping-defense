@@ -2,12 +2,23 @@
 """Generate a TOTP secret and QR code for the Admin UI."""
 import sys
 from pathlib import Path
+import argparse
 
 import pyotp
 import qrcode
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Generate a TOTP secret and QR code for the Admin UI."
+    )
+    parser.add_argument(
+        "--show-secret",
+        action="store_true",
+        help="Print the TOTP secret to stdout (use with caution).",
+    )
+    args = parser.parse_args()
+
     secret = pyotp.random_base32()
     issuer = "AI Scraping Defense"
     uri = pyotp.TOTP(secret).provisioning_uri(
@@ -16,7 +27,8 @@ def main() -> None:
     img = qrcode.make(uri)
     out_file = Path("admin-2fa.png")
     img.save(out_file)
-    print(f"TOTP secret: {secret}")
+    if args.show_secret:
+        print(f"TOTP secret: {secret}")
     print(f"QR code written to {out_file.resolve()}")
 
 
