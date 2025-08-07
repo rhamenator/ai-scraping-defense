@@ -32,5 +32,6 @@ We may recognize your contribution publicly once the vulnerability is addressed,
 * We strive to follow secure coding practices.
 * Dependencies are periodically reviewed (consider adding automated checks like Dependabot).
 * Container images are built from trusted base images.
+* The Admin UI requires explicit CORS origins. Set `ADMIN_UI_CORS_ORIGINS` to allowed hosts (default `http://localhost`) and avoid using `*` when credentials are allowed.
 
 Thank you for helping keep the AI Scraping Defense Stack secure!
