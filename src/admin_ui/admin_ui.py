@@ -125,7 +125,12 @@ BASE_DIR = os.path.dirname(__file__)
 
 
 def _get_allowed_origins() -> list[str]:
-    """Return a validated list of CORS origins for the Admin UI."""
+    """Return a validated list of CORS origins for the Admin UI.
+
+    The value is read when the application starts. Changing the
+    ``ADMIN_UI_CORS_ORIGINS`` environment variable requires restarting the
+    service to take effect.
+    """
     raw = os.getenv("ADMIN_UI_CORS_ORIGINS", "http://localhost")
     origins = [o.strip() for o in raw.split(",") if o.strip()]
     if "*" in origins:
@@ -135,11 +140,12 @@ def _get_allowed_origins() -> list[str]:
     return origins
 
 
-allowed_origins = _get_allowed_origins()
 app = FastAPI()
+# Origin configuration is evaluated at startup and requires an application
+# restart to change.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=_get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
