@@ -8,8 +8,6 @@ from unittest.mock import ANY, AsyncMock, MagicMock, patch
 import httpx
 from fastapi.testclient import TestClient
 
-os.environ.setdefault("SYSTEM_SEED", "unit_test_seed")
-
 from src.tarpit.tarpit_api import app
 
 
