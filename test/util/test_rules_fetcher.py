@@ -137,6 +137,38 @@ class TestRulesFetcher(unittest.TestCase):
             self.assertFalse(result)
             self.assertFalse(os.path.exists(os.path.join(tmpdir, "crs-setup.conf")))
 
+    def test_download_and_extract_crs_skips_symlink_members(self):
+        tar_bytes = io.BytesIO()
+        with tarfile.open(fileobj=tar_bytes, mode="w:gz") as tf:
+            info = tarfile.TarInfo("crs-setup.conf.example")
+            data = b"# CRS setup"
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+
+            info = tarfile.TarInfo("rules/example.conf")
+            data = b"SecRule"
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+
+            info = tarfile.TarInfo("rules/link")
+            info.type = tarfile.SYMTYPE
+            info.linkname = "../evil"
+            tf.addfile(info)
+
+        tar_bytes.seek(0)
+        self.mock_get.return_value = MockResponse(tar_bytes.getvalue(), 200)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = rules_fetcher.download_and_extract_crs(
+                "http://example.com/crs.tar.gz", tmpdir
+            )
+            self.assertTrue(result)
+            self.assertTrue(os.path.exists(os.path.join(tmpdir, "crs-setup.conf")))
+            self.assertTrue(
+                os.path.exists(os.path.join(tmpdir, "rules", "example.conf"))
+            )
+            self.assertFalse(os.path.exists(os.path.join(tmpdir, "rules", "link")))
+
 
 if __name__ == "__main__":
     unittest.main()
