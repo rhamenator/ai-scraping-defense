@@ -3,6 +3,7 @@
 import argparse
 import sys
 from pathlib import Path
+import os
 
 import pyotp
 import qrcode
@@ -33,9 +34,11 @@ def main() -> None:
             "Type 'YES' to confirm: "
         )
         if confirm == "YES":
-            print(
-                f"TOTP secret: {secret}"
-            )  # lgtm[py/clear-text-logging-sensitive-data]
+            secret_file = Path("admin-2fa.secret")
+            with open(secret_file, "w") as f:
+                f.write(secret)
+            os.chmod(secret_file, 0o600)
+            print(f"TOTP secret written to {secret_file.resolve()} (permissions: 600)")
         else:
             print("TOTP secret not displayed.")
     else:
