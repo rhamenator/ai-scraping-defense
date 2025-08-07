@@ -50,8 +50,9 @@ ENV PYTHONPATH "${PYTHONPATH}:/app"
 
 COPY --chown=appuser:appuser requirements.txt constraints.txt ./
 
+USER appuser
 RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt && \
-    rm -rf /root/.cache/pip
+    rm -rf /home/appuser/.cache/pip
 COPY --chown=appuser:appuser src/ /app/src/
 
 # Copy the pre-built shared libraries from the builder stage
