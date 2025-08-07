@@ -8,6 +8,8 @@ This project supports an optional ModSecurity-based Web Application Firewall (WA
 2. Extract `crs-setup.conf` and the `rules` folder into the repository's `waf/` directory.
 3. Optionally add custom ModSecurity rules in the same folder.
 
+Alternatively, you can provide a `RULES_DOWNLOAD_URL` environment variable to fetch a remote rules file at startup. The URL must begin with `https://`. To restrict which hosts can be used, set `RULES_ALLOWED_DOMAINS` to a comma-separated list of permitted domains.
+
 ## Enabling with Docker Compose
 
 1. Edit `.env` and set:

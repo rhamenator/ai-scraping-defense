@@ -7,6 +7,7 @@ import tarfile
 import tempfile
 import zipfile
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 import requests
 
@@ -40,6 +41,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 RULES_URL = os.getenv("RULES_DOWNLOAD_URL", "")
+ALLOWED_RULES_DOMAINS = [
+    d.strip() for d in os.getenv("RULES_ALLOWED_DOMAINS", "").split(",") if d.strip()
+]
 CRS_DOWNLOAD_URL = os.getenv("CRS_DOWNLOAD_URL", "")
 CONFIGMAP_NAME = os.getenv("WAF_RULES_CONFIGMAP_NAME", "waf-rules")
 CONFIGMAP_NAMESPACE = os.getenv("KUBERNETES_NAMESPACE", "default")
@@ -51,11 +55,27 @@ MODSEC_DIR = os.getenv("MODSECURITY_DIR", "/etc/nginx/modsecurity")
 
 
 # --- Core Functions ---
-def fetch_rules(url: str) -> str:
-    """Download rules content from the given URL."""
+def fetch_rules(url: str, allowed_domains: Optional[list[str]] = None) -> str:
+    """Download rules content from the given URL.
+
+    Args:
+        url: The HTTPS URL to fetch.
+        allowed_domains: Optional list of allowed hostnames.
+    """
     if not url:
         logger.error("No URL provided to fetch rules.")
         return ""
+
+    if not url.startswith("https://"):
+        logger.error("Rules URL must start with 'https://': %s", url)
+        return ""
+
+    domains = allowed_domains if allowed_domains is not None else ALLOWED_RULES_DOMAINS
+    if domains:
+        hostname = urlparse(url).hostname
+        if hostname not in domains:
+            logger.error("Rules URL host %s not in allowlist.", hostname)
+            return ""
 
     try:
         response = requests.get(url, timeout=15)
