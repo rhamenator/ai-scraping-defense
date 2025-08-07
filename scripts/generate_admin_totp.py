@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Generate a TOTP secret and QR code for the Admin UI."""
+import argparse
 import sys
 from pathlib import Path
-import argparse
-
+import os
 import pyotp
 import qrcode
 
@@ -22,17 +22,44 @@ def main() -> None:
     secret = pyotp.random_base32()
     issuer = "AI Scraping Defense"
     uri = pyotp.TOTP(secret).provisioning_uri(
-        name="admin@example.com", issuer_name=issuer
+    parser.add_argument(
+        "--admin-email",
+        type=str,
+        default=None,
+        help="Admin email/username for TOTP provisioning (can also set ADMIN_EMAIL env var).",
+    )
+    args = parser.parse_args()
+
+    admin_email = (
+        args.admin_email
+        or os.environ.get("ADMIN_EMAIL")
+        or "admin@example.com"
+    )
+
+    secret = pyotp.random_base32()
+    issuer = "AI Scraping Defense"
+    uri = pyotp.TOTP(secret).provisioning_uri(
+        name=admin_email, issuer_name=issuer
     )
     img = qrcode.make(uri)
     out_file = Path("admin-2fa.png")
     img.save(out_file)
     if args.show_secret:
-        confirm = input("Are you sure you want to display the TOTP secret? Type 'YES' to confirm: ")
+        confirm = input(
+            "Are you sure you want to display the TOTP secret? "
+            "Type 'YES' to confirm: "
+        )
         if confirm == "YES":
-            print(f"TOTP secret: {secret}")
+            secret_file = Path("admin-2fa.secret")
+            with open(secret_file, "w") as f:
+                f.write(secret)
+            os.chmod(secret_file, 0o600)
+            print(f"TOTP secret written to {secret_file.resolve()} (permissions: 600)")
         else:
             print("TOTP secret not displayed.")
+    else:
+        print("TOTP secret not displayed.")
+
     print(f"QR code written to {out_file.resolve()}")
 
 

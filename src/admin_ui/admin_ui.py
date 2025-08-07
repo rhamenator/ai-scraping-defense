@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import secrets
+import time
 from base64 import b64decode
 from collections import deque
 from uuid import uuid4
@@ -193,14 +194,68 @@ ADMIN_UI_ROLE = os.getenv("ADMIN_UI_ROLE", "admin")
 
 security = HTTPBasic()
 
-# In-memory stores for WebAuthn credentials and tokens
-# Persistent store for WebAuthn credentials using Redis
+# Fallback in-memory stores for WebAuthn when Redis is unavailable
+WEBAUTHN_CREDENTIALS: dict[str, dict] = {}
 WEBAUTHN_CHALLENGES: dict[str, bytes] = {}
-VALID_WEBAUTHN_TOKENS: dict[str, str] = {}
+VALID_WEBAUTHN_TOKENS: dict[str, tuple[str, float]] = {}
+WEBAUTHN_TOKEN_TTL = 300
+
 
 RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
 ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost")
 
+def _cred_key(user: str) -> str:
+    return tenant_key(f"webauthn:cred:{user}")
+
+
+def _token_key(token: str) -> str:
+    return tenant_key(f"webauthn:token:{token}")
+
+
+def _store_webauthn_credential(user: str, cred: dict) -> None:
+    redis_conn = get_redis_connection()
+    if redis_conn:
+        redis_conn.set(_cred_key(user), json.dumps(cred))
+    else:
+        WEBAUTHN_CREDENTIALS[user] = cred
+
+
+def _load_webauthn_credential(user: str) -> dict | None:
+    redis_conn = get_redis_connection()
+    if redis_conn:
+        raw = redis_conn.get(_cred_key(user))
+        return json.loads(raw) if raw else None
+    return WEBAUTHN_CREDENTIALS.get(user)
+
+
+def _store_webauthn_token(token: str, user: str) -> None:
+    redis_conn = get_redis_connection()
+    if redis_conn:
+        redis_conn.set(_token_key(token), user, ex=WEBAUTHN_TOKEN_TTL)
+    else:
+        VALID_WEBAUTHN_TOKENS[token] = (user, time.time() + WEBAUTHN_TOKEN_TTL)
+
+
+def _consume_webauthn_token(token: str | None) -> str | None:
+    if not token:
+        return None
+    redis_conn = get_redis_connection()
+    if redis_conn:
+        key = _token_key(token)
+        username = redis_conn.get(key)
+        if username:
+            redis_conn.delete(key)
+            return username
+        return None
+    user_exp = VALID_WEBAUTHN_TOKENS.get(token)
+    if not user_exp:
+        return None
+    user, exp = user_exp
+    if exp < time.time():
+        VALID_WEBAUTHN_TOKENS.pop(token, None)
+        return None
+    VALID_WEBAUTHN_TOKENS.pop(token, None)
+    return user
 
 def require_auth(
     credentials: HTTPBasicCredentials = Depends(security),
@@ -225,12 +280,19 @@ def require_auth(
             headers={"WWW-Authenticate": "Basic"},
         )
 
+    token_user = _consume_webauthn_token(x_2fa_token)
+    if token_user:
+        if token_user != credentials.username:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid 2FA token",
+                headers={"WWW-Authenticate": "Basic"},
+            )
+        return credentials.username
+
     totp_secret = os.getenv("ADMIN_UI_2FA_SECRET") or get_secret(
         "ADMIN_UI_2FA_SECRET_FILE",
-    )
-    token_valid = (
-        x_2fa_token is not None
-        and VALID_WEBAUTHN_TOKENS.get(x_2fa_token) == credentials.username
+
     )
     if totp_secret:
         if x_2fa_code:
@@ -258,7 +320,13 @@ def require_auth(
                 detail="2FA token required",
                 headers={"WWW-Authenticate": "Basic"},
             )
+        return credentials.username
 
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="2FA token required",
+        headers={"WWW-Authenticate": "Basic"},
+    # If no 2FA method is configured, allow authentication with just username and password
     return credentials.username
 
 
@@ -290,7 +358,7 @@ async def webauthn_register_begin(user: str = Depends(require_auth)):
         user_id=user.encode(),
         user_name=user,
     )
-    WEBAUTHN_CHALLENGES[user] = options.challenge
+    _store_webauthn_challenge(user, options.challenge)
     return JSONResponse(json.loads(options_to_json(options)))
 
 
@@ -304,11 +372,15 @@ async def webauthn_register_complete(data: dict, user: str = Depends(require_aut
         expected_rp_id=RP_ID,
         expected_origin=ORIGIN,
     )
-    WEBAUTHN_CREDENTIALS[user] = {
-        "credential_id": verification.credential_id,
-        "public_key": verification.credential_public_key,
-        "sign_count": verification.sign_count,
-    }
+    _store_webauthn_credential(
+        user,
+        {
+            "credential_id": verification.credential_id,
+            "public_key": verification.credential_public_key,
+            "sign_count": verification.sign_count,
+        },
+    )
+
     return JSONResponse({"status": "ok"})
 
 
@@ -317,8 +389,9 @@ async def webauthn_login_begin(data: dict):
     """Begin WebAuthn authentication and return options."""
     username = data.get("username")
     if not isinstance(username, str) or not username:
-        raise HTTPException(status_code=400, detail="Missing or invalid username")
-    cred = WEBAUTHN_CREDENTIALS.get(username)
+        raise HTTPException(status_code=400, detail="Invalid or missing username")
+    cred = _load_webauthn_credential(username)
+
     if not cred:
         raise HTTPException(status_code=400, detail="Unknown user")
     descriptor = PublicKeyCredentialDescriptor(id=cred["credential_id"])
@@ -326,7 +399,7 @@ async def webauthn_login_begin(data: dict):
         rp_id=RP_ID,
         allow_credentials=[descriptor],
     )
-    WEBAUTHN_CHALLENGES[username] = options.challenge
+    WEBAUTHN_CHALLENGES[username] = (options.challenge, time.time())
     return JSONResponse(json.loads(options_to_json(options)))
 
 
@@ -336,7 +409,7 @@ async def webauthn_login_complete(data: dict):
     username = data.get("username")
     if not isinstance(username, str) or not username:
         raise HTTPException(status_code=400, detail="Invalid or missing username")
-    cred = WEBAUTHN_CREDENTIALS.get(username)
+    cred = _load_webauthn_credential(username)
     if not cred:
         raise HTTPException(status_code=400, detail="Unknown user")
     credential = AuthenticationCredential.parse_raw(json.dumps(data["credential"]))
@@ -349,8 +422,9 @@ async def webauthn_login_complete(data: dict):
         credential_current_sign_count=cred["sign_count"],
     )
     cred["sign_count"] = verification.new_sign_count
+    _store_webauthn_credential(username, cred)
     token = uuid4().hex
-    VALID_WEBAUTHN_TOKENS[token] = username
+    _store_webauthn_token(token, username)
     return JSONResponse({"token": token})
 
 
@@ -388,9 +462,13 @@ async def metrics_websocket(websocket: WebSocket):
             if scheme.lower() == "basic":
                 decoded = b64decode(data).decode()
                 username, password = decoded.split(":", 1)
+                x_2fa_code = websocket.headers.get("X-2FA-Code")
+                x_2fa_token = websocket.headers.get("X-2FA-Token")
                 try:
                     require_auth(
-                        HTTPBasicCredentials(username=username, password=password)
+                        HTTPBasicCredentials(username=username, password=password),
+                        x_2fa_code=x_2fa_code,
+                        x_2fa_token=x_2fa_token,
                     )
                 except HTTPException:
                     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
