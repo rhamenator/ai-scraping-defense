@@ -415,7 +415,13 @@ async def settings_page(
         "settings.html",
         {"request": request, "settings": current_settings, "csrf_token": csrf_token},
     )
-    response.set_cookie("csrf_token", csrf_token, httponly=True, secure=True)
+    response.set_cookie(
+        "csrf_token",
+        csrf_token,
+        httponly=True,
+        secure=True,
+        samesite="Strict",
+    )
     return response
 
 
