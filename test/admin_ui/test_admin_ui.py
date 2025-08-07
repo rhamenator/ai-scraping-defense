@@ -21,6 +21,12 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.client = TestClient(admin_ui.app)
         self.auth = ("admin", "testpass")
 
+    def test_reject_wildcard_cors_origin(self):
+        """Wildcard CORS origin should be rejected when credentials are allowed."""
+        with patch.dict(os.environ, {"ADMIN_UI_CORS_ORIGINS": "*"}):
+            with self.assertRaises(ValueError):
+                admin_ui._get_allowed_origins()
+
     def test_index_route_success(self):
         """Test the main dashboard page serves HTML correctly and contains key elements."""
         response = self.client.get("/", auth=self.auth)

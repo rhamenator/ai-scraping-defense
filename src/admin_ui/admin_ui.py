@@ -122,8 +122,21 @@ def _discover_plugins() -> list[str]:
 
 
 BASE_DIR = os.path.dirname(__file__)
+
+
+def _get_allowed_origins() -> list[str]:
+    """Return a validated list of CORS origins for the Admin UI."""
+    raw = os.getenv("ADMIN_UI_CORS_ORIGINS", "http://localhost")
+    origins = [o.strip() for o in raw.split(",") if o.strip()]
+    if "*" in origins:
+        raise ValueError(
+            "ADMIN_UI_CORS_ORIGINS cannot include '*' when allow_credentials is True"
+        )
+    return origins
+
+
+allowed_origins = _get_allowed_origins()
 app = FastAPI()
-allowed_origins = os.getenv("ADMIN_UI_CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
