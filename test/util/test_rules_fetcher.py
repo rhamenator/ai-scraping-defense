@@ -3,6 +3,7 @@ import os
 import tarfile
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import MagicMock, patch
 
 from src.util import rules_fetcher
@@ -90,6 +91,51 @@ class TestRulesFetcher(unittest.TestCase):
             self.assertTrue(
                 os.path.exists(os.path.join(tmpdir, "rules", "example.conf"))
             )
+
+    def test_download_and_extract_crs_prevents_tar_path_traversal(self):
+        tar_bytes = io.BytesIO()
+        with tarfile.open(fileobj=tar_bytes, mode="w:gz") as tf:
+            info = tarfile.TarInfo("../evil.conf")
+            data = b"bad"
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+
+            info = tarfile.TarInfo("crs-setup.conf.example")
+            data = b"# CRS setup"
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+
+            info = tarfile.TarInfo("rules/example.conf")
+            data = b"SecRule"
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+
+        tar_bytes.seek(0)
+        self.mock_get.return_value = MockResponse(tar_bytes.getvalue(), 200)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = rules_fetcher.download_and_extract_crs(
+                "http://example.com/crs.tar.gz", tmpdir
+            )
+            self.assertFalse(result)
+            self.assertFalse(os.path.exists(os.path.join(tmpdir, "crs-setup.conf")))
+
+    def test_download_and_extract_crs_prevents_zip_path_traversal(self):
+        zip_bytes = io.BytesIO()
+        with zipfile.ZipFile(zip_bytes, mode="w") as zf:
+            zf.writestr("../evil.conf", "bad")
+            zf.writestr("crs-setup.conf.example", "# CRS setup")
+            zf.writestr("rules/example.conf", "SecRule")
+
+        zip_bytes.seek(0)
+        self.mock_get.return_value = MockResponse(zip_bytes.getvalue(), 200)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = rules_fetcher.download_and_extract_crs(
+                "http://example.com/crs.zip", tmpdir
+            )
+            self.assertFalse(result)
+            self.assertFalse(os.path.exists(os.path.join(tmpdir, "crs-setup.conf")))
 
 
 if __name__ == "__main__":
