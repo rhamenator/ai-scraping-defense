@@ -1,21 +1,18 @@
 # test/shared/model_adapters.test.py
+import os
+import sys
 import unittest
 from unittest.mock import MagicMock, patch
-import pandas as pd
-import numpy as np
-import sys
-import os
+
 import httpx
+import numpy as np
+import pandas as pd
 
 # Add the project root to the path to help static analysis tools find the modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 # Import the actual classes from the module
-from src.shared.model_adapters import (
-    SklearnAdapter,
-    MarkovAdapter,
-    HttpModelAdapter,
-)
+from src.shared.model_adapters import HttpModelAdapter, MarkovAdapter, SklearnAdapter
 
 
 class TestModelAdaptersComprehensive(unittest.TestCase):
@@ -35,7 +32,8 @@ class TestModelAdaptersComprehensive(unittest.TestCase):
         self.mock_joblib_load.return_value = mock_model
 
         # The adapter takes a URI, which is used by joblib.load
-        adapter = SklearnAdapter(model_uri="/fake/path/model.joblib")
+        with patch.dict(os.environ, {"TRUSTED_MODEL_DIR": "/fake"}):
+            adapter = SklearnAdapter(model_uri="/fake/path/model.joblib")
 
         # The data should be a list of dictionaries as expected by DictVectorizer
         data = [{"feature1": 10, "feature2": 20}]
@@ -51,14 +49,23 @@ class TestModelAdaptersComprehensive(unittest.TestCase):
     def test_sklearn_adapter_model_not_loaded(self):
         """Test SklearnAdapter returns a default value if the model failed to load."""
         self.mock_joblib_load.side_effect = FileNotFoundError
-
-        with self.assertLogs(level="ERROR") as cm:
-            adapter = SklearnAdapter(model_uri="/bad/path/model.joblib")
-            self.assertIn("model file not found", cm.output[0])
+        with patch.dict(os.environ, {"TRUSTED_MODEL_DIR": "/bad"}):
+            with self.assertLogs(level="ERROR") as cm:
+                adapter = SklearnAdapter(model_uri="/bad/path/model.joblib")
+                self.assertIn("model file not found", cm.output[0])
 
         # Check that predict returns a default failure prediction
         predictions = adapter.predict([{"feature1": 1}])
         self.assertEqual(predictions, [[0.0]])
+
+    def test_sklearn_adapter_rejects_untrusted_path(self):
+        """SklearnAdapter should refuse to load models outside the trusted dir."""
+        with patch.dict(os.environ, {"TRUSTED_MODEL_DIR": "/safe"}):
+            with self.assertLogs(level="ERROR") as cm:
+                adapter = SklearnAdapter(model_uri="/unsafe/model.joblib")
+                self.assertIn("outside trusted directory", cm.output[0])
+        self.assertIsNone(adapter.model)
+        self.mock_joblib_load.assert_not_called()
 
     def test_markov_adapter_success(self):
         """Test the MarkovAdapter successfully calls the generator function."""

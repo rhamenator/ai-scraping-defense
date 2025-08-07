@@ -345,6 +345,11 @@ MODEL_URI=mistral://mistral-large-latest
 
 For remote providers, set the corresponding API key in `.env` (`OPENAI_API_KEY`, `MISTRAL_API_KEY`, etc.).
 
+When referencing a local file with the `sklearn://` scheme, the model must reside
+in a trusted directory. By default, the adapters only load models from the
+`models/` folder (override with the `TRUSTED_MODEL_DIR` environment variable).
+Files outside this directory are ignored to avoid executing untrusted code.
+
 All LLM requests from the Escalation Engine are sent to the **Prompt Router**. The
 router constructs the final target URL from `PROMPT_ROUTER_HOST` and
 `PROMPT_ROUTER_PORT` and decides whether to use a local model or forward the

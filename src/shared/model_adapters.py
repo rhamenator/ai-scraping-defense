@@ -1,10 +1,23 @@
 """Adapter interfaces for various model providers."""
 
-from abc import ABC, abstractmethod
-import os
+import json
 import logging
+import os
+from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
+from pathlib import Path
 import httpx
+
+
+def _is_trusted_model_path(path: str) -> bool:
+    """Return True if path is within the trusted model directory."""
+    trusted_dir = Path(os.environ.get("TRUSTED_MODEL_DIR", os.path.join(os.getcwd(), "models"))).resolve()
+    abs_path = Path(path).resolve()
+    try:
+        return trusted_dir in abs_path.parents or abs_path == trusted_dir
+    except Exception:
+        return False
+
 
 # This pattern ensures that even if an import fails, the module variable
 # is still defined (as None)
@@ -87,6 +100,9 @@ class SklearnAdapter(BaseModelAdapter):
             logging.error(
                 "joblib library not installed. Cannot load scikit-learn model."
             )
+            return
+        if not _is_trusted_model_path(self.model_uri):
+            logging.error("model path %s is outside trusted directory", self.model_uri)
             return
         try:
             # model_uri is the file path, e.g., /app/models/model.joblib
