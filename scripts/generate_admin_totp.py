@@ -23,7 +23,24 @@ def main() -> None:
     secret = pyotp.random_base32()
     issuer = "AI Scraping Defense"
     uri = pyotp.TOTP(secret).provisioning_uri(
-        name="admin@example.com", issuer_name=issuer
+    parser.add_argument(
+        "--admin-email",
+        type=str,
+        default=None,
+        help="Admin email/username for TOTP provisioning (can also set ADMIN_EMAIL env var).",
+    )
+    args = parser.parse_args()
+
+    admin_email = (
+        args.admin_email
+        or os.environ.get("ADMIN_EMAIL")
+        or "admin@example.com"
+    )
+
+    secret = pyotp.random_base32()
+    issuer = "AI Scraping Defense"
+    uri = pyotp.TOTP(secret).provisioning_uri(
+        name=admin_email, issuer_name=issuer
     )
     img = qrcode.make(uri)
     out_file = Path("admin-2fa.png")
