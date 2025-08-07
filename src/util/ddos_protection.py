@@ -46,6 +46,7 @@ async def report_attack(
             )
         else:
             try:
+                # Build request and send to external provider
                 headers = {"Authorization": f"Bearer {DDOS_PROTECTION_API_KEY}"}
                 payload = {"ip": ip}
                 async with httpx.AsyncClient() as client:
