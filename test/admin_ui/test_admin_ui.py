@@ -44,7 +44,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
     def test_load_recent_block_events_streaming(self):
         """Ensure _load_recent_block_events reads only the last N lines."""
-        with tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8", delete=True) as tmp:
+        with tempfile.NamedTemporaryFile(
+            mode="w+", encoding="utf-8", delete=True
+        ) as tmp:
             for i in range(10):
                 tmp.write(
                     json.dumps(
@@ -195,6 +197,29 @@ class TestAdminUIComprehensive(unittest.TestCase):
         response = self.client.get("/", auth=self.auth, headers=headers)
         self.assertEqual(response.status_code, 401)
         del os.environ["ADMIN_UI_2FA_SECRET"]
+
+    def test_webauthn_token_allows_login(self):
+        """A valid WebAuthn token satisfies the 2FA requirement."""
+        secret = "JBSWY3DPEHPK3PXP"
+        os.environ["ADMIN_UI_2FA_SECRET"] = secret
+        token = "tok123"
+        admin_ui.VALID_WEBAUTHN_TOKENS[token] = "admin"
+        headers = {"X-2FA-Token": token}
+        response = self.client.get("/", auth=self.auth, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        del os.environ["ADMIN_UI_2FA_SECRET"]
+        admin_ui.VALID_WEBAUTHN_TOKENS.clear()
+
+    def test_webauthn_token_invalid(self):
+        """Invalid WebAuthn tokens are rejected."""
+        secret = "JBSWY3DPEHPK3PXP"
+        os.environ["ADMIN_UI_2FA_SECRET"] = secret
+        admin_ui.VALID_WEBAUTHN_TOKENS["good"] = "admin"
+        headers = {"X-2FA-Token": "bad"}
+        response = self.client.get("/", auth=self.auth, headers=headers)
+        self.assertEqual(response.status_code, 401)
+        del os.environ["ADMIN_UI_2FA_SECRET"]
+        admin_ui.VALID_WEBAUTHN_TOKENS.clear()
 
     def test_missing_admin_password(self):
         """Service raises an error when ADMIN_UI_PASSWORD is unset."""

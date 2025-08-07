@@ -13,6 +13,7 @@ import os
 import secrets
 from base64 import b64decode
 from collections import deque
+from uuid import uuid4
 
 import pyotp
 from fastapi import (
@@ -32,6 +33,18 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
+from webauthn import (
+    generate_authentication_options,
+    generate_registration_options,
+    options_to_json,
+    verify_authentication_response,
+    verify_registration_response,
+)
+from webauthn.helpers.structs import (
+    AuthenticationCredential,
+    PublicKeyCredentialDescriptor,
+    RegistrationCredential,
+)
 
 from src.shared.audit import log_event
 from src.shared.config import CONFIG, get_secret, tenant_key
@@ -180,21 +193,31 @@ ADMIN_UI_ROLE = os.getenv("ADMIN_UI_ROLE", "admin")
 
 security = HTTPBasic()
 
+# In-memory stores for WebAuthn credentials and tokens
+WEBAUTHN_CREDENTIALS: dict[str, dict] = {}
+WEBAUTHN_CHALLENGES: dict[str, bytes] = {}
+VALID_WEBAUTHN_TOKENS: dict[str, str] = {}
+
+RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
+ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost")
+
 
 def require_auth(
     credentials: HTTPBasicCredentials = Depends(security),
     x_2fa_code: str | None = Header(None, alias="X-2FA-Code"),
+    x_2fa_token: str | None = Header(None, alias="X-2FA-Token"),
 ) -> str:
-    """Validate HTTP Basic credentials and optional TOTP code."""
+    """Validate HTTP Basic credentials and optional 2FA."""
     username = os.getenv("ADMIN_UI_USERNAME", "admin")
     try:
         password = os.environ["ADMIN_UI_PASSWORD"]
     except KeyError as exc:  # pragma: no cover - defensive
         raise RuntimeError(
-            "ADMIN_UI_PASSWORD environment variable must be set"
+            "ADMIN_UI_PASSWORD environment variable must be set",
         ) from exc
     valid = secrets.compare_digest(
-        credentials.username, username
+        credentials.username,
+        username,
     ) and secrets.compare_digest(credentials.password, password)
     if not valid:
         raise HTTPException(
@@ -203,20 +226,36 @@ def require_auth(
         )
 
     totp_secret = os.getenv("ADMIN_UI_2FA_SECRET") or get_secret(
-        "ADMIN_UI_2FA_SECRET_FILE"
+        "ADMIN_UI_2FA_SECRET_FILE",
+    )
+    token_valid = (
+        x_2fa_token is not None
+        and VALID_WEBAUTHN_TOKENS.get(x_2fa_token) == credentials.username
     )
     if totp_secret:
-        if not x_2fa_code:
+        if x_2fa_code:
+            totp = pyotp.TOTP(totp_secret)
+            if not totp.verify(x_2fa_code, valid_window=1):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid 2FA code",
+                    headers={"WWW-Authenticate": "Basic"},
+                )
+        elif token_valid:
+            VALID_WEBAUTHN_TOKENS.pop(x_2fa_token, None)
+        else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="2FA code required",
                 headers={"WWW-Authenticate": "Basic"},
             )
-        totp = pyotp.TOTP(totp_secret)
-        if not totp.verify(x_2fa_code, valid_window=1):
+    elif VALID_WEBAUTHN_TOKENS:
+        if token_valid:
+            VALID_WEBAUTHN_TOKENS.pop(x_2fa_token, None)
+        else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid 2FA code",
+                detail="2FA token required",
                 headers={"WWW-Authenticate": "Basic"},
             )
 
@@ -240,6 +279,75 @@ def _jinja_url_for(context, name: str, **path_params) -> str:
 
 
 templates.env.globals["url_for"] = _jinja_url_for
+
+
+@app.post("/webauthn/register/begin")
+async def webauthn_register_begin(user: str = Depends(require_auth)):
+    """Begin WebAuthn registration and return options."""
+    options = generate_registration_options(
+        rp_id=RP_ID,
+        rp_name="AI Scraping Defense",
+        user_id=user.encode(),
+        user_name=user,
+    )
+    WEBAUTHN_CHALLENGES[user] = options.challenge
+    return JSONResponse(json.loads(options_to_json(options)))
+
+
+@app.post("/webauthn/register/complete")
+async def webauthn_register_complete(data: dict, user: str = Depends(require_auth)):
+    """Complete WebAuthn registration."""
+    credential = RegistrationCredential.parse_raw(json.dumps(data["credential"]))
+    verification = verify_registration_response(
+        credential=credential,
+        expected_challenge=WEBAUTHN_CHALLENGES.pop(user),
+        expected_rp_id=RP_ID,
+        expected_origin=ORIGIN,
+    )
+    WEBAUTHN_CREDENTIALS[user] = {
+        "credential_id": verification.credential_id,
+        "public_key": verification.credential_public_key,
+        "sign_count": verification.sign_count,
+    }
+    return JSONResponse({"status": "ok"})
+
+
+@app.post("/webauthn/login/begin")
+async def webauthn_login_begin(data: dict):
+    """Begin WebAuthn authentication and return options."""
+    username = data.get("username")
+    cred = WEBAUTHN_CREDENTIALS.get(username)
+    if not cred:
+        raise HTTPException(status_code=400, detail="Unknown user")
+    descriptor = PublicKeyCredentialDescriptor(id=cred["credential_id"])
+    options = generate_authentication_options(
+        rp_id=RP_ID,
+        allow_credentials=[descriptor],
+    )
+    WEBAUTHN_CHALLENGES[username] = options.challenge
+    return JSONResponse(json.loads(options_to_json(options)))
+
+
+@app.post("/webauthn/login/complete")
+async def webauthn_login_complete(data: dict):
+    """Complete WebAuthn authentication and return a token."""
+    username = data.get("username")
+    cred = WEBAUTHN_CREDENTIALS.get(username)
+    if not cred:
+        raise HTTPException(status_code=400, detail="Unknown user")
+    credential = AuthenticationCredential.parse_raw(json.dumps(data["credential"]))
+    verification = verify_authentication_response(
+        credential=credential,
+        expected_challenge=WEBAUTHN_CHALLENGES.pop(username),
+        expected_rp_id=RP_ID,
+        expected_origin=ORIGIN,
+        credential_public_key=cred["public_key"],
+        credential_current_sign_count=cred["sign_count"],
+    )
+    cred["sign_count"] = verification.new_sign_count
+    token = uuid4().hex
+    VALID_WEBAUTHN_TOKENS[token] = username
+    return JSONResponse({"token": token})
 
 
 @app.get("/", response_class=HTMLResponse)
