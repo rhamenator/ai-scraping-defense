@@ -85,12 +85,33 @@ def download_and_extract_crs(url: str, dest_dir: str) -> bool:
             f.write(response.content)
 
         try:
+            real_tmpdir = os.path.realpath(tmpdir)
             if url.endswith(".zip"):
                 with zipfile.ZipFile(archive_path) as zf:
-                    zf.extractall(tmpdir)
+                    for member in zf.infolist():
+                        target_path = os.path.realpath(
+                            os.path.join(tmpdir, member.filename)
+                        )
+                        if os.path.commonpath([real_tmpdir, target_path]) != real_tmpdir:
+                            logger.error(
+                                "Archive member outside extraction directory: %s",
+                                member.filename,
+                            )
+                            return False
+                        zf.extract(member, tmpdir)
             else:
                 with tarfile.open(archive_path, "r:gz") as tf:
-                    tf.extractall(tmpdir)
+                    for member in tf.getmembers():
+                        target_path = os.path.realpath(
+                            os.path.join(tmpdir, member.name)
+                        )
+                        if os.path.commonpath([real_tmpdir, target_path]) != real_tmpdir:
+                            logger.error(
+                                "Archive member outside extraction directory: %s",
+                                member.name,
+                            )
+                            return False
+                        tf.extract(member, tmpdir)
         except (tarfile.TarError, zipfile.BadZipFile) as exc:
             logger.error("Failed to extract CRS archive: %s", exc)
             return False
