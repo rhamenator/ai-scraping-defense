@@ -11,8 +11,8 @@ jobs:
   clear-alerts:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up GitHub CLI
-        uses: actions/setup-gh@v4
+      - name: Install GitHub CLI
+        run: sudo apt-get update && sudo apt-get install -y gh
 
       - name: List and dismiss all code scanning alerts
         env:
@@ -20,7 +20,6 @@ jobs:
           OWNER: ${{ github.repository_owner }}
           REPO: ${{ github.event.repository.name }}
         run: |
-          # List all open code scanning alerts
           alerts=$(gh api -H "Accept: application/vnd.github+json" \
             /repos/$OWNER/$REPO/code-scanning/alerts \
             --paginate --jq '.[] | select(.state == "open") | .number')
