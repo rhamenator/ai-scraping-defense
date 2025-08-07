@@ -346,7 +346,7 @@ async def webauthn_register_begin(user: str = Depends(require_auth)):
         user_id=user.encode(),
         user_name=user,
     )
-    WEBAUTHN_CHALLENGES[user] = options.challenge
+    _store_webauthn_challenge(user, options.challenge)
     return JSONResponse(json.loads(options_to_json(options)))
 
 
