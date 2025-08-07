@@ -1,6 +1,7 @@
 import logging
 import os
 import shutil
+import stat
 import subprocess
 import tarfile
 import tempfile
@@ -89,10 +90,18 @@ def download_and_extract_crs(url: str, dest_dir: str) -> bool:
             if url.endswith(".zip"):
                 with zipfile.ZipFile(archive_path) as zf:
                     for member in zf.infolist():
+                        if stat.S_ISLNK(member.external_attr >> 16):
+                            logger.warning(
+                                "Skipping symlink in archive: %s", member.filename
+                            )
+                            continue
                         target_path = os.path.realpath(
                             os.path.join(tmpdir, member.filename)
                         )
-                        if os.path.commonpath([real_tmpdir, target_path]) != real_tmpdir:
+                        if (
+                            os.path.commonpath([real_tmpdir, target_path])
+                            != real_tmpdir
+                        ):
                             logger.error(
                                 "Archive member outside extraction directory: %s",
                                 member.filename,
@@ -102,10 +111,18 @@ def download_and_extract_crs(url: str, dest_dir: str) -> bool:
             else:
                 with tarfile.open(archive_path, "r:gz") as tf:
                     for member in tf.getmembers():
+                        if member.issym() or member.islnk():
+                            logger.warning(
+                                "Skipping symlink in archive: %s", member.name
+                            )
+                            continue
                         target_path = os.path.realpath(
                             os.path.join(tmpdir, member.name)
                         )
-                        if os.path.commonpath([real_tmpdir, target_path]) != real_tmpdir:
+                        if (
+                            os.path.commonpath([real_tmpdir, target_path])
+                            != real_tmpdir
+                        ):
                             logger.error(
                                 "Archive member outside extraction directory: %s",
                                 member.name,
@@ -133,12 +150,21 @@ def download_and_extract_crs(url: str, dest_dir: str) -> bool:
             setup_file = setup_file + ".example"
 
         os.makedirs(dest_dir, exist_ok=True)
-        shutil.copy(setup_file, os.path.join(dest_dir, "crs-setup.conf"))
+        if os.path.islink(setup_file):
+            logger.warning("Skipping symlink setup file: %s", setup_file)
+        else:
+            shutil.copy(setup_file, os.path.join(dest_dir, "crs-setup.conf"))
 
         dest_rules = os.path.join(dest_dir, "rules")
         if os.path.exists(dest_rules):
             shutil.rmtree(dest_rules)
-        shutil.copytree(os.path.join(src_root, "rules"), dest_rules)
+
+        def _ignore_symlinks(path: str, names: list[str]) -> list[str]:
+            return [name for name in names if os.path.islink(os.path.join(path, name))]
+
+        shutil.copytree(
+            os.path.join(src_root, "rules"), dest_rules, ignore=_ignore_symlinks
+        )
 
     logger.info("OWASP CRS successfully installed to %s", dest_dir)
     return True
