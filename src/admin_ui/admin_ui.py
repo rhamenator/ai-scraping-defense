@@ -200,9 +200,9 @@ WEBAUTHN_CHALLENGES: dict[str, bytes] = {}
 VALID_WEBAUTHN_TOKENS: dict[str, tuple[str, float]] = {}
 WEBAUTHN_TOKEN_TTL = 300
 
+
 RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
 ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost")
-
 
 def _cred_key(user: str) -> str:
     return tenant_key(f"webauthn:cred:{user}")
@@ -257,7 +257,6 @@ def _consume_webauthn_token(token: str | None) -> str | None:
     VALID_WEBAUTHN_TOKENS.pop(token, None)
     return user
 
-
 def require_auth(
     credentials: HTTPBasicCredentials = Depends(security),
     x_2fa_code: str | None = Header(None, alias="X-2FA-Code"),
@@ -293,19 +292,32 @@ def require_auth(
 
     totp_secret = os.getenv("ADMIN_UI_2FA_SECRET") or get_secret(
         "ADMIN_UI_2FA_SECRET_FILE",
+
     )
     if totp_secret:
-        if not x_2fa_code:
+        if x_2fa_code:
+            totp = pyotp.TOTP(totp_secret)
+            if not totp.verify(x_2fa_code, valid_window=1):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid 2FA code",
+                    headers={"WWW-Authenticate": "Basic"},
+                )
+        elif token_valid:
+            VALID_WEBAUTHN_TOKENS.pop(x_2fa_token, None)
+        else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="2FA code required",
                 headers={"WWW-Authenticate": "Basic"},
             )
-        totp = pyotp.TOTP(totp_secret)
-        if not totp.verify(x_2fa_code, valid_window=1):
+    elif VALID_WEBAUTHN_TOKENS:
+        if token_valid:
+            VALID_WEBAUTHN_TOKENS.pop(x_2fa_token, None)
+        else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid 2FA code",
+                detail="2FA token required",
                 headers={"WWW-Authenticate": "Basic"},
             )
         return credentials.username
@@ -368,6 +380,7 @@ async def webauthn_register_complete(data: dict, user: str = Depends(require_aut
             "sign_count": verification.sign_count,
         },
     )
+
     return JSONResponse({"status": "ok"})
 
 
@@ -378,6 +391,7 @@ async def webauthn_login_begin(data: dict):
     if not isinstance(username, str) or not username:
         raise HTTPException(status_code=400, detail="Invalid or missing username")
     cred = _load_webauthn_credential(username)
+
     if not cred:
         raise HTTPException(status_code=400, detail="Unknown user")
     descriptor = PublicKeyCredentialDescriptor(id=cred["credential_id"])

@@ -4,7 +4,6 @@ import argparse
 import sys
 from pathlib import Path
 import os
-
 import pyotp
 import qrcode
 
@@ -60,6 +59,7 @@ def main() -> None:
             print("TOTP secret not displayed.")
     else:
         print("TOTP secret not displayed.")
+
     print(f"QR code written to {out_file.resolve()}")
 
 

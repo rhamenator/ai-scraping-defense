@@ -241,6 +241,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         headers = {"X-2FA-Token": token}
         with patch("src.admin_ui.admin_ui.get_redis_connection", return_value=None):
             response = self.client.get("/", auth=self.auth, headers=headers)
+
         self.assertEqual(response.status_code, 200)
         del os.environ["ADMIN_UI_2FA_SECRET"]
         admin_ui.VALID_WEBAUTHN_TOKENS.clear()
