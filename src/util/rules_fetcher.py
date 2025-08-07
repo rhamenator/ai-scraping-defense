@@ -92,7 +92,7 @@ def download_and_extract_crs(url: str, dest_dir: str) -> bool:
                         target_path = os.path.realpath(
                             os.path.join(tmpdir, member.filename)
                         )
-                        if not target_path.startswith(real_tmpdir + os.sep):
+                        if os.path.commonpath([real_tmpdir, target_path]) != real_tmpdir:
                             logger.error(
                                 "Archive member outside extraction directory: %s",
                                 member.filename,
