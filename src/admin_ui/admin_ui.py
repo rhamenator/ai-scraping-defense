@@ -314,7 +314,8 @@ def require_auth(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="2FA token required",
         headers={"WWW-Authenticate": "Basic"},
-    )
+    # If no 2FA method is configured, allow authentication with just username and password
+    return credentials.username
 
 
 def require_admin(user: str = Depends(require_auth)) -> str:
