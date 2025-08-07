@@ -12,6 +12,7 @@ import logging
 import os
 import secrets
 from base64 import b64decode
+from collections import deque
 
 import pyotp
 from fastapi import (
@@ -86,7 +87,7 @@ def _load_recent_block_events(limit: int = 5) -> list[dict]:
     events: list[dict] = []
     try:
         with open(BLOCK_LOG_FILE, "r", encoding="utf-8") as f:
-            lines = f.readlines()[-limit:]
+            lines = deque(f, maxlen=limit)
         for line in lines:
             try:
                 data = json.loads(line)
