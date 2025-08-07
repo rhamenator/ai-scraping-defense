@@ -164,7 +164,7 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
         """Importing with the placeholder seed should raise an error."""
         code = (
             "import os\n"
-            "os.environ['SYSTEM_SEED']='default_system_seed_value_change_me'\n"
+            f"os.environ['SYSTEM_SEED']={repr(DEFAULT_SYSTEM_SEED)}\n"
             "import src.tarpit.tarpit_api\n"
         )
         env = {
