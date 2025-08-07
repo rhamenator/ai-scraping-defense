@@ -89,7 +89,8 @@ This page documents all environment variables consumed by the Python services. D
 | --- | --- | --- |
 | `ESCALATION_THRESHOLD` | `0.8` | Score needed to block a request |
 | `ESCALATION_API_KEY` | *(none)* | Key required for Escalation Engine API |
-| `ESCALATION_WEBHOOK_URL` | *(none)* | Webhook destination for escalations |
+| `ESCALATION_WEBHOOK_URL` | *(none)* | HTTPS endpoint for escalations; must start with `https://` |
+| `ESCALATION_WEBHOOK_ALLOWED_DOMAINS` | *(none)* | Comma-separated list of approved webhook domains |
 | `LOCAL_LLM_API_URL` | *(none)* | URL of local LLM API |
 | `LOCAL_LLM_MODEL` | *(none)* | Model name for local LLM API |
 | `LOCAL_LLM_TIMEOUT` | `45.0` | Timeout in seconds for local LLM |

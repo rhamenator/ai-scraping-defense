@@ -2,7 +2,7 @@
 
 import os
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 
 def get_secret(file_variable_name: str) -> Optional[str]:
@@ -205,6 +205,13 @@ class Config:
     )
     ESCALATION_WEBHOOK_URL: Optional[str] = field(
         default_factory=lambda: os.getenv("ESCALATION_WEBHOOK_URL")
+    )
+    ESCALATION_WEBHOOK_ALLOWED_DOMAINS: List[str] = field(
+        default_factory=lambda: [
+            d.strip()
+            for d in os.getenv("ESCALATION_WEBHOOK_ALLOWED_DOMAINS", "").split(",")
+            if d.strip()
+        ]
     )
     LOCAL_LLM_API_URL: Optional[str] = field(
         default_factory=lambda: os.getenv("LOCAL_LLM_API_URL")
