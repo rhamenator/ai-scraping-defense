@@ -49,7 +49,7 @@ def _save_blocklist(ips: List[str]) -> None:
             f.flush()
             os.fsync(f.fileno())
         finally:
-            fcntl.flock(f, fcntl.LOCK_UN)
+            pass
 
 
 BLOCKLIST_IPS = set(_load_blocklist())
