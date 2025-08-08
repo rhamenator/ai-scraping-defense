@@ -57,7 +57,7 @@ async def recommendations(
     x_api_key: str | None = Header(default=None, alias="X-API-Key")
 ) -> Dict[str, Dict[str, int]]:
     expected = os.getenv("RECOMMENDER_API_KEY")
-    if not expected or x_api_key != expected:
+    if not expected or not x_api_key or not secrets.compare_digest(x_api_key, expected):
         raise HTTPException(status_code=401, detail="Invalid API key")
     raw = get_metrics()
     if isinstance(raw, bytes):
