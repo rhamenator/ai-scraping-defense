@@ -1,14 +1,17 @@
-import os
+import fcntl
 import json
+import os
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, IPvAnyAddress
 
 PUBLIC_BLOCKLIST_FILE = os.getenv(
     "PUBLIC_BLOCKLIST_FILE", "./data/public_blocklist.json"
 )
 PUBLIC_BLOCKLIST_API_KEY = os.getenv("PUBLIC_BLOCKLIST_API_KEY")
+if not PUBLIC_BLOCKLIST_API_KEY:
+    raise RuntimeError("PUBLIC_BLOCKLIST_API_KEY environment variable is required")
 
 app = FastAPI()
 
@@ -30,7 +33,13 @@ def _load_blocklist() -> List[str]:
 def _save_blocklist(ips: List[str]) -> None:
     os.makedirs(os.path.dirname(PUBLIC_BLOCKLIST_FILE), exist_ok=True)
     with open(PUBLIC_BLOCKLIST_FILE, "w", encoding="utf-8") as f:
-        json.dump({"ips": ips}, f)
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            json.dump({"ips": ips}, f)
+            f.flush()
+            os.fsync(f.fileno())
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
 
 
 BLOCKLIST_IPS = set(_load_blocklist())
@@ -49,8 +58,8 @@ def get_list() -> dict:
 @app.post("/report")
 def report_ip(report: IPReport, x_api_key: Optional[str] = Header(None)) -> dict:
     """Add an IP address to the public blocklist."""
-    if PUBLIC_BLOCKLIST_API_KEY and x_api_key != PUBLIC_BLOCKLIST_API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API key")
+    if not x_api_key or x_api_key != PUBLIC_BLOCKLIST_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
     BLOCKLIST_IPS.add(str(report.ip))
     _save_blocklist(sorted(BLOCKLIST_IPS))
     return {"status": "added", "ip": str(report.ip)}
