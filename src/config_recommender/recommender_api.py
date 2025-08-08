@@ -1,7 +1,7 @@
 import os
 from typing import Dict
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 
 from src.shared.config import CONFIG
 from src.shared.metrics import get_metrics
@@ -53,7 +53,12 @@ def _generate_recommendations(metrics: Dict[str, float]) -> Dict[str, int]:
 
 
 @app.get("/recommendations")
-async def recommendations() -> Dict[str, Dict[str, int]]:
+async def recommendations(
+    x_api_key: str | None = Header(default=None, alias="X-API-Key")
+) -> Dict[str, Dict[str, int]]:
+    expected = os.getenv("RECOMMENDER_API_KEY")
+    if not expected or x_api_key != expected:
+        raise HTTPException(status_code=401, detail="Invalid API key")
     raw = get_metrics()
     if isinstance(raw, bytes):
         raw = raw.decode()
