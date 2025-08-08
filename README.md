@@ -118,7 +118,12 @@ graph TD
 
 See [docs/threat_model.md](docs/threat_model.md) for the adversaries and attack vectors this project targets.
 
+## Public Blocklist API
 
+The public blocklist service requires authentication. Set the
+`PUBLIC_BLOCKLIST_API_KEY` environment variable and supply its value in the
+`X-API-Key` header when calling the `/report` endpoint. Requests missing the
+header or using the wrong key receive an HTTP 401 response.
 
 ## Beginner Quickstart
 

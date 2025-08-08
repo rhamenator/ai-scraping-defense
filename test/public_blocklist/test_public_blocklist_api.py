@@ -1,7 +1,8 @@
+import importlib
 import os
 import tempfile
-import importlib
 import unittest
+
 from fastapi.testclient import TestClient
 
 
@@ -44,4 +45,8 @@ class TestPublicBlocklistAPI(unittest.TestCase):
         resp = self.client.post(
             "/report", json={"ip": "5.6.7.8"}, headers={"X-API-Key": "wrong"}
         )
+        self.assertEqual(resp.status_code, 401)
+
+    def test_report_ip_missing_key(self):
+        resp = self.client.post("/report", json={"ip": "9.9.9.9"})
         self.assertEqual(resp.status_code, 401)
