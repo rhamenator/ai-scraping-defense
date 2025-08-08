@@ -1,10 +1,11 @@
 # test/tarpit/markov_generator.test.py
-import unittest
-from unittest.mock import patch, MagicMock, mock_open, call
-import os
-import psycopg2  # For exception types
-import random
 import importlib  # For reloading the module to test __main__
+import os
+import random
+import unittest
+from unittest.mock import ANY, MagicMock, call, mock_open, patch
+
+import psycopg2  # For exception types
 
 # Import the module to test
 # Ensure that the 'tarpit' package is discoverable in PYTHONPATH
@@ -158,7 +159,7 @@ class TestMarkovGenerator(unittest.TestCase):
     # --- Test generate_fake_links ---
     @patch("src.tarpit.markov_generator.generate_random_page_name")
     def test_generate_fake_links(self, mock_gen_page_name):
-        mock_gen_page_name.side_effect = lambda length=10: "randomname"[
+        mock_gen_page_name.side_effect = lambda length=10, rng=None: "randomname"[
             :length
         ]  # Predictable "random" names
 
@@ -317,7 +318,7 @@ class TestMarkovGenerator(unittest.TestCase):
         )  # Check link text derivation
         self.assertIn('<meta name="robots" content="noindex, nofollow">', html)
         mock_gen_text.assert_called_once_with(
-            markov_generator.DEFAULT_SENTENCES_PER_PAGE
+            markov_generator.DEFAULT_SENTENCES_PER_PAGE, rng=ANY
         )
         mock_gen_links.assert_called_once()
         # generate_random_page_name is called for title and inside generate_fake_links

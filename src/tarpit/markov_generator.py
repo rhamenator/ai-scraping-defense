@@ -344,12 +344,29 @@ def generate_markov_text_from_db(
 
 
 # --- LLM Text Generation ---
-def generate_llm_text(sentences=DEFAULT_SENTENCES_PER_PAGE):
-    """Generate paragraphs using a configured LLM adapter."""
+def generate_llm_text(
+    sentences: int = DEFAULT_SENTENCES_PER_PAGE,
+    rng: random.Random | None = None,
+):
+    """Generate paragraphs using a configured LLM adapter.
+
+    The ``rng`` parameter is included for deterministic prompting and is
+    currently used only to vary prompt wording. Randomness from the underlying
+    model adapter is outside this function's control.
+    """
     if not LLM_ADAPTER:
         return None
+
+    rng = rng or random
+    style = rng.choice(
+        [
+            "plausible but meaningless technical documentation",
+            "detailed yet nonsensical technical user guide",
+            "verbose but content-free system manual",
+        ]
+    )
     prompt = (
-        f"Write {sentences} short paragraphs of plausible but meaningless technical documentation. "
+        f"Write {sentences} short paragraphs of {style}. "
         "Separate paragraphs with blank lines."
     )
     try:
@@ -376,7 +393,7 @@ def _generate_dynamic_tarpit_page_py(rng: random.Random | None = None):
     logger.debug("Generating dynamic tarpit page content (Python)...")
     # 1. Generate page text
     if ENABLE_TARPIT_LLM_GENERATOR:
-        page_content = generate_llm_text(DEFAULT_SENTENCES_PER_PAGE)
+        page_content = generate_llm_text(DEFAULT_SENTENCES_PER_PAGE, rng=rng)
         if not page_content:
             logger.warning("LLM generation failed; falling back to Markov text")
             page_content = generate_markov_text_from_db(
@@ -451,10 +468,16 @@ def _generate_dynamic_tarpit_page_py(rng: random.Random | None = None):
 
 
 def generate_dynamic_tarpit_page(rng: random.Random | None = None) -> str:
-    """Generate a tarpit page using the configured backend."""
-    if ENABLE_TARPIT_LLM_GENERATOR or rng is not None:
+    """Generate a tarpit page using the configured backend.
+
+    The ``rng`` parameter controls determinism for the Python implementation and
+    is ignored when the Rust backend is active.
+    """
+    if ENABLE_TARPIT_LLM_GENERATOR:
         return _generate_dynamic_tarpit_page_py(rng)
     if RUST_ENABLED:
+        if rng is not None:
+            logger.warning("RNG parameter is ignored when using the Rust backend.")
         try:
             return rs_generate_dynamic_tarpit_page()
         except Exception as e:
