@@ -10,7 +10,9 @@ LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "http://llama3:11434/api/generate")
 CLOUD_PROXY_URL = os.getenv("CLOUD_PROXY_URL", "http://cloud_proxy:8008/api/chat")
 MAX_LOCAL_TOKENS = int(os.getenv("MAX_LOCAL_TOKENS", "1000"))
 TOKEN_PATTERN = re.compile(r"\w+|[^\w\s]")
-SHARED_SECRET = os.getenv("SHARED_SECRET", "")
+SHARED_SECRET = os.getenv("SHARED_SECRET")
+if not SHARED_SECRET:
+    raise RuntimeError("SHARED_SECRET environment variable is required")
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "60"))
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
 
@@ -31,18 +33,35 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+def get_client_ip(request: Request) -> str:
+    x_forwarded_for = request.headers.get("X-Forwarded-For")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+    x_real_ip = request.headers.get("X-Real-IP")
+    if x_real_ip:
+        return x_real_ip
+    return request.client.host if request.client else "unknown"
+
+
+def _cleanup_expired_requests(now: float) -> None:
+    expired = [ip for ip, (_, reset) in _request_counts.items() if now > reset]
+    for ip in expired:
+        del _request_counts[ip]
+
+
 @app.post("/route")
 async def route_prompt(request: Request) -> dict:
     auth_header = request.headers.get("Authorization", "")
     if auth_header != f"Bearer {SHARED_SECRET}":
         raise HTTPException(status_code=401, detail="Unauthorized")
-
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
     now = time.time()
+    window_reset = int(now // RATE_LIMIT_WINDOW * RATE_LIMIT_WINDOW + RATE_LIMIT_WINDOW)
     async with _rate_lock:
-        count, reset = _request_counts.get(client_ip, (0, now + RATE_LIMIT_WINDOW))
+        _cleanup_expired_requests(now)
+        count, reset = _request_counts.get(client_ip, (0, window_reset))
         if now > reset:
-            count, reset = 0, now + RATE_LIMIT_WINDOW
+            count, reset = 0, window_reset
         if count + 1 > RATE_LIMIT_REQUESTS:
             raise HTTPException(status_code=429, detail="Too Many Requests")
         _request_counts[client_ip] = (count + 1, reset)

@@ -10,6 +10,7 @@ MODULE_PATH = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "prompt-router", "main.py")
 )
 
+os.environ["SHARED_SECRET"] = "secret"
 spec = importlib.util.spec_from_file_location("prompt_router.main", MODULE_PATH)
 pr_module = importlib.util.module_from_spec(spec)
 sys.modules["prompt_router.main"] = pr_module
@@ -25,6 +26,7 @@ class TestRoutingBehavior(unittest.IsolatedAsyncioTestCase):
                 "MAX_LOCAL_TOKENS": "5",
                 "LOCAL_LLM_URL": "http://local",
                 "CLOUD_PROXY_URL": "http://cloud",
+                "SHARED_SECRET": "secret",
             },
         )
         self.env.start()
@@ -56,7 +58,11 @@ class TestRoutingBehavior(unittest.IsolatedAsyncioTestCase):
             async with httpx.AsyncClient(
                 transport=transport, base_url="http://test"
             ) as ac:
-                await ac.post("/route", json={"prompt": prompt})
+                await ac.post(
+                    "/route",
+                    json={"prompt": prompt},
+                    headers={"Authorization": "Bearer secret"},
+                )
         return calls
 
     async def test_short_prompt_goes_local(self):
