@@ -5,6 +5,7 @@ import hashlib
 import logging
 import os
 import random
+import re
 import sys
 from typing import Dict
 
@@ -194,7 +195,8 @@ def sanitize_headers(headers: Dict[str, str]) -> Dict[str, str]:
     for k, v in headers.items():
         if k.lower() in SENSITIVE_HEADERS:
             continue
-        sanitized[k] = str(v).replace("\n", " ").replace("\r", " ")
+        cleaned = re.sub(r"[\x00-\x1f\x7f]", "", str(v))
+        sanitized[k] = cleaned
     return sanitized
 
 

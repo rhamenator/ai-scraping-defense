@@ -8,7 +8,8 @@ from unittest.mock import ANY, AsyncMock, MagicMock, patch
 import httpx
 from fastapi.testclient import TestClient
 
-from src.tarpit.tarpit_api import DEFAULT_SYSTEM_SEED, app
+os.environ.setdefault("SYSTEM_SEED", "test-seed")
+from src.tarpit.tarpit_api import DEFAULT_SYSTEM_SEED, app, sanitize_headers
 
 
 class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
@@ -159,6 +160,11 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data["status"], "error")
         self.assertTrue(data["redis_hops_connected"])
         self.assertFalse(data["redis_blocklist_connected"])
+
+    def test_sanitize_headers_removes_control_chars(self):
+        headers = {"X-Test": "va\tlu\ne\rwith\x0bcontrols"}
+        result = sanitize_headers(headers)
+        self.assertEqual(result["X-Test"], "valuewithcontrols")
 
     def test_import_fails_with_default_seed(self):
         """Importing with the placeholder seed should raise an error."""
