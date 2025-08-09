@@ -27,8 +27,7 @@ logging.basicConfig(
 async def fetch_blocklist(url: str) -> List[str]:
     """Fetch a list of malicious IPs from the community blocklist service."""
     if not url.startswith(("http://", "https://")):
-    if not url.startswith("https://"):
-        logger.warning("Skipping non-HTTPS URL for blocklist fetch: %s", url)
+        logger.warning("Skipping invalid URL: %s", url)
         return []
     async with httpx.AsyncClient() as client:
         response = await client.get(url, timeout=10.0)

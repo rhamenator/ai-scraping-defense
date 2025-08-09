@@ -296,35 +296,39 @@ def require_auth(
         )
 
     token_user = _consume_webauthn_token(x_2fa_token)
-    if token_user:
-        if token_user != credentials.username:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid 2FA token",
-                headers={"WWW-Authenticate": "Basic"},
-            )
-        return credentials.username
+    if token_user and token_user != credentials.username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid 2FA token",
+            headers={"WWW-Authenticate": "Basic"},
+        )
 
     totp_secret = os.getenv("ADMIN_UI_2FA_SECRET") or get_secret(
         "ADMIN_UI_2FA_SECRET_FILE",
     )
     if totp_secret:
-        if not x_2fa_code:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="2FA code required",
-                headers={"WWW-Authenticate": "Basic"},
-            )
-        totp = pyotp.TOTP(totp_secret)
-        if not totp.verify(x_2fa_code, valid_window=1):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid 2FA code",
-                headers={"WWW-Authenticate": "Basic"},
-            )
-        return credentials.username
 
-    if credentials.username in VALID_WEBAUTHN_TOKENS:
+        if token_user:
+            return credentials.username
+        if x_2fa_code:
+            totp = pyotp.TOTP(totp_secret)
+            if not totp.verify(x_2fa_code, valid_window=1):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid 2FA code",
+                    headers={"WWW-Authenticate": "Basic"},
+                )
+            return credentials.username
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="2FA token or code required",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    if token_user:
+        return credentials.username
+      
+    if VALID_WEBAUTHN_TOKENS:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="2FA token required",
