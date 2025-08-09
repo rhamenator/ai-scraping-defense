@@ -11,7 +11,6 @@ logger = logging.getLogger("audit")
 if not logger.handlers:
     handler = RotatingFileHandler(LOG_PATH, maxBytes=1_000_000, backupCount=3)
     Path(LOG_PATH).touch(exist_ok=True)
-    Path(LOG_PATH).touch(exist_ok=True)
     os.chmod(LOG_PATH, 0o600)
     handler = RotatingFileHandler(LOG_PATH, maxBytes=1_000_000, backupCount=3)
     formatter = logging.Formatter("%(asctime)s %(message)s")
