@@ -228,6 +228,7 @@ def _load_webauthn_credential(user: str) -> dict | None:
         return json.loads(raw) if raw else None
     return WEBAUTHN_CREDENTIALS.get(user)
 
+
 def _cleanup_expired_webauthn_challenges() -> None:
     """Remove expired challenges from the in-memory store."""
     now = time.time()
@@ -305,7 +306,8 @@ def require_auth(
     if not valid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
 
-    token_user = _consume_webauthn_token(x_2fa_token)
+    token_valid = x_2fa_token in VALID_WEBAUTHN_TOKENS
+    token_user = _consume_webauthn_token(x_2fa_token) if token_valid else None
     if token_user and token_user != credentials.username:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -333,7 +335,7 @@ def require_auth(
 
     if token_user:
         return credentials.username
-    if VALID_WEBAUTHN_TOKENS:
+    if VALID_WEBAUTHN_TOKENS and not token_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="2FA token required",
