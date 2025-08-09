@@ -228,6 +228,17 @@ def _load_webauthn_credential(user: str) -> dict | None:
         return json.loads(raw) if raw else None
     return WEBAUTHN_CREDENTIALS.get(user)
 
+def _cleanup_expired_webauthn_challenges() -> None:
+    """Remove expired challenges from the in-memory store."""
+    now = time.time()
+    expired = [
+        user
+        for user, (_, ts) in WEBAUTHN_CHALLENGES.items()
+        if now - ts > WEBAUTHN_TOKEN_TTL
+    ]
+    for user in expired:
+        WEBAUTHN_CHALLENGES.pop(user, None)
+
 
 def _store_webauthn_challenge(user: str, challenge: bytes) -> None:
     """Persist a WebAuthn challenge for later verification."""
@@ -236,6 +247,7 @@ def _store_webauthn_challenge(user: str, challenge: bytes) -> None:
         key = tenant_key(f"webauthn:challenge:{user}")
         redis_conn.set(key, challenge, ex=WEBAUTHN_TOKEN_TTL)
     else:
+        _cleanup_expired_webauthn_challenges()
         WEBAUTHN_CHALLENGES[user] = (challenge, time.time())
 
 
@@ -286,56 +298,47 @@ def require_auth(
         raise RuntimeError(
             "ADMIN_UI_PASSWORD environment variable must be set",
         ) from exc
+    headers = {"WWW-Authenticate": "Basic"}
     valid = secrets.compare_digest(
         credentials.username, username
     ) and secrets.compare_digest(credentials.password, password)
     if not valid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            headers={"WWW-Authenticate": "Basic"},
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
 
     token_user = _consume_webauthn_token(x_2fa_token)
     if token_user and token_user != credentials.username:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid 2FA token",
-            headers={"WWW-Authenticate": "Basic"},
+            headers=headers,
         )
 
     totp_secret = os.getenv("ADMIN_UI_2FA_SECRET") or get_secret(
-        "ADMIN_UI_2FA_SECRET_FILE",
+        "ADMIN_UI_2FA_SECRET_FILE"
     )
     if totp_secret:
-
         if token_user:
             return credentials.username
         if x_2fa_code:
             totp = pyotp.TOTP(totp_secret)
-            if not totp.verify(x_2fa_code, valid_window=1):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid 2FA code",
-                    headers={"WWW-Authenticate": "Basic"},
-                )
-            return credentials.username
+
+            if totp.verify(x_2fa_code, valid_window=1):
+                return credentials.username
+            detail = "Invalid 2FA code"
+        else:
+            detail = "2FA token or code required"
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="2FA token or code required",
-            headers={"WWW-Authenticate": "Basic"},
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=detail, headers=headers
         )
 
     if token_user:
         return credentials.username
-      
     if VALID_WEBAUTHN_TOKENS:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="2FA token required",
-            headers={"WWW-Authenticate": "Basic"},
+            headers=headers,
         )
-
-    # If no 2FA method is configured, allow authentication with just username and password
     return credentials.username
 
 
@@ -408,7 +411,7 @@ async def webauthn_login_begin(data: dict):
         rp_id=RP_ID,
         allow_credentials=[descriptor],
     )
-    WEBAUTHN_CHALLENGES[username] = (options.challenge, time.time())
+    _store_webauthn_challenge(username, options.challenge)
     return JSONResponse(json.loads(options_to_json(options)))
 
 
