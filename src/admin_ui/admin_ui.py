@@ -324,7 +324,7 @@ def require_auth(
             )
         return credentials.username
 
-    if VALID_WEBAUTHN_TOKENS:
+    if credentials.username in VALID_WEBAUTHN_TOKENS:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="2FA token required",
