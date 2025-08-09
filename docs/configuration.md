@@ -145,7 +145,7 @@ This page documents all environment variables consumed by the Python services. D
 
 | Variable | Default | Service |
 | --- | --- | --- |
-| `AUDIT_LOG_FILE` | `/app/logs/audit.log` | Shared audit logger (created with 600 permissions) |
+| `AUDIT_LOG_FILE` | `/app/logs/audit.log` | Shared audit logger; file is created with owner-only (600) permissions |
 | `HONEYPOT_LOG_FILE` | `/app/logs/honeypot_hits.log` | Honeypot logger |
 | `CAPTCHA_SUCCESS_LOG` | `/app/logs/captcha_success.log` | CAPTCHA services |
 | `BLOCK_LOG_FILE` | `/app/logs/block_events.log` | Admin UI |

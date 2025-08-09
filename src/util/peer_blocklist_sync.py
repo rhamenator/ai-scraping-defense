@@ -21,6 +21,7 @@ logging.basicConfig(
 
 async def fetch_peer_ips(url: str) -> List[str]:
     """Fetch a list of malicious IPs from a peer deployment."""
+    if not url.startswith(("http://", "https://")):
     if not url.startswith("https://"):
         logger.warning("Skipping non-HTTPS URL: %s", url)
         return []
@@ -71,8 +72,8 @@ async def sync_peer_blocklists() -> Optional[int]:
         return None
     total_added = 0
     for url in urls:
-        if not url.startswith("https://"):
-            logger.warning("Skipping non-HTTPS URL: %s", url)
+        if not url.startswith(("http://", "https://")):
+            logger.warning("Skipping invalid URL: %s", url)
             continue
         try:
             logger.info("Fetching peer blocklist from %s", url)

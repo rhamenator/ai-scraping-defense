@@ -2,9 +2,16 @@ import json
 import logging
 import os
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 LOG_PATH = os.getenv("AUDIT_LOG_FILE", "/app/logs/audit.log")
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+
+logger = logging.getLogger("audit")
+if not logger.handlers:
+    handler = RotatingFileHandler(LOG_PATH, maxBytes=1_000_000, backupCount=3)
+
+Path(LOG_PATH).touch(exist_ok=True)
 
 logger = logging.getLogger("audit")
 if not logger.handlers:
