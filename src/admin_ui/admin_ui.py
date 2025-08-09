@@ -307,6 +307,7 @@ def require_auth(
         "ADMIN_UI_2FA_SECRET_FILE",
     )
     if totp_secret:
+
         if token_user:
             return credentials.username
         if x_2fa_code:
@@ -326,6 +327,7 @@ def require_auth(
 
     if token_user:
         return credentials.username
+      
     if VALID_WEBAUTHN_TOKENS:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

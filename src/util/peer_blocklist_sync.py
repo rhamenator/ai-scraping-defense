@@ -23,6 +23,7 @@ async def fetch_peer_ips(url: str) -> List[str]:
     """Fetch a list of malicious IPs from a peer deployment."""
     if not url.startswith(("http://", "https://")):
         logger.warning("Skipping invalid URL: %s", url)
+
         return []
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, timeout=10.0)
