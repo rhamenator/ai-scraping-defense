@@ -228,7 +228,6 @@ def _load_webauthn_credential(user: str) -> dict | None:
         return json.loads(raw) if raw else None
     return WEBAUTHN_CREDENTIALS.get(user)
 
-
 def _cleanup_expired_webauthn_challenges() -> None:
     """Remove expired challenges from the in-memory store."""
     now = time.time()
@@ -322,6 +321,7 @@ def require_auth(
             return credentials.username
         if x_2fa_code:
             totp = pyotp.TOTP(totp_secret)
+
             if totp.verify(x_2fa_code, valid_window=1):
                 return credentials.username
             detail = "Invalid 2FA code"
