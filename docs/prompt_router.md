@@ -15,6 +15,7 @@ Set the following variables in `.env`:
 
 - `PROMPT_ROUTER_HOST` – hostname or container name running the router.
 - `PROMPT_ROUTER_PORT` – port the router listens on.
+- `PROXY_KEY` – shared secret sent to the cloud proxy via the `X-Proxy-Key` header.
 
 ```env
 # excerpt from sample.env
@@ -23,3 +24,7 @@ PROMPT_ROUTER_PORT=8009
 
 The Escalation Engine uses `http://<PROMPT_ROUTER_HOST>:<PROMPT_ROUTER_PORT>/route`
 as the request URL.
+
+When forwarding a prompt to the cloud proxy, the router includes `X-Proxy-Key`
+with the value of `PROXY_KEY`. Requests missing this header or providing the
+wrong key are rejected with **401 Unauthorized**.
