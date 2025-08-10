@@ -595,7 +595,7 @@ async def block_ip(request: Request, user: str = Depends(require_admin)):
     if not ip:
         return JSONResponse({"error": "Invalid request, missing ip"}, status_code=400)
     try:
-        ip = str(ip_address(ip))
+        normalized_ip = str(ip_address(ip))
     except ValueError:
         return JSONResponse({"error": "Invalid ip"}, status_code=400)
 
