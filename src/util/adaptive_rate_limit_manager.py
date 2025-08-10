@@ -1,11 +1,11 @@
+import logging
 import os
 import time
-import logging
 from typing import List, Optional
 
+from src.shared.config import tenant_key
 from src.shared.redis_client import get_redis_connection
 from src.util import compute_rate_limit
-from src.shared.config import tenant_key
 
 REDIS_DB_FREQUENCY = int(os.getenv("REDIS_DB_FREQUENCY", 3))
 FREQUENCY_KEY_PREFIX = os.getenv("FREQUENCY_KEY_PREFIX") or tenant_key("freq:")
