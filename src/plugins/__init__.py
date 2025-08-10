@@ -3,6 +3,7 @@ import importlib.util
 import os
 import sys
 from pathlib import Path
+
 from typing import Callable, List
 
 # Only load plugins that are explicitly allowed. This prevents arbitrary code
@@ -18,7 +19,6 @@ def _is_within(base: Path, target: Path) -> bool:
         return True
     except ValueError:
         return False
-
 
 def load_plugins(
     allowed_plugins: List[str] | None = None,
