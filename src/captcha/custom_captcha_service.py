@@ -126,7 +126,11 @@ async def solve(
         datetime.datetime.now(datetime.UTC).timestamp()
     ):
         return JSONResponse({"success": False})
-    if int(answer) != data.get("ans"):
+    try:
+        ans_int = int(answer)
+    except ValueError:
+        return JSONResponse({"success": False})
+    if ans_int != data.get("ans"):
         return JSONResponse({"success": False})
     ip = request.client.host if request and request.client else "unknown"
     fingerprint = fp_id or data.get("fp") or ""
