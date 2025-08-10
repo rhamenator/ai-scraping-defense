@@ -1,6 +1,7 @@
 # util/corpus_wikipedia_updater.py
 import logging
 import os
+import logging
 import re
 import time
 
