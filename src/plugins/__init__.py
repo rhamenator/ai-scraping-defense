@@ -32,7 +32,16 @@ def load_plugins(
         if (
             os.path.islink(path)
             or os.path.commonpath([plugin_dir_real, real_path]) != plugin_dir_real
-        ):
+        skip = False
+        if os.path.islink(path):
+            skip = True
+        else:
+            try:
+                if os.path.commonpath([plugin_dir_real, real_path]) != plugin_dir_real:
+                    skip = True
+            except ValueError:
+                skip = True
+        if skip:
             continue
         try:
             spec = importlib.util.spec_from_file_location(
