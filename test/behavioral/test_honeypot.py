@@ -14,7 +14,7 @@ class DummyRedis:
         self.store.setdefault(key, []).append(entry.encode())
 
     def lrange(self, key: str, start: int, end: int):
-        return self.store.get(key, [])
+        return self.store.get(key, [])[start:end+1 if end != -1 else None]
 
 
 class TestBehavioralHoneypot(unittest.TestCase):
