@@ -307,7 +307,7 @@ def require_auth(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
 
     token_valid = x_2fa_token in VALID_WEBAUTHN_TOKENS
-    token_user = _consume_webauthn_token(x_2fa_token) if token_valid else None
+    token_user = _consume_webauthn_token(x_2fa_token)
     if token_user and token_user != credentials.username:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
