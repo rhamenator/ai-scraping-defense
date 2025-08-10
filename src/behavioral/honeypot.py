@@ -34,7 +34,10 @@ class SessionTracker:
             entries = self.redis.lrange(f"session:{ip}", 0, -1)
         else:
             entries = self.fallback[ip]
-        return [e.split(":", 1)[1] for e in entries]
+        return [
+            (e.decode() if isinstance(e, bytes) else e).split(":", 1)[1]
+            for e in entries
+        ]
 
 
 def _seq_features(seq: List[str]) -> List[float]:
