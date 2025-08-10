@@ -1,9 +1,10 @@
 # util/corpus_wikipedia_updater.py
+import logging
 import os
-import sys
 import logging
 import re
 import time
+
 import wikipedia
 from wikipedia.exceptions import DisambiguationError, PageError
 
@@ -110,7 +111,7 @@ def fetch_random_wikipedia_articles(num_articles: int) -> list[str]:
         except DisambiguationError as e:
             logger.warning(f"Skipping '{e.title}' because it's a disambiguation page.")
         except PageError:
-            logger.warning(f"Could not find a page for a random title, skipping.")
+            logger.warning("Could not find a page for a random title, skipping.")
         except Exception as e:
             logger.error(
                 f"An unexpected error occurred while fetching an article: {e}",
