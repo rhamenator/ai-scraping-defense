@@ -57,9 +57,10 @@ async def challenge_page(fp_id: str | None = Cookie(None)):
         raise HTTPException(status_code=500, detail="CAPTCHA not configured")
     a = secrets.randbelow(8) + 1
     b = secrets.randbelow(8) + 1
-    expiry = int(datetime.datetime.utcnow().timestamp() + TOKEN_EXPIRY)
+    expiry = int(datetime.datetime.now(datetime.UTC).timestamp() + TOKEN_EXPIRY)
     token = _sign({"ans": a + b, "fp": fp_id, "exp": expiry})
     from html import escape
+
     escaped_token = escape(token)
     html = f"""<!DOCTYPE html>
 <html lang='en'>
@@ -121,14 +122,20 @@ async def solve(
     fp_id: str | None = Cookie(None),
 ):
     data = _unsign(token)
-    if not data or data.get("exp", 0) < int(datetime.datetime.utcnow().timestamp()):
+    if not data or data.get("exp", 0) < int(
+        datetime.datetime.now(datetime.UTC).timestamp()
+    ):
         return JSONResponse({"success": False})
     if int(answer) != data.get("ans"):
         return JSONResponse({"success": False})
     ip = request.client.host if request and request.client else "unknown"
     fingerprint = fp_id or data.get("fp") or ""
     final_token = _sign(
-        {"ip": ip, "fp": fingerprint, "ts": int(datetime.datetime.utcnow().timestamp())}
+        {
+            "ip": ip,
+            "fp": fingerprint,
+            "ts": int(datetime.datetime.now(datetime.UTC).timestamp()),
+        }
     )
     ua = request.headers.get("user-agent", "") if request else ""
     try:
@@ -136,7 +143,7 @@ async def solve(
         with open(CAPTCHA_SUCCESS_LOG, "a") as f:
             json.dump(
                 {
-                    "timestamp": datetime.datetime.utcnow().isoformat(),
+                    "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
                     "ip": ip,
                     "fingerprint": fingerprint,
                     "ua": ua,
@@ -155,6 +162,9 @@ async def verify(token: str, ip: str):
     data = _unsign(token)
     if not data or data.get("ip") != ip:
         return {"success": False}
-    if int(datetime.datetime.utcnow().timestamp()) - data.get("ts", 0) > TOKEN_EXPIRY:
+    if (
+        int(datetime.datetime.now(datetime.UTC).timestamp()) - data.get("ts", 0)
+        > TOKEN_EXPIRY
+    ):
         return {"success": False}
     return {"success": True}

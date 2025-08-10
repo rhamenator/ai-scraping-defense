@@ -118,7 +118,9 @@ async def monitor(
         def maybe_report(target_ip: str, source: str, atype: str) -> None:
             if target_ip not in reported:
                 metadata = {
-                    "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+                    "timestamp": datetime.datetime.now(datetime.UTC)
+                    .isoformat()
+                    .replace("+00:00", "Z"),
                     "ip": target_ip,
                     "user_agent": ua,
                     "path": req_path,

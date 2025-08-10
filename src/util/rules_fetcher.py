@@ -148,7 +148,7 @@ def download_and_extract_crs(url: str, dest_dir: str) -> bool:
                                 member.name,
                             )
                             return False
-                        tf.extract(member, tmpdir)
+                        tf.extract(member, tmpdir, filter="data")
         except (tarfile.TarError, zipfile.BadZipFile) as exc:
             logger.error("Failed to extract CRS archive: %s", exc)
             return False

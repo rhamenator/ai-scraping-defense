@@ -66,7 +66,9 @@ async def report_attack(
     # Fall back to local escalation engine
     if metadata is None:
         metadata = {
-            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.datetime.now(datetime.UTC)
+            .isoformat()
+            .replace("+00:00", "Z"),
             "ip": ip,
             "source": "ddos_guard",
         }
