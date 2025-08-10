@@ -14,6 +14,7 @@ import secrets
 import time
 from base64 import b64decode
 from collections import deque
+from ipaddress import ip_address
 from uuid import uuid4
 
 import pyotp
@@ -593,6 +594,10 @@ async def block_ip(request: Request, user: str = Depends(require_admin)):
     ip = json_data.get("ip")
     if not ip:
         return JSONResponse({"error": "Invalid request, missing ip"}, status_code=400)
+    try:
+        ip = str(ip_address(ip))
+    except ValueError:
+        return JSONResponse({"error": "Invalid ip"}, status_code=400)
 
     redis_conn = get_redis_connection()
     if not redis_conn:
@@ -614,6 +619,10 @@ async def unblock_ip(request: Request, user: str = Depends(require_admin)):
     ip = json_data.get("ip")
     if not ip:
         return JSONResponse({"error": "Invalid request, missing ip"}, status_code=400)
+    try:
+        ip = str(ip_address(ip))
+    except ValueError:
+        return JSONResponse({"error": "Invalid ip"}, status_code=400)
 
     redis_conn = get_redis_connection()
     if not redis_conn:
