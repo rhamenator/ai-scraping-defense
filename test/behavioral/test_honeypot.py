@@ -8,7 +8,10 @@ class DummyRedis:
         self.store = {}
 
     def rpush(self, key: str, value: str) -> None:
-        self.store.setdefault(key, []).append(value.encode())
+        # Store value as 'timestamp:path' to match real Redis behavior
+        timestamp = str(int(time.time()))
+        entry = f"{timestamp}:{value}"
+        self.store.setdefault(key, []).append(entry.encode())
 
     def lrange(self, key: str, start: int, end: int):
         return self.store.get(key, [])
