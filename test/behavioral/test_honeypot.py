@@ -8,13 +8,11 @@ class DummyRedis:
         self.store = {}
 
     def rpush(self, key: str, value: str) -> None:
-        # Store value as 'timestamp:path' to match real Redis behavior
-        timestamp = str(int(time.time()))
-        entry = f"{timestamp}:{value}"
-        self.store.setdefault(key, []).append(entry.encode())
+        # Mimic Redis by storing the pre-formatted entry as bytes
+        self.store.setdefault(key, []).append(value.encode())
 
     def lrange(self, key: str, start: int, end: int):
-        return self.store.get(key, [])[start:end+1 if end != -1 else None]
+        return self.store.get(key, [])[start : end + 1 if end != -1 else None]
 
 
 class TestBehavioralHoneypot(unittest.TestCase):

@@ -22,7 +22,7 @@ class SessionTracker:
         self.fallback: Dict[str, List[str]] = defaultdict(list)
 
     def log_request(self, ip: str, path: str, timestamp: float | None = None) -> None:
-        timestamp = timestamp or datetime.datetime.utcnow().timestamp()
+        timestamp = timestamp or datetime.datetime.now(datetime.UTC).timestamp()
         entry = f"{timestamp}:{path}"
         if self.redis:
             self.redis.rpush(f"session:{ip}", entry)
