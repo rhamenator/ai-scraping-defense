@@ -14,6 +14,7 @@ from .pricing import PricingEngine, load_pricing
 PRICING_PATH = os.getenv("PRICING_CONFIG", "config/pricing.yaml")
 UPSTREAM_URL = os.getenv("UPSTREAM_URL", "http://localhost:8080")
 DEFAULT_PRICE = float(os.getenv("DEFAULT_PRICE", "0.0"))
+HTTPX_TIMEOUT = float(os.getenv("HTTPX_TIMEOUT", "10.0"))
 
 pricing_engine = PricingEngine(load_pricing(PRICING_PATH), DEFAULT_PRICE)
 init_db()
@@ -67,21 +68,25 @@ async def proxy(full_path: str, request: Request):
     if price > 0 and not charge(token, price):
         raise HTTPException(status_code=402, detail="Payment required")
 
-    upstream = urljoin(UPSTREAM_URL.rstrip('/') + '/', full_path.lstrip('/'))
+    upstream = urljoin(UPSTREAM_URL.rstrip("/") + "/", full_path.lstrip("/"))
     # Ensure the upstream URL stays within the intended host and scheme
     parsed_upstream = urlparse(upstream)
     parsed_base = urlparse(UPSTREAM_URL)
-    if parsed_upstream.scheme != parsed_base.scheme or parsed_upstream.netloc != parsed_base.netloc:
+    if (
+        parsed_upstream.scheme != parsed_base.scheme
+        or parsed_upstream.netloc != parsed_base.netloc
+    ):
         raise HTTPException(status_code=400, detail="Invalid upstream URL")
     headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
     body = await request.body()
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
         resp = await client.request(
             request.method,
             upstream,
             params=request.query_params,
             content=body,
             headers=headers,
+            timeout=HTTPX_TIMEOUT,
         )
     return Response(
         content=resp.content, status_code=resp.status_code, headers=resp.headers
