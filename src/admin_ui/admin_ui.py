@@ -603,9 +603,9 @@ async def block_ip(request: Request, user: str = Depends(require_admin)):
     if not redis_conn:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
 
-    redis_conn.sadd(tenant_key("blocklist"), ip)
-    log_event(user, "block_ip", {"ip": ip})
-    return JSONResponse({"status": "success", "ip": ip})
+    redis_conn.sadd(tenant_key("blocklist"), normalized_ip)
+    log_event(user, "block_ip", {"ip": normalized_ip})
+    return JSONResponse({"status": "success", "ip": normalized_ip})
 
 
 @app.post("/unblock")
@@ -628,9 +628,9 @@ async def unblock_ip(request: Request, user: str = Depends(require_admin)):
     if not redis_conn:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
 
-    redis_conn.srem(tenant_key("blocklist"), ip)
-    log_event(user, "unblock_ip", {"ip": ip})
-    return JSONResponse({"status": "success", "ip": ip})
+    redis_conn.srem(tenant_key("blocklist"), normalized_ip)
+    log_event(user, "unblock_ip", {"ip": normalized_ip})
+    return JSONResponse({"status": "success", "ip": normalized_ip})
 
 
 @app.get("/settings", response_class=HTMLResponse)
