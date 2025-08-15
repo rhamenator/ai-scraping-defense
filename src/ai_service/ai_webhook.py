@@ -176,6 +176,26 @@ app = FastAPI()
 
 def get_redis_connection():
     """Wrapper for tests to patch the Redis client."""
+    global redis_client_blocklist, BLOCKLISTING_ENABLED
+    redis_client_blocklist = shared_get_redis_connection(db_number=REDIS_DB_BLOCKLIST)
+    if not redis_client_blocklist:
+        logger.error(
+            "Redis connection for blocklisting returned None. Blocklisting disabled."
+        )
+        BLOCKLISTING_ENABLED = False
+        return None
+    try:
+        redis_client_blocklist.ping()
+        BLOCKLISTING_ENABLED = True
+        logger.info(
+            f"Connected to Redis for blocklisting at {REDIS_HOST}:{REDIS_PORT}, DB: {REDIS_DB_BLOCKLIST}"
+        )
+    except (ConnectionError, RedisError) as e:
+        logger.error(
+            f"Redis connection failed for Blocklisting: {e}. Blocklisting disabled."
+        )
+        redis_client_blocklist = None
+        BLOCKLISTING_ENABLED = False
     return redis_client_blocklist
 
 
