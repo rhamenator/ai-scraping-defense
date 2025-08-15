@@ -553,6 +553,7 @@ async def block_stats(user: str = Depends(require_auth)):
             blocked_ips = redis_conn.smembers(tenant_key("blocklist")) or set()
             pattern = tenant_key("blocklist:ip:*")
             cursor = 0
+            temp_block_count = 0
             while True:
                 cursor, keys = redis_conn.scan(cursor=cursor, match=pattern, count=1000)
                 temp_block_count += len(keys)
