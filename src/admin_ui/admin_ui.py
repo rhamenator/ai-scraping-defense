@@ -1,130 +1,30 @@
 # src/admin_ui/admin_ui.py
 """FastAPI admin interface for monitoring and management.
 
-This module exposes a small FastAPI application used by the defense stack's
-administrators. It provides endpoints for viewing Prometheus metrics, managing
-IP block lists stored in Redis and adjusting basic settings. The application is
-designed to be run as a standalone service or within Docker.
+This module assembles the FastAPI application and wires in
+submodules that handle authentication, metrics, blocklist
+management and WebAuthn support.
 """
-import asyncio
-import json
 import logging
 import os
 import secrets
-import time
-from base64 import b64decode
-from collections import deque
-from ipaddress import ip_address
-from uuid import uuid4
 
-import bcrypt
-import pyotp
-from fastapi import (
-    Cookie,
-    Depends,
-    FastAPI,
-    Header,
-    HTTPException,
-    Request,
-    WebSocket,
-    WebSocketDisconnect,
-    status,
-)
+from fastapi import Cookie, Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
-from webauthn import (
-    generate_authentication_options,
-    generate_registration_options,
-    options_to_json,
-    verify_authentication_response,
-    verify_registration_response,
-)
-from webauthn.helpers.structs import (
-    AuthenticationCredential,
-    PublicKeyCredentialDescriptor,
-    RegistrationCredential,
-)
 
 from src.shared.audit import log_event
-from src.shared.config import CONFIG, get_secret, tenant_key
-from src.shared.metrics import get_metrics
-from src.shared.redis_client import get_redis_connection
+from src.shared.config import CONFIG
+
+from . import blocklist, metrics, webauthn
+from .auth import require_admin, require_auth
 
 logger = logging.getLogger(__name__)
 
-# Flag to indicate if metrics collection is actually available. Tests patch this
-# to simulate metrics being disabled.
-METRICS_TRULY_AVAILABLE = True
-
-# Interval in seconds between metric pushes over WebSocket
-WEBSOCKET_METRICS_INTERVAL = 5
-
-# Path to the block events log file used for statistics
-BLOCK_LOG_FILE = os.getenv("BLOCK_LOG_FILE", "/app/logs/block_events.log")
-
-
-def _parse_prometheus_metrics(text: str) -> dict:
-    """Convert Prometheus text format into a dictionary."""
-    metrics: dict[str, float] = {}
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        parts = line.split()
-        if len(parts) < 2:
-            continue
-        name, value = parts[0], parts[-1]
-        try:
-            metrics[name] = float(value)
-        except ValueError:
-            continue
-    return metrics
-
-
-def _get_metrics_dict() -> dict:
-    raw = get_metrics()
-    if isinstance(raw, bytes):
-        raw = raw.decode()
-    return _parse_prometheus_metrics(raw)
-
-
-# Exposed for tests so they can patch the behaviour
-_get_metrics_dict_func = _get_metrics_dict
-
-
-def _load_recent_block_events(limit: int = 5) -> list[dict]:
-    """Load the most recent block events from the log file."""
-    if not os.path.exists(BLOCK_LOG_FILE):
-        return []
-    events: list[dict] = []
-    try:
-        with open(BLOCK_LOG_FILE, "r", encoding="utf-8") as f:
-            lines = deque(f, maxlen=limit)
-        for line in lines:
-            try:
-                data = json.loads(line)
-                events.append(
-                    {
-                        "timestamp": data.get("timestamp"),
-                        "ip": data.get("ip_address"),
-                        "reason": data.get("reason"),
-                    }
-                )
-            except Exception as exc:
-                logger.error("Failed to parse block event line: %s", line, exc_info=exc)
-                continue
-    except Exception as exc:
-        logger.error("Error reading block events log", exc_info=exc)
-        return []
-    return events
-
-
-# Exposed for tests so they can patch the behaviour
-_load_recent_block_events_func = _load_recent_block_events
+BASE_DIR = os.path.dirname(__file__)
 
 
 def _discover_plugins() -> list[str]:
@@ -138,16 +38,8 @@ def _discover_plugins() -> list[str]:
     return sorted(names)
 
 
-BASE_DIR = os.path.dirname(__file__)
-
-
 def _get_allowed_origins() -> list[str]:
-    """Return a validated list of CORS origins for the Admin UI.
-
-    The value is read when the application starts. Changing the
-    ``ADMIN_UI_CORS_ORIGINS`` environment variable requires restarting the
-    service to take effect.
-    """
+    """Return a validated list of CORS origins for the Admin UI."""
     raw = os.getenv("ADMIN_UI_CORS_ORIGINS", "http://localhost")
     origins = [o.strip() for o in raw.split(",") if o.strip()]
     if "*" in origins:
@@ -158,8 +50,6 @@ def _get_allowed_origins() -> list[str]:
 
 
 app = FastAPI()
-# Origin configuration is evaluated at startup and requires an application
-# restart to change.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_get_allowed_origins(),
@@ -192,165 +82,10 @@ RUNTIME_SETTINGS = {
     "ALLOWED_PLUGINS": os.getenv("ALLOWED_PLUGINS", "ua_blocker"),
 }
 
-ADMIN_UI_ROLE = os.getenv("ADMIN_UI_ROLE", "admin")
-
-security = HTTPBasic()
-
-# Fallback in-memory stores for WebAuthn when Redis is unavailable
-WEBAUTHN_CREDENTIALS: dict[str, dict] = {}
-WEBAUTHN_CHALLENGES: dict[str, tuple[bytes, float]] = {}
-VALID_WEBAUTHN_TOKENS: dict[str, tuple[str, float]] = {}
-WEBAUTHN_TOKEN_TTL = 300
-
-
-RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
-ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost")
-
-
-def _cred_key(user: str) -> str:
-    return tenant_key(f"webauthn:cred:{user}")
-
-
-def _token_key(token: str) -> str:
-    return tenant_key(f"webauthn:token:{token}")
-
-
-def _store_webauthn_credential(user: str, cred: dict) -> None:
-    redis_conn = get_redis_connection()
-    if redis_conn:
-        redis_conn.set(_cred_key(user), json.dumps(cred))
-    else:
-        WEBAUTHN_CREDENTIALS[user] = cred
-
-
-def _load_webauthn_credential(user: str) -> dict | None:
-    redis_conn = get_redis_connection()
-    if redis_conn:
-        raw = redis_conn.get(_cred_key(user))
-        return json.loads(raw) if raw else None
-    return WEBAUTHN_CREDENTIALS.get(user)
-
-
-def _cleanup_expired_webauthn_challenges() -> None:
-    """Remove expired challenges from the in-memory store."""
-    now = time.time()
-    expired = [
-        user
-        for user, (_, ts) in WEBAUTHN_CHALLENGES.items()
-        if now - ts > WEBAUTHN_TOKEN_TTL
-    ]
-    for user in expired:
-        WEBAUTHN_CHALLENGES.pop(user, None)
-
-
-def _store_webauthn_challenge(user: str, challenge: bytes) -> None:
-    """Persist a WebAuthn challenge for later verification."""
-    redis_conn = get_redis_connection()
-    if redis_conn:
-        key = tenant_key(f"webauthn:challenge:{user}")
-        redis_conn.set(key, challenge, ex=WEBAUTHN_TOKEN_TTL)
-    else:
-        _cleanup_expired_webauthn_challenges()
-        WEBAUTHN_CHALLENGES[user] = (challenge, time.time())
-
-
-def _store_webauthn_token(token: str, user: str, exp: float | None = None) -> None:
-    """Persist a WebAuthn login token with an optional expiry timestamp."""
-    if exp is None:
-        exp = time.time() + WEBAUTHN_TOKEN_TTL
-    redis_conn = get_redis_connection()
-    if redis_conn:
-        ttl = max(int(exp - time.time()), 1)
-        redis_conn.set(_token_key(token), user, ex=ttl)
-    else:
-        VALID_WEBAUTHN_TOKENS[token] = (user, exp)
-
-
-def _consume_webauthn_token(token: str | None) -> str | None:
-    if not token:
-        return None
-    redis_conn = get_redis_connection()
-    if redis_conn:
-        key = _token_key(token)
-        username = redis_conn.get(key)
-        if username:
-            redis_conn.delete(key)
-            return username
-        return None
-    user_exp = VALID_WEBAUTHN_TOKENS.get(token)
-    if not user_exp:
-        return None
-    user, exp = user_exp
-    if exp < time.time():
-        VALID_WEBAUTHN_TOKENS.pop(token, None)
-        return None
-    VALID_WEBAUTHN_TOKENS.pop(token, None)
-    return user
-
-
-def require_auth(
-    credentials: HTTPBasicCredentials = Depends(security),
-    x_2fa_code: str | None = Header(None, alias="X-2FA-Code"),
-    x_2fa_token: str | None = Header(None, alias="X-2FA-Token"),
-) -> str:
-    """Validate HTTP Basic credentials and optional 2FA."""
-    username = os.getenv("ADMIN_UI_USERNAME", "admin")
-    try:
-        password_hash = os.environ["ADMIN_UI_PASSWORD_HASH"].encode()
-    except KeyError as exc:  # pragma: no cover - defensive
-        raise RuntimeError(
-            "ADMIN_UI_PASSWORD_HASH environment variable must be set",
-        ) from exc
-    headers = {"WWW-Authenticate": "Basic"}
-    valid = secrets.compare_digest(credentials.username, username) and bcrypt.checkpw(
-        credentials.password.encode(), password_hash
-    )
-    if not valid:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
-
-    token_valid = x_2fa_token in VALID_WEBAUTHN_TOKENS
-    token_user = _consume_webauthn_token(x_2fa_token)
-    if token_user and token_user != credentials.username:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid 2FA token",
-            headers=headers,
-        )
-
-    totp_secret = os.getenv("ADMIN_UI_2FA_SECRET") or get_secret(
-        "ADMIN_UI_2FA_SECRET_FILE"
-    )
-    if totp_secret:
-        if token_user:
-            return credentials.username
-        if x_2fa_code:
-            totp = pyotp.TOTP(totp_secret)
-
-            if totp.verify(x_2fa_code, valid_window=1):
-                return credentials.username
-            detail = "Invalid 2FA code"
-        else:
-            detail = "2FA token or code required"
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=detail, headers=headers
-        )
-
-    if token_user:
-        return credentials.username
-    if VALID_WEBAUTHN_TOKENS and not token_valid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="2FA token required",
-            headers=headers,
-        )
-    return credentials.username
-
-
-def require_admin(user: str = Depends(require_auth)) -> str:
-    """Ensure the authenticated user has admin privileges."""
-    if ADMIN_UI_ROLE != "admin":
-        raise HTTPException(status_code=403, detail="Admin privileges required")
-    return user
+# Include routers from submodules
+app.include_router(metrics.router)
+app.include_router(blocklist.router)
+app.include_router(webauthn.router)
 
 
 @pass_context
@@ -365,280 +100,10 @@ def _jinja_url_for(context, name: str, **path_params) -> str:
 templates.env.globals["url_for"] = _jinja_url_for
 
 
-@app.post("/webauthn/register/begin")
-async def webauthn_register_begin(user: str = Depends(require_auth)):
-    """Begin WebAuthn registration and return options."""
-    options = generate_registration_options(
-        rp_id=RP_ID,
-        rp_name="AI Scraping Defense",
-        user_id=user.encode(),
-        user_name=user,
-    )
-    _store_webauthn_challenge(user, options.challenge)
-    return JSONResponse(json.loads(options_to_json(options)))
-
-
-@app.post("/webauthn/register/complete")
-async def webauthn_register_complete(data: dict, user: str = Depends(require_auth)):
-    """Complete WebAuthn registration."""
-    credential = RegistrationCredential.parse_raw(json.dumps(data["credential"]))
-    verification = verify_registration_response(
-        credential=credential,
-        expected_challenge=WEBAUTHN_CHALLENGES.pop(user),
-        expected_rp_id=RP_ID,
-        expected_origin=ORIGIN,
-    )
-    _store_webauthn_credential(
-        user,
-        {
-            "credential_id": verification.credential_id,
-            "public_key": verification.credential_public_key,
-            "sign_count": verification.sign_count,
-        },
-    )
-
-    return JSONResponse({"status": "ok"})
-
-
-@app.post("/webauthn/login/begin")
-async def webauthn_login_begin(data: dict):
-    """Begin WebAuthn authentication and return options."""
-    username = data.get("username")
-    if not isinstance(username, str) or not username:
-        raise HTTPException(status_code=400, detail="Invalid or missing username")
-    cred = _load_webauthn_credential(username)
-
-    if not cred:
-        raise HTTPException(status_code=400, detail="Unknown user")
-    descriptor = PublicKeyCredentialDescriptor(id=cred["credential_id"])
-    options = generate_authentication_options(
-        rp_id=RP_ID,
-        allow_credentials=[descriptor],
-    )
-    _store_webauthn_challenge(username, options.challenge)
-    return JSONResponse(json.loads(options_to_json(options)))
-
-
-@app.post("/webauthn/login/complete")
-async def webauthn_login_complete(data: dict):
-    """Complete WebAuthn authentication and return a token."""
-    username = data.get("username")
-    if not isinstance(username, str) or not username:
-        raise HTTPException(status_code=400, detail="Invalid or missing username")
-    cred = _load_webauthn_credential(username)
-    if not cred:
-        raise HTTPException(status_code=400, detail="Unknown user")
-    credential = AuthenticationCredential.parse_raw(json.dumps(data["credential"]))
-    verification = verify_authentication_response(
-        credential=credential,
-        expected_challenge=WEBAUTHN_CHALLENGES.pop(username),
-        expected_rp_id=RP_ID,
-        expected_origin=ORIGIN,
-        credential_public_key=cred["public_key"],
-        credential_current_sign_count=cred["sign_count"],
-    )
-    cred["sign_count"] = verification.new_sign_count
-    _store_webauthn_credential(username, cred)
-    token = uuid4().hex
-    _store_webauthn_token(token, username)
-    return JSONResponse({"token": token})
-
-
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, user: str = Depends(require_auth)):
     """Serves the main dashboard HTML page."""
     return templates.TemplateResponse("index.html", {"request": request, "user": user})
-
-
-@app.get("/metrics")
-async def metrics_endpoint(user: str = Depends(require_auth)):
-    """Return metrics in JSON form for the admin dashboard."""
-    if not METRICS_TRULY_AVAILABLE:
-        return JSONResponse({"error": "Metrics module not available"}, status_code=503)
-
-    try:
-        metrics_dict = _get_metrics_dict_func()
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.error("An error occurred in the metrics endpoint", exc_info=exc)
-        return JSONResponse({"error": "An internal error occurred"}, status_code=500)
-
-    if isinstance(metrics_dict, dict) and metrics_dict.get("error"):
-        return JSONResponse(metrics_dict, status_code=500)
-
-    return JSONResponse(metrics_dict, status_code=200)
-
-
-@app.websocket("/ws/metrics")
-async def metrics_websocket(websocket: WebSocket):
-    """Stream metrics to the client over a WebSocket connection."""
-    auth = websocket.headers.get("Authorization")
-    if auth:
-        try:
-            scheme, data = auth.split(" ", 1)
-            if scheme.lower() == "basic":
-                decoded = b64decode(data).decode()
-                username, password = decoded.split(":", 1)
-                x_2fa_code = websocket.headers.get("X-2FA-Code")
-                x_2fa_token = websocket.headers.get("X-2FA-Token")
-                try:
-                    require_auth(
-                        HTTPBasicCredentials(username=username, password=password),
-                        x_2fa_code=x_2fa_code,
-                        x_2fa_token=x_2fa_token,
-                    )
-                except HTTPException:
-                    await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-                    return
-        except Exception as exc:
-            logger.error("Error during websocket auth", exc_info=exc)
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            return
-    else:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-    await websocket.accept()
-
-    if not METRICS_TRULY_AVAILABLE:
-        await websocket.send_json({"error": "Metrics module not available"})
-        await websocket.close()
-        return
-
-    try:
-        while True:
-            try:
-                metrics_dict = _get_metrics_dict_func()
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.error(
-                    "An error occurred in the websocket metrics endpoint",
-                    exc_info=exc,
-                )
-                await websocket.send_json({"error": "An internal error occurred"})
-                await websocket.close()
-                break
-
-            await websocket.send_json(metrics_dict)
-
-            if isinstance(metrics_dict, dict) and metrics_dict.get("error"):
-                await websocket.close()
-                break
-
-            try:
-                await asyncio.sleep(WEBSOCKET_METRICS_INTERVAL)
-            except asyncio.CancelledError:  # pragma: no cover - defensive
-                break
-    except WebSocketDisconnect:  # pragma: no cover - normal disconnect
-        pass
-
-
-@app.get("/block_stats")
-async def block_stats(user: str = Depends(require_auth)):
-    """Return blocklist counts and bot detection statistics."""
-    metrics_dict = {}
-    try:
-        metrics_dict = _get_metrics_dict_func()
-    except Exception as exc:
-        logger.error("Failed to load metrics", exc_info=exc)
-        metrics_dict = {}
-    total_bots = sum(
-        float(v) for k, v in metrics_dict.items() if k.startswith("bots_detected")
-    )
-    total_humans = sum(
-        float(v) for k, v in metrics_dict.items() if k.startswith("humans_detected")
-    )
-
-    redis_conn = get_redis_connection()
-    blocked_ips = set()
-    temp_block_count = 0
-    if redis_conn:
-        try:
-            blocked_ips = redis_conn.smembers(tenant_key("blocklist")) or set()
-            pattern = tenant_key("blocklist:ip:*")
-            cursor = 0
-            temp_block_count = 0
-            while True:
-                cursor, keys = redis_conn.scan(cursor=cursor, match=pattern, count=1000)
-                temp_block_count += len(keys)
-                if cursor == 0:
-                    break
-        except Exception as exc:
-            logger.error("Error loading blocklist from redis", exc_info=exc)
-
-    recent_events = _load_recent_block_events_func(5)
-    return JSONResponse(
-        {
-            "blocked_ip_count": len(blocked_ips),
-            "temporary_block_count": temp_block_count,
-            "total_bots_detected": total_bots,
-            "total_humans_detected": total_humans,
-            "recent_block_events": recent_events,
-        }
-    )
-
-
-@app.get("/blocklist")
-async def get_blocklist(user: str = Depends(require_auth)):
-    redis_conn = get_redis_connection()
-    if not redis_conn:
-        return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
-
-    blocklist_set = redis_conn.smembers(tenant_key("blocklist"))
-    if asyncio.iscoroutine(blocklist_set):
-        blocklist_set = await blocklist_set
-
-    if blocklist_set and isinstance(blocklist_set, (set, list)):
-        return JSONResponse(list(blocklist_set))
-    else:
-        return JSONResponse([])
-
-
-@app.post("/block")
-async def block_ip(request: Request, user: str = Depends(require_admin)):
-    json_data = await request.json()
-    if not json_data:
-        return JSONResponse(
-            {"error": "Invalid request, missing JSON body"}, status_code=400
-        )
-
-    ip = json_data.get("ip")
-    if not ip:
-        return JSONResponse({"error": "Invalid request, missing ip"}, status_code=400)
-    try:
-        normalized_ip = str(ip_address(ip))
-    except ValueError:
-        return JSONResponse({"error": "Invalid ip"}, status_code=400)
-
-    redis_conn = get_redis_connection()
-    if not redis_conn:
-        return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
-
-    redis_conn.sadd(tenant_key("blocklist"), normalized_ip)
-    log_event(user, "block_ip", {"ip": normalized_ip})
-    return JSONResponse({"status": "success", "ip": normalized_ip})
-
-
-@app.post("/unblock")
-async def unblock_ip(request: Request, user: str = Depends(require_admin)):
-    json_data = await request.json()
-    if not json_data:
-        return JSONResponse(
-            {"error": "Invalid request, missing JSON body"}, status_code=400
-        )
-
-    ip = json_data.get("ip")
-    if not ip:
-        return JSONResponse({"error": "Invalid request, missing ip"}, status_code=400)
-    try:
-        normalized_ip = str(ip_address(ip))
-    except ValueError:
-        return JSONResponse({"error": "Invalid ip"}, status_code=400)
-
-    redis_conn = get_redis_connection()
-    if not redis_conn:
-        return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
-
-    redis_conn.srem(tenant_key("blocklist"), normalized_ip)
-    log_event(user, "unblock_ip", {"ip": normalized_ip})
-    return JSONResponse({"status": "success", "ip": normalized_ip})
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -709,7 +174,7 @@ async def update_settings(
 @app.get("/logs", response_class=HTMLResponse)
 async def view_logs(request: Request, user: str = Depends(require_auth)):
     """Display recent block events."""
-    events = _load_recent_block_events_func(50)
+    events = blocklist._load_recent_block_events_func(50)
     return templates.TemplateResponse(
         "logs.html", {"request": request, "events": events}
     )
@@ -759,7 +224,6 @@ async def update_plugins(request: Request, user: str = Depends(require_admin)):
 if __name__ == "__main__":
     import uvicorn
 
-    # Bind to localhost by default to avoid exposing the service on all interfaces
     host = os.getenv("FLASK_RUN_HOST", "127.0.0.1")
     port = int(os.getenv("ADMIN_UI_PORT", 5002))
     log_level = os.getenv("LOG_LEVEL", "info").lower()
