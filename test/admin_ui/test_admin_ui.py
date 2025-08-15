@@ -146,6 +146,19 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(response.json(), {"error": "Redis service unavailable"})
 
     @patch("src.admin_ui.blocklist.get_redis_connection")
+    def test_get_blocklist_invalid_response(self, mock_get_redis):
+        """Test the /blocklist endpoint handles invalid Redis responses."""
+        mock_redis_instance = MagicMock()
+        mock_redis_instance.smembers.return_value = "oops"
+        mock_get_redis.return_value = mock_redis_instance
+
+        response = self.client.get(
+            "/blocklist", auth=self.auth, headers=self._totp_headers()
+        )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {"error": "Redis returned invalid data"})
+
+    @patch("src.admin_ui.blocklist.get_redis_connection")
     def test_block_ip_success(self, mock_get_redis):
         """Test manually blocking an IP address."""
         mock_redis_instance = MagicMock()
