@@ -152,3 +152,6 @@ reports/
 *.vspscc
 iis/DefenseModule/bin/
 iis/DefenseModule/obj/Debug/
+iis/DefenseModule/obj/DefenseModule.csproj.nuget.dgspec.json
+iis/DefenseModule/obj/project.assets.json
+iis/DefenseModule/obj/project.nuget.cache
