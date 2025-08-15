@@ -10,7 +10,7 @@ import bcrypt
 import pyotp
 from fastapi.testclient import TestClient
 
-from src.admin_ui import admin_ui
+from src.admin_ui import admin_ui, auth, blocklist, metrics, webauthn
 
 
 class TestAdminUIComprehensive(unittest.TestCase):
@@ -23,7 +23,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         ).decode()
         os.environ["ADMIN_UI_ROLE"] = "admin"
         os.environ["ADMIN_UI_2FA_SECRET"] = "JBSWY3DPEHPK3PXP"
-        admin_ui.ADMIN_UI_ROLE = "admin"
+        auth.ADMIN_UI_ROLE = "admin"
         self.client = TestClient(admin_ui.app)
         self.auth = ("admin", "testpass")
 
@@ -68,13 +68,13 @@ class TestAdminUIComprehensive(unittest.TestCase):
                     + "\n"
                 )
             tmp.flush()
-            with patch("src.admin_ui.admin_ui.BLOCK_LOG_FILE", tmp.name):
-                events = admin_ui._load_recent_block_events(limit=5)
+            with patch("src.admin_ui.blocklist.BLOCK_LOG_FILE", tmp.name):
+                events = blocklist._load_recent_block_events(limit=5)
             self.assertEqual(len(events), 5)
             self.assertEqual(events[0]["ip"], "1.1.1.5")
             self.assertEqual(events[-1]["ip"], "1.1.1.9")
 
-    @patch("src.admin_ui.admin_ui._get_metrics_dict_func")
+    @patch("src.admin_ui.metrics._get_metrics_dict_func")
     def test_metrics_endpoint_success(self, mock_get_metrics_dict):
         """Test the /metrics endpoint with valid, complex Prometheus-formatted data."""
         mock_get_metrics_dict.return_value = {
@@ -84,7 +84,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
             "active_connections": 10.0,
         }
 
-        with patch("src.admin_ui.admin_ui.METRICS_TRULY_AVAILABLE", True):
+        with patch("src.admin_ui.metrics.METRICS_TRULY_AVAILABLE", True):
             response = self.client.get(
                 "/metrics", auth=self.auth, headers=self._totp_headers()
             )
@@ -94,7 +94,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(data['requests_total{method="GET"}'], 150.0)
         self.assertEqual(data["bots_detected_total"], 25.0)
 
-    @patch("src.admin_ui.admin_ui.METRICS_TRULY_AVAILABLE", False)
+    @patch("src.admin_ui.metrics.METRICS_TRULY_AVAILABLE", False)
     def test_metrics_endpoint_module_unavailable(self):
         """Test the /metrics endpoint when the metrics module is flagged as unavailable."""
         response = self.client.get(
@@ -105,12 +105,12 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(data.get("error"), "Metrics module not available")
 
     @patch(
-        "src.admin_ui.admin_ui._get_metrics_dict_func",
+        "src.admin_ui.metrics._get_metrics_dict_func",
         return_value={"error": "Parsing failed"},
     )
     def test_metrics_endpoint_parsing_error(self, mock_get_metrics_dict):
         """Test the /metrics endpoint when parsing the Prometheus data fails."""
-        with patch("src.admin_ui.admin_ui.METRICS_TRULY_AVAILABLE", True):
+        with patch("src.admin_ui.metrics.METRICS_TRULY_AVAILABLE", True):
             response = self.client.get(
                 "/metrics", auth=self.auth, headers=self._totp_headers()
             )
@@ -120,7 +120,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertIn("error", data)
         self.assertEqual(data["error"], "Parsing failed")
 
-    @patch("src.admin_ui.admin_ui.get_redis_connection")
+    @patch("src.admin_ui.blocklist.get_redis_connection")
     def test_get_blocklist_success(self, mock_get_redis):
         """Test successfully retrieving the blocklist from Redis."""
         mock_redis_instance = MagicMock()
@@ -136,7 +136,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertIn("2.2.2.2", data)
         self.assertEqual(len(data), 2)
 
-    @patch("src.admin_ui.admin_ui.get_redis_connection", return_value=None)
+    @patch("src.admin_ui.blocklist.get_redis_connection", return_value=None)
     def test_get_blocklist_redis_unavailable(self, mock_get_redis):
         """Test the /blocklist endpoint when Redis is unavailable."""
         response = self.client.get(
@@ -145,7 +145,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json(), {"error": "Redis service unavailable"})
 
-    @patch("src.admin_ui.admin_ui.get_redis_connection")
+    @patch("src.admin_ui.blocklist.get_redis_connection")
     def test_block_ip_success(self, mock_get_redis):
         """Test manually blocking an IP address."""
         mock_redis_instance = MagicMock()
@@ -162,7 +162,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(response.json(), {"status": "success", "ip": "3.3.3.3"})
         mock_redis_instance.sadd.assert_called_once_with("default:blocklist", "3.3.3.3")
 
-    @patch("src.admin_ui.admin_ui.get_redis_connection")
+    @patch("src.admin_ui.blocklist.get_redis_connection")
     def test_unblock_ip_success(self, mock_get_redis):
         """Test manually unblocking an IP address."""
         mock_redis_instance = MagicMock()
@@ -179,11 +179,11 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(response.json(), {"status": "success", "ip": "1.1.1.1"})
         mock_redis_instance.srem.assert_called_once_with("default:blocklist", "1.1.1.1")
 
-    @patch("src.admin_ui.admin_ui.get_redis_connection")
+    @patch("src.admin_ui.blocklist.get_redis_connection")
     def test_block_ip_requires_admin(self, mock_get_redis):
         """Non-admin users receive 403 when attempting to block an IP."""
         os.environ["ADMIN_UI_ROLE"] = "viewer"
-        admin_ui.ADMIN_UI_ROLE = "viewer"
+        auth.ADMIN_UI_ROLE = "viewer"
         mock_redis_instance = MagicMock()
         mock_redis_instance.sadd.return_value = 1
         mock_get_redis.return_value = mock_redis_instance
@@ -195,7 +195,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 403)
         os.environ["ADMIN_UI_ROLE"] = "admin"
-        admin_ui.ADMIN_UI_ROLE = "admin"
+        auth.ADMIN_UI_ROLE = "admin"
 
     def test_block_ip_invalid_payload(self):
         """Test the /block endpoint with an invalid payload."""
@@ -240,26 +240,26 @@ class TestAdminUIComprehensive(unittest.TestCase):
         secret = "JBSWY3DPEHPK3PXP"
         os.environ["ADMIN_UI_2FA_SECRET"] = secret
         token = "tok123"
-        admin_ui._store_webauthn_token(token, "admin", time.time() + 60)
+        webauthn._store_webauthn_token(token, "admin", time.time() + 60)
         headers = {"X-2FA-Token": token}
-        with patch("src.admin_ui.admin_ui.get_redis_connection", return_value=None):
+        with patch("src.admin_ui.webauthn.get_redis_connection", return_value=None):
             response = self.client.get("/", auth=self.auth, headers=headers)
 
         self.assertEqual(response.status_code, 200)
         del os.environ["ADMIN_UI_2FA_SECRET"]
-        admin_ui.VALID_WEBAUTHN_TOKENS.clear()
+        webauthn.VALID_WEBAUTHN_TOKENS.clear()
 
     def test_webauthn_token_invalid(self):
         """Invalid WebAuthn tokens are rejected."""
         secret = "JBSWY3DPEHPK3PXP"
         os.environ["ADMIN_UI_2FA_SECRET"] = secret
-        admin_ui.VALID_WEBAUTHN_TOKENS["good"] = ("admin", time.time() + 60)
+        webauthn.VALID_WEBAUTHN_TOKENS["good"] = ("admin", time.time() + 60)
         headers = {"X-2FA-Token": "bad"}
-        with patch("src.admin_ui.admin_ui.get_redis_connection", return_value=None):
+        with patch("src.admin_ui.webauthn.get_redis_connection", return_value=None):
             response = self.client.get("/", auth=self.auth, headers=headers)
         self.assertEqual(response.status_code, 401)
         del os.environ["ADMIN_UI_2FA_SECRET"]
-        admin_ui.VALID_WEBAUTHN_TOKENS.clear()
+        webauthn.VALID_WEBAUTHN_TOKENS.clear()
 
     def test_webauthn_login_begin_invalid_username(self):
         """Login begin rejects missing username."""
@@ -287,7 +287,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
             if original_password is not None:
                 os.environ["ADMIN_UI_PASSWORD_HASH"] = original_password
 
-    @patch("src.admin_ui.admin_ui._get_metrics_dict_func")
+    @patch("src.admin_ui.metrics._get_metrics_dict_func")
     def test_metrics_websocket_initial_message(self, mock_get_metrics):
         """Ensure the /ws/metrics endpoint streams metrics on connect."""
         mock_get_metrics.return_value = {"active_connections": 5}
@@ -300,7 +300,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(data, {"active_connections": 5})
         mock_get_metrics.assert_called()
 
-    @patch("src.admin_ui.admin_ui.METRICS_TRULY_AVAILABLE", False)
+    @patch("src.admin_ui.metrics.METRICS_TRULY_AVAILABLE", False)
     def test_metrics_websocket_module_unavailable(self):
         """WebSocket should send an error if metrics are unavailable."""
         headers = {
@@ -311,9 +311,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
             data = websocket.receive_json()
         self.assertEqual(data, {"error": "Metrics module not available"})
 
-    @patch("src.admin_ui.admin_ui._get_metrics_dict_func")
-    @patch("src.admin_ui.admin_ui.get_redis_connection")
-    @patch("src.admin_ui.admin_ui._load_recent_block_events_func")
+    @patch("src.admin_ui.metrics._get_metrics_dict_func")
+    @patch("src.admin_ui.blocklist.get_redis_connection")
+    @patch("src.admin_ui.blocklist._load_recent_block_events_func")
     def test_block_stats_success(self, mock_load, mock_get_redis, mock_get_metrics):
         """Test the /block_stats endpoint aggregates data correctly."""
         mock_get_metrics.return_value = {
@@ -342,11 +342,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(data["total_humans_detected"], 5.0)
         self.assertEqual(len(data["recent_block_events"]), 1)
 
-    @patch(
-        "src.admin_ui.admin_ui._get_metrics_dict_func", side_effect=Exception("fail")
-    )
-    @patch("src.admin_ui.admin_ui.get_redis_connection", return_value=None)
-    @patch("src.admin_ui.admin_ui._load_recent_block_events_func", return_value=[])
+    @patch("src.admin_ui.metrics._get_metrics_dict_func", side_effect=Exception("fail"))
+    @patch("src.admin_ui.blocklist.get_redis_connection", return_value=None)
+    @patch("src.admin_ui.blocklist._load_recent_block_events_func", return_value=[])
     def test_block_stats_handles_errors(
         self, mock_load, mock_get_redis, mock_get_metrics
     ):
