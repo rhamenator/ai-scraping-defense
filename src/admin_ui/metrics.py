@@ -86,6 +86,7 @@ async def metrics_websocket(websocket: WebSocket):
                 x_2fa_token = websocket.headers.get("X-2FA-Token")
                 try:
                     require_auth(
+                        websocket,
                         HTTPBasicCredentials(username=username, password=password),
                         x_2fa_code=x_2fa_code,
                         x_2fa_token=x_2fa_token,

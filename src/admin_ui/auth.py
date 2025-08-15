@@ -3,10 +3,12 @@ import secrets
 
 import bcrypt
 import pyotp
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from redis.exceptions import RedisError
 
 from src.shared.config import get_secret
+from src.shared.redis_client import get_redis_connection
 
 security = HTTPBasic()
 
@@ -14,12 +16,31 @@ ADMIN_UI_ROLE = os.getenv("ADMIN_UI_ROLE", "admin")
 
 
 def require_auth(
+    request: Request,
     credentials: HTTPBasicCredentials = Depends(security),
     x_2fa_code: str | None = Header(None, alias="X-2FA-Code"),
     x_2fa_token: str | None = Header(None, alias="X-2FA-Token"),
 ) -> str:
     """Validate HTTP Basic credentials and optional 2FA."""
     from . import webauthn
+
+    rate_limit = int(os.getenv("ADMIN_UI_RATE_LIMIT", "5"))
+    rate_window = int(os.getenv("ADMIN_UI_RATE_LIMIT_WINDOW", "60"))
+    client_ip = request.client.host if request.client else "unknown"
+    redis_conn = get_redis_connection()
+    if redis_conn:
+        key = f"admin_ui:auth:{client_ip}"
+        try:
+            count = redis_conn.incr(key)
+            if count == 1:
+                redis_conn.expire(key, rate_window)
+            if count > rate_limit:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Too many authentication attempts",
+                )
+        except RedisError:
+            pass
 
     username = os.getenv("ADMIN_UI_USERNAME", "admin")
     try:
