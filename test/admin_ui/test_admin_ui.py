@@ -51,6 +51,31 @@ class TestAdminUIComprehensive(unittest.TestCase):
             response.headers.get("content-security-policy"), "default-src 'self'"
         )
 
+    def test_auth_rate_limit_blocks_excess_requests(self):
+        class MockRedis:
+            def __init__(self):
+                self.store = {}
+
+            def incr(self, key):
+                self.store[key] = self.store.get(key, 0) + 1
+                return self.store[key]
+
+            def expire(self, key, ttl):
+                pass
+
+        mock_redis = MockRedis()
+        headers = self._totp_headers()
+        with patch("src.admin_ui.auth.get_redis_connection", return_value=mock_redis):
+            with patch.dict(
+                os.environ,
+                {"ADMIN_UI_RATE_LIMIT": "2", "ADMIN_UI_RATE_LIMIT_WINDOW": "60"},
+            ):
+                for _ in range(2):
+                    resp = self.client.get("/", auth=self.auth, headers=headers)
+                    self.assertEqual(resp.status_code, 200)
+                resp = self.client.get("/", auth=self.auth, headers=headers)
+                self.assertEqual(resp.status_code, 429)
+
     def test_load_recent_block_events_streaming(self):
         """Ensure _load_recent_block_events reads only the last N lines."""
         with tempfile.NamedTemporaryFile(
