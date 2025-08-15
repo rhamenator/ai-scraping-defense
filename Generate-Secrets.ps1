@@ -44,6 +44,7 @@ $postgresPassword = New-RandomPassword
 $redisPassword = New-RandomPassword
 $adminUiUsername = if ([string]::IsNullOrEmpty($env:USERNAME)) { "defense-admin" } else { $env:USERNAME }
 $adminUiPassword = New-RandomPassword
+$adminUiPasswordHash = (htpasswd -nbBC 12 $adminUiUsername $adminUiPassword).Split(':')[1].Trim()
 $systemSeed = New-RandomPassword -Length 48
 $nginxPassword = New-RandomPassword -Length 32
 $externalApiKey = "key-for-" + (New-RandomPassword)
@@ -65,7 +66,7 @@ $postgresDb_b64 = ConvertTo-Base64 "markov_db"
 $postgresPassword_b64 = ConvertTo-Base64 $postgresPassword
 $redisPassword_b64 = ConvertTo-Base64 $redisPassword
 $adminUiUsername_b64 = ConvertTo-Base64 $adminUiUsername
-$adminUiPassword_b64 = ConvertTo-Base64 $adminUiPassword
+$adminUiPasswordHash_b64 = ConvertTo-Base64 $adminUiPasswordHash
 $systemSeed_b64 = ConvertTo-Base64 $systemSeed
 $externalApiKey_b64 = ConvertTo-Base64 $externalApiKey
 $ipReputationApiKey_b64 = ConvertTo-Base64 $ipReputationApiKey
@@ -107,7 +108,7 @@ metadata:
 type: Opaque
 data:
   ADMIN_UI_USERNAME: $adminUiUsername_b64
-  ADMIN_UI_PASSWORD: $adminUiPassword_b64
+  ADMIN_UI_PASSWORD_HASH: $adminUiPasswordHash_b64
 ---
 apiVersion: v1
 kind: Secret

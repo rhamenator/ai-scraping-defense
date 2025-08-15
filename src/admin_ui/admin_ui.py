@@ -17,6 +17,7 @@ from collections import deque
 from ipaddress import ip_address
 from uuid import uuid4
 
+import bcrypt
 import pyotp
 from fastapi import (
     Cookie,
@@ -295,15 +296,15 @@ def require_auth(
     """Validate HTTP Basic credentials and optional 2FA."""
     username = os.getenv("ADMIN_UI_USERNAME", "admin")
     try:
-        password = os.environ["ADMIN_UI_PASSWORD"]
+        password_hash = os.environ["ADMIN_UI_PASSWORD_HASH"].encode()
     except KeyError as exc:  # pragma: no cover - defensive
         raise RuntimeError(
-            "ADMIN_UI_PASSWORD environment variable must be set",
+            "ADMIN_UI_PASSWORD_HASH environment variable must be set",
         ) from exc
     headers = {"WWW-Authenticate": "Basic"}
-    valid = secrets.compare_digest(
-        credentials.username, username
-    ) and secrets.compare_digest(credentials.password, password)
+    valid = secrets.compare_digest(credentials.username, username) and bcrypt.checkpw(
+        credentials.password.encode(), password_hash
+    )
     if not valid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
 
