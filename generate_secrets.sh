@@ -51,6 +51,7 @@ POSTGRES_USER="postgres"; POSTGRES_DB="markov_db"; POSTGRES_PASSWORD=$(generate_
 REDIS_PASSWORD=$(generate_password)
 ADMIN_UI_USERNAME=${SUDO_USER:-$USER}; if [ -z "$ADMIN_UI_USERNAME" ]; then ADMIN_UI_USERNAME="defense-admin"; fi
 ADMIN_UI_PASSWORD=$(generate_password)
+ADMIN_UI_PASSWORD_HASH=$(htpasswd -nbBC 12 "$ADMIN_UI_USERNAME" "$ADMIN_UI_PASSWORD" | cut -d: -f2 | tr -d '\n')
 SYSTEM_SEED=$(generate_password 48)
 NGINX_PASSWORD=$(generate_password 32)
 EXTERNAL_API_KEY="key-for-$(generate_password)"; IP_REPUTATION_API_KEY="key-for-$(generate_password)"; COMMUNITY_BLOCKLIST_API_KEY="key-for-$(generate_password)"
@@ -91,7 +92,7 @@ metadata:
 type: Opaque
 data:
   ADMIN_UI_USERNAME: $(echo -n "$ADMIN_UI_USERNAME" | base64 | tr -d '\n')
-  ADMIN_UI_PASSWORD: $(echo -n "$ADMIN_UI_PASSWORD" | base64 | tr -d '\n')
+  ADMIN_UI_PASSWORD_HASH: $(echo -n "$ADMIN_UI_PASSWORD_HASH" | base64 | tr -d '\n')
 ---
 apiVersion: v1
 kind: Secret
@@ -188,7 +189,7 @@ if [ "$update_env" = true ]; then
   update_var POSTGRES_PASSWORD "$POSTGRES_PASSWORD" "$ENV_FILE"
   update_var REDIS_PASSWORD "$REDIS_PASSWORD" "$ENV_FILE"
   update_var ADMIN_UI_USERNAME "$ADMIN_UI_USERNAME" "$ENV_FILE"
-  update_var ADMIN_UI_PASSWORD "$ADMIN_UI_PASSWORD" "$ENV_FILE"
+  update_var ADMIN_UI_PASSWORD_HASH "$ADMIN_UI_PASSWORD_HASH" "$ENV_FILE"
   update_var SYSTEM_SEED "$SYSTEM_SEED" "$ENV_FILE"
   update_var NGINX_PASSWORD "$NGINX_PASSWORD" "$ENV_FILE"
   update_var OPENAI_API_KEY "$OPENAI_API_KEY" "$ENV_FILE"

@@ -21,6 +21,7 @@ pyotp~=2.9
 qrcode~=7.4
 webauthn~=1.9
 tenacity~=8.2
+bcrypt~=4.1
 
 # HTTP and Web Scraping
 httpx~=0.27

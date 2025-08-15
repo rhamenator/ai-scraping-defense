@@ -6,6 +6,7 @@ import time
 import unittest
 from unittest.mock import MagicMock, patch
 
+import bcrypt
 import pyotp
 from fastapi.testclient import TestClient
 
@@ -17,7 +18,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
     def setUp(self):
         """Set up the test client for the FastAPI app."""
         os.environ["ADMIN_UI_USERNAME"] = "admin"
-        os.environ["ADMIN_UI_PASSWORD"] = "testpass"
+        os.environ["ADMIN_UI_PASSWORD_HASH"] = bcrypt.hashpw(
+            b"testpass", bcrypt.gensalt()
+        ).decode()
         os.environ["ADMIN_UI_ROLE"] = "admin"
         os.environ["ADMIN_UI_2FA_SECRET"] = "JBSWY3DPEHPK3PXP"
         admin_ui.ADMIN_UI_ROLE = "admin"
@@ -274,15 +277,15 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertIn("username", data["detail"])
 
     def test_missing_admin_password(self):
-        """Service raises an error when ADMIN_UI_PASSWORD is unset."""
-        original_password = os.environ.get("ADMIN_UI_PASSWORD")
+        """Service raises an error when ADMIN_UI_PASSWORD_HASH is unset."""
+        original_password = os.environ.get("ADMIN_UI_PASSWORD_HASH")
         try:
-            del os.environ["ADMIN_UI_PASSWORD"]
+            del os.environ["ADMIN_UI_PASSWORD_HASH"]
             with self.assertRaises(RuntimeError):
                 self.client.get("/", auth=self.auth, headers=self._totp_headers())
         finally:
             if original_password is not None:
-                os.environ["ADMIN_UI_PASSWORD"] = original_password
+                os.environ["ADMIN_UI_PASSWORD_HASH"] = original_password
 
     @patch("src.admin_ui.admin_ui._get_metrics_dict_func")
     def test_metrics_websocket_initial_message(self, mock_get_metrics):
@@ -319,7 +322,10 @@ class TestAdminUIComprehensive(unittest.TestCase):
         }
         mock_redis = MagicMock()
         mock_redis.smembers.return_value = {"4.4.4.4"}
-        mock_redis.keys.return_value = ["blocklist:ip:4.4.4.4", "blocklist:ip:5.5.5.5"]
+        mock_redis.scan.return_value = (
+            0,
+            ["blocklist:ip:4.4.4.4", "blocklist:ip:5.5.5.5"],
+        )
         mock_get_redis.return_value = mock_redis
         mock_load.return_value = [
             {"ip": "4.4.4.4", "reason": "test", "timestamp": "2025-01-01T00:00:00Z"}
