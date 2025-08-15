@@ -16,17 +16,24 @@ ADMIN_UI_ROLE = os.getenv("ADMIN_UI_ROLE", "admin")
 
 
 def require_auth(
-    request: Request,
+    request: Request = None,
     credentials: HTTPBasicCredentials = Depends(security),
     x_2fa_code: str | None = Header(None, alias="X-2FA-Code"),
     x_2fa_token: str | None = Header(None, alias="X-2FA-Token"),
+    client_ip: str | None = None,
 ) -> str:
     """Validate HTTP Basic credentials and optional 2FA."""
     from . import webauthn
 
     rate_limit = int(os.getenv("ADMIN_UI_RATE_LIMIT", "5"))
     rate_window = int(os.getenv("ADMIN_UI_RATE_LIMIT_WINDOW", "60"))
-    client_ip = request.client.host if request.client else "unknown"
+    if client_ip is None:
+        if request is None or not request.client or not request.client.host:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot determine client IP address for rate limiting",
+            )
+        client_ip = request.client.host
     redis_conn = get_redis_connection()
     if redis_conn:
         key = f"admin_ui:auth:{client_ip}"

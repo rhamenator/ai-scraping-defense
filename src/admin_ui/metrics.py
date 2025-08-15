@@ -86,10 +86,12 @@ async def metrics_websocket(websocket: WebSocket):
                 x_2fa_token = websocket.headers.get("X-2FA-Token")
                 try:
                     require_auth(
-                        websocket,
-                        HTTPBasicCredentials(username=username, password=password),
+                        credentials=HTTPBasicCredentials(
+                            username=username, password=password
+                        ),
                         x_2fa_code=x_2fa_code,
                         x_2fa_token=x_2fa_token,
+                        client_ip=websocket.client.host,
                     )
                 except HTTPException:
                     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
