@@ -551,7 +551,13 @@ async def block_stats(user: str = Depends(require_auth)):
     if redis_conn:
         try:
             blocked_ips = redis_conn.smembers(tenant_key("blocklist")) or set()
-            temp_block_count = len(redis_conn.keys(tenant_key("blocklist:ip:*")))
+            pattern = tenant_key("blocklist:ip:*")
+            cursor = 0
+            while True:
+                cursor, keys = redis_conn.scan(cursor=cursor, match=pattern, count=1000)
+                temp_block_count += len(keys)
+                if cursor == 0:
+                    break
         except Exception as exc:
             logger.error("Error loading blocklist from redis", exc_info=exc)
 
