@@ -116,28 +116,9 @@ ALERT_SMTP_PASSWORD = CONFIG.ALERT_SMTP_PASSWORD
 COMMUNITY_BLOCKLIST_API_KEY = CONFIG.COMMUNITY_BLOCKLIST_API_KEY
 
 # --- Setup Clients & Validate Config ---
-BLOCKLISTING_ENABLED = False
+# Redis connection is initialized lazily to avoid network I/O on import.
+BLOCKLISTING_ENABLED = True
 redis_client_blocklist = None
-try:
-    redis_client_blocklist = shared_get_redis_connection(db_number=REDIS_DB_BLOCKLIST)
-    if redis_client_blocklist:
-        redis_client_blocklist.ping()
-        BLOCKLISTING_ENABLED = True
-        logger.info(
-            f"Connected to Redis for blocklisting at {REDIS_HOST}:{REDIS_PORT}, DB: {REDIS_DB_BLOCKLIST}"
-        )
-    else:
-        logger.error(
-            "Redis connection for blocklisting returned None. Blocklisting disabled."
-        )
-except ConnectionError as e:
-    logger.error(
-        f"Redis connection failed for Blocklisting: {e}. Blocklisting disabled."
-    )
-except Exception as e:
-    logger.error(
-        f"Unexpected error connecting to Redis for Blocklisting: {e}. Blocklisting disabled."
-    )
 
 if ALERT_METHOD == "smtp" and not ALERT_SMTP_PASSWORD and ALERT_SMTP_USER:
     logger.warning("SMTP alerting configured but SMTP password is not set.")
@@ -175,7 +156,36 @@ app = FastAPI()
 
 
 def get_redis_connection():
-    """Wrapper for tests to patch the Redis client."""
+    """Return a Redis connection, creating it on first use with retries."""
+    global redis_client_blocklist, BLOCKLISTING_ENABLED
+    if not BLOCKLISTING_ENABLED:
+        return None
+
+    if redis_client_blocklist is None:
+        try:
+            redis_client_blocklist = shared_get_redis_connection(
+                db_number=REDIS_DB_BLOCKLIST
+            )
+            if redis_client_blocklist:
+                logger.info(
+                    f"Connected to Redis for blocklisting at {REDIS_HOST}:{REDIS_PORT}, DB: {REDIS_DB_BLOCKLIST}"
+                )
+            else:
+                logger.error(
+                    "Redis connection for blocklisting returned None. Blocklisting disabled."
+                )
+                BLOCKLISTING_ENABLED = False
+        except (ConnectionError, RedisError) as e:
+            logger.error(
+                f"Redis connection failed for Blocklisting: {e}. Blocklisting disabled."
+            )
+            BLOCKLISTING_ENABLED = False
+        except Exception as e:
+            logger.error(
+                f"Unexpected error connecting to Redis for Blocklisting: {e}. Blocklisting disabled."
+            )
+            BLOCKLISTING_ENABLED = False
+
     return redis_client_blocklist
 
 
@@ -221,9 +231,10 @@ def log_event(log_file: str, event_type: str, data: dict):
 def add_ip_to_blocklist(
     ip_address: str, reason: str, event_details: Optional[dict] = None
 ) -> bool:
+    redis_conn = get_redis_connection()
     if (
         not BLOCKLISTING_ENABLED
-        or not redis_client_blocklist
+        or not redis_conn
         or not ip_address
         or ip_address == "unknown"
     ):
@@ -245,9 +256,9 @@ def add_ip_to_blocklist(
                 ),
             }
         )
-        if redis_client_blocklist.exists(block_key):
+        if redis_conn.exists(block_key):
             logger.info(f"IP {ip_address} already in blocklist. TTL refreshed")
-        redis_client_blocklist.setex(block_key, BLOCKLIST_TTL_SECONDS, block_metadata)
+        redis_conn.setex(block_key, BLOCKLIST_TTL_SECONDS, block_metadata)
         logger.info(
             "Added/Refreshed IP %s to Redis blocklist (Key: %s) with TTL %ss. "
             "Reason: %s",
