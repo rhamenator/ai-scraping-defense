@@ -107,11 +107,14 @@ async def get_blocklist(user: str = Depends(require_auth)):
     blocklist_set = redis_conn.smembers(tenant_key("blocklist"))
     if asyncio.iscoroutine(blocklist_set):
         blocklist_set = await blocklist_set
-
-    if blocklist_set and isinstance(blocklist_set, (set, list)):
+    if isinstance(blocklist_set, (set, list)):
         return JSONResponse(list(blocklist_set))
-    else:
-        return JSONResponse([])
+
+    logger.error(
+        "Unexpected blocklist response type from Redis: %s",
+        type(blocklist_set).__name__,
+    )
+    return JSONResponse({"error": "Redis returned invalid data"}, status_code=503)
 
 
 @router.post("/block")
