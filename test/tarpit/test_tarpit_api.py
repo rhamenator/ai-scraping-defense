@@ -1,10 +1,15 @@
 # test/tarpit/tarpit_api.test.py
+import os
+import subprocess
+import sys
 import unittest
-from unittest.mock import patch, MagicMock, AsyncMock, ANY
-from fastapi.testclient import TestClient
-import httpx
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
-from src.tarpit.tarpit_api import app
+import httpx
+from fastapi.testclient import TestClient
+
+os.environ.setdefault("SYSTEM_SEED", "test-seed")
+from src.tarpit.tarpit_api import DEFAULT_SYSTEM_SEED, app, sanitize_headers
 
 
 class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
@@ -155,6 +160,28 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data["status"], "error")
         self.assertTrue(data["redis_hops_connected"])
         self.assertFalse(data["redis_blocklist_connected"])
+
+    def test_sanitize_headers_removes_control_chars(self):
+        headers = {"X-Test": "va\tlu\ne\rwith\x0bcontrols"}
+        result = sanitize_headers(headers)
+        self.assertEqual(result["X-Test"], "valuewithcontrols")
+
+    def test_import_fails_with_default_seed(self):
+        """Importing with the placeholder seed should raise an error."""
+        code = (
+            "import os\n"
+            f"os.environ['SYSTEM_SEED']={repr(DEFAULT_SYSTEM_SEED)}\n"
+            "import src.tarpit.tarpit_api\n"
+        )
+        env = {
+            **os.environ,
+            "PYTHONPATH": os.getcwd() + os.pathsep + os.environ.get("PYTHONPATH", ""),
+        }
+        result = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, env=env
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("SYSTEM_SEED", result.stderr.decode())
 
 
 if __name__ == "__main__":

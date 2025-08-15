@@ -54,11 +54,13 @@ This page documents all environment variables consumed by the Python services. D
 | `ESCALATION_ENDPOINT` | `http://escalation_engine:8003/escalate` | URL used by Nginx Lua to send escalation data |
 | `TAR_PIT_MIN_DELAY_SEC` | `0.6` | Minimum tarpit delay |
 | `TAR_PIT_MAX_DELAY_SEC` | `1.2` | Maximum tarpit delay |
-| `SYSTEM_SEED` | `default_system_seed_value_change_me` | Seed for tarpit text generation |
+| `SYSTEM_SEED` | `default_system_seed_value_change_me` | Seed for tarpit text generation; **must be overridden** |
 | `TAR_PIT_MAX_HOPS` | `250` | Max recorded tarpit hops |
 | `TAR_PIT_HOP_WINDOW_SECONDS` | `86400` | Sliding window for hop counts |
 | `BLOCKLIST_TTL_SECONDS` | `86400` | How long IPs remain blocked |
 | `ENABLE_TARPIT_CATCH_ALL` | `true` | Send unmatched requests to the tarpit |
+
+> **Note:** `SYSTEM_SEED` must be set to a unique value. The Tarpit API raises an error if the default placeholder is used.
 
 ## Alerts and Webhooks
 
@@ -87,7 +89,8 @@ This page documents all environment variables consumed by the Python services. D
 | --- | --- | --- |
 | `ESCALATION_THRESHOLD` | `0.8` | Score needed to block a request |
 | `ESCALATION_API_KEY` | *(none)* | Key required for Escalation Engine API |
-| `ESCALATION_WEBHOOK_URL` | *(none)* | Webhook destination for escalations |
+| `ESCALATION_WEBHOOK_URL` | *(none)* | HTTPS endpoint for escalations; must start with `https://` |
+| `ESCALATION_WEBHOOK_ALLOWED_DOMAINS` | *(none)* | Comma-separated list of approved webhook domains |
 | `LOCAL_LLM_API_URL` | *(none)* | URL of local LLM API |
 | `LOCAL_LLM_MODEL` | *(none)* | Model name for local LLM API |
 | `LOCAL_LLM_TIMEOUT` | `45.0` | Timeout in seconds for local LLM |
@@ -142,7 +145,7 @@ This page documents all environment variables consumed by the Python services. D
 
 | Variable | Default | Service |
 | --- | --- | --- |
-| `AUDIT_LOG_FILE` | `/app/logs/audit.log` | Shared audit logger |
+| `AUDIT_LOG_FILE` | `/app/logs/audit.log` | Shared audit logger; file is created with owner-only (600) permissions |
 | `HONEYPOT_LOG_FILE` | `/app/logs/honeypot_hits.log` | Honeypot logger |
 | `CAPTCHA_SUCCESS_LOG` | `/app/logs/captcha_success.log` | CAPTCHA services |
 | `BLOCK_LOG_FILE` | `/app/logs/block_events.log` | Admin UI |

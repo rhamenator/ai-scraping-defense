@@ -18,6 +18,8 @@ user-agents~=2.2
 schedule~=1.2
 geoip2~=5.1
 pyotp~=2.9
+qrcode~=7.4
+webauthn~=1.9
 tenacity~=8.2
 
 # HTTP and Web Scraping
@@ -49,6 +51,7 @@ freezegun~=1.5
 maturin>=1.5,<2.0
 wheel
 pytest~=8.2
+pytest-asyncio~=1.1
 flake8~=7.3
 black~=25.1
 coverage~=7.10

@@ -27,4 +27,11 @@ credentials from environment variables (`STRIPE_API_KEY`, `PAYPAL_API_KEY`,
 `AUTHORIZE_NET_API_KEY`, or `PAYMENT_GATEWAY_KEY`). The gateway exposes helpers for
 creating crawler accounts, charging or refunding credits, and retrieving
 balances. Credentials are never logged in full—only a short prefix is retained
-in error messages—and HTTPS endpoints are used by default.
+in error messages—and HTTPS endpoints are used by default. Card numbers are
+never stored; use `tokenize_card` to generate reusable tokens from raw numbers.
+Numbers are sanitized and validated with the Luhn checksum before hashing with
+an HMAC‑SHA3‑512 digest keyed by `PAYMENT_TOKEN_SECRET`. The generic
+`secure_hash` helper can be used anywhere sensitive identifiers need
+anonymization. API keys can be rotated at runtime with `rotate_api_key`, and
+each gateway operation writes to an audit log (`PAYMENT_GATEWAY_AUDIT_LOG`) with
+sensitive values redacted.

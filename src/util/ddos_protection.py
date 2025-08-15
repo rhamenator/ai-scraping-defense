@@ -39,27 +39,36 @@ async def report_attack(
         return False
 
     if DDOS_PROTECTION_PROVIDER_URL and DDOS_PROTECTION_API_KEY:
-        headers = {"Authorization": f"Bearer {DDOS_PROTECTION_API_KEY}"}
-        payload = {"ip": ip}
-        try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(
-                    DDOS_PROTECTION_PROVIDER_URL,
-                    headers=headers,
-                    json=payload,
-                    timeout=10.0,
-                )
-                resp.raise_for_status()
-            logger.info(f"Reported IP {ip} to external DDoS provider.")
-            return True
-        except Exception as e:  # pragma: no cover - network/HTTP errors
-            logger.error(f"Failed to report IP {ip} to DDoS provider: {e}")
-            return False
+        if not DDOS_PROTECTION_PROVIDER_URL.startswith("https://"):
+            logger.error(
+                "DDOS_PROTECTION_PROVIDER_URL must start with 'https://'; "
+                "skipping external reporting"
+            )
+        else:
+            try:
+                # Build request and send to external provider
+                headers = {"Authorization": f"Bearer {DDOS_PROTECTION_API_KEY}"}
+                payload = {"ip": ip}
+                async with httpx.AsyncClient() as client:
+                    resp = await client.post(
+                        DDOS_PROTECTION_PROVIDER_URL,
+                        headers=headers,
+                        json=payload,
+                        timeout=10.0,
+                    )
+                    resp.raise_for_status()
+                logger.info(f"Reported IP {ip} to external DDoS provider.")
+                return True
+            except Exception as e:  # pragma: no cover - network/HTTP errors
+                logger.error(f"Failed to report IP {ip} to DDoS provider: {e}")
+                return False
 
     # Fall back to local escalation engine
     if metadata is None:
         metadata = {
-            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.datetime.now(datetime.UTC)
+            .isoformat()
+            .replace("+00:00", "Z"),
             "ip": ip,
             "source": "ddos_guard",
         }

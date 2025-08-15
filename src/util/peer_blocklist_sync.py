@@ -1,12 +1,13 @@
-import os
 import asyncio
+import json
 import logging
+import os
 from typing import List, Optional
 
 import httpx
 
-from src.shared.redis_client import get_redis_connection
 from src.shared.config import tenant_key
+from src.shared.redis_client import get_redis_connection
 
 PEER_BLOCKLIST_URLS = os.getenv("PEER_BLOCKLIST_URLS", "")
 REDIS_DB_BLOCKLIST = int(os.getenv("REDIS_DB_BLOCKLIST", 2))
@@ -20,10 +21,17 @@ logging.basicConfig(
 
 async def fetch_peer_ips(url: str) -> List[str]:
     """Fetch a list of malicious IPs from a peer deployment."""
+    if not url.startswith(("http://", "https://")):
+        logger.warning("Skipping invalid URL: %s", url)
+        return []
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, timeout=10.0)
         resp.raise_for_status()
-        data = resp.json()
+        try:
+            data = resp.json()
+        except json.JSONDecodeError as exc:
+            logger.error("Failed to decode JSON from %s: %s", url, exc)
+            return []
         if isinstance(data, list):
             return [ip for ip in data if isinstance(ip, str)]
         if isinstance(data, dict):
@@ -63,6 +71,9 @@ async def sync_peer_blocklists() -> Optional[int]:
         return None
     total_added = 0
     for url in urls:
+        if not url.startswith(("http://", "https://")):
+            logger.warning("Skipping invalid URL: %s", url)
+            continue
         try:
             logger.info("Fetching peer blocklist from %s", url)
             ips = await fetch_peer_ips(url)

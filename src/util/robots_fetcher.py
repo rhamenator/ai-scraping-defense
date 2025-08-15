@@ -1,16 +1,19 @@
 # util/robots_fetcher.py
-import os
-import requests
 import logging
+import os
+from typing import Any, Optional, Sequence
 from urllib.parse import urlparse, urlunparse
-from typing import Optional, Any
+
+import requests
 
 # --- Kubernetes Library Check ---
 # We only check for the library's existence here to set a flag.
 # The actual imports will happen inside the functions that need them.
 try:
-    from kubernetes import config as k8s_config, client as k8s_client
     from kubernetes.client.rest import ApiException as ImportedK8sApiException
+
+    from kubernetes import client as k8s_client
+    from kubernetes import config as k8s_config
 
     client = k8s_client
     KUBE_AVAILABLE = True
@@ -44,22 +47,41 @@ def get_default_robots_txt() -> str:
     return "User-agent: *\nDisallow: /"
 
 
-def fetch_robots_txt(url: Optional[str]) -> str:
-    """Fetches the robots.txt file from the given base URL."""
+def fetch_robots_txt(
+    url: Optional[str], allowed_hosts: Optional[Sequence[str]] = None
+) -> str:
+    """Fetches the robots.txt file from the given base URL.
+
+    The URL must explicitly include an ``http`` or ``https`` scheme. If
+    ``allowed_hosts`` is provided, the hostname must be present in that
+    sequence. Invalid or disallowed URLs result in the default robots.txt
+    content being returned.
+    """
     if not url:
         logger.error("No URL provided to fetch robots.txt.")
         return get_default_robots_txt()
-    if not url.startswith(("http://", "https://")):
-        url = f"http://{url}"
 
     try:
         parsed_url = urlparse(url)
-        robots_url = urlunparse(
-            (parsed_url.scheme, parsed_url.netloc, "robots.txt", "", "", "")
-        )
     except ValueError:
         logger.error(f"Invalid URL provided: {url}")
         return get_default_robots_txt()
+
+    if parsed_url.scheme not in ("http", "https"):
+        logger.error("URL scheme must be 'http' or 'https'.")
+        return get_default_robots_txt()
+    if not parsed_url.netloc:
+        logger.error("URL must include a host (netloc).")
+        return get_default_robots_txt()
+
+    hostname = parsed_url.hostname or ""
+    if allowed_hosts is not None and hostname not in allowed_hosts:
+        logger.error(f"Host '{hostname}' not in allowlist.")
+        return get_default_robots_txt()
+
+    robots_url = urlunparse(
+        (parsed_url.scheme, parsed_url.netloc, "robots.txt", "", "", "")
+    )
 
     logger.info(f"Attempting to fetch robots.txt from: {robots_url}")
     try:

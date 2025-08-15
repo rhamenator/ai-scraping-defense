@@ -14,12 +14,12 @@ from .obfuscation import (
 
 
 def generate_labyrinth_page(seed: str, depth: int = 5) -> str:
-    random.seed(seed)
+    rng = random.Random(seed)
     links = []
     for i in range(depth):
         token = hashlib.sha256(f"{seed}-{i}".encode()).hexdigest()[:8]
         links.append(f"/tarpit/{token}")
-    random.shuffle(links)
+    rng.shuffle(links)
     body = "".join(f"<a href='{link}'>Next</a><br/>" for link in links)
     css = generate_obfuscated_css()
     js = generate_obfuscated_js()

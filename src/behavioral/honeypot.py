@@ -22,7 +22,7 @@ class SessionTracker:
         self.fallback: Dict[str, List[str]] = defaultdict(list)
 
     def log_request(self, ip: str, path: str, timestamp: float | None = None) -> None:
-        timestamp = timestamp or datetime.datetime.utcnow().timestamp()
+        timestamp = timestamp or datetime.datetime.now(datetime.UTC).timestamp()
         entry = f"{timestamp}:{path}"
         if self.redis:
             self.redis.rpush(f"session:{ip}", entry)
@@ -34,7 +34,10 @@ class SessionTracker:
             entries = self.redis.lrange(f"session:{ip}", 0, -1)
         else:
             entries = self.fallback[ip]
-        return [e.split(":", 1)[1] for e in entries]
+        return [
+            (e.decode() if isinstance(e, bytes) else e).split(":", 1)[1]
+            for e in entries
+        ]
 
 
 def _seq_features(seq: List[str]) -> List[float]:

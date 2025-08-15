@@ -33,7 +33,7 @@ This project provides a multi-layered, microservice-based defense system against
 - **Audit Logging:** Sensitive actions are written to a rotating `audit.log` for forensic review.
 - **RBAC Controls:** Admin endpoints verify an `ADMIN_UI_ROLE` environment variable and reject non-admin users.
 - **Model Version Metrics:** Prometheus gauge `model_version_info` exposes the running ML model version.
-- **CORS & CSP Headers:** The Admin UI sets CORS policies and a default Content-Security-Policy header.
+- **CORS & CSP Headers:** The Admin UI sets CORS policies and a default Content-Security-Policy header. `ADMIN_UI_CORS_ORIGINS` defaults to `http://localhost` and must list explicit origins; wildcard `*` is rejected when credentials are allowed.
 - **Additional Security Headers:** Nginx now sends `Referrer-Policy`, `Permissions-Policy`, and `X-Permitted-Cross-Domain-Policies` headers by default.
 
 ## Repository Structure
@@ -118,7 +118,12 @@ graph TD
 
 See [docs/threat_model.md](docs/threat_model.md) for the adversaries and attack vectors this project targets.
 
+## Public Blocklist API
 
+The public blocklist service requires authentication. Set the
+`PUBLIC_BLOCKLIST_API_KEY` environment variable and supply its value in the
+`X-API-Key` header when calling the `/report` endpoint. Requests missing the
+header or using the wrong key receive an HTTP 401 response.
 
 ## Beginner Quickstart
 
@@ -344,6 +349,11 @@ MODEL_URI=mistral://mistral-large-latest
 ```
 
 For remote providers, set the corresponding API key in `.env` (`OPENAI_API_KEY`, `MISTRAL_API_KEY`, etc.).
+
+When referencing a local file with the `sklearn://` scheme, the model must reside
+in a trusted directory. By default, the adapters only load models from the
+`models/` folder (override with the `TRUSTED_MODEL_DIR` environment variable).
+Files outside this directory are ignored to avoid executing untrusted code.
 
 All LLM requests from the Escalation Engine are sent to the **Prompt Router**. The
 router constructs the final target URL from `PROMPT_ROUTER_HOST` and

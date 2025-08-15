@@ -172,6 +172,7 @@ except ImportError:
     logger.warning("user-agents library not found. Detailed UA parsing disabled.")
 
 WEBHOOK_URL = CONFIG.ESCALATION_WEBHOOK_URL
+APPROVED_WEBHOOK_DOMAINS = set(CONFIG.ESCALATION_WEBHOOK_ALLOWED_DOMAINS)
 PROMPT_ROUTER_HOST = CONFIG.PROMPT_ROUTER_HOST
 PROMPT_ROUTER_PORT = CONFIG.PROMPT_ROUTER_PORT
 LOCAL_LLM_API_URL = f"http://{PROMPT_ROUTER_HOST}:{PROMPT_ROUTER_PORT}/route"
@@ -843,6 +844,20 @@ async def forward_to_webhook(payload: Dict[str, Any], reason: str):
     """Send a prepared webhook payload."""
     if not WEBHOOK_URL:
         return
+
+    parsed = urlparse(WEBHOOK_URL)
+    if parsed.scheme != "https":
+        logger.error("Webhook URL must start with https://; skipping forward")
+        increment_counter_metric(ESCALATION_WEBHOOK_ERRORS_REQUEST)
+        return
+
+    if APPROVED_WEBHOOK_DOMAINS and parsed.hostname not in APPROVED_WEBHOOK_DOMAINS:
+        logger.error(
+            "Webhook URL domain '%s' is not approved; skipping forward", parsed.hostname
+        )
+        increment_counter_metric(ESCALATION_WEBHOOK_ERRORS_REQUEST)
+        return
+
     increment_counter_metric(ESCALATION_WEBHOOKS_SENT)
     headers = {"Content-Type": "application/json"}
     try:

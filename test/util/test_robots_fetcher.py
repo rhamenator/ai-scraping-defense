@@ -1,8 +1,9 @@
 # test/util/robots_fetcher.test.py
-from src.util import robots_fetcher
-import unittest
-from unittest.mock import patch, MagicMock, ANY, mock_open
 import os
+import unittest
+from unittest.mock import ANY, MagicMock, mock_open, patch
+
+from src.util import robots_fetcher
 
 # Define a base mock exception class for when the real one isn't available
 
@@ -14,8 +15,9 @@ class MockKubeApiException(Exception):
 
 # Conditionally import kubernetes for environments where it is available
 try:
-    from kubernetes import client, config
     from kubernetes.client.rest import ApiException as KubeApiException
+
+    from kubernetes import client, config
 
     KUBE_AVAILABLE = True
 except ImportError:
@@ -96,6 +98,22 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
         self.assertIn(
             "Failed to fetch robots.txt", self.mocks["logger"].error.call_args[0][0]
         )
+
+    def test_fetch_robots_txt_disallowed_scheme_returns_default(self):
+        """URLs without http/https schemes return default content."""
+        content = robots_fetcher.fetch_robots_txt("ftp://example.com")
+        self.assertEqual(content, robots_fetcher.get_default_robots_txt())
+        self.mocks["requests.get"].assert_not_called()
+        self.mocks["logger"].error.assert_called_once()
+
+    def test_fetch_robots_txt_disallowed_host_returns_default(self):
+        """Hosts not in the allowlist return default content."""
+        content = robots_fetcher.fetch_robots_txt(
+            "http://example.com", allowed_hosts=["allowed.com"]
+        )
+        self.assertEqual(content, robots_fetcher.get_default_robots_txt())
+        self.mocks["requests.get"].assert_not_called()
+        self.mocks["logger"].error.assert_called_once()
 
     @unittest.skipIf(not KUBE_AVAILABLE, "Kubernetes library not installed")
     def test_update_configmap_patches_existing(self):

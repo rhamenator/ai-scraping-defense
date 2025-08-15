@@ -21,6 +21,7 @@ class TestCustomCaptcha(unittest.TestCase):
         token = resp.text[start:].split("'")[0]
         # parse numbers from challenge
         import re
+
         m = re.search(r"What is (\d+) \+ (\d+)", resp.text)
         answer = str(int(m.group(1)) + int(m.group(2))) if m else "0"
         solve = self.client.post(
@@ -34,6 +35,20 @@ class TestCustomCaptcha(unittest.TestCase):
             "/verify", params={"token": data["token"], "ip": "testclient"}
         )
         self.assertTrue(verify.json()["success"])
+
+    def test_invalid_answer(self):
+        resp = self.client.get("/challenge")
+        self.assertEqual(resp.status_code, 200)
+        token_marker = "name='token' value='"
+        start = resp.text.find(token_marker) + len(token_marker)
+        token = resp.text[start:].split("'")[0]
+        solve = self.client.post(
+            "/solve",
+            data={"answer": "abc", "token": token},
+            headers={"User-Agent": "pytest"},
+        )
+        data = solve.json()
+        self.assertFalse(data["success"])
 
 
 if __name__ == "__main__":  # pragma: no cover

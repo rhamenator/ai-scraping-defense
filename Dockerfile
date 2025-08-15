@@ -39,25 +39,31 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Create a dedicated non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
 RUN pip check
 
 WORKDIR /app
 
 ENV PYTHONPATH "${PYTHONPATH}:/app"
 
-COPY requirements.txt constraints.txt ./
+COPY --chown=appuser:appuser requirements.txt constraints.txt ./
 
+USER appuser
 RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt && \
-    rm -rf /root/.cache/pip
-COPY src/ /app/src/
+    rm -rf /home/appuser/.cache/pip
+COPY --chown=appuser:appuser src/ /app/src/
 
 # Copy the pre-built shared libraries from the builder stage
-COPY --from=builder /build/tarpit-rs/target/release/libtarpit_rs.so /app/tarpit_rs.so
-COPY --from=builder /build/frequency-rs/target/release/libfrequency_rs.so /app/frequency_rs.so
-COPY --from=builder /build/markov-train-rs/target/release/libmarkov_train_rs.so /app/markov_train_rs.so
+COPY --chown=appuser:appuser --from=builder /build/tarpit-rs/target/release/libtarpit_rs.so /app/tarpit_rs.so
+COPY --chown=appuser:appuser --from=builder /build/frequency-rs/target/release/libfrequency_rs.so /app/frequency_rs.so
+COPY --chown=appuser:appuser --from=builder /build/markov-train-rs/target/release/libmarkov_train_rs.so /app/markov_train_rs.so
 
-COPY docker-entrypoint.sh /app/docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
+COPY --chown=appuser:appuser docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh && \
+    chown -R appuser:appuser /app
 
-# The CMD or ENTRYPOINT to run the specific service will be provided
-# in the docker-compose.yaml or Kubernetes manifest.
+# Drop privileges and set entrypoint
+USER appuser
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

@@ -1,15 +1,14 @@
 # anti_scrape/tarpit/markov_generator.py
 # Generates deterministic fake HTML content using Markov chains from PostgreSQL.
 
-import psycopg2
-from psycopg2 import pool
+import html
+import logging
 import os
 import random
 import string
-import datetime
-import logging
-import hashlib
-import html
+
+import psycopg2
+from psycopg2 import pool
 
 from src.shared.model_provider import get_model_adapter
 
@@ -156,25 +155,31 @@ def _release_db_connection(conn, cursor):
 # --- Helper Functions ---
 
 
-def generate_random_page_name(length=10):
+def generate_random_page_name(length=10, rng: random.Random | None = None):
     """Generates a random alphanumeric string for page/link names."""
-    # Use the current random state (should be seeded externally)
-    return "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
+    rng = rng or random
+    return "".join(rng.choices(string.ascii_lowercase + string.digits, k=length))
 
 
-def generate_fake_links(count=FAKE_LINK_COUNT, depth=FAKE_LINK_DEPTH):
+def generate_fake_links(
+    count: int = FAKE_LINK_COUNT,
+    depth: int = FAKE_LINK_DEPTH,
+    rng: random.Random | None = None,
+):
     """Generates a list of plausible but fake internal link targets."""
+    rng = rng or random
     links = []
     base_path = "/tarpit"  # Base path for all tarpit links
 
     for _ in range(count):
         # Link to other fake pages or fake JS endpoints
-        link_type = random.choice(["page", "js", "data", "css"])
-        num_dirs = random.randint(0, depth)
+        link_type = rng.choice(["page", "js", "data", "css"])
+        num_dirs = rng.randint(0, depth)
         dirs = [
-            generate_random_page_name(random.randint(5, 8)) for _ in range(num_dirs)
+            generate_random_page_name(rng.randint(5, 8), rng=rng)
+            for _ in range(num_dirs)
         ]
-        filename_base = generate_random_page_name()
+        filename_base = generate_random_page_name(rng=rng)
 
         if link_type == "page":
             ext = ".html"
@@ -183,7 +188,7 @@ def generate_fake_links(count=FAKE_LINK_COUNT, depth=FAKE_LINK_DEPTH):
             ext = ".js"
             path_prefix = "/js/"
         elif link_type == "data":
-            ext = random.choice([".json", ".xml", ".csv"])
+            ext = rng.choice([".json", ".xml", ".csv"])
             path_prefix = "/data/"
         else:  # css
             ext = ".css"
@@ -197,8 +202,13 @@ def generate_fake_links(count=FAKE_LINK_COUNT, depth=FAKE_LINK_DEPTH):
     return links
 
 
-def get_next_word_from_db(word1_id, word2_id):
+def get_next_word_from_db(
+    word1_id: int,
+    word2_id: int,
+    rng: random.Random | None = None,
+):
     """Queries PostgreSQL for the next word based on the previous two."""
+    rng = rng or random
     conn, cursor = _get_db_connection()
     if not conn or not cursor:
         return None
@@ -229,13 +239,13 @@ def get_next_word_from_db(word1_id, word2_id):
         total_freq = sum(frequencies)
 
         if total_freq == 0:  # Should not happen if results exist, but safety check
-            return random.choice(words)
+            return rng.choice(words)
 
         # Normalize frequencies to probabilities
         probabilities = [f / total_freq for f in frequencies]
 
         # Choose based on weighted probability
-        return random.choices(words, weights=probabilities, k=1)[0]
+        return rng.choices(words, weights=probabilities, k=1)[0]
 
     except psycopg2.Error as e:
         logger.error(
@@ -271,25 +281,28 @@ def get_word_id(word):
 
 
 # --- Markov Text Generation using DB ---
-def generate_markov_text_from_db(sentences=DEFAULT_SENTENCES_PER_PAGE):
+def generate_markov_text_from_db(
+    sentences: int = DEFAULT_SENTENCES_PER_PAGE,
+    rng: random.Random | None = None,
+):
     """Generates paragraphs of Markov text by querying PostgreSQL."""
+    rng = rng or random
     conn, cursor = _get_db_connection()
     if not conn or not cursor:
         logger.error("No DB connection for Markov text generation.")
         return "<p>Content generation unavailable.</p>"
     _release_db_connection(conn, cursor)
 
-    # Use pre-seeded random state
     generated_content = ""
     word1_id, word2_id = 1, 1  # Start with empty history (ID 1)
 
     word_count = 0
-    max_words = sentences * random.randint(15, 30)  # Approximate total words
+    max_words = sentences * rng.randint(15, 30)  # Approximate total words
 
     current_paragraph = []
 
     while word_count < max_words:
-        next_word = get_next_word_from_db(word1_id, word2_id)
+        next_word = get_next_word_from_db(word1_id, word2_id, rng=rng)
 
         if next_word is None or next_word == "":  # Reached end of a chain or error
             # End current paragraph if any words were added
@@ -331,12 +344,29 @@ def generate_markov_text_from_db(sentences=DEFAULT_SENTENCES_PER_PAGE):
 
 
 # --- LLM Text Generation ---
-def generate_llm_text(sentences=DEFAULT_SENTENCES_PER_PAGE):
-    """Generate paragraphs using a configured LLM adapter."""
+def generate_llm_text(
+    sentences: int = DEFAULT_SENTENCES_PER_PAGE,
+    rng: random.Random | None = None,
+):
+    """Generate paragraphs using a configured LLM adapter.
+
+    The ``rng`` parameter is included for deterministic prompting and is
+    currently used only to vary prompt wording. Randomness from the underlying
+    model adapter is outside this function's control.
+    """
     if not LLM_ADAPTER:
         return None
+
+    rng = rng or random
+    style = rng.choice(
+        [
+            "plausible but meaningless technical documentation",
+            "detailed yet nonsensical technical user guide",
+            "verbose but content-free system manual",
+        ]
+    )
     prompt = (
-        f"Write {sentences} short paragraphs of plausible but meaningless technical documentation. "
+        f"Write {sentences} short paragraphs of {style}. "
         "Separate paragraphs with blank lines."
     )
     try:
@@ -357,24 +387,23 @@ def generate_llm_text(sentences=DEFAULT_SENTENCES_PER_PAGE):
 
 
 # --- Main Generator Function ---
-def _generate_dynamic_tarpit_page_py():
-    """
-    Generates a full HTML page with deterministically generated
-    Markov text (from Postgres) and fake links.
-    Assumes random module has been seeded externally.
-    """
+def _generate_dynamic_tarpit_page_py(rng: random.Random | None = None):
+    """Generates a full HTML page with deterministically generated content."""
+    rng = rng or random
     logger.debug("Generating dynamic tarpit page content (Python)...")
     # 1. Generate page text
     if ENABLE_TARPIT_LLM_GENERATOR:
-        page_content = generate_llm_text(DEFAULT_SENTENCES_PER_PAGE)
+        page_content = generate_llm_text(DEFAULT_SENTENCES_PER_PAGE, rng=rng)
         if not page_content:
             logger.warning("LLM generation failed; falling back to Markov text")
-            page_content = generate_markov_text_from_db(DEFAULT_SENTENCES_PER_PAGE)
+            page_content = generate_markov_text_from_db(
+                DEFAULT_SENTENCES_PER_PAGE, rng=rng
+            )
     else:
-        page_content = generate_markov_text_from_db(DEFAULT_SENTENCES_PER_PAGE)
+        page_content = generate_markov_text_from_db(DEFAULT_SENTENCES_PER_PAGE, rng=rng)
 
     # 2. Generate Fake Links
-    fake_links = generate_fake_links()
+    fake_links = generate_fake_links(rng=rng)
     link_html = "<ul>\n"
     for link in fake_links:
         # Create somewhat readable link text from the path
@@ -389,7 +418,7 @@ def _generate_dynamic_tarpit_page_py():
             if not link_text:
                 link_text = "Resource Link"
             link_text = html.escape(link_text)
-        except:
+        except Exception:
             link_text = "Link"  # Fallback
         link_html += f'    <li><a href="{link}">{link_text}</a></li>\n'
     link_html += "</ul>\n"
@@ -398,7 +427,7 @@ def _generate_dynamic_tarpit_page_py():
     # Use a slightly different title/structure for variety
     page_title = " ".join(
         word.capitalize()
-        for word in generate_random_page_name(random.randint(2, 4)).split()
+        for word in generate_random_page_name(rng.randint(2, 4), rng=rng).split()
     )
     page_title = html.escape(page_title)
     html_structure = f"""<!DOCTYPE html>
@@ -409,7 +438,13 @@ def _generate_dynamic_tarpit_page_py():
     <meta name="robots" content="noindex, nofollow">
     <meta name="generator" content="AntiScrape Tarpit v1.0">
     <style>
-        body {{ font-family: 'Courier New', Courier, monospace; background-color: #f0f0f0; color: #333; padding: 2em; line-height: 1.6; }}
+        body {{
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #f0f0f0;
+            color: #333;
+            padding: 2em;
+            line-height: 1.6;
+        }}
         h1 {{ border-bottom: 1px solid #ccc; padding-bottom: 0.5em; color: #555; }}
         h2 {{ color: #666; margin-top: 2em; }}
         a {{ color: #3478af; text-decoration: none; }}
@@ -432,18 +467,24 @@ def _generate_dynamic_tarpit_page_py():
     return html_structure
 
 
-def generate_dynamic_tarpit_page() -> str:
-    """Generate a tarpit page using the configured backend."""
+def generate_dynamic_tarpit_page(rng: random.Random | None = None) -> str:
+    """Generate a tarpit page using the configured backend.
+
+    The ``rng`` parameter controls determinism for the Python implementation and
+    is ignored when the Rust backend is active.
+    """
     if ENABLE_TARPIT_LLM_GENERATOR:
-        return _generate_dynamic_tarpit_page_py()
+        return _generate_dynamic_tarpit_page_py(rng)
     if RUST_ENABLED:
+        if rng is not None:
+            logger.warning("RNG parameter is ignored when using the Rust backend.")
         try:
             return rs_generate_dynamic_tarpit_page()
         except Exception as e:
             logger.warning(
                 f"tarpit_rs error generating page: {e}; falling back to Python implementation"
             )
-    return _generate_dynamic_tarpit_page_py()
+    return _generate_dynamic_tarpit_page_py(rng)
 
 
 def _run_as_script() -> None:

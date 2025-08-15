@@ -5,6 +5,7 @@ import hashlib
 import logging
 import os
 import random
+import re
 import sys
 from typing import Dict
 
@@ -64,7 +65,7 @@ except ImportError as e:
             f"Could not import markov_generator: {e2}. Dynamic content generation disabled."
         )
 
-        def generate_dynamic_tarpit_page() -> str:
+        def generate_dynamic_tarpit_page(rng=None) -> str:
             return "<html><body>Tarpit Error</body></html>"
 
         GENERATOR_AVAILABLE = False
@@ -114,6 +115,15 @@ ESCALATION_ENDPOINT = CONFIG.ESCALATION_ENDPOINT
 MIN_STREAM_DELAY_SEC = CONFIG.TAR_PIT_MIN_DELAY_SEC
 MAX_STREAM_DELAY_SEC = CONFIG.TAR_PIT_MAX_DELAY_SEC
 SYSTEM_SEED = CONFIG.SYSTEM_SEED
+DEFAULT_SYSTEM_SEED = "default_system_seed_value_change_me"
+
+if SYSTEM_SEED == DEFAULT_SYSTEM_SEED:
+    msg = (
+        "SYSTEM_SEED is set to the default placeholder. "
+        "Set a unique value via the SYSTEM_SEED environment variable."
+    )
+    logger.error(msg)
+    raise RuntimeError(msg)
 
 TAR_PIT_MAX_HOPS = CONFIG.TAR_PIT_MAX_HOPS
 TAR_PIT_HOP_WINDOW_SECONDS = CONFIG.TAR_PIT_HOP_WINDOW_SECONDS
@@ -185,7 +195,8 @@ def sanitize_headers(headers: Dict[str, str]) -> Dict[str, str]:
     for k, v in headers.items():
         if k.lower() in SENSITIVE_HEADERS:
             continue
-        sanitized[k] = str(v).replace("\n", " ").replace("\r", " ")
+        cleaned = re.sub(r"[\x00-\x1f\x7f]", "", str(v))
+        sanitized[k] = cleaned
     return sanitized
 
 
@@ -310,9 +321,10 @@ async def tarpit_handler(request: Request, path: str = ""):
             path_bytes = requested_path.encode("utf-8")
             path_hash = hashlib.sha256(path_bytes).hexdigest()
             combined_seed = f"{SYSTEM_SEED}-{path_hash}"
-            random.seed(combined_seed)
+            rng = random.Random()
+            rng.seed(combined_seed)
             logger.debug(f"Seeded RNG for path '{requested_path}' with combined seed.")
-            content = generate_dynamic_tarpit_page()
+            content = generate_dynamic_tarpit_page(rng)
         except Exception as e:
             logger.error(
                 f"Error generating dynamic page for path '{requested_path}': {e}",

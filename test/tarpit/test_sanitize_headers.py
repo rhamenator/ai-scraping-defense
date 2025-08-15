@@ -1,5 +1,7 @@
+import os
 import unittest
 
+os.environ.setdefault("SYSTEM_SEED", "test-seed")
 from src.tarpit import tarpit_api
 
 
@@ -15,7 +17,7 @@ class TestSanitizeHeaders(unittest.TestCase):
         result = tarpit_api.sanitize_headers(headers)
         self.assertIn("User-Agent", result)
         self.assertIn("X-Custom", result)
-        self.assertEqual(result["multiline"], "line1 line2 line3")
+        self.assertEqual(result["multiline"], "line1line2line3")
         self.assertNotIn("Authorization", result)
         self.assertNotIn("Cookie", result)
 

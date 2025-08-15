@@ -1,7 +1,9 @@
 # test/ai_webhook/test_ai_webhook.py
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from fastapi.testclient import TestClient
+
 from src.ai_service import ai_webhook
 
 
@@ -10,6 +12,9 @@ class TestAIWebhookComprehensive(unittest.TestCase):
     def setUp(self):
         """Set up the FastAPI test client and patch dependencies."""
         self.client = TestClient(ai_webhook.app)
+        self.api_key = "test-api-key"
+        ai_webhook.WEBHOOK_API_KEY = self.api_key
+        self.headers = {"X-API-Key": self.api_key}
 
         # The function is imported from shared.redis_client into the ai_webhook module.
         # Therefore, we must patch it where it is used.
@@ -23,6 +28,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
     def tearDown(self):
         """Stop all patches."""
         patch.stopall()
+        ai_webhook.WEBHOOK_API_KEY = None
 
     def test_webhook_receiver_block_ip_success(self):
         """Test a successful 'block_ip' action."""
@@ -33,7 +39,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
             "source": "escalation-engine",
         }
         self.mock_redis_client.sadd.return_value = 1
-        response = self.client.post("/webhook", json=payload)
+        response = self.client.post("/webhook", json=payload, headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -48,7 +54,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         """Test a successful 'allow_ip' action."""
         payload = {"action": "allow_ip", "ip": "20.0.0.2"}
         self.mock_redis_client.srem.return_value = 1
-        response = self.client.post("/webhook", json=payload)
+        response = self.client.post("/webhook", json=payload, headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -67,7 +73,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
             "reason": "Suspicious activity",
         }
         self.mock_redis_client.set.return_value = True
-        response = self.client.post("/webhook", json=payload)
+        response = self.client.post("/webhook", json=payload, headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -82,7 +88,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         """Test a successful 'unflag_ip' action."""
         payload = {"action": "unflag_ip", "ip": "40.0.0.4"}
         self.mock_redis_client.delete.return_value = 1
-        response = self.client.post("/webhook", json=payload)
+        response = self.client.post("/webhook", json=payload, headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -92,27 +98,67 @@ class TestAIWebhookComprehensive(unittest.TestCase):
             "default:ip_flag:40.0.0.4"
         )
 
+    def test_webhook_receiver_invalid_ip(self):
+        """Test that an invalid IP returns a 400 error and does not touch Redis."""
+        invalid_ip = "999.999.999.999"
+        actions = [
+            ("block_ip", self.mock_redis_client.sadd, {}),
+            ("allow_ip", self.mock_redis_client.srem, {}),
+            ("flag_ip", self.mock_redis_client.set, {"reason": "x"}),
+            ("unflag_ip", self.mock_redis_client.delete, {}),
+        ]
+
+        for action, redis_mock, extra in actions:
+            with self.subTest(action=action):
+                payload = {"action": action, "ip": invalid_ip, **extra}
+                response = self.client.post(
+                    "/webhook", json=payload, headers=self.headers
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(
+                    response.json()["detail"],
+                    f"Invalid IP address: {invalid_ip}",
+                )
+                redis_mock.assert_not_called()
+                redis_mock.reset_mock()
+
     def test_webhook_receiver_invalid_action(self):
         """Test that an unsupported action returns a 400 error."""
         payload = {"action": "reboot_server", "ip": "1.2.3.4"}
-        response = self.client.post("/webhook", json=payload)
+        response = self.client.post("/webhook", json=payload, headers=self.headers)
         self.assertEqual(response.status_code, 400)
         self.assertIn("Invalid action", response.json()["detail"])
 
     def test_webhook_receiver_payload_missing_ip(self):
         """Test that a payload missing the 'ip' field returns a 400 error."""
         payload = {"action": "block_ip", "reason": "No IP here."}
-        response = self.client.post("/webhook", json=payload)
+        response = self.client.post("/webhook", json=payload, headers=self.headers)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(
             response.json()["detail"], "Missing 'ip' in payload for action 'block_ip'."
         )
 
+    def test_webhook_receiver_missing_api_key(self):
+        """Request without the API key should be unauthorized."""
+        payload = {"action": "block_ip", "ip": "1.2.3.4"}
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["detail"], "Unauthorized")
+
+    def test_webhook_receiver_invalid_api_key(self):
+        """Request with an incorrect API key should be unauthorized."""
+        payload = {"action": "block_ip", "ip": "1.2.3.4"}
+        response = self.client.post(
+            "/webhook", json=payload, headers={"X-API-Key": "wrong"}
+        )
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["detail"], "Unauthorized")
+
     def test_webhook_receiver_redis_unavailable(self):
         """Test that a 503 error is returned if the Redis connection fails."""
         self.mock_get_redis.return_value = None
         payload = {"action": "block_ip", "ip": "1.2.3.4"}
-        response = self.client.post("/webhook", json=payload)
+        response = self.client.post("/webhook", json=payload, headers=self.headers)
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()["detail"], "Redis service unavailable")
 
@@ -121,7 +167,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         """Test that a 500 error is returned if a Redis command fails."""
         self.mock_redis_client.sadd.side_effect = Exception("Redis command failed")
         payload = {"action": "block_ip", "ip": "1.2.3.4"}
-        response = self.client.post("/webhook", json=payload)
+        response = self.client.post("/webhook", json=payload, headers=self.headers)
 
         self.assertEqual(response.status_code, 500)
         self.assertIn("Failed to execute action", response.json()["detail"])

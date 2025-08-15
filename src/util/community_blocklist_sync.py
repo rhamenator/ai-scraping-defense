@@ -1,12 +1,13 @@
-import os
 import asyncio
+import json
 import logging
+import os
 from typing import List, Optional
 
 import httpx
 
-from src.shared.redis_client import get_redis_connection
 from src.shared.config import tenant_key
+from src.shared.redis_client import get_redis_connection
 
 COMMUNITY_BLOCKLIST_API_URL = os.getenv(
     "COMMUNITY_BLOCKLIST_API_URL", "https://mock_community_blocklist_api:8000"
@@ -24,11 +25,18 @@ logging.basicConfig(
 
 
 async def fetch_blocklist(url: str) -> List[str]:
-    """Fetches a list of malicious IPs from the community blocklist service."""
+    """Fetch a list of malicious IPs from the community blocklist service."""
+    if not url.startswith(("http://", "https://")):
+        logger.warning("Skipping invalid URL: %s", url)
+        return []
     async with httpx.AsyncClient() as client:
         response = await client.get(url, timeout=10.0)
         response.raise_for_status()
-        data = response.json()
+        try:
+            data = response.json()
+        except json.JSONDecodeError as exc:
+            logger.error("Failed to decode JSON from %s: %s", url, exc)
+            return []
         if isinstance(data, list):
             return [ip for ip in data if isinstance(ip, str)]
         if isinstance(data, dict):

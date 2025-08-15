@@ -11,7 +11,11 @@ import json
 import logging
 import os
 import secrets
+import time
 from base64 import b64decode
+from collections import deque
+from ipaddress import ip_address
+from uuid import uuid4
 
 import pyotp
 from fastapi import (
@@ -31,6 +35,18 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
+from webauthn import (
+    generate_authentication_options,
+    generate_registration_options,
+    options_to_json,
+    verify_authentication_response,
+    verify_registration_response,
+)
+from webauthn.helpers.structs import (
+    AuthenticationCredential,
+    PublicKeyCredentialDescriptor,
+    RegistrationCredential,
+)
 
 from src.shared.audit import log_event
 from src.shared.config import CONFIG, get_secret, tenant_key
@@ -86,7 +102,7 @@ def _load_recent_block_events(limit: int = 5) -> list[dict]:
     events: list[dict] = []
     try:
         with open(BLOCK_LOG_FILE, "r", encoding="utf-8") as f:
-            lines = f.readlines()[-limit:]
+            lines = deque(f, maxlen=limit)
         for line in lines:
             try:
                 data = json.loads(line)
@@ -122,11 +138,30 @@ def _discover_plugins() -> list[str]:
 
 
 BASE_DIR = os.path.dirname(__file__)
+
+
+def _get_allowed_origins() -> list[str]:
+    """Return a validated list of CORS origins for the Admin UI.
+
+    The value is read when the application starts. Changing the
+    ``ADMIN_UI_CORS_ORIGINS`` environment variable requires restarting the
+    service to take effect.
+    """
+    raw = os.getenv("ADMIN_UI_CORS_ORIGINS", "http://localhost")
+    origins = [o.strip() for o in raw.split(",") if o.strip()]
+    if "*" in origins:
+        raise ValueError(
+            "ADMIN_UI_CORS_ORIGINS cannot include '*' when allow_credentials is True"
+        )
+    return origins
+
+
 app = FastAPI()
-allowed_origins = os.getenv("ADMIN_UI_CORS_ORIGINS", "*").split(",")
+# Origin configuration is evaluated at startup and requires an application
+# restart to change.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=_get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -160,43 +195,153 @@ ADMIN_UI_ROLE = os.getenv("ADMIN_UI_ROLE", "admin")
 
 security = HTTPBasic()
 
+# Fallback in-memory stores for WebAuthn when Redis is unavailable
+WEBAUTHN_CREDENTIALS: dict[str, dict] = {}
+WEBAUTHN_CHALLENGES: dict[str, tuple[bytes, float]] = {}
+VALID_WEBAUTHN_TOKENS: dict[str, tuple[str, float]] = {}
+WEBAUTHN_TOKEN_TTL = 300
+
+
+RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
+ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost")
+
+
+def _cred_key(user: str) -> str:
+    return tenant_key(f"webauthn:cred:{user}")
+
+
+def _token_key(token: str) -> str:
+    return tenant_key(f"webauthn:token:{token}")
+
+
+def _store_webauthn_credential(user: str, cred: dict) -> None:
+    redis_conn = get_redis_connection()
+    if redis_conn:
+        redis_conn.set(_cred_key(user), json.dumps(cred))
+    else:
+        WEBAUTHN_CREDENTIALS[user] = cred
+
+
+def _load_webauthn_credential(user: str) -> dict | None:
+    redis_conn = get_redis_connection()
+    if redis_conn:
+        raw = redis_conn.get(_cred_key(user))
+        return json.loads(raw) if raw else None
+    return WEBAUTHN_CREDENTIALS.get(user)
+
+
+def _cleanup_expired_webauthn_challenges() -> None:
+    """Remove expired challenges from the in-memory store."""
+    now = time.time()
+    expired = [
+        user
+        for user, (_, ts) in WEBAUTHN_CHALLENGES.items()
+        if now - ts > WEBAUTHN_TOKEN_TTL
+    ]
+    for user in expired:
+        WEBAUTHN_CHALLENGES.pop(user, None)
+
+
+def _store_webauthn_challenge(user: str, challenge: bytes) -> None:
+    """Persist a WebAuthn challenge for later verification."""
+    redis_conn = get_redis_connection()
+    if redis_conn:
+        key = tenant_key(f"webauthn:challenge:{user}")
+        redis_conn.set(key, challenge, ex=WEBAUTHN_TOKEN_TTL)
+    else:
+        _cleanup_expired_webauthn_challenges()
+        WEBAUTHN_CHALLENGES[user] = (challenge, time.time())
+
+
+def _store_webauthn_token(token: str, user: str, exp: float | None = None) -> None:
+    """Persist a WebAuthn login token with an optional expiry timestamp."""
+    if exp is None:
+        exp = time.time() + WEBAUTHN_TOKEN_TTL
+    redis_conn = get_redis_connection()
+    if redis_conn:
+        ttl = max(int(exp - time.time()), 1)
+        redis_conn.set(_token_key(token), user, ex=ttl)
+    else:
+        VALID_WEBAUTHN_TOKENS[token] = (user, exp)
+
+
+def _consume_webauthn_token(token: str | None) -> str | None:
+    if not token:
+        return None
+    redis_conn = get_redis_connection()
+    if redis_conn:
+        key = _token_key(token)
+        username = redis_conn.get(key)
+        if username:
+            redis_conn.delete(key)
+            return username
+        return None
+    user_exp = VALID_WEBAUTHN_TOKENS.get(token)
+    if not user_exp:
+        return None
+    user, exp = user_exp
+    if exp < time.time():
+        VALID_WEBAUTHN_TOKENS.pop(token, None)
+        return None
+    VALID_WEBAUTHN_TOKENS.pop(token, None)
+    return user
+
 
 def require_auth(
     credentials: HTTPBasicCredentials = Depends(security),
     x_2fa_code: str | None = Header(None, alias="X-2FA-Code"),
+    x_2fa_token: str | None = Header(None, alias="X-2FA-Token"),
 ) -> str:
-    """Validate HTTP Basic credentials and optional TOTP code."""
+    """Validate HTTP Basic credentials and optional 2FA."""
     username = os.getenv("ADMIN_UI_USERNAME", "admin")
-    password = os.getenv("ADMIN_UI_PASSWORD")
-    if password is None:
-        password = os.getenv("ADMIN_UI_PASSWORD_DEFAULT", "password")
+    try:
+        password = os.environ["ADMIN_UI_PASSWORD"]
+    except KeyError as exc:  # pragma: no cover - defensive
+        raise RuntimeError(
+            "ADMIN_UI_PASSWORD environment variable must be set",
+        ) from exc
+    headers = {"WWW-Authenticate": "Basic"}
     valid = secrets.compare_digest(
         credentials.username, username
     ) and secrets.compare_digest(credentials.password, password)
     if not valid:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
+
+    token_valid = x_2fa_token in VALID_WEBAUTHN_TOKENS
+    token_user = _consume_webauthn_token(x_2fa_token)
+    if token_user and token_user != credentials.username:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            headers={"WWW-Authenticate": "Basic"},
+            detail="Invalid 2FA token",
+            headers=headers,
         )
 
     totp_secret = os.getenv("ADMIN_UI_2FA_SECRET") or get_secret(
         "ADMIN_UI_2FA_SECRET_FILE"
     )
     if totp_secret:
-        if not x_2fa_code:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="2FA code required",
-                headers={"WWW-Authenticate": "Basic"},
-            )
-        totp = pyotp.TOTP(totp_secret)
-        if not totp.verify(x_2fa_code, valid_window=1):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid 2FA code",
-                headers={"WWW-Authenticate": "Basic"},
-            )
+        if token_user:
+            return credentials.username
+        if x_2fa_code:
+            totp = pyotp.TOTP(totp_secret)
 
+            if totp.verify(x_2fa_code, valid_window=1):
+                return credentials.username
+            detail = "Invalid 2FA code"
+        else:
+            detail = "2FA token or code required"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=detail, headers=headers
+        )
+
+    if token_user:
+        return credentials.username
+    if VALID_WEBAUTHN_TOKENS and not token_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="2FA token required",
+            headers=headers,
+        )
     return credentials.username
 
 
@@ -217,6 +362,85 @@ def _jinja_url_for(context, name: str, **path_params) -> str:
 
 
 templates.env.globals["url_for"] = _jinja_url_for
+
+
+@app.post("/webauthn/register/begin")
+async def webauthn_register_begin(user: str = Depends(require_auth)):
+    """Begin WebAuthn registration and return options."""
+    options = generate_registration_options(
+        rp_id=RP_ID,
+        rp_name="AI Scraping Defense",
+        user_id=user.encode(),
+        user_name=user,
+    )
+    _store_webauthn_challenge(user, options.challenge)
+    return JSONResponse(json.loads(options_to_json(options)))
+
+
+@app.post("/webauthn/register/complete")
+async def webauthn_register_complete(data: dict, user: str = Depends(require_auth)):
+    """Complete WebAuthn registration."""
+    credential = RegistrationCredential.parse_raw(json.dumps(data["credential"]))
+    verification = verify_registration_response(
+        credential=credential,
+        expected_challenge=WEBAUTHN_CHALLENGES.pop(user),
+        expected_rp_id=RP_ID,
+        expected_origin=ORIGIN,
+    )
+    _store_webauthn_credential(
+        user,
+        {
+            "credential_id": verification.credential_id,
+            "public_key": verification.credential_public_key,
+            "sign_count": verification.sign_count,
+        },
+    )
+
+    return JSONResponse({"status": "ok"})
+
+
+@app.post("/webauthn/login/begin")
+async def webauthn_login_begin(data: dict):
+    """Begin WebAuthn authentication and return options."""
+    username = data.get("username")
+    if not isinstance(username, str) or not username:
+        raise HTTPException(status_code=400, detail="Invalid or missing username")
+    cred = _load_webauthn_credential(username)
+
+    if not cred:
+        raise HTTPException(status_code=400, detail="Unknown user")
+    descriptor = PublicKeyCredentialDescriptor(id=cred["credential_id"])
+    options = generate_authentication_options(
+        rp_id=RP_ID,
+        allow_credentials=[descriptor],
+    )
+    _store_webauthn_challenge(username, options.challenge)
+    return JSONResponse(json.loads(options_to_json(options)))
+
+
+@app.post("/webauthn/login/complete")
+async def webauthn_login_complete(data: dict):
+    """Complete WebAuthn authentication and return a token."""
+    username = data.get("username")
+    if not isinstance(username, str) or not username:
+        raise HTTPException(status_code=400, detail="Invalid or missing username")
+    cred = _load_webauthn_credential(username)
+    if not cred:
+        raise HTTPException(status_code=400, detail="Unknown user")
+    credential = AuthenticationCredential.parse_raw(json.dumps(data["credential"]))
+    verification = verify_authentication_response(
+        credential=credential,
+        expected_challenge=WEBAUTHN_CHALLENGES.pop(username),
+        expected_rp_id=RP_ID,
+        expected_origin=ORIGIN,
+        credential_public_key=cred["public_key"],
+        credential_current_sign_count=cred["sign_count"],
+    )
+    cred["sign_count"] = verification.new_sign_count
+    _store_webauthn_credential(username, cred)
+    token = uuid4().hex
+    _store_webauthn_token(token, username)
+    return JSONResponse({"token": token})
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -253,9 +477,13 @@ async def metrics_websocket(websocket: WebSocket):
             if scheme.lower() == "basic":
                 decoded = b64decode(data).decode()
                 username, password = decoded.split(":", 1)
+                x_2fa_code = websocket.headers.get("X-2FA-Code")
+                x_2fa_token = websocket.headers.get("X-2FA-Token")
                 try:
                     require_auth(
-                        HTTPBasicCredentials(username=username, password=password)
+                        HTTPBasicCredentials(username=username, password=password),
+                        x_2fa_code=x_2fa_code,
+                        x_2fa_token=x_2fa_token,
                     )
                 except HTTPException:
                     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -366,6 +594,10 @@ async def block_ip(request: Request, user: str = Depends(require_admin)):
     ip = json_data.get("ip")
     if not ip:
         return JSONResponse({"error": "Invalid request, missing ip"}, status_code=400)
+    try:
+        normalized_ip = str(ip_address(ip))
+    except ValueError:
+        return JSONResponse({"error": "Invalid ip"}, status_code=400)
 
     redis_conn = get_redis_connection()
     if not redis_conn:
@@ -387,6 +619,10 @@ async def unblock_ip(request: Request, user: str = Depends(require_admin)):
     ip = json_data.get("ip")
     if not ip:
         return JSONResponse({"error": "Invalid request, missing ip"}, status_code=400)
+    try:
+        normalized_ip = str(ip_address(ip))
+    except ValueError:
+        return JSONResponse({"error": "Invalid ip"}, status_code=400)
 
     redis_conn = get_redis_connection()
     if not redis_conn:
@@ -415,7 +651,13 @@ async def settings_page(
         "settings.html",
         {"request": request, "settings": current_settings, "csrf_token": csrf_token},
     )
-    response.set_cookie("csrf_token", csrf_token, httponly=True, secure=True)
+    response.set_cookie(
+        "csrf_token",
+        csrf_token,
+        httponly=True,
+        secure=True,
+        samesite="Strict",
+    )
     return response
 
 

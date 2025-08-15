@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Dict, List
 
 import httpx
@@ -39,7 +39,7 @@ def parse_eve_alerts(path: str) -> List[Dict[str, Any]]:
 def send_alert_to_escalation(event: Dict[str, Any]) -> bool:
     """Forward a Suricata alert to the escalation engine."""
     payload = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "ip": event.get("src_ip", "0.0.0.0"),
         "source": "suricata",
         "path": None,

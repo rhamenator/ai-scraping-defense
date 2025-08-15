@@ -10,6 +10,7 @@ The following variables from `.env` are the minimum values to review or set manu
 | `NGINX_HTTP_PORT` | HTTP port exposed by the proxy (80 in production) |
 | `NGINX_HTTPS_PORT` | HTTPS port exposed by the proxy (443 in production) |
 | `ADMIN_UI_PORT` | Port for the Admin UI dashboard |
+| `ADMIN_UI_PASSWORD` | Strong password for the Admin UI (required; service fails if unset) |
 | `PROMPT_ROUTER_HOST` | Hostname of the Prompt Router service |
 | `PROMPT_ROUTER_PORT` | Port of the Prompt Router service |
 | `PROMETHEUS_PORT` | Port for the Prometheus metrics service |

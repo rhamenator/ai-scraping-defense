@@ -1,11 +1,13 @@
 import logging
 import os
 import shutil
+import stat
 import subprocess
 import tarfile
 import tempfile
 import zipfile
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 import requests
 
@@ -39,6 +41,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 RULES_URL = os.getenv("RULES_DOWNLOAD_URL", "")
+ALLOWED_RULES_DOMAINS = [
+    d.strip() for d in os.getenv("RULES_ALLOWED_DOMAINS", "").split(",") if d.strip()
+]
 CRS_DOWNLOAD_URL = os.getenv("CRS_DOWNLOAD_URL", "")
 CONFIGMAP_NAME = os.getenv("WAF_RULES_CONFIGMAP_NAME", "waf-rules")
 CONFIGMAP_NAMESPACE = os.getenv("KUBERNETES_NAMESPACE", "default")
@@ -50,11 +55,27 @@ MODSEC_DIR = os.getenv("MODSECURITY_DIR", "/etc/nginx/modsecurity")
 
 
 # --- Core Functions ---
-def fetch_rules(url: str) -> str:
-    """Download rules content from the given URL."""
+def fetch_rules(url: str, allowed_domains: Optional[list[str]] = None) -> str:
+    """Download rules content from the given URL.
+
+    Args:
+        url: The HTTPS URL to fetch.
+        allowed_domains: Optional list of allowed hostnames.
+    """
     if not url:
         logger.error("No URL provided to fetch rules.")
         return ""
+
+    if not url.startswith("https://"):
+        logger.error("Rules URL must start with 'https://': %s", url)
+        return ""
+
+    domains = allowed_domains if allowed_domains is not None else ALLOWED_RULES_DOMAINS
+    if domains:
+        hostname = urlparse(url).hostname
+        if hostname not in domains:
+            logger.error("Rules URL host %s not in allowlist.", hostname)
+            return ""
 
     try:
         response = requests.get(url, timeout=15)
@@ -85,12 +106,49 @@ def download_and_extract_crs(url: str, dest_dir: str) -> bool:
             f.write(response.content)
 
         try:
+            real_tmpdir = os.path.realpath(tmpdir)
             if url.endswith(".zip"):
                 with zipfile.ZipFile(archive_path) as zf:
-                    zf.extractall(tmpdir)
+                    for member in zf.infolist():
+                        if stat.S_ISLNK(member.external_attr >> 16):
+                            logger.warning(
+                                "Skipping symlink in archive: %s", member.filename
+                            )
+                            continue
+                        target_path = os.path.realpath(
+                            os.path.join(tmpdir, member.filename)
+                        )
+                        if (
+                            os.path.commonpath([real_tmpdir, target_path])
+                            != real_tmpdir
+                        ):
+                            logger.error(
+                                "Archive member outside extraction directory: %s",
+                                member.filename,
+                            )
+                            return False
+                        zf.extract(member, tmpdir)
             else:
                 with tarfile.open(archive_path, "r:gz") as tf:
-                    tf.extractall(tmpdir)
+                    for member in tf.getmembers():
+                        if member.issym() or member.islnk():
+                            logger.warning(
+                                "Skipping symlink in archive: %s", member.name
+                            )
+                            continue
+                        target_path = os.path.realpath(
+                            os.path.join(tmpdir, member.name)
+                        )
+                        if (
+                            os.path.commonpath([real_tmpdir, target_path])
+                            != real_tmpdir
+                        ):
+                            logger.error(
+                                "Archive member outside extraction directory: %s",
+                                member.name,
+                            )
+                            return False
+                        tf.extract(member, tmpdir, filter="data")
         except (tarfile.TarError, zipfile.BadZipFile) as exc:
             logger.error("Failed to extract CRS archive: %s", exc)
             return False
@@ -112,12 +170,21 @@ def download_and_extract_crs(url: str, dest_dir: str) -> bool:
             setup_file = setup_file + ".example"
 
         os.makedirs(dest_dir, exist_ok=True)
-        shutil.copy(setup_file, os.path.join(dest_dir, "crs-setup.conf"))
+        if os.path.islink(setup_file):
+            logger.warning("Skipping symlink setup file: %s", setup_file)
+        else:
+            shutil.copy(setup_file, os.path.join(dest_dir, "crs-setup.conf"))
 
         dest_rules = os.path.join(dest_dir, "rules")
         if os.path.exists(dest_rules):
             shutil.rmtree(dest_rules)
-        shutil.copytree(os.path.join(src_root, "rules"), dest_rules)
+
+        def _ignore_symlinks(path: str, names: list[str]) -> list[str]:
+            return [name for name in names if os.path.islink(os.path.join(path, name))]
+
+        shutil.copytree(
+            os.path.join(src_root, "rules"), dest_rules, ignore=_ignore_symlinks
+        )
 
     logger.info("OWASP CRS successfully installed to %s", dest_dir)
     return True

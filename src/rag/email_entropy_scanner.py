@@ -1,7 +1,7 @@
 # rag/email_entropy_scanner.py
 
 import math
-import re
+from collections import Counter
 from typing import List
 
 
@@ -9,9 +9,12 @@ from typing import List
 def calculate_entropy(s: str) -> float:
     if not s:  # Handle empty strings
         return 0.0
-    prob = [float(s.count(c)) / len(s) for c in set(s)]
-    # Ensure no log2(0) errors for probabilities
-    entropy = -sum(p * math.log2(p) for p in prob if p > 0.0)
+    counts = Counter(s)
+    length = len(s)
+    entropy = 0.0
+    for count in counts.values():
+        p = count / length
+        entropy -= p * math.log2(p)
     return entropy
 
 
@@ -44,8 +47,6 @@ def is_suspicious_username(username: str) -> bool:
 
     is_suspicious = high_entropy and suspicious_pattern
 
-    # print(f"Debug Username: {username}, Entropy: {entropy:.2f}, Length: {length}, DigitRatio: {digit_ratio:.2f}, Vowels: {vowel_count}, Suspicious: {is_suspicious}") # Optional Debugging
-
     return is_suspicious
 
 
@@ -74,8 +75,6 @@ def is_suspicious_email(email: str, disposable_list: List[str]) -> bool:
     # Check components
     username_suspicious = is_suspicious_username(username)
     domain_disposable = is_disposable_domain(domain, disposable_list)
-
-    # print(f"Debug Email: {email}, Username Suspicious: {username_suspicious}, Domain Disposable: {domain_disposable}") # Optional Debugging
 
     return username_suspicious or domain_disposable
 

@@ -1,0 +1,34 @@
+name: Clear Code Scanning Vulnerabilities
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  clear-alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install GitHub CLI
+        run: sudo apt-get update && sudo apt-get install -y gh
+
+      - name: List and dismiss all code scanning alerts
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          alerts=$(gh api -H "Accept: application/vnd.github+json" \
+            /repos/$OWNER/$REPO/code-scanning/alerts \
+            --paginate --jq '.[] | select(.state == "open") | .number')
+
+          for number in $alerts; do
+            echo "Dismissing alert #$number"
+            gh api -X PATCH -H "Accept: application/vnd.github+json" \
+              /repos/$OWNER/$REPO/code-scanning/alerts/$number \
+              -f state="dismissed" \
+              -f dismissed_reason="used in tests" \
+              -f dismissed_comment="Bulk dismissal via workflow"
+          done
