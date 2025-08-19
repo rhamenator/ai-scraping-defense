@@ -117,7 +117,8 @@ COMMUNITY_BLOCKLIST_API_KEY = CONFIG.COMMUNITY_BLOCKLIST_API_KEY
 
 # --- Setup Clients & Validate Config ---
 # Redis connection is initialized lazily to avoid network I/O on import.
-BLOCKLISTING_ENABLED = True
+# Blocklisting is disabled until a successful Redis connection is established.
+BLOCKLISTING_ENABLED = False
 redis_client_blocklist = None
 
 if ALERT_METHOD == "smtp" and not ALERT_SMTP_PASSWORD and ALERT_SMTP_USER:
@@ -158,8 +159,6 @@ app = FastAPI()
 def get_redis_connection():
     """Return a Redis connection, creating it on first use with retries."""
     global redis_client_blocklist, BLOCKLISTING_ENABLED
-    if not BLOCKLISTING_ENABLED:
-        return None
 
     if redis_client_blocklist is None:
         try:
@@ -169,6 +168,7 @@ def get_redis_connection():
             if redis_client_blocklist:
                 try:
                     redis_client_blocklist.ping()
+                    BLOCKLISTING_ENABLED = True
                     logger.info(
                         f"Connected to Redis for blocklisting at {REDIS_HOST}:{REDIS_PORT}, DB: {REDIS_DB_BLOCKLIST}"
                     )
@@ -188,11 +188,16 @@ def get_redis_connection():
                 f"Redis connection failed for Blocklisting: {e}. Blocklisting disabled."
             )
             BLOCKLISTING_ENABLED = False
+            redis_client_blocklist = None
         except Exception as e:
             logger.error(
                 f"Unexpected error connecting to Redis for Blocklisting: {e}. Blocklisting disabled."
             )
             BLOCKLISTING_ENABLED = False
+            redis_client_blocklist = None
+
+    if not BLOCKLISTING_ENABLED:
+        return None
 
     return redis_client_blocklist
 
