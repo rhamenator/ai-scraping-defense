@@ -584,7 +584,7 @@ async def _send_slack_alert_legacy(event_data: WebhookEvent):
     
     logger.info(f"Sending Slack alert (legacy) for IP: {ip}")
     message = (
-        ":shield: *AI Defense Alert*\n> *Reason:* {reason}\n> *IP Address:* `{ip}`\n"
+        f":shield: *AI Defense Alert*\n> *Reason:* {reason}\n> *IP Address:* `{ip}`\n"
         f"> *User Agent:* `{ua}`\n> *Timestamp (UTC):* {event_data.timestamp_utc}"
     )
     payload = {"text": message}
@@ -600,9 +600,15 @@ async def _send_slack_alert_legacy(event_data: WebhookEvent):
             response.raise_for_status()
         logger.info(f"Slack alert sent successfully for IP {ip}.")
         log_event(ALERT_LOG_FILE, "ALERT_SENT_SLACK", {"reason": reason, "ip": ip})
-    except httpx.HTTPError as e:
+    except httpx.TimeoutException as e:
+        log_error(f"Timeout sending Slack alert to {ALERT_SLACK_WEBHOOK_URL} for IP {ip}", e)
+    except httpx.RequestError as e:
+        log_error(f"Request error sending Slack alert to {ALERT_SLACK_WEBHOOK_URL} for IP {ip}", e)
+    except httpx.HTTPStatusError as e:
         log_error(
-            f"Failed to send Slack alert to {ALERT_SLACK_WEBHOOK_URL} for IP {ip}", e
+            f"Slack alert failed for IP {ip} with status {e.response.status_code}. "
+            f"Response: {e.response.text[:500] if hasattr(e.response, 'text') else 'No response text'}",
+            e
         )
     except Exception as e:
         log_error(f"Unexpected error sending Slack alert for IP {ip}", e)
