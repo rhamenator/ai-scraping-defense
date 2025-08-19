@@ -22,7 +22,6 @@ from typing import Any, Dict, Optional, Union
 
 import httpx
 import requests
-import ipaddress
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -218,8 +217,12 @@ def log_error(message: str, exception: Optional[Exception] = None):
         with open(ERROR_LOG_FILE, "a", encoding="utf-8") as f:
             f.write(log_entry + "\n")
     except Exception as log_e:
-        print(
-            f"FATAL: Could not write to error log file {ERROR_LOG_FILE}: {log_e}\nOriginal error: {log_entry}"
+        logger.critical(
+            "FATAL: Could not write to error log file %s: %s | Original error: %s",
+            ERROR_LOG_FILE,
+            log_e,
+            log_entry,
+            exc_info=True,
         )
 
 
