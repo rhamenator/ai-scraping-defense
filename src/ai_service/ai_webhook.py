@@ -22,6 +22,7 @@ from typing import Any, Dict, Optional, Union
 
 import httpx
 import requests
+import ipaddress
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -255,6 +256,13 @@ def add_ip_to_blocklist(
             logger.warning(
                 f"Attempted to blocklist 'unknown' IP. Reason: {reason}. Details: {event_details}"
             )
+        return False
+    try:
+        ipaddress.ip_address(ip_address)
+    except ValueError:
+        logger.warning(
+            f"Attempted to blocklist invalid IP {ip_address}. Reason: {reason}. Details: {event_details}"
+        )
         return False
     try:
         block_key = f"{BLOCKLIST_KEY_PREFIX}{ip_address}"
