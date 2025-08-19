@@ -1,6 +1,7 @@
 # test/ai_webhook/test_ai_webhook.py
+import asyncio
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -196,6 +197,42 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         response = self.client.get("/health")
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json(), {"status": "error", "redis_connected": False})
+
+
+class TestCommunityReportingTimeout(unittest.IsolatedAsyncioTestCase):
+    async def test_report_ip_to_community_json_timeout(self):
+        ai_webhook.ENABLE_COMMUNITY_REPORTING = True
+        ai_webhook.COMMUNITY_BLOCKLIST_REPORT_URL = "http://example.com/report"
+        ai_webhook.COMMUNITY_BLOCKLIST_API_KEY = "key"
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+
+        async def slow_to_thread(func, *args, **kwargs):
+            await asyncio.sleep(1)
+
+        with patch(
+            "src.ai_service.ai_webhook.httpx.AsyncClient",
+            return_value=mock_client,
+        ), patch(
+            "src.ai_service.ai_webhook.asyncio.to_thread",
+            side_effect=slow_to_thread,
+        ), patch(
+            "src.ai_service.ai_webhook.increment_counter_metric"
+        ) as mock_metric, patch(
+            "src.ai_service.ai_webhook.logger.error"
+        ) as mock_log:
+            original_timeout = ai_webhook.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT
+            ai_webhook.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = 0.01
+            result = await ai_webhook.report_ip_to_community("1.2.3.4", "reason", {})
+            ai_webhook.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = original_timeout
+
+        self.assertFalse(result)
+        mock_metric.assert_any_call(ai_webhook.COMMUNITY_REPORTS_ERRORS_TIMEOUT)
+        mock_log.assert_called()
 
 
 if __name__ == "__main__":

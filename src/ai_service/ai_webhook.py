@@ -358,7 +358,17 @@ async def report_ip_to_community(ip: str, reason: str, details: dict) -> bool:
                 timeout=COMMUNITY_BLOCKLIST_REPORT_TIMEOUT,
             )
             response.raise_for_status()
-            result = response.json()
+            try:
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(response.json),
+                    COMMUNITY_BLOCKLIST_REPORT_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                logger.error(
+                    f"Timeout parsing community blocklist report response for IP {ip}"
+                )
+                increment_counter_metric(COMMUNITY_REPORTS_ERRORS_TIMEOUT)
+                return False
             logger.info(
                 f"Successfully reported IP {ip} to community blocklist. Response: {result}"
             )
