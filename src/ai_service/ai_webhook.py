@@ -117,7 +117,7 @@ COMMUNITY_BLOCKLIST_API_KEY = CONFIG.COMMUNITY_BLOCKLIST_API_KEY
 
 # --- Setup Clients & Validate Config ---
 # Redis connection is initialized lazily to avoid network I/O on import.
-BLOCKLISTING_ENABLED = True
+BLOCKLISTING_ENABLED = False
 redis_client_blocklist = None
 
 if ALERT_METHOD == "smtp" and not ALERT_SMTP_PASSWORD and ALERT_SMTP_USER:
