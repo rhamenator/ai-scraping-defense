@@ -257,6 +257,13 @@ def add_ip_to_blocklist(
             )
         return False
     try:
+        ipaddress.ip_address(ip_address)
+    except ValueError:
+        logger.warning(
+            f"Attempted to blocklist invalid IP {ip_address}. Reason: {reason}. Details: {event_details}"
+        )
+        return False
+    try:
         block_key = f"{BLOCKLIST_KEY_PREFIX}{ip_address}"
         block_metadata = json.dumps(
             {

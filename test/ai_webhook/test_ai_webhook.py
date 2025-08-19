@@ -122,6 +122,16 @@ class TestAIWebhookComprehensive(unittest.TestCase):
                 redis_mock.assert_not_called()
                 redis_mock.reset_mock()
 
+    def test_add_ip_to_blocklist_rejects_invalid_ip(self):
+        """add_ip_to_blocklist should return False and not touch Redis for invalid IPs."""
+        ai_webhook.BLOCKLISTING_ENABLED = True
+        result = ai_webhook.add_ip_to_blocklist(
+            "999.999.999.999", "bad", event_details=None
+        )
+        self.assertFalse(result)
+        self.mock_redis_client.exists.assert_not_called()
+        self.mock_redis_client.setex.assert_not_called()
+
     def test_webhook_receiver_invalid_action(self):
         """Test that an unsupported action returns a 400 error."""
         payload = {"action": "reboot_server", "ip": "1.2.3.4"}
