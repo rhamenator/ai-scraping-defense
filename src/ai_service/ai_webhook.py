@@ -21,7 +21,6 @@ from email.mime.text import MIMEText
 from typing import Any, Dict, Optional, Union
 
 import httpx
-import requests
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -461,17 +460,16 @@ async def send_slack_alert(event_data: WebhookEvent):
     payload = {"text": message}
     headers = {"Content-Type": "application/json"}
     try:
-        response = await asyncio.to_thread(
-            requests.post,
-            ALERT_SLACK_WEBHOOK_URL,
-            headers=headers,
-            json=payload,
-            timeout=10.0,
-        )
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                ALERT_SLACK_WEBHOOK_URL,
+                headers=headers,
+                json=payload,
+            )
         response.raise_for_status()
         logger.info(f"Slack alert sent successfully for IP {ip}.")
         log_event(ALERT_LOG_FILE, "ALERT_SENT_SLACK", {"reason": reason, "ip": ip})
-    except requests.exceptions.RequestException as e:
+    except httpx.HTTPError as e:
         log_error(
             f"Failed to send Slack alert to {ALERT_SLACK_WEBHOOK_URL} for IP {ip}", e
         )
