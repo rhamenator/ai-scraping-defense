@@ -466,7 +466,7 @@ async def send_slack_alert(event_data: WebhookEvent):
                 headers=headers,
                 json=payload,
             )
-        response.raise_for_status()
+            response.raise_for_status()
         logger.info(f"Slack alert sent successfully for IP {ip}.")
         log_event(ALERT_LOG_FILE, "ALERT_SENT_SLACK", {"reason": reason, "ip": ip})
     except httpx.HTTPError as e:
