@@ -222,7 +222,6 @@ def log_error(message: str, exception: Optional[Exception] = None):
             ERROR_LOG_FILE,
             log_e,
             log_entry,
-            exc_info=True,
         )
 
 
