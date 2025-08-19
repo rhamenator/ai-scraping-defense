@@ -133,8 +133,19 @@ class SlackAlertSender(HttpAlertSender):
             str: Formatted Slack message text with markdown
         """
         reason = alert_data.get("reason", "Unknown reason")
+        
+        # Extract IP and user agent from either top level or details
         ip = alert_data.get("ip", "N/A")
         user_agent = alert_data.get("user_agent", "N/A")
+        
+        # If not found at top level, check in details
+        details = alert_data.get("details", {})
+        if isinstance(details, dict):
+            if ip == "N/A":
+                ip = details.get("ip", "N/A")
+            if user_agent == "N/A":
+                user_agent = details.get("user_agent", "N/A")
+        
         timestamp_utc = alert_data.get("timestamp_utc", datetime.now(timezone.utc).isoformat())
         
         # Get appropriate emoji for this alert

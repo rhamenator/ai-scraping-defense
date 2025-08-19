@@ -21,14 +21,14 @@ Usage Example:
 """
 
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 try:
     import httpx
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
-    # Create a stub for development environments without httpx
+    # Create stubs for development environments without httpx
     class httpx:
         class AsyncClient:
             def __init__(self, *args, **kwargs):
@@ -39,6 +39,18 @@ except ImportError:
                 pass
             async def post(self, *args, **kwargs):
                 raise RuntimeError("httpx not available")
+            async def get(self, *args, **kwargs):
+                raise RuntimeError("httpx not available")
+        
+        class Response:
+            def __init__(self):
+                self.status_code = 200
+                self.content = b"test"
+                self.text = "test"
+                
+            def raise_for_status(self):
+                if self.status_code >= 400:
+                    raise httpx.HTTPStatusError("HTTP error", response=self)
         
         class HTTPError(Exception):
             pass
@@ -53,6 +65,10 @@ except ImportError:
             def __init__(self, message, response=None):
                 super().__init__(message)
                 self.response = response
+        
+        class Limits:
+            def __init__(self, *args, **kwargs):
+                pass
 
 
 logger = logging.getLogger(__name__)
@@ -155,7 +171,7 @@ class AsyncHttpClient:
         data: Dict[str, Any],
         headers: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None
-    ) -> httpx.Response:
+    ) -> 'httpx.Response':
         """Make an async POST request with JSON payload.
         
         Args:
@@ -216,7 +232,7 @@ class AsyncHttpClient:
         params: Optional[Dict[str, str]] = None,
         headers: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None
-    ) -> httpx.Response:
+    ) -> 'httpx.Response':
         """Make an async GET request.
         
         Args:
