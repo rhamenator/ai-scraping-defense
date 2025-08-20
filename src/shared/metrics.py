@@ -1,13 +1,53 @@
 # metrics.py
-"""Prometheus metrics used across services."""
+"""Prometheus metrics used across services.
+
+When Prometheus is unavailable, a lightweight in-memory counter is used so
+metrics remain meaningful. Only the minimal interface required by the helper
+functions is implemented.
+"""
+
+import time
+from collections import defaultdict
+
 from prometheus_client import (
-    Counter,
-    Histogram,
-    Gauge,
     CollectorRegistry,
+    Counter,
+    Gauge,
+    Histogram,
     generate_latest,
 )
-import time
+
+
+class InMemoryCounter:
+    """Simple in-memory counter supporting optional labels."""
+
+    def __init__(self, name: str | None = None) -> None:
+        self._name = name
+        self._count = 0
+        self._label_counts: dict[tuple[tuple[str, str], ...], int] = defaultdict(int)
+
+    def inc(self) -> None:
+        self._count += 1
+
+    def labels(self, **labels):
+        key = tuple(sorted(labels.items()))
+        return _InMemoryCounterChild(self, key)
+
+    def get(self, **labels) -> int:
+        if labels:
+            key = tuple(sorted(labels.items()))
+            return self._label_counts.get(key, 0)
+        return self._count
+
+
+class _InMemoryCounterChild:
+    def __init__(self, parent: InMemoryCounter, key: tuple[tuple[str, str], ...]):
+        self._parent = parent
+        self._key = key
+
+    def inc(self) -> None:
+        self._parent._label_counts[self._key] += 1
+
 
 # 0. Global Registry
 REGISTRY = CollectorRegistry()
@@ -153,7 +193,8 @@ HEURISTIC_CHECKS_RUN = Counter(
     registry=REGISTRY,
 )
 # Note: The dynamic f"req_freq_{FREQUENCY_WINDOW_SECONDS}s" metric is complex for a simple counter.
-# Escalation engine should increment a general counter per analysis, and actual frequencies might be better as observed values in a Histogram.
+# Escalation engine should increment a general counter per analysis, and
+# actual frequencies might be better as observed values in a Histogram.
 # For now, a general counter for frequency analyses performed:
 FREQUENCY_ANALYSES_PERFORMED = Counter(
     "frequency_analyses_performed_total",
@@ -422,7 +463,7 @@ def observe_histogram_metric(metric_instance, value, labels=None):
 
 
 def increment_counter_metric(metric_instance, labels=None):
-    if not isinstance(metric_instance, Counter):
+    if not isinstance(metric_instance, (Counter, InMemoryCounter)):
         raise TypeError("increment_counter_metric requires a Counter")
     if labels:
         metric_instance.labels(**labels).inc()
