@@ -118,7 +118,7 @@ def _load_smtp_password() -> Optional[str]:
     try:
         with open(ALERT_SMTP_PASSWORD_FILE, "r") as f:
             return f.read().strip()
-    except Exception:
+    except (FileNotFoundError, PermissionError, OSError):
         return None
 
 
