@@ -59,7 +59,12 @@ async def get_metrics(installation_id: str):
         return JSONResponse({"error": "storage unavailable"}, status_code=500)
     key = tenant_key(f"cloud:install:{installation_id}")
     raw = redis_conn.get(key)
-    return json.loads(raw) if raw else {}
+    if raw:
+        try:
+            return json.loads(raw)
+        except JSONDecodeError:
+            return JSONResponse({"error": "corrupted metrics data"}, status_code=500)
+    return {}
 
 
 @app.websocket("/ws/{installation_id}")
