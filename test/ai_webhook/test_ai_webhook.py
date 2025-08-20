@@ -5,11 +5,11 @@ import hmac
 import json
 import os
 import unittest
+from importlib import reload
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-os.environ["WEBHOOK_SHARED_SECRET"] = "test-secret"
 from src.ai_service import ai_webhook
 
 
@@ -17,8 +17,13 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
     def setUp(self):
         """Set up the FastAPI test client and patch dependencies."""
-        self.client = TestClient(ai_webhook.app)
         self.secret = "test-secret"
+        self.env_patcher = patch.dict(
+            os.environ, {"WEBHOOK_SHARED_SECRET": self.secret}, clear=False
+        )
+        self.env_patcher.start()
+        reload(ai_webhook)
+        self.client = TestClient(ai_webhook.app)
         ai_webhook.WEBHOOK_SHARED_SECRET = self.secret
         ai_webhook._request_counts.clear()
 
@@ -34,6 +39,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
     def tearDown(self):
         """Stop all patches."""
         patch.stopall()
+        self.env_patcher.stop()
         ai_webhook.WEBHOOK_SHARED_SECRET = None
 
     def _post(self, payload, headers=None):

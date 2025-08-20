@@ -745,13 +745,21 @@ def get_client_ip(request: Request) -> str:
 
 
 def calculate_window_reset(now: float) -> int:
-    return int(now // RATE_LIMIT_WINDOW * RATE_LIMIT_WINDOW + RATE_LIMIT_WINDOW)
+    """Return the timestamp for the start of the next rate limit window.
+
+    For example, if the window is 60 seconds and ``now`` is 125, this returns
+    180 (the next boundary).
+    """
+    current_window_start = (now // RATE_LIMIT_WINDOW) * RATE_LIMIT_WINDOW
+    next_window_start = current_window_start + RATE_LIMIT_WINDOW
+    return int(next_window_start)
 
 
-def _cleanup_expired_requests(now: float) -> None:
-    expired = [ip for ip, (_, reset) in _request_counts.items() if now > reset]
-    for ip in expired:
-        del _request_counts[ip]
+async def _cleanup_expired_requests(now: float) -> None:
+    async with _rate_lock:
+        expired = [ip for ip, (_, reset) in _request_counts.items() if now > reset]
+        for ip in expired:
+            del _request_counts[ip]
 
 
 @app.post("/webhook")
@@ -771,12 +779,13 @@ async def webhook_receiver(request: Request, response: Response):
 
     now = time.time()
     window_reset = calculate_window_reset(now)
+    await _cleanup_expired_requests(now)
     async with _rate_lock:
-        _cleanup_expired_requests(now)
         count, reset = _request_counts.get(client_ip, (0, window_reset))
         if now > reset:
             count, reset = 0, window_reset
-        if count + 1 > RATE_LIMIT_REQUESTS:
+        new_count = count + 1
+        if new_count > RATE_LIMIT_REQUESTS:
             retry_after = int(reset - now)
             headers = {
                 "X-RateLimit-Limit": str(RATE_LIMIT_REQUESTS),
@@ -788,8 +797,8 @@ async def webhook_receiver(request: Request, response: Response):
             raise HTTPException(
                 status_code=429, detail="Too Many Requests", headers=headers
             )
-        _request_counts[client_ip] = (count + 1, reset)
-        remaining = RATE_LIMIT_REQUESTS - (count + 1)
+        _request_counts[client_ip] = (new_count, reset)
+        remaining = RATE_LIMIT_REQUESTS - new_count
 
     response.headers["X-RateLimit-Limit"] = str(RATE_LIMIT_REQUESTS)
     response.headers["X-RateLimit-Remaining"] = str(remaining)
