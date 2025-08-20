@@ -17,8 +17,7 @@ from src.shared.metrics import (
     COMMUNITY_REPORTS_SUCCESS,
     increment_counter_metric,
 )
-
-from .alerts import log_event
+from src.shared.utils import LOG_DIR, log_event
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +26,7 @@ COMMUNITY_BLOCKLIST_REPORT_URL = CONFIG.COMMUNITY_BLOCKLIST_REPORT_URL
 COMMUNITY_BLOCKLIST_API_KEY = CONFIG.COMMUNITY_BLOCKLIST_API_KEY
 COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = CONFIG.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT
 
-LOG_DIR = "/app/logs"
 COMMUNITY_REPORT_LOG_FILE = os.path.join(LOG_DIR, "community_report.log")
-try:
-    os.makedirs(LOG_DIR, exist_ok=True)
-except OSError as e:  # pragma: no cover
-    logger.error("Cannot create log directory %s: %s", LOG_DIR, e)
 
 
 async def report_ip_to_community(ip: str, reason: str, details: Dict) -> bool:

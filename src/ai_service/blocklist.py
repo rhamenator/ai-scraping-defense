@@ -9,8 +9,7 @@ from redis.exceptions import ConnectionError, RedisError
 
 from src.shared.config import CONFIG, tenant_key
 from src.shared.redis_client import get_redis_connection as shared_get_redis_connection
-
-from .alerts import log_error, log_event
+from src.shared.utils import LOG_DIR, log_error, log_event
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +19,7 @@ REDIS_DB_BLOCKLIST = CONFIG.REDIS_DB_BLOCKLIST
 BLOCKLIST_KEY_PREFIX = tenant_key("blocklist:ip:")
 BLOCKLIST_TTL_SECONDS = CONFIG.BLOCKLIST_TTL_SECONDS
 
-LOG_DIR = "/app/logs"
 BLOCK_LOG_FILE = os.path.join(LOG_DIR, "block_events.log")
-try:
-    os.makedirs(LOG_DIR, exist_ok=True)
-except OSError as e:  # pragma: no cover
-    logger.error("Cannot create log directory %s: %s", LOG_DIR, e)
 
 BLOCKLISTING_ENABLED = False
 _redis_client_blocklist = None

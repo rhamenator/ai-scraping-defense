@@ -1,5 +1,4 @@
 import asyncio
-import datetime
 import json
 import logging
 import os
@@ -13,6 +12,7 @@ from typing import TYPE_CHECKING, Optional
 import httpx
 
 from src.shared.config import CONFIG
+from src.shared.utils import LOG_DIR, log_error, log_event
 
 try:
     from src.shared.http_alert import HttpAlertSender
@@ -27,13 +27,7 @@ if TYPE_CHECKING:  # pragma: no cover - type checking only
 
 logger = logging.getLogger(__name__)
 
-LOG_DIR = "/app/logs"
 ALERT_LOG_FILE = os.path.join(LOG_DIR, "alert_events.log")
-ERROR_LOG_FILE = os.path.join(LOG_DIR, "aiservice_errors.log")
-try:
-    os.makedirs(LOG_DIR, exist_ok=True)
-except OSError as e:  # pragma: no cover - catastrophic failure
-    logger.error("Cannot create log directory %s: %s", LOG_DIR, e)
 
 ALERT_METHOD = CONFIG.ALERT_METHOD
 ALERT_GENERIC_WEBHOOK_URL = CONFIG.ALERT_GENERIC_WEBHOOK_URL
@@ -46,47 +40,6 @@ ALERT_SMTP_USE_TLS = CONFIG.ALERT_SMTP_USE_TLS
 ALERT_EMAIL_FROM = CONFIG.ALERT_EMAIL_FROM
 ALERT_EMAIL_TO = CONFIG.ALERT_EMAIL_TO
 ALERT_MIN_REASON_SEVERITY = CONFIG.ALERT_MIN_REASON_SEVERITY
-
-
-# ---------------------------------------------------------------------------
-# Logging helpers
-# ---------------------------------------------------------------------------
-
-
-def log_error(message: str, exception: Optional[Exception] = None) -> None:
-    timestamp = (
-        datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
-    )
-    log_entry = f"{timestamp} - ERROR: {message}"
-    if exception:
-        log_entry += f" | Exception: {type(exception).__name__}: {exception}"
-    logger.error(log_entry)
-    try:
-        with open(ERROR_LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(log_entry + "\n")
-    except Exception as log_e:  # pragma: no cover - logging failure
-        logger.critical(
-            "FATAL: Could not write to error log file %s: %s | Original error: %s",
-            ERROR_LOG_FILE,
-            log_e,
-            log_entry,
-        )
-
-
-def log_event(log_file: str, event_type: str, data: dict) -> None:
-    try:
-        serializable_data = json.loads(json.dumps(data, default=str))
-        log_entry = {
-            "timestamp": datetime.datetime.now(datetime.timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z"),
-            "event_type": event_type,
-            **serializable_data,
-        }
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(log_entry) + "\n")
-    except Exception as e:  # pragma: no cover - logging failure
-        log_error(f"Failed to write to log file {log_file}", e)
 
 
 # ---------------------------------------------------------------------------

@@ -14,8 +14,7 @@ from pydantic import BaseModel, Field
 
 from src.shared.audit import log_event as audit_log_event
 from src.shared.config import CONFIG, tenant_key
-
-from .blocklist import get_redis_connection
+from src.shared.redis_client import get_redis_connection
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +121,7 @@ async def webhook_receiver(request: Request, response: Response):
     if request.headers.get("content-type", "").startswith("application/json") and body:
         payload = json.loads(body.decode("utf-8"))
 
-    redis_conn = get_redis_connection()
+    redis_conn = get_redis_connection(db_number=CONFIG.REDIS_DB_BLOCKLIST)
     if not redis_conn:
         audit_log_event(client_ip, "webhook_redis_unavailable", {"ip": client_ip})
         raise HTTPException(status_code=503, detail="Redis service unavailable")
@@ -174,7 +173,7 @@ async def webhook_receiver(request: Request, response: Response):
 
 @app.get("/health")
 async def health_check():
-    redis_conn = get_redis_connection()
+    redis_conn = get_redis_connection(db_number=CONFIG.REDIS_DB_BLOCKLIST)
     if not redis_conn:
         return JSONResponse(
             {"status": "error", "redis_connected": False}, status_code=503
