@@ -21,6 +21,7 @@ import smtplib
 import ssl
 import time
 from email.mime.text import MIMEText
+from functools import lru_cache
 from typing import Any, Dict, Optional, Union
 
 import httpx
@@ -106,11 +107,44 @@ ALERT_SMTP_HOST = CONFIG.ALERT_SMTP_HOST
 ALERT_SMTP_PORT = CONFIG.ALERT_SMTP_PORT
 ALERT_SMTP_USER = CONFIG.ALERT_SMTP_USER
 ALERT_SMTP_PASSWORD_FILE = CONFIG.ALERT_SMTP_PASSWORD_FILE
-ALERT_SMTP_PASSWORD = CONFIG.ALERT_SMTP_PASSWORD
 ALERT_SMTP_USE_TLS = CONFIG.ALERT_SMTP_USE_TLS
 ALERT_EMAIL_FROM = CONFIG.ALERT_EMAIL_FROM
 ALERT_EMAIL_TO = CONFIG.ALERT_EMAIL_TO
 ALERT_MIN_REASON_SEVERITY = CONFIG.ALERT_MIN_REASON_SEVERITY
+
+
+@lru_cache()
+def _load_smtp_password() -> Optional[str]:
+    try:
+        with open(ALERT_SMTP_PASSWORD_FILE, "r", encoding="utf-8") as f:
+            value = f.read().strip()
+            return value or None
+    except FileNotFoundError as e:
+        logger.warning(
+            "SMTP password file not found at %s: %s",
+            ALERT_SMTP_PASSWORD_FILE,
+            e,
+        )
+    except PermissionError as e:
+        logger.error(
+            "Permission denied reading SMTP password file at %s: %s",
+            ALERT_SMTP_PASSWORD_FILE,
+            e,
+        )
+    except OSError as e:
+        logger.error(
+            "OS error reading SMTP password file at %s: %s",
+            ALERT_SMTP_PASSWORD_FILE,
+            e,
+        )
+    except Exception as e:
+        logger.error(
+            "Unexpected error loading SMTP password from %s: %s",
+            ALERT_SMTP_PASSWORD_FILE,
+            e,
+            exc_info=True,
+        )
+    return None
 
 ENABLE_COMMUNITY_REPORTING = CONFIG.ENABLE_COMMUNITY_REPORTING
 COMMUNITY_BLOCKLIST_REPORT_URL = CONFIG.COMMUNITY_BLOCKLIST_REPORT_URL
@@ -137,7 +171,6 @@ _request_counts: dict[str, tuple[int, float]] = {}
 _rate_lock = asyncio.Lock()
 
 # --- Load Secrets ---
-ALERT_SMTP_PASSWORD = CONFIG.ALERT_SMTP_PASSWORD
 COMMUNITY_BLOCKLIST_API_KEY = CONFIG.COMMUNITY_BLOCKLIST_API_KEY
 
 # --- Setup Clients & Validate Config ---
@@ -145,9 +178,6 @@ COMMUNITY_BLOCKLIST_API_KEY = CONFIG.COMMUNITY_BLOCKLIST_API_KEY
 # Blocklisting is disabled until a successful Redis connection is established.
 BLOCKLISTING_ENABLED = False
 redis_client_blocklist = None
-
-if ALERT_METHOD == "smtp" and not ALERT_SMTP_PASSWORD and ALERT_SMTP_USER:
-    logger.warning("SMTP alerting configured but SMTP password is not set.")
 if ENABLE_COMMUNITY_REPORTING and not COMMUNITY_BLOCKLIST_REPORT_URL:
     logger.warning(
         "Community reporting enabled but COMMUNITY_BLOCKLIST_REPORT_URL is not set."
@@ -676,10 +706,12 @@ IP added to blocklist (TTL: {BLOCKLIST_TTL_SECONDS}s). Logs in {LOG_DIR}.
                 smtp_conn.starttls(
                     context=ssl.create_default_context()
                 )  # Don't call starttls if already SSL
-            if ALERT_SMTP_USER and ALERT_SMTP_PASSWORD:
-                smtp_conn.login(ALERT_SMTP_USER, ALERT_SMTP_PASSWORD)
-            elif ALERT_SMTP_USER:
-                logger.warning("SMTP User provided but password missing.")
+            if ALERT_SMTP_USER:
+                smtp_password = _load_smtp_password()
+                if smtp_password:
+                    smtp_conn.login(ALERT_SMTP_USER, smtp_password)
+                else:
+                    logger.warning("SMTP authentication skipped: ALERT_SMTP_USER is set but no password was provided. Check SMTP configuration.")
             from_addr = ALERT_EMAIL_FROM if ALERT_EMAIL_FROM else ""
             to_addrs = ALERT_EMAIL_TO.split(",") if ALERT_EMAIL_TO else []
             smtp_conn.sendmail(from_addr, to_addrs, msg.as_string())
