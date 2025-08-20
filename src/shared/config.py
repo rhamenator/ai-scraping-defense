@@ -153,9 +153,8 @@ class Config:
             "ALERT_SMTP_PASSWORD_FILE", "/run/secrets/smtp_password"
         )
     )
-    ALERT_SMTP_PASSWORD: Optional[str] = field(
-        default_factory=lambda: get_secret("ALERT_SMTP_PASSWORD_FILE")
-    )
+    # Loaded on demand to avoid unnecessary secret access
+    ALERT_SMTP_PASSWORD: Optional[str] = field(default=None)
     ALERT_SMTP_USE_TLS: bool = field(
         default_factory=lambda: os.getenv("ALERT_SMTP_USE_TLS", "true").lower()
         == "true"
