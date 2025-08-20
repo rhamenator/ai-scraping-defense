@@ -116,11 +116,35 @@ ALERT_MIN_REASON_SEVERITY = CONFIG.ALERT_MIN_REASON_SEVERITY
 @lru_cache()
 def _load_smtp_password() -> Optional[str]:
     try:
-        with open(ALERT_SMTP_PASSWORD_FILE, "r") as f:
-            return f.read().strip()
-    except (FileNotFoundError, PermissionError, OSError):
-        return None
-
+        with open(ALERT_SMTP_PASSWORD_FILE, "r", encoding="utf-8") as f:
+            value = f.read().strip()
+            return value or None
+    except FileNotFoundError as e:
+        logger.warning(
+            "SMTP password file not found at %s: %s",
+            ALERT_SMTP_PASSWORD_FILE,
+            e,
+        )
+    except PermissionError as e:
+        logger.error(
+            "Permission denied reading SMTP password file at %s: %s",
+            ALERT_SMTP_PASSWORD_FILE,
+            e,
+        )
+    except OSError as e:
+        logger.error(
+            "OS error reading SMTP password file at %s: %s",
+            ALERT_SMTP_PASSWORD_FILE,
+            e,
+        )
+    except Exception as e:
+        logger.error(
+            "Unexpected error loading SMTP password from %s: %s",
+            ALERT_SMTP_PASSWORD_FILE,
+            e,
+            exc_info=True,
+        )
+    return None
 
 ENABLE_COMMUNITY_REPORTING = CONFIG.ENABLE_COMMUNITY_REPORTING
 COMMUNITY_BLOCKLIST_REPORT_URL = CONFIG.COMMUNITY_BLOCKLIST_REPORT_URL
