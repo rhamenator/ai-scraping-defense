@@ -42,6 +42,7 @@ nav:
   - User Guide:
     - Overview: docs/index.md # The landing page specifically for docs
     - Getting Started (Docker): docs/getting_started.md
+    - macOS Setup: docs/macos_setup.md
     - Kubernetes Deployment: docs/kubernetes_deployment.md
     - Architecture: docs/architecture.md
     - Key Data Flows: docs/key_data_flows.md
