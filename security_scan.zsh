@@ -102,7 +102,25 @@ fi
 echo "=== 11. Gobuster Directory Scan ==="
 if command -v gobuster >/dev/null 2>&1; then
     gobuster dir -u "$WEB_URL" -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt \
-        -o "reports/gobuster_$(echo $WEB_URL | tr '/:' '_').txt"
+    # Try default Linux path
+    DEFAULT_WORDLIST="/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+    MAC_WORDLIST="/usr/local/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+    if [[ -n "$GOBUSTER_WORDLIST" && -f "$GOBUSTER_WORDLIST" ]]; then
+        WORDLIST="$GOBUSTER_WORDLIST"
+    elif [[ -f "$DEFAULT_WORDLIST" ]]; then
+        WORDLIST="$DEFAULT_WORDLIST"
+    elif [[ -f "$MAC_WORDLIST" ]]; then
+        WORDLIST="$MAC_WORDLIST"
+    else
+        echo "No suitable gobuster wordlist found. Please specify a valid wordlist as argument 6."
+        WORDLIST=""
+    fi
+    if [[ -n "$WORDLIST" ]]; then
+        gobuster dir -u "$WEB_URL" -w "$WORDLIST" \
+            -o "reports/gobuster_$(echo $WEB_URL | tr '/:' '_').txt"
+    else
+        echo "Skipping gobuster directory scan due to missing wordlist."
+    fi
 else
     echo "gobuster not installed. Skipping directory scan."
 fi
