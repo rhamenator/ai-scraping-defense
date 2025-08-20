@@ -15,16 +15,43 @@ from src.tarpit.labyrinth import generate_labyrinth_page
 
 class TestCrawlerFeatures(unittest.TestCase):
     def test_crawler_registration_and_usage(self):
-        register_crawler("testbot", "token123", "training")
-        self.assertTrue(verify_crawler("token123"))
-        self.assertTrue(verify_crawler("token123", "training"))
-        info = get_crawler_info("token123")
-        self.assertEqual(info["name"], "testbot")
+        class MockRedis:
+            def __init__(self):
+                self.store = {}
 
-        set_price("training", 0.01)
-        charge = record_crawl("token123", "training")
-        self.assertEqual(charge, 0.01)
-        self.assertAlmostEqual(get_usage("token123"), 0.01)
+            def hset(self, name, key=None, value=None, mapping=None):
+                if mapping is not None:
+                    self.store.setdefault(name, {}).update(mapping)
+                elif key is not None:
+                    self.store.setdefault(name, {})[key] = value
+
+            def hgetall(self, name):
+                return self.store.get(name, {}).copy()
+
+            def hget(self, name, field):
+                return self.store.get(name, {}).get(field)
+
+            def hincrbyfloat(self, name, field, amount):
+                current = float(self.store.get(name, {}).get(field, 0)) + amount
+                self.store.setdefault(name, {})[field] = current
+                return current
+
+        mock_redis = MockRedis()
+        with patch(
+            "src.bot_control.crawler_auth.get_redis_connection", return_value=mock_redis
+        ), patch(
+            "src.bot_control.pricing.get_redis_connection", return_value=mock_redis
+        ):
+            register_crawler("testbot", "token123", "training")
+            self.assertTrue(verify_crawler("token123"))
+            self.assertTrue(verify_crawler("token123", "training"))
+            info = get_crawler_info("token123")
+            self.assertEqual(info["name"], "testbot")
+
+            set_price("training", 0.01)
+            charge = record_crawl("token123", "training")
+            self.assertEqual(charge, 0.01)
+            self.assertAlmostEqual(get_usage("token123"), 0.01)
 
     def test_labyrinth_generation_no_fp(self):
         html = generate_labyrinth_page("seed", depth=3)

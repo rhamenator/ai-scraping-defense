@@ -5,13 +5,9 @@ This module assembles the FastAPI application and wires in
 submodules that handle authentication, metrics, blocklist
 management and WebAuthn support.
 """
-import json
 import logging
 import os
 import secrets
-import time
-from base64 import b64decode, b64encode
-from json import JSONDecodeError
 
 from fastapi import Cookie, Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -105,16 +101,6 @@ async def csp_header(request: Request, call_next):
 
 
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-app.mount(
-    "/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"
-)
-
-templates.env.globals["url_for"] = _jinja_url_for
-
-# Include routers from submodules
-app.include_router(metrics.router)
-app.include_router(blocklist.router)
-app.include_router(webauthn.router)
 
 
 @pass_context
@@ -127,6 +113,14 @@ def _jinja_url_for(context, name: str, **path_params) -> str:
 
 
 templates.env.globals["url_for"] = _jinja_url_for
+
+app.mount(
+    "/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"
+)
+# Include routers from submodules
+app.include_router(metrics.router)
+app.include_router(blocklist.router)
+app.include_router(webauthn.router)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -214,11 +208,7 @@ async def plugins_page(request: Request, user: str = Depends(require_auth)):
     """Show available plugins and which are enabled."""
     available = _discover_plugins()
     allowed_plugins = _get_runtime_setting("ALLOWED_PLUGINS")
-    enabled = (
-        allowed_plugins.split(",")
-        if allowed_plugins
-        else []
-    )
+    enabled = allowed_plugins.split(",") if allowed_plugins else []
     return templates.TemplateResponse(
         "plugins.html",
         {"request": request, "available": available, "enabled": enabled},

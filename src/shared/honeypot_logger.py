@@ -2,9 +2,9 @@
 # Dedicated logger for honeypot trigger events.
 """Logging utilities for honeypot hits."""
 
-import logging
-import json
 import datetime
+import json
+import logging
 import os
 
 # --- Configuration ---
@@ -12,7 +12,11 @@ HONEYPOT_LOG_FILE = globals().get(
     "HONEYPOT_LOG_FILE",
     os.getenv("HONEYPOT_LOG_FILE", "/app/logs/honeypot_hits.log"),
 )
-os.makedirs(os.path.dirname(HONEYPOT_LOG_FILE), exist_ok=True)
+try:
+    os.makedirs(os.path.dirname(HONEYPOT_LOG_FILE), exist_ok=True)
+except OSError as e:
+    print(f"ERROR creating honeypot log directory: {e}")
+    raise SystemExit(1)
 
 # --- Logger Setup ---
 
@@ -50,12 +54,9 @@ if not honeypot_logger.hasHandlers():
         file_handler.setFormatter(formatter)
         honeypot_logger.addHandler(file_handler)
         print(f"Honeypot logger configured to write to {HONEYPOT_LOG_FILE}")
-    except Exception as e:
+    except OSError as e:
         print(f"ERROR setting up honeypot file logger: {e}")
-        # Optionally add a StreamHandler as fallback for visibility
-        # stream_handler = logging.StreamHandler()
-        # stream_handler.setFormatter(formatter)
-        # honeypot_logger.addHandler(stream_handler)
+        raise SystemExit(1)
 
 # --- Logging Function ---
 

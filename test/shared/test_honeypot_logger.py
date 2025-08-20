@@ -1,11 +1,11 @@
 # test/shared/honeypot_logger.test.py
-import unittest
-from unittest.mock import patch, MagicMock, mock_open
-import logging
-import json
 import datetime
-import os
 import importlib  # Required for reloading the module
+import json
+import logging
+import os
+import unittest
+from unittest.mock import MagicMock, mock_open, patch
 
 # Import the module to test.
 # We will reload it in specific tests to check its import-time setup.
@@ -165,7 +165,8 @@ class TestHoneypotLoggerSetup(unittest.TestCase):
         mock_logger_instance.hasHandlers.return_value = False
         mock_getLogger.return_value = mock_logger_instance
 
-        importlib.reload(honeypot_logger)
+        with self.assertRaises(SystemExit):
+            importlib.reload(honeypot_logger)
 
         mock_makedirs.assert_called_once_with(
             os.path.dirname(self.test_log_file), exist_ok=True
@@ -175,6 +176,16 @@ class TestHoneypotLoggerSetup(unittest.TestCase):
             f"ERROR setting up honeypot file logger: Cannot open file"
         )
         mock_logger_instance.addHandler.assert_not_called()
+
+    @patch("builtins.print")
+    @patch("os.makedirs", side_effect=OSError("Permission denied"))
+    def test_logger_setup_makedirs_exception(self, mock_makedirs, mock_print):
+        with self.assertRaises(SystemExit):
+            importlib.reload(honeypot_logger)
+        mock_makedirs.assert_called_once()
+        mock_print.assert_any_call(
+            "ERROR creating honeypot log directory: Permission denied"
+        )
 
     @patch("logging.getLogger")
     @patch("os.makedirs")

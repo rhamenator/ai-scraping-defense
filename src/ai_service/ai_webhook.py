@@ -31,8 +31,9 @@ from src.shared.redis_client import get_redis_connection as shared_get_redis_con
 
 # Import the new alerting abstractions
 try:
-    from src.shared.slack_alert import SlackAlertSender
     from src.shared.http_alert import HttpAlertSender
+    from src.shared.slack_alert import SlackAlertSender
+
     ALERT_ABSTRACTIONS_AVAILABLE = True
 except ImportError:
     ALERT_ABSTRACTIONS_AVAILABLE = False
@@ -119,7 +120,11 @@ BLOCK_LOG_FILE = os.path.join(LOG_DIR, "block_events.log")
 ALERT_LOG_FILE = os.path.join(LOG_DIR, "alert_events.log")
 ERROR_LOG_FILE = os.path.join(LOG_DIR, "aiservice_errors.log")
 COMMUNITY_REPORT_LOG_FILE = os.path.join(LOG_DIR, "community_report.log")
-os.makedirs(LOG_DIR, exist_ok=True)
+try:
+    os.makedirs(LOG_DIR, exist_ok=True)
+except OSError as e:
+    logger.error("Cannot create log directory %s: %s", LOG_DIR, e)
+    raise SystemExit(1)
 WEBHOOK_API_KEY = CONFIG.WEBHOOK_API_KEY
 
 # --- Load Secrets ---
@@ -428,24 +433,23 @@ async def report_ip_to_community(ip: str, reason: str, details: dict) -> bool:
 
 async def send_generic_webhook_alert(event_data: WebhookEvent):
     """Send generic webhook alert using the new layered alerting abstraction.
-    
+
     This function now uses the HttpAlertSender class for improved error handling,
-    consistent formatting, and better maintainability. Falls back to legacy 
+    consistent formatting, and better maintainability. Falls back to legacy
     implementation if the new abstractions are not available.
     """
     if not ALERT_GENERIC_WEBHOOK_URL:
         return
-        
+
     ip = event_data.details.get("ip", "N/A")
-    
+
     # Use the new HTTP alert abstraction if available
     if ALERT_ABSTRACTIONS_AVAILABLE:
         try:
             generic_sender = HttpAlertSender(
-                webhook_url=ALERT_GENERIC_WEBHOOK_URL,
-                timeout=10.0
+                webhook_url=ALERT_GENERIC_WEBHOOK_URL, timeout=10.0
             )
-            
+
             # Format data for the new alert system
             alert_data = {
                 "alert_type": "AI_DEFENSE_BLOCK",
@@ -455,9 +459,9 @@ async def send_generic_webhook_alert(event_data: WebhookEvent):
                 "user_agent": event_data.details.get("user_agent", "N/A"),
                 "details": event_data.details,
             }
-            
+
             success = await generic_sender.send_alert(alert_data)
-            
+
             if success:
                 log_event(
                     ALERT_LOG_FILE,
@@ -465,10 +469,15 @@ async def send_generic_webhook_alert(event_data: WebhookEvent):
                     {"reason": event_data.reason, "ip": ip},
                 )
             else:
-                log_error(f"Failed to send generic webhook alert for IP {ip} using new alert system")
-                
+                log_error(
+                    f"Failed to send generic webhook alert for IP {ip} using new alert system"
+                )
+
         except Exception as e:
-            log_error(f"Error using new generic alert system for IP {ip}, falling back to legacy", e)
+            log_error(
+                f"Error using new generic alert system for IP {ip}, falling back to legacy",
+                e,
+            )
             # Fall back to legacy implementation
             await _send_generic_webhook_alert_legacy(event_data)
     else:
@@ -478,13 +487,13 @@ async def send_generic_webhook_alert(event_data: WebhookEvent):
 
 async def _send_generic_webhook_alert_legacy(event_data: WebhookEvent):
     """Legacy generic webhook alert implementation for fallback scenarios.
-    
+
     This preserves the original implementation for backward compatibility
     and as a fallback when the new alert abstractions are not available.
     """
     if not ALERT_GENERIC_WEBHOOK_URL:
         return
-        
+
     ip = event_data.details.get("ip", "N/A")
     logger.info(f"Sending generic webhook alert (legacy) for IP: {ip}")
     payload = {
@@ -526,42 +535,48 @@ async def _send_generic_webhook_alert_legacy(event_data: WebhookEvent):
 
 async def send_slack_alert(event_data: WebhookEvent):
     """Send Slack alert using the new layered alerting abstraction.
-    
+
     This function now uses the SlackAlertSender class for improved error handling,
     rich formatting, and better maintainability. Falls back to legacy implementation
     if the new abstractions are not available.
     """
     if not ALERT_SLACK_WEBHOOK_URL:
         return
-    
+
     ip = event_data.details.get("ip", "N/A")
     reason = event_data.reason
-    
+
     # Use the new Slack alert abstraction if available
     if ALERT_ABSTRACTIONS_AVAILABLE:
         try:
             slack_sender = SlackAlertSender(
-                webhook_url=ALERT_SLACK_WEBHOOK_URL,
-                timeout=10.0
+                webhook_url=ALERT_SLACK_WEBHOOK_URL, timeout=10.0
             )
-            
+
             # Format data for the new alert system
             alert_data = {
                 "reason": reason,
                 "event_type": event_data.event_type,
                 "timestamp_utc": str(event_data.timestamp_utc),
-                "details": event_data.details
+                "details": event_data.details,
             }
-            
+
             success = await slack_sender.send_slack_alert(alert_data)
-            
+
             if success:
-                log_event(ALERT_LOG_FILE, "ALERT_SENT_SLACK", {"reason": reason, "ip": ip})
+                log_event(
+                    ALERT_LOG_FILE, "ALERT_SENT_SLACK", {"reason": reason, "ip": ip}
+                )
             else:
-                log_error(f"Failed to send Slack alert for IP {ip} using new alert system")
-                
+                log_error(
+                    f"Failed to send Slack alert for IP {ip} using new alert system"
+                )
+
         except Exception as e:
-            log_error(f"Error using new Slack alert system for IP {ip}, falling back to legacy", e)
+            log_error(
+                f"Error using new Slack alert system for IP {ip}, falling back to legacy",
+                e,
+            )
             # Fall back to legacy implementation
             await _send_slack_alert_legacy(event_data)
     else:
@@ -571,17 +586,17 @@ async def send_slack_alert(event_data: WebhookEvent):
 
 async def _send_slack_alert_legacy(event_data: WebhookEvent):
     """Legacy Slack alert implementation for fallback scenarios.
-    
+
     This preserves the original implementation for backward compatibility
     and as a fallback when the new alert abstractions are not available.
     """
     if not ALERT_SLACK_WEBHOOK_URL:
         return
-        
+
     ip = event_data.details.get("ip", "N/A")
     ua = event_data.details.get("user_agent", "N/A")
     reason = event_data.reason
-    
+
     logger.info(f"Sending Slack alert (legacy) for IP: {ip}")
     message = (
         ":shield: *AI Defense Alert*\n> *Reason:* {reason}\n> *IP Address:* `{ip}`\n"
@@ -589,7 +604,7 @@ async def _send_slack_alert_legacy(event_data: WebhookEvent):
     )
     payload = {"text": message}
     headers = {"Content-Type": "application/json"}
-    
+
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
