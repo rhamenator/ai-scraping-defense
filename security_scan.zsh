@@ -152,7 +152,27 @@ if command -v ffuf >/dev/null 2>&1; then
     if [[ -f "$WORDLIST" ]]; then
         ffuf -w "$WORDLIST" -u "${WEB_URL}/FUZZ" -of csv -o "reports/ffuf_$(echo $WEB_URL | tr '/:' '_').csv"
     else
-        echo "Wordlist $WORDLIST not found. Skipping ffuf fuzzing."
+    # Try common wordlist locations (Linux, Homebrew/macOS, user override)
+    WORDLISTS=(
+        "/usr/share/seclists/Discovery/Web-Content/common.txt"
+        "/opt/homebrew/share/seclists/Discovery/Web-Content/common.txt"
+        "$HOME/seclists/Discovery/Web-Content/common.txt"
+    )
+    # Allow override via environment variable
+    if [[ -n "$FFUF_WORDLIST" ]]; then
+        WORDLISTS=("$FFUF_WORDLIST" "${WORDLISTS[@]}")
+    fi
+    FOUND_WORDLIST=""
+    for WL in "${WORDLISTS[@]}"; do
+        if [[ -f "$WL" ]]; then
+            FOUND_WORDLIST="$WL"
+            break
+        fi
+    done
+    if [[ -n "$FOUND_WORDLIST" ]]; then
+        ffuf -w "$FOUND_WORDLIST" -u "${WEB_URL}/FUZZ" -of csv -o "reports/ffuf_$(echo $WEB_URL | tr '/:' '_').csv"
+    else
+        echo "No suitable wordlist found in common locations. Set FFUF_WORDLIST to override. Skipping ffuf fuzzing."
     fi
 else
     echo "ffuf not installed. Skipping web fuzzing."
