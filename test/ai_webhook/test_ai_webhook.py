@@ -1,6 +1,11 @@
 # test/ai_webhook/test_ai_webhook.py
 import asyncio
+import hashlib
+import hmac
+import json
+import os
 import unittest
+from importlib import reload
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -12,10 +17,15 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
     def setUp(self):
         """Set up the FastAPI test client and patch dependencies."""
+        self.secret = "test-secret"
+        self.env_patcher = patch.dict(
+            os.environ, {"WEBHOOK_SHARED_SECRET": self.secret}, clear=False
+        )
+        self.env_patcher.start()
+        reload(ai_webhook)
         self.client = TestClient(ai_webhook.app)
-        self.api_key = "test-api-key"
-        ai_webhook.WEBHOOK_API_KEY = self.api_key
-        self.headers = {"X-API-Key": self.api_key}
+        ai_webhook.WEBHOOK_SHARED_SECRET = self.secret
+        ai_webhook._request_counts.clear()
 
         # The function is imported from shared.redis_client into the ai_webhook module.
         # Therefore, we must patch it where it is used.
@@ -29,7 +39,16 @@ class TestAIWebhookComprehensive(unittest.TestCase):
     def tearDown(self):
         """Stop all patches."""
         patch.stopall()
-        ai_webhook.WEBHOOK_API_KEY = None
+        self.env_patcher.stop()
+        ai_webhook.WEBHOOK_SHARED_SECRET = None
+
+    def _post(self, payload, headers=None):
+        body = json.dumps(payload).encode("utf-8")
+        sig = hmac.new(self.secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+        hdrs = {"X-Signature": sig, "Content-Type": "application/json"}
+        if headers:
+            hdrs.update(headers)
+        return self.client.post("/webhook", data=body, headers=hdrs)
 
     def test_webhook_receiver_block_ip_success(self):
         """Test a successful 'block_ip' action."""
@@ -40,7 +59,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
             "source": "escalation-engine",
         }
         self.mock_redis_client.sadd.return_value = 1
-        response = self.client.post("/webhook", json=payload, headers=self.headers)
+        response = self._post(payload)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -55,7 +74,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         """Test a successful 'allow_ip' action."""
         payload = {"action": "allow_ip", "ip": "20.0.0.2"}
         self.mock_redis_client.srem.return_value = 1
-        response = self.client.post("/webhook", json=payload, headers=self.headers)
+        response = self._post(payload)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -74,7 +93,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
             "reason": "Suspicious activity",
         }
         self.mock_redis_client.set.return_value = True
-        response = self.client.post("/webhook", json=payload, headers=self.headers)
+        response = self._post(payload)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -89,7 +108,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         """Test a successful 'unflag_ip' action."""
         payload = {"action": "unflag_ip", "ip": "40.0.0.4"}
         self.mock_redis_client.delete.return_value = 1
-        response = self.client.post("/webhook", json=payload, headers=self.headers)
+        response = self._post(payload)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -112,9 +131,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         for action, redis_mock, extra in actions:
             with self.subTest(action=action):
                 payload = {"action": action, "ip": invalid_ip, **extra}
-                response = self.client.post(
-                    "/webhook", json=payload, headers=self.headers
-                )
+                response = self._post(payload)
                 self.assertEqual(response.status_code, 400)
                 self.assertEqual(
                     response.json()["detail"],
@@ -136,31 +153,43 @@ class TestAIWebhookComprehensive(unittest.TestCase):
     def test_webhook_receiver_invalid_action(self):
         """Test that an unsupported action returns a 400 error."""
         payload = {"action": "reboot_server", "ip": "1.2.3.4"}
-        response = self.client.post("/webhook", json=payload, headers=self.headers)
+        response = self._post(payload)
         self.assertEqual(response.status_code, 400)
         self.assertIn("Invalid action", response.json()["detail"])
 
     def test_webhook_receiver_payload_missing_ip(self):
         """Test that a payload missing the 'ip' field returns a 400 error."""
         payload = {"action": "block_ip", "reason": "No IP here."}
-        response = self.client.post("/webhook", json=payload, headers=self.headers)
+        response = self._post(payload)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(
             response.json()["detail"], "Missing 'ip' in payload for action 'block_ip'."
         )
 
-    def test_webhook_receiver_missing_api_key(self):
-        """Request without the API key should be unauthorized."""
+    def test_webhook_receiver_missing_signature(self):
+        """Request without the signature should be unauthorized."""
         payload = {"action": "block_ip", "ip": "1.2.3.4"}
-        response = self.client.post("/webhook", json=payload)
+        body = json.dumps(payload).encode("utf-8")
+        response = self.client.post(
+            "/webhook",
+            data=body,
+            headers={"Content-Type": "application/json"},
+        )
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()["detail"], "Unauthorized")
 
-    def test_webhook_receiver_invalid_api_key(self):
-        """Request with an incorrect API key should be unauthorized."""
+    def test_webhook_receiver_invalid_signature(self):
+        """Request with an incorrect signature should be unauthorized."""
         payload = {"action": "block_ip", "ip": "1.2.3.4"}
+        body = json.dumps(payload).encode("utf-8")
+        wrong_sig = hmac.new(b"wrong", body, hashlib.sha256).hexdigest()
         response = self.client.post(
-            "/webhook", json=payload, headers={"X-API-Key": "wrong"}
+            "/webhook",
+            data=body,
+            headers={
+                "X-Signature": wrong_sig,
+                "Content-Type": "application/json",
+            },
         )
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()["detail"], "Unauthorized")
@@ -169,7 +198,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         """Test that a 503 error is returned if the Redis connection fails."""
         self.mock_get_redis.return_value = None
         payload = {"action": "block_ip", "ip": "1.2.3.4"}
-        response = self.client.post("/webhook", json=payload, headers=self.headers)
+        response = self._post(payload)
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()["detail"], "Redis service unavailable")
 
@@ -178,7 +207,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         """Test that a 500 error is returned if a Redis command fails."""
         self.mock_redis_client.sadd.side_effect = Exception("Redis command failed")
         payload = {"action": "block_ip", "ip": "1.2.3.4"}
-        response = self.client.post("/webhook", json=payload, headers=self.headers)
+        response = self._post(payload)
 
         self.assertEqual(response.status_code, 500)
         self.assertIn("Failed to execute action", response.json()["detail"])

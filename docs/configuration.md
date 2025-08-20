@@ -81,7 +81,9 @@ This page documents all environment variables consumed by the Python services. D
 | `COMMUNITY_BLOCKLIST_REPORT_URL` | *(none)* | URL to send community reports |
 | `COMMUNITY_BLOCKLIST_API_KEY_FILE` | `/run/secrets/community_blocklist_api_key` | API key file for community reports |
 | `COMMUNITY_BLOCKLIST_REPORT_TIMEOUT` | `10.0` | HTTP timeout for reporting |
-| `WEBHOOK_API_KEY` | *(none)* | Shared key for webhook auth |
+| `WEBHOOK_SHARED_SECRET` | *(none)* | Secret used to verify webhook HMAC signatures |
+| `WEBHOOK_RATE_LIMIT_REQUESTS` | `60` | Requests allowed per IP in each window |
+| `WEBHOOK_RATE_LIMIT_WINDOW` | `60` | Rate limit window size in seconds |
 
 ## Escalation Engine and Classification
 
