@@ -5,7 +5,9 @@ from fastapi import HTTPException, Request
 
 MAX_JSON_PAYLOAD_SIZE = int(os.getenv("MAX_JSON_PAYLOAD_SIZE", "1048576"))
 
-
+# 1MB default limit for JSON payloads
+DEFAULT_MAX_PAYLOAD_BYTES = 1048576  # 1MB default limit
+MAX_JSON_PAYLOAD_SIZE = int(os.getenv("MAX_JSON_PAYLOAD_SIZE", str(DEFAULT_MAX_PAYLOAD_BYTES)))
 async def read_json_body(
     request: Request, max_bytes: int = MAX_JSON_PAYLOAD_SIZE
 ) -> dict:
