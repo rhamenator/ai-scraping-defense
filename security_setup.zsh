@@ -39,7 +39,7 @@ curl -fsSL -o "$TMP_DIR/$GITLEAKS_TAR" \
 curl -fsSL -o "$TMP_DIR/gitleaks_checksums.txt" \
   "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
 (cd "$TMP_DIR" && grep "$GITLEAKS_TAR" gitleaks_checksums.txt | shasum -a 256 -c -)
-tar -xz -C /usr/local/bin -f "$TMP_DIR/$GITLEAKS_TAR" gitleaks
+tar -xz -C "$BIN_DIR" -f "$TMP_DIR/$GITLEAKS_TAR" gitleaks
 rm "$TMP_DIR/$GITLEAKS_TAR" "$TMP_DIR/gitleaks_checksums.txt"
 
 # Grype
