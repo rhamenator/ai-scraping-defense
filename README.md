@@ -152,10 +152,11 @@ installs dependencies, and starts Docker Compose. See
    ```bash
    git clone https://github.com/your-username/ai-scraping-defense.git
    cd ai-scraping-defense
-   sudo ./quickstart_dev.sh
+   ./quickstart_dev.zsh
    ```
 4. When the containers finish starting, visit [http://localhost:5002](http://localhost:5002) to open the Admin UI.
 5. If containers fail to start, confirm Docker Desktop is running by opening the Docker menu.
+6. For a step-by-step walkthrough, including security tooling, see the [macOS setup guide](docs/macos_setup.md).
 
 ### Windows
 1. Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop) and ensure it is running.
@@ -180,7 +181,9 @@ cd ai-scraping-defense
 cp sample.env .env
 python scripts/validate_env.py
 
-sudo ./quickstart_dev.sh   # use sudo on Linux/macOS; run quickstart_dev.ps1 on Windows
+sudo ./quickstart_dev.sh   # Linux
+./quickstart_dev.zsh   # macOS
+
 ```
 
 For the security testing environment, a helper `security_setup.sh` script installs all Python requirements and security tools used by `security_scan.sh`.

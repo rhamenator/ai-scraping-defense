@@ -9,7 +9,8 @@ Run the helper script after cloning the repository:
 ```bash
 git clone https://github.com/your-username/ai-scraping-defense.git
 cd ai-scraping-defense
-sudo ./quickstart_dev.sh  # use sudo on Linux/macOS; run quickstart_dev.ps1 on Windows
+sudo ./quickstart_dev.sh  # Linux
+./quickstart_dev.zsh      # macOS
 ```
 
 On Windows, run `quickstart_dev.ps1` from an **Administrator PowerShell** window instead of the shell script.
