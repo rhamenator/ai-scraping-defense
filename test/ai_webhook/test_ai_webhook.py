@@ -10,7 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from src.ai_service import ai_webhook
+from src.ai_service import blocklist, community_reporting
+from src.ai_service import main as ai_webhook
 
 
 class TestAIWebhookComprehensive(unittest.TestCase):
@@ -29,9 +30,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
         # The function is imported from shared.redis_client into the ai_webhook module.
         # Therefore, we must patch it where it is used.
-        self.redis_client_patcher = patch(
-            "src.ai_service.ai_webhook.get_redis_connection"
-        )
+        self.redis_client_patcher = patch("src.ai_service.main.get_redis_connection")
         self.mock_get_redis = self.redis_client_patcher.start()
         self.mock_redis_client = MagicMock()
         self.mock_get_redis.return_value = self.mock_redis_client
@@ -142,8 +141,8 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
     def test_add_ip_to_blocklist_rejects_invalid_ip(self):
         """add_ip_to_blocklist should return False and not touch Redis for invalid IPs."""
-        ai_webhook.BLOCKLISTING_ENABLED = True
-        result = ai_webhook.add_ip_to_blocklist(
+        blocklist.BLOCKLISTING_ENABLED = True
+        result = blocklist.add_ip_to_blocklist(
             "999.999.999.999", "bad", event_details=None
         )
         self.assertFalse(result)
@@ -202,7 +201,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()["detail"], "Redis service unavailable")
 
-    @patch("src.ai_service.ai_webhook.logger.error")
+    @patch("src.ai_service.main.logger.error")
     def test_webhook_receiver_redis_command_fails(self, mock_logger_error):
         """Test that a 500 error is returned if a Redis command fails."""
         self.mock_redis_client.sadd.side_effect = Exception("Redis command failed")
@@ -230,9 +229,9 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
 class TestCommunityReportingTimeout(unittest.IsolatedAsyncioTestCase):
     async def test_report_ip_to_community_json_timeout(self):
-        ai_webhook.ENABLE_COMMUNITY_REPORTING = True
-        ai_webhook.COMMUNITY_BLOCKLIST_REPORT_URL = "http://example.com/report"
-        ai_webhook.COMMUNITY_BLOCKLIST_API_KEY = "key"
+        community_reporting.ENABLE_COMMUNITY_REPORTING = True
+        community_reporting.COMMUNITY_BLOCKLIST_REPORT_URL = "http://example.com/report"
+        community_reporting.COMMUNITY_BLOCKLIST_API_KEY = "key"
 
         mock_response = MagicMock()
         mock_response.raise_for_status.return_value = None
@@ -244,23 +243,27 @@ class TestCommunityReportingTimeout(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(1)
 
         with patch(
-            "src.ai_service.ai_webhook.httpx.AsyncClient",
+            "src.ai_service.community_reporting.httpx.AsyncClient",
             return_value=mock_client,
         ), patch(
-            "src.ai_service.ai_webhook.asyncio.to_thread",
+            "src.ai_service.community_reporting.asyncio.to_thread",
             side_effect=slow_to_thread,
         ), patch(
-            "src.ai_service.ai_webhook.increment_counter_metric"
+            "src.ai_service.community_reporting.increment_counter_metric"
         ) as mock_metric, patch(
-            "src.ai_service.ai_webhook.logger.error"
+            "src.ai_service.community_reporting.logger.error"
         ) as mock_log:
-            original_timeout = ai_webhook.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT
-            ai_webhook.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = 0.01
-            result = await ai_webhook.report_ip_to_community("1.2.3.4", "reason", {})
-            ai_webhook.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = original_timeout
+            original_timeout = community_reporting.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT
+            community_reporting.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = 0.01
+            result = await community_reporting.report_ip_to_community(
+                "1.2.3.4", "reason", {}
+            )
+            community_reporting.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = original_timeout
 
         self.assertFalse(result)
-        mock_metric.assert_any_call(ai_webhook.COMMUNITY_REPORTS_ERRORS_TIMEOUT)
+        mock_metric.assert_any_call(
+            community_reporting.COMMUNITY_REPORTS_ERRORS_TIMEOUT
+        )
         mock_log.assert_called()
 
 
