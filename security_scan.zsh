@@ -184,7 +184,27 @@ if command -v wfuzz >/dev/null 2>&1; then
     if [[ -f "$PARAM_LIST" ]]; then
         wfuzz -c -z file,"$PARAM_LIST" -d "FUZZ=test" "$WEB_URL" | tee "reports/wfuzz_$(echo $WEB_URL | tr '/:' '_').txt"
     else
-        echo "Parameter wordlist $PARAM_LIST not found. Skipping wfuzz."
+    # Try common locations for burp-parameter-names.txt
+    PARAM_LIST=""
+    PARAM_CANDIDATES=(
+        "/usr/share/seclists/Discovery/Web-Content/burp-parameter-names.txt"
+        "/opt/homebrew/share/seclists/Discovery/Web-Content/burp-parameter-names.txt"
+        "/usr/local/share/seclists/Discovery/Web-Content/burp-parameter-names.txt"
+    )
+    for candidate in $PARAM_CANDIDATES; do
+        if [[ -f "$candidate" ]]; then
+            PARAM_LIST="$candidate"
+            break
+        fi
+    done
+    if [[ -n "$PARAM_LIST" ]]; then
+        wfuzz -c -z file,"$PARAM_LIST" -d "FUZZ=test" "$WEB_URL" | tee "reports/wfuzz_$(echo $WEB_URL | tr '/:' '_').txt"
+    else
+        echo "Parameter wordlist not found in any of:"
+        for candidate in $PARAM_CANDIDATES; do
+            echo "  $candidate"
+        done
+        echo "Skipping wfuzz. To fix, install Seclists and ensure burp-parameter-names.txt is available."
     fi
 else
     echo "wfuzz not installed. Skipping parameter fuzzing."
