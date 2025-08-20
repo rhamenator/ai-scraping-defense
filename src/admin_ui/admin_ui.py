@@ -5,9 +5,13 @@ This module assembles the FastAPI application and wires in
 submodules that handle authentication, metrics, blocklist
 management and WebAuthn support.
 """
+import json
 import logging
 import os
 import secrets
+import time
+from base64 import b64decode, b64encode
+from json import JSONDecodeError
 
 from fastapi import Cookie, Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +21,8 @@ from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
 
 from src.shared.audit import log_event
-from src.shared.config import CONFIG
+from src.shared.config import CONFIG, tenant_key
+from src.shared.redis_client import get_redis_connection
 
 from . import blocklist, metrics, webauthn
 from .auth import require_admin, require_auth
@@ -25,6 +30,35 @@ from .auth import require_admin, require_auth
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(__file__)
+
+# Editable runtime settings managed via the Admin UI
+RUNTIME_SETTINGS_KEY = tenant_key("admin_ui:settings")
+DEFAULT_RUNTIME_SETTINGS = {
+    "LOG_LEVEL": os.getenv("LOG_LEVEL", "INFO"),
+    "ESCALATION_ENDPOINT": CONFIG.ESCALATION_ENDPOINT,
+    "ALLOWED_PLUGINS": os.getenv("ALLOWED_PLUGINS", "ua_blocker"),
+}
+
+WEBAUTHN_TOKEN_TTL = 300
+
+
+def _get_runtime_setting(name: str) -> str:
+    redis_conn = get_redis_connection()
+    if not redis_conn:
+        raise RuntimeError("Redis unavailable")
+    value = redis_conn.hget(RUNTIME_SETTINGS_KEY, name)
+    if value is None:
+        default = DEFAULT_RUNTIME_SETTINGS[name]
+        redis_conn.hset(RUNTIME_SETTINGS_KEY, name, default)
+        return default
+    return value
+
+
+def _set_runtime_setting(name: str, value: str) -> None:
+    redis_conn = get_redis_connection()
+    if not redis_conn:
+        raise RuntimeError("Redis unavailable")
+    redis_conn.hset(RUNTIME_SETTINGS_KEY, name, value)
 
 
 def _discover_plugins() -> list[str]:
@@ -75,12 +109,7 @@ app.mount(
     "/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"
 )
 
-# Editable runtime settings managed via the Admin UI
-RUNTIME_SETTINGS = {
-    "LOG_LEVEL": os.getenv("LOG_LEVEL", "INFO"),
-    "ESCALATION_ENDPOINT": CONFIG.ESCALATION_ENDPOINT,
-    "ALLOWED_PLUGINS": os.getenv("ALLOWED_PLUGINS", "ua_blocker"),
-}
+templates.env.globals["url_for"] = _jinja_url_for
 
 # Include routers from submodules
 app.include_router(metrics.router)
@@ -117,8 +146,8 @@ async def settings_page(
         csrf_token = secrets.token_urlsafe(16)
     current_settings = {
         "Model URI": os.getenv("MODEL_URI", "Not Set"),
-        "LOG_LEVEL": RUNTIME_SETTINGS["LOG_LEVEL"],
-        "ESCALATION_ENDPOINT": RUNTIME_SETTINGS["ESCALATION_ENDPOINT"],
+        "LOG_LEVEL": _get_runtime_setting("LOG_LEVEL"),
+        "ESCALATION_ENDPOINT": _get_runtime_setting("ESCALATION_ENDPOINT"),
     }
     response = templates.TemplateResponse(
         "settings.html",
@@ -148,10 +177,10 @@ async def update_settings(
     escalation_endpoint = form.get("ESCALATION_ENDPOINT")
 
     if log_level:
-        RUNTIME_SETTINGS["LOG_LEVEL"] = log_level
+        _set_runtime_setting("LOG_LEVEL", log_level)
         os.environ["LOG_LEVEL"] = log_level
     if escalation_endpoint:
-        RUNTIME_SETTINGS["ESCALATION_ENDPOINT"] = escalation_endpoint
+        _set_runtime_setting("ESCALATION_ENDPOINT", escalation_endpoint)
         os.environ["ESCALATION_ENDPOINT"] = escalation_endpoint
 
     log_event(
@@ -162,8 +191,8 @@ async def update_settings(
 
     current_settings = {
         "Model URI": os.getenv("MODEL_URI", "Not Set"),
-        "LOG_LEVEL": RUNTIME_SETTINGS["LOG_LEVEL"],
-        "ESCALATION_ENDPOINT": RUNTIME_SETTINGS["ESCALATION_ENDPOINT"],
+        "LOG_LEVEL": _get_runtime_setting("LOG_LEVEL"),
+        "ESCALATION_ENDPOINT": _get_runtime_setting("ESCALATION_ENDPOINT"),
     }
     return templates.TemplateResponse(
         "settings.html",
@@ -184,9 +213,10 @@ async def view_logs(request: Request, user: str = Depends(require_auth)):
 async def plugins_page(request: Request, user: str = Depends(require_auth)):
     """Show available plugins and which are enabled."""
     available = _discover_plugins()
+    allowed_plugins = _get_runtime_setting("ALLOWED_PLUGINS")
     enabled = (
-        RUNTIME_SETTINGS["ALLOWED_PLUGINS"].split(",")
-        if RUNTIME_SETTINGS["ALLOWED_PLUGINS"]
+        allowed_plugins.split(",")
+        if allowed_plugins
         else []
     )
     return templates.TemplateResponse(
@@ -201,7 +231,7 @@ async def update_plugins(request: Request, user: str = Depends(require_admin)):
     form = await request.form()
     selected = form.getlist("plugins")
     allowed = ",".join(selected)
-    RUNTIME_SETTINGS["ALLOWED_PLUGINS"] = allowed
+    _set_runtime_setting("ALLOWED_PLUGINS", allowed)
     os.environ["ALLOWED_PLUGINS"] = allowed
     try:
         import httpx

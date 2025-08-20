@@ -1,25 +1,50 @@
-"""Minimal pay-per-crawl accounting."""
+"""Minimal pay-per-crawl accounting backed by Redis."""
+
 from __future__ import annotations
 
-from typing import Dict
+from src.shared.config import tenant_key
+from src.shared.redis_client import get_redis_connection
 
 _default_price = 0.001
-_prices: Dict[str, float] = {}
-_usage: Dict[str, float] = {}
+PRICES_KEY = tenant_key("crawler:prices")
+USAGE_KEY = tenant_key("crawler:usage")
 
 
 def set_price(purpose: str, price: float) -> None:
     """Set the crawl price for a specific purpose."""
-    _prices[purpose] = max(0.0, price)
+    redis_conn = get_redis_connection()
+    if not redis_conn:
+        raise RuntimeError("Redis unavailable")
+    redis_conn.hset(PRICES_KEY, purpose, max(0.0, price))
 
 
 def record_crawl(token: str, purpose: str) -> float:
     """Record a crawl and return the charge for this request."""
-    price = _prices.get(purpose, _default_price)
-    _usage[token] = _usage.get(token, 0.0) + price
+    redis_conn = get_redis_connection()
+    if not redis_conn:
+        raise RuntimeError("Redis unavailable")
+    raw = redis_conn.hget(PRICES_KEY, purpose)
+    if raw is not None:
+        try:
+            price = float(raw)
+        except ValueError:
+            price = _default_price
+    else:
+        price = _default_price
+    redis_conn.hincrbyfloat(USAGE_KEY, token, price)
     return price
 
 
 def get_usage(token: str) -> float:
     """Return the current owed balance for a token."""
-    return _usage.get(token, 0.0)
+    redis_conn = get_redis_connection()
+    if not redis_conn:
+        raise RuntimeError("Redis unavailable")
+    raw = redis_conn.hget(USAGE_KEY, token)
+    if raw is not None:
+        try:
+            return float(raw)
+        except ValueError:
+            return 0.0
+    else:
+        return 0.0
