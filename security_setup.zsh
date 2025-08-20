@@ -51,7 +51,7 @@ curl -fsSL -o "$TMP_DIR/$GRYPE_TAR" \
 curl -fsSL -o "$TMP_DIR/grype_checksums.txt" \
   "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_checksums.txt"
 (cd "$TMP_DIR" && grep "$GRYPE_TAR" grype_checksums.txt | shasum -a 256 -c -)
-tar -xz -C /usr/local/bin -f "$TMP_DIR/$GRYPE_TAR" grype
+tar -xz -C "$HOME/.local/bin" -f "$TMP_DIR/$GRYPE_TAR" grype
 rm "$TMP_DIR/$GRYPE_TAR" "$TMP_DIR/grype_checksums.txt"
 
 pip install bandit sslyze sublist3r pip-audit
