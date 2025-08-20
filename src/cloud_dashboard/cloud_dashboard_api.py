@@ -28,7 +28,8 @@ async def register_installation(payload: Dict[str, Any]):
     if not redis_conn:
         return JSONResponse({"error": "storage unavailable"}, status_code=500)
     key = tenant_key(f"cloud:install:{installation_id}")
-    redis_conn.set(key, json.dumps({}), ex=METRICS_TTL)
+    registration_key = tenant_key(f"cloud:install:registered:{installation_id}")
+    redis_conn.set(registration_key, json.dumps({"registered": True}), ex=REGISTRATION_TTL)
     return {"status": "registered", "installation_id": installation_id}
 
 
