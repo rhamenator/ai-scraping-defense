@@ -1,9 +1,11 @@
 # test/shared/metrics.test.py
+import importlib
 import unittest
 from unittest.mock import patch
+
 from prometheus_client import CollectorRegistry, generate_latest
+
 from src.shared import metrics
-import importlib
 
 
 class TestMetricsComprehensive(unittest.TestCase):
@@ -42,6 +44,17 @@ class TestMetricsComprehensive(unittest.TestCase):
             ),
             1.0,
         )
+
+    def test_increment_counter_metric_in_memory(self):
+        """Ensure increment_counter_metric works with the in-memory counter."""
+        counter = metrics.InMemoryCounter("test")
+        metrics.increment_counter_metric(counter)
+        metrics.increment_counter_metric(counter)
+        self.assertEqual(counter.get(), 2)
+
+        labels = {"foo": "bar"}
+        metrics.increment_counter_metric(counter, labels=labels)
+        self.assertEqual(counter.get(**labels), 1)
 
     def test_set_gauge_metric(self):
         """Test the gauge set helper function with and without labels."""
