@@ -4,16 +4,13 @@ in a dedicated Redis database. It uses a centralized Redis connection
 utility from the 'shared' module.
 """
 
-import sys
 import logging
 import os
-from src.shared.redis_client import get_redis_connection
+
 from src.shared.config import tenant_key
+from src.shared.redis_client import get_redis_connection
 
 # Configure logging for this module
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
 
 # Define the specific Redis database number for flagged IPs.
@@ -99,6 +96,9 @@ def remove_ip_flag(ip_address: str):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     # Example usage for direct testing of this module.
     print("Running IP Flagger example...")
     test_ip = "192.168.1.100"

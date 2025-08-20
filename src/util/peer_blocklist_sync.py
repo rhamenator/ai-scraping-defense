@@ -14,9 +14,6 @@ REDIS_DB_BLOCKLIST = int(os.getenv("REDIS_DB_BLOCKLIST", 2))
 PEER_BLOCKLIST_TTL_SECONDS = int(os.getenv("PEER_BLOCKLIST_TTL_SECONDS", 86400))
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 
 
 async def fetch_peer_ips(url: str) -> List[str]:
@@ -87,4 +84,7 @@ async def sync_peer_blocklists() -> Optional[int]:
 
 
 if __name__ == "__main__":  # pragma: no cover - manual execution
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     asyncio.run(sync_peer_blocklists())

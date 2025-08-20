@@ -1,22 +1,19 @@
 # tarpit/rotating_archive.py
 # Periodically generates new fake JS ZIP archives and removes old ones.
 
-import os
 import glob
-import time
-import schedule  # Using 'schedule' library for easy job scheduling
-import sys
 import logging
+import os
+import time
+
+import schedule  # Using 'schedule' library for easy job scheduling
 
 # Configure module-level logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
 
 # --- Import the generator script ---
 try:
-    from .js_zip_generator import create_fake_js_zip, DEFAULT_ARCHIVE_DIR
+    from .js_zip_generator import DEFAULT_ARCHIVE_DIR, create_fake_js_zip
 except ImportError as e:
     # Raise a clearer error so importing modules (like tests) fail gracefully
     raise ImportError(
@@ -75,6 +72,9 @@ def rotate_archives():
 
 # --- Main Execution Logic ---
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     logger.info("--- Rotating Archive Scheduler ---")
     logger.info(f"Watching directory: {ARCHIVE_DIR}")
     logger.info(f"Keeping latest: {MAX_ARCHIVES_TO_KEEP} archives")

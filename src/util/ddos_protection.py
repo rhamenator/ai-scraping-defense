@@ -15,9 +15,6 @@ DDOS_PROTECTION_API_KEY = os.getenv("DDOS_PROTECTION_API_KEY") or get_secret(
 DDOS_INTERNAL_ENDPOINT = os.getenv("DDOS_INTERNAL_ENDPOINT", CONFIG.ESCALATION_ENDPOINT)
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 
 
 async def report_attack(
@@ -84,3 +81,9 @@ async def report_attack(
     except Exception as e:  # pragma: no cover - network/HTTP errors
         logger.error(f"Failed to submit IP {ip} for internal analysis: {e}")
         return False
+
+
+if __name__ == "__main__":  # pragma: no cover - manual execution
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )

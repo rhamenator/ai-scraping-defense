@@ -16,9 +16,6 @@ NGINX_RATE_LIMIT_CONF = os.getenv(
 )
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 
 
 def get_recent_counts(redis_conn, window_seconds: int) -> List[int]:
@@ -64,4 +61,7 @@ def compute_and_update(redis_conn: Optional[object] = None) -> int:
 
 
 if __name__ == "__main__":  # pragma: no cover - manual execution
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     compute_and_update()

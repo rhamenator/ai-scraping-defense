@@ -1,7 +1,6 @@
 # util/corpus_wikipedia_updater.py
 import logging
 import os
-import logging
 import re
 import time
 
@@ -9,9 +8,6 @@ import wikipedia
 from wikipedia.exceptions import DisambiguationError, PageError
 
 # Set up basic logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
 
 # No longer necessary with correct PYTHONPATH
@@ -165,4 +161,7 @@ def main():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     main()

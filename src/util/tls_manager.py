@@ -6,9 +6,6 @@ TLS_PROVIDER = os.getenv("TLS_PROVIDER", "certbot")
 TLS_EMAIL = os.getenv("TLS_EMAIL")
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 
 
 def ensure_certificate(domain: str) -> bool:
@@ -19,3 +16,9 @@ def ensure_certificate(domain: str) -> bool:
     logger.info(f"Ensuring TLS certificate for {domain} via {TLS_PROVIDER}.")
     # Real certificate management would be implemented here.
     return True
+
+
+if __name__ == "__main__":  # pragma: no cover - manual execution
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )

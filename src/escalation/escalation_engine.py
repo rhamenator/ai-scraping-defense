@@ -36,9 +36,6 @@ from src.shared.model_provider import get_model_adapter
 from src.shared.redis_client import get_redis_connection
 
 # --- Setup Logging ---
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
 
 try:
@@ -1229,6 +1226,9 @@ async def admin_reload_plugins(request: Request):
 
 # --- Main (Preserved) ---
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     import uvicorn
 
     port = CONFIG.ESCALATION_ENGINE_PORT

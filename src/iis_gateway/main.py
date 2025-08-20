@@ -39,7 +39,6 @@ BAD_BOTS = [
     "wget",
 ]
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("iis_gateway")
 
 app = FastAPI()
@@ -138,6 +137,7 @@ async def proxy(path: str, request: Request) -> Response:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=9000)
