@@ -27,7 +27,7 @@ curl -fsSL -o "$TMP_DIR/$TRIVY_TAR" \
 curl -fsSL -o "$TMP_DIR/trivy_checksums.txt" \
   "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_checksums.txt"
 (cd "$TMP_DIR" && grep "$TRIVY_TAR" trivy_checksums.txt | shasum -a 256 -c -)
-tar -xz -C /usr/local/bin -f "$TMP_DIR/$TRIVY_TAR" trivy
+tar -xz -C "$INSTALL_DIR" -f "$TMP_DIR/$TRIVY_TAR" trivy
 rm "$TMP_DIR/$TRIVY_TAR" "$TMP_DIR/trivy_checksums.txt"
 
 # Gitleaks
