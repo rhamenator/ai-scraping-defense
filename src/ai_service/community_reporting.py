@@ -128,6 +128,6 @@ async def report_ip_to_community(ip: str, reason: str, details: Dict) -> bool:
         increment_counter_metric(COMMUNITY_REPORTS_ERRORS_RESPONSE_DECODE)
         return False
     except Exception as e:  # pragma: no cover - unexpected
-        logger.error("Unexpected error reporting IP %s: %s", ip, e, exc_info=True)
+        logger.error("Unexpected error reporting IP %s: %s", ip, e)
         increment_counter_metric(COMMUNITY_REPORTS_ERRORS_UNEXPECTED)
         return False

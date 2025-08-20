@@ -109,10 +109,7 @@ def fetch_random_wikipedia_articles(num_articles: int) -> list[str]:
         except PageError:
             logger.warning("Could not find a page for a random title, skipping.")
         except Exception as e:
-            logger.error(
-                f"An unexpected error occurred while fetching an article: {e}",
-                exc_info=True,
-            )
+            logger.error(f"An unexpected error occurred while fetching an article: {e}")
             time.sleep(2)  # Wait a bit longer after an unexpected error
 
     return fetched_articles
@@ -147,9 +144,7 @@ def update_corpus_file(articles: list[str]):
     except IOError as e:
         logger.error(f"Failed to write to corpus file {CORPUS_OUTPUT_FILE}: {e}")
     except Exception as e:
-        logger.error(
-            f"An unexpected error occurred during file update: {e}", exc_info=True
-        )
+        logger.error(f"An unexpected error occurred during file update: {e}")
 
 
 def main():

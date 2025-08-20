@@ -179,7 +179,7 @@ def trigger_ip_block(ip: str, reason: str):
         logger.error(f"Redis error while trying to block IP {ip}: {e}")
         return False
     except Exception as e:
-        logger.error(f"Unexpected error while blocking IP {ip}: {e}", exc_info=True)
+        logger.error(f"Unexpected error while blocking IP {ip}: {e}")
         return False
 
 
@@ -237,8 +237,7 @@ async def tarpit_handler(request: Request, path: str = ""):
             logger.error(f"Redis error during hop limit check for IP {client_ip}: {e}")
         except Exception as e:
             logger.error(
-                f"Unexpected error during hop limit check for IP {client_ip}: {e}",
-                exc_info=True,
+                f"Unexpected error during hop limit check for IP {client_ip}: {e}"
             )
 
     logger.info(
@@ -256,13 +255,13 @@ async def tarpit_handler(request: Request, path: str = ""):
         try:
             log_honeypot_hit(honeypot_details)
         except Exception as e:
-            logger.error(f"Error logging honeypot hit: {e}", exc_info=True)
+            logger.error(f"Error logging honeypot hit: {e}")
 
     if FLAGGING_AVAILABLE:
         try:
             flag_suspicious_ip(ip_address=client_ip, reason="Tarpit Hit")
         except Exception as e:
-            logger.error(f"Error flagging IP {client_ip}: {e}", exc_info=True)
+            logger.error(f"Error flagging IP {client_ip}: {e}")
 
     timestamp_iso = (
         datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
@@ -295,7 +294,6 @@ async def tarpit_handler(request: Request, path: str = ""):
             client_ip,
             ESCALATION_ENDPOINT,
             e,
-            exc_info=True,
         )
 
     content = "<html><body>Tarpit Error</body></html>"
@@ -309,8 +307,7 @@ async def tarpit_handler(request: Request, path: str = ""):
             )
         except Exception as e:
             logger.error(
-                f"Error generating labyrinth page for path '{requested_path}': {e}",
-                exc_info=True,
+                f"Error generating labyrinth page for path '{requested_path}': {e}"
             )
     elif GENERATOR_AVAILABLE:
         try:
@@ -323,8 +320,7 @@ async def tarpit_handler(request: Request, path: str = ""):
             content = generate_dynamic_tarpit_page(rng)
         except Exception as e:
             logger.error(
-                f"Error generating dynamic page for path '{requested_path}': {e}",
-                exc_info=True,
+                f"Error generating dynamic page for path '{requested_path}': {e}"
             )
             content = "<html><head><title>Error</title></head><body>Service temporarily unavailable.</body></html>"
     else:

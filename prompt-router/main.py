@@ -7,6 +7,8 @@ import time
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
 
+from src.shared.request_utils import read_json_body
+
 LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "http://llama3:11434/api/generate")
 CLOUD_PROXY_URL = os.getenv("CLOUD_PROXY_URL", "http://cloud_proxy:8008/api/chat")
 MAX_LOCAL_TOKENS = int(os.getenv("MAX_LOCAL_TOKENS", "1000"))
@@ -98,7 +100,7 @@ async def route_prompt(request: Request, response: Response) -> dict:
     response.headers["X-RateLimit-Remaining"] = str(remaining)
     response.headers["X-RateLimit-Reset"] = str(int(reset))
 
-    payload = await request.json()
+    payload = await read_json_body(request)
     prompt = payload.get("prompt", "")
     prompt_tokens = count_tokens(prompt)
     target = LOCAL_LLM_URL if prompt_tokens <= MAX_LOCAL_TOKENS else CLOUD_PROXY_URL

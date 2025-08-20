@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from src.shared.audit import log_event
 from src.shared.config import tenant_key
 from src.shared.redis_client import get_redis_connection
+from src.shared.request_utils import read_json_body
 
 from . import metrics
 from .auth import require_admin, require_auth
@@ -119,7 +120,7 @@ async def get_blocklist(user: str = Depends(require_auth)):
 
 @router.post("/block")
 async def block_ip(request: Request, user: str = Depends(require_admin)):
-    json_data = await request.json()
+    json_data = await read_json_body(request)
     if not json_data:
         return JSONResponse(
             {"error": "Invalid request, missing JSON body"}, status_code=400
@@ -144,7 +145,7 @@ async def block_ip(request: Request, user: str = Depends(require_admin)):
 
 @router.post("/unblock")
 async def unblock_ip(request: Request, user: str = Depends(require_admin)):
-    json_data = await request.json()
+    json_data = await read_json_body(request)
     if not json_data:
         return JSONResponse(
             {"error": "Invalid request, missing JSON body"}, status_code=400

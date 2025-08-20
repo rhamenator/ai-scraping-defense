@@ -74,7 +74,6 @@ def _load_smtp_password() -> Optional[str]:
             "Unexpected error loading SMTP password from %s: %s",
             ALERT_SMTP_PASSWORD_FILE,
             e,
-            exc_info=True,
         )
     return None
 

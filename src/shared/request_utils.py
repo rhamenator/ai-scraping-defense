@@ -1,0 +1,21 @@
+import json
+import os
+
+from fastapi import HTTPException, Request
+
+MAX_JSON_PAYLOAD_SIZE = int(os.getenv("MAX_JSON_PAYLOAD_SIZE", "1048576"))
+
+
+async def read_json_body(
+    request: Request, max_bytes: int = MAX_JSON_PAYLOAD_SIZE
+) -> dict:
+    """Read JSON body from request with a maximum size limit."""
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > max_bytes:
+            raise HTTPException(status_code=413, detail="Payload too large")
+    try:
+        return json.loads(body.decode())
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Invalid JSON") from exc
