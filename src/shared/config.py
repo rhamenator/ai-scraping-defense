@@ -195,6 +195,15 @@ class Config:
     WEBHOOK_API_KEY: Optional[str] = field(
         default_factory=lambda: os.getenv("WEBHOOK_API_KEY")
     )
+    WEBHOOK_SHARED_SECRET: Optional[str] = field(
+        default_factory=lambda: os.getenv("WEBHOOK_SHARED_SECRET")
+    )
+    WEBHOOK_RATE_LIMIT_REQUESTS: int = field(
+        default_factory=lambda: int(os.getenv("WEBHOOK_RATE_LIMIT_REQUESTS", "60"))
+    )
+    WEBHOOK_RATE_LIMIT_WINDOW: int = field(
+        default_factory=lambda: int(os.getenv("WEBHOOK_RATE_LIMIT_WINDOW", "60"))
+    )
 
     # Escalation engine configuration
     ESCALATION_THRESHOLD: float = field(
