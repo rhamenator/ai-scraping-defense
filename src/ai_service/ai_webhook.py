@@ -686,6 +686,8 @@ IP added to blocklist (TTL: {BLOCKLIST_TTL_SECONDS}s). Logs in {LOG_DIR}.
                 smtp_password = _load_smtp_password()
                 if smtp_password:
                     smtp_conn.login(ALERT_SMTP_USER, smtp_password)
+                else:
+                    logger.warning("SMTP authentication skipped: ALERT_SMTP_USER is set but no password was provided. Check SMTP configuration.")
             from_addr = ALERT_EMAIL_FROM if ALERT_EMAIL_FROM else ""
             to_addrs = ALERT_EMAIL_TO.split(",") if ALERT_EMAIL_TO else []
             smtp_conn.sendmail(from_addr, to_addrs, msg.as_string())
