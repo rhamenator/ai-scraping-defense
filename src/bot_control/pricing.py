@@ -41,4 +41,10 @@ def get_usage(token: str) -> float:
     if not redis_conn:
         raise RuntimeError("Redis unavailable")
     raw = redis_conn.hget(USAGE_KEY, token)
-    return float(raw) if raw is not None else 0.0
+    if raw is not None:
+        try:
+            return float(raw)
+        except ValueError:
+            return 0.0
+    else:
+        return 0.0
