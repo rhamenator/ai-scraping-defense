@@ -11,9 +11,6 @@ ESCALATION_URL = os.getenv(
 )
 EVE_LOG_PATH = os.getenv("SURICATA_EVE_LOG", "/var/log/suricata/eve.json")
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
 
 
@@ -68,4 +65,7 @@ def process_eve_log() -> int:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     process_eve_log()

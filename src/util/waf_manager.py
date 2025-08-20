@@ -10,9 +10,6 @@ WAF_RULES_PATH = os.getenv(
 NGINX_RELOAD_CMD = ["nginx", "-s", "reload"]
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 
 
 def load_waf_rules() -> list[str]:
@@ -46,3 +43,9 @@ def reload_waf_rules(rules: list[str]) -> bool:
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("Failed to reload WAF rules: %s", exc)
         return False
+
+
+if __name__ == "__main__":  # pragma: no cover - manual execution
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )

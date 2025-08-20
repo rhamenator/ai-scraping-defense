@@ -23,10 +23,6 @@ from src.shared.redis_client import get_redis_connection
 
 from .bad_api_generator import register_bad_endpoints
 
-logging.basicConfig(
-    level=CONFIG.LOG_LEVEL.upper(),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 # --- Import Local & Shared Modules (Preserved from your original file) ---
@@ -374,6 +370,10 @@ async def root():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=CONFIG.LOG_LEVEL.upper(),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
     import uvicorn
 
     logger.info("--- Tarpit API Starting ---")

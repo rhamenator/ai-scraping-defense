@@ -1,8 +1,10 @@
-from fastapi import FastAPI, HTTPException
-import httpx
-import os
 import datetime
 import logging
+import os
+
+import httpx
+from fastapi import FastAPI, HTTPException
+
 from src.shared.config import get_secret
 
 app = FastAPI()
@@ -13,9 +15,6 @@ CAPTCHA_VERIFICATION_URL = os.getenv(
 CAPTCHA_SECRET = get_secret("CAPTCHA_SECRET_FILE") or os.getenv("CAPTCHA_SECRET")
 CAPTCHA_SUCCESS_LOG = os.getenv("CAPTCHA_SUCCESS_LOG", "/app/logs/captcha_success.log")
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
 
 
@@ -48,3 +47,9 @@ async def verify_captcha(token: str, ip: str):
         except Exception as e:
             logger.error(f"Failed to log CAPTCHA success: {e}")
     return {"success": success}
+
+
+if __name__ == "__main__":  # pragma: no cover - manual execution
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )

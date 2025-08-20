@@ -12,9 +12,6 @@ CLOUD_CDN_API_TOKEN = os.getenv("CLOUD_CDN_API_TOKEN") or get_secret(
 )
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 
 
 async def purge_cache() -> bool:
@@ -37,3 +34,9 @@ async def purge_cache() -> bool:
     except Exception as e:  # pragma: no cover - network/HTTP errors
         logger.error(f"Failed to purge CDN cache: {e}")
         return False
+
+
+if __name__ == "__main__":  # pragma: no cover - manual execution
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )

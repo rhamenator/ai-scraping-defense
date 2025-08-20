@@ -19,9 +19,6 @@ REDIS_DB_BLOCKLIST = int(os.getenv("REDIS_DB_BLOCKLIST", 2))
 BLOCKLIST_TTL_SECONDS = int(os.getenv("COMMUNITY_BLOCKLIST_TTL_SECONDS", 86400))
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 
 
 async def fetch_blocklist(url: str) -> List[str]:
@@ -85,4 +82,7 @@ async def sync_blocklist() -> Optional[int]:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     asyncio.run(sync_blocklist())

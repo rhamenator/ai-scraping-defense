@@ -35,9 +35,6 @@ except Exception:  # pragma: no cover - kubernetes may not be installed
 
 
 # --- Logging and Configuration ---
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
 
 RULES_URL = os.getenv("RULES_DOWNLOAD_URL", "")
@@ -268,4 +265,7 @@ def _run_as_script() -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     _run_as_script()
