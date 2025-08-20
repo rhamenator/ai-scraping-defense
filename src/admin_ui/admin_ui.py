@@ -101,13 +101,6 @@ async def csp_header(request: Request, call_next):
 
 
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-app.mount(
-    "/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"
-)
-# Include routers from submodules
-app.include_router(metrics.router)
-app.include_router(blocklist.router)
-app.include_router(webauthn.router)
 
 
 @pass_context
@@ -120,6 +113,14 @@ def _jinja_url_for(context, name: str, **path_params) -> str:
 
 
 templates.env.globals["url_for"] = _jinja_url_for
+
+app.mount(
+    "/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"
+)
+# Include routers from submodules
+app.include_router(metrics.router)
+app.include_router(blocklist.router)
+app.include_router(webauthn.router)
 
 
 @app.get("/", response_class=HTMLResponse)
