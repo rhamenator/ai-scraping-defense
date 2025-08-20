@@ -24,6 +24,11 @@ class TestAdminUIComprehensive(unittest.TestCase):
         os.environ["ADMIN_UI_ROLE"] = "admin"
         os.environ["ADMIN_UI_2FA_SECRET"] = "JBSWY3DPEHPK3PXP"
         auth.ADMIN_UI_ROLE = "admin"
+        # Disable rate limiting by making the auth layer think Redis is unavailable
+        patcher = patch("src.admin_ui.auth.get_redis_connection", return_value=None)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
         self.client = TestClient(admin_ui.app)
         self.auth = ("admin", "testpass")
 
@@ -278,26 +283,74 @@ class TestAdminUIComprehensive(unittest.TestCase):
         secret = "JBSWY3DPEHPK3PXP"
         os.environ["ADMIN_UI_2FA_SECRET"] = secret
         token = "tok123"
-        webauthn._store_webauthn_token(token, "admin", time.time() + 60)
-        headers = {"X-2FA-Token": token}
-        with patch("src.admin_ui.webauthn.get_redis_connection", return_value=None):
+
+        class MockRedis:
+            def __init__(self):
+                self.store = {}
+
+            def set(self, key, value, ex=None):
+                self.store[key] = value
+
+            def getdel(self, key):
+                return self.store.pop(key, None)
+
+            def get(self, key):
+                return self.store.get(key)
+
+            def scan_iter(self, pattern, count=1):
+                import fnmatch
+
+                for k in list(self.store.keys()):
+                    if fnmatch.fnmatch(k, pattern):
+                        yield k
+
+        mock_redis = MockRedis()
+        with patch(
+            "src.admin_ui.webauthn.get_redis_connection", return_value=mock_redis
+        ):
+            webauthn._store_webauthn_token(token, "admin", time.time() + 60)
+            headers = {"X-2FA-Token": token}
             response = self.client.get("/", auth=self.auth, headers=headers)
 
-        self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.status_code, 200)
+            webauthn._consume_webauthn_token(token)
         del os.environ["ADMIN_UI_2FA_SECRET"]
-        webauthn.VALID_WEBAUTHN_TOKENS.clear()
 
     def test_webauthn_token_invalid(self):
         """Invalid WebAuthn tokens are rejected."""
         secret = "JBSWY3DPEHPK3PXP"
         os.environ["ADMIN_UI_2FA_SECRET"] = secret
-        webauthn.VALID_WEBAUTHN_TOKENS["good"] = ("admin", time.time() + 60)
-        headers = {"X-2FA-Token": "bad"}
-        with patch("src.admin_ui.webauthn.get_redis_connection", return_value=None):
+
+        class MockRedis:
+            def __init__(self):
+                self.store = {}
+
+            def set(self, key, value, ex=None):
+                self.store[key] = value
+
+            def getdel(self, key):
+                return self.store.pop(key, None)
+
+            def get(self, key):
+                return self.store.get(key)
+
+            def scan_iter(self, pattern, count=1):
+                import fnmatch
+
+                for k in list(self.store.keys()):
+                    if fnmatch.fnmatch(k, pattern):
+                        yield k
+
+        mock_redis = MockRedis()
+        with patch(
+            "src.admin_ui.webauthn.get_redis_connection", return_value=mock_redis
+        ):
+            webauthn._store_webauthn_token("good", "admin", time.time() + 60)
+            headers = {"X-2FA-Token": "bad"}
             response = self.client.get("/", auth=self.auth, headers=headers)
-        self.assertEqual(response.status_code, 401)
+            self.assertEqual(response.status_code, 401)
+            webauthn._consume_webauthn_token("good")
         del os.environ["ADMIN_UI_2FA_SECRET"]
-        webauthn.VALID_WEBAUTHN_TOKENS.clear()
 
     def test_webauthn_login_begin_invalid_username(self):
         """Login begin rejects missing username."""
