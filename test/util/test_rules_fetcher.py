@@ -31,7 +31,7 @@ class MockResponse:
 
 class TestRulesFetcher(unittest.TestCase):
     def setUp(self):
-        self.patcher_get = patch("requests.get")
+        self.patcher_get = patch("src.util.rules_fetcher.fetcher.requests.get")
         self.mock_get = self.patcher_get.start()
         self.addCleanup(self.patcher_get.stop)
         self.patcher_subprocess = patch("src.util.rules_fetcher.fetcher.subprocess.run")
