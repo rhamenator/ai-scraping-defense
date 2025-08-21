@@ -7,6 +7,10 @@ import redis
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
 
+class RedisConnectionError(Exception):
+    """Raised when a Redis connection cannot be established."""
+
+
 @retry(wait=wait_exponential(multiplier=1, min=1, max=10), stop=stop_after_attempt(3))
 def _create_client(
     redis_host: str, redis_port: int, password: str | None, db_number: int
@@ -23,10 +27,15 @@ def _create_client(
     return client
 
 
-def get_redis_connection(db_number=0):
+def get_redis_connection(db_number: int = 0, fail_fast: bool = False):
     """
     Creates and returns a Redis connection using environment variables for configuration.
     Handles password loading from a file.
+
+    Args:
+        db_number: Redis database number to connect to.
+        fail_fast: If ``True``, raise :class:`RedisConnectionError` instead of
+            returning ``None`` when the connection cannot be established.
     """
     redis_host = os.environ.get("REDIS_HOST", "localhost")
     password = None
@@ -36,7 +45,10 @@ def get_redis_connection(db_number=0):
             with open(password_file, "r") as f:
                 password = f.read().strip()
         except FileNotFoundError:
-            logging.error(f"Redis password file not found at {password_file}")
+            msg = f"Redis password file not found at {password_file}"
+            logging.error(msg)
+            if fail_fast:
+                raise RedisConnectionError(msg)
             return None
 
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
@@ -48,22 +60,23 @@ def get_redis_connection(db_number=0):
         )
         return r
     except redis.AuthenticationError:
-        logging.error(
-            f"Redis authentication failed for DB {db_number}. Check password."
-        )
+        msg = f"Redis authentication failed for DB {db_number}. Check password."
+        logging.error(msg)
+        if fail_fast:
+            raise RedisConnectionError(msg)
         return None
     except RetryError as e:
         if isinstance(e.last_attempt.exception(), redis.AuthenticationError):
-            logging.error(
-                f"Redis authentication failed for DB {db_number}. Check password."
-            )
+            msg = f"Redis authentication failed for DB {db_number}. Check password."
         else:
-            logging.error(
-                f"Failed to connect to Redis at {redis_host} on DB {db_number}: {e}"
-            )
+            msg = f"Failed to connect to Redis at {redis_host} on DB {db_number}: {e}"
+        logging.error(msg)
+        if fail_fast:
+            raise RedisConnectionError(msg)
         return None
     except Exception as e:
-        logging.error(
-            f"Failed to connect to Redis at {redis_host} on DB {db_number}: {e}"
-        )
+        msg = f"Failed to connect to Redis at {redis_host} on DB {db_number}: {e}"
+        logging.error(msg)
+        if fail_fast:
+            raise RedisConnectionError(msg)
         return None

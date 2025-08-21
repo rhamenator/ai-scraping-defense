@@ -65,6 +65,14 @@ class TestRedisClient(unittest.TestCase):
             self.assertIsNone(conn)
             self.assertEqual(mock_redis.call_count, 3)
 
+    def test_connection_failure_raises_when_fail_fast(self):
+        mock_instance = MagicMock()
+        mock_instance.ping.side_effect = redis_client.redis.ConnectionError()
+        with patch("redis.Redis", return_value=mock_instance), self.assertRaises(
+            redis_client.RedisConnectionError
+        ):
+            redis_client.get_redis_connection(fail_fast=True)
+
 
 if __name__ == "__main__":
     unittest.main()
