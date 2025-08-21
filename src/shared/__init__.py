@@ -1,5 +1,5 @@
 """Shared utilities for the defense stack."""
 
-from .log_filter import apply_sensitive_data_filter
+from .log_filter import configure_sensitive_logging
 
-apply_sensitive_data_filter()
+configure_sensitive_logging()
