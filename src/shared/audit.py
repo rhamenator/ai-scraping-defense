@@ -3,6 +3,9 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from typing import Optional
+
+from .log_filter import configure_sensitive_logging
 
 LOG_PATH = os.getenv("AUDIT_LOG_FILE", "/app/logs/audit.log")
 try:
@@ -28,8 +31,10 @@ if not logger.handlers:
         logging.error("Cannot set up audit logger: %s", e)
         raise SystemExit(1)
 
+configure_sensitive_logging(logger)
 
-def log_event(user: str, action: str, details: dict | None = None) -> None:
+
+def log_event(user: str, action: str, details: Optional[dict] = None) -> None:
     """Write an audit log entry."""
     msg = f"{user}\t{action}"
     if details:

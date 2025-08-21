@@ -17,13 +17,17 @@ _REPLACEMENTS: List[Tuple[re.Pattern[str], str]] = [
     ),
     # API keys and tokens
     (
-        re.compile(r"(?i)(api[_-]?key|token|authorization)[:=]\s*[^\s]+"),
-        r"\1=<redacted>",
+        re.compile(
+            r"(?i)(\"?(?:api[_-]?key|token|authorization)\"?\s*[:=]\s*)(\"?)([^\"\s]+)(\"?)"
+        ),
+        r"\1\2<redacted>\4",
     ),
     # Passwords
     (
-        re.compile(r"(?i)(password|passwd|pwd)[:=]\s*[^\s]+"),
-        r"\1=<redacted>",
+        re.compile(
+            r"(?i)(\"?(?:password|passwd|pwd)\"?\s*[:=]\s*)(\"?)([^\"\s]+)(\"?)"
+        ),
+        r"\1\2<redacted>\4",
     ),
 ]
 
