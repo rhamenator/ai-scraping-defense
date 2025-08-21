@@ -10,7 +10,7 @@ import sys
 from typing import Dict
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 # The direct 'redis' import is no longer needed as the client handles it.
@@ -19,6 +19,7 @@ from redis.exceptions import RedisError
 # --- Setup Logging ---
 # Preserved from your original file.
 from src.shared.config import CONFIG, tenant_key
+from src.shared.middleware import create_app
 from src.shared.redis_client import get_redis_connection
 
 from .bad_api_generator import register_bad_endpoints
@@ -145,7 +146,7 @@ if not redis_hops or not redis_blocklist:
 
 
 # --- FastAPI App ---
-app = FastAPI()
+app = create_app()
 BAD_API_ENDPOINTS = register_bad_endpoints(app)
 
 

@@ -5,8 +5,10 @@ import secrets
 from urllib.parse import urljoin, urlparse
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import HTTPException, Request, Response
 from pydantic import BaseModel
+
+from src.shared.middleware import create_app
 
 from .db import add_credit, charge, get_crawler, init_db, register_crawler
 from .pricing import PricingEngine, load_pricing
@@ -19,7 +21,7 @@ HTTPX_TIMEOUT = float(os.getenv("HTTPX_TIMEOUT", "10.0"))
 pricing_engine = PricingEngine(load_pricing(PRICING_PATH), DEFAULT_PRICE)
 init_db()
 
-app = FastAPI()
+app = create_app()
 
 
 class RegisterPayload(BaseModel):

@@ -3,11 +3,12 @@ import logging
 import os
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import HTTPException
 
 from src.shared.config import get_secret
+from src.shared.middleware import create_app
 
-app = FastAPI()
+app = create_app()
 
 CAPTCHA_VERIFICATION_URL = os.getenv(
     "CAPTCHA_VERIFICATION_URL", "https://www.google.com/recaptcha/api/siteverify"

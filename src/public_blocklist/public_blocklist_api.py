@@ -3,8 +3,10 @@ import json
 import os
 from typing import List, Optional
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Header, HTTPException
 from pydantic import BaseModel, IPvAnyAddress
+
+from src.shared.middleware import create_app
 
 PUBLIC_BLOCKLIST_FILE = os.getenv(
     "PUBLIC_BLOCKLIST_FILE", "./data/public_blocklist.json"
@@ -13,7 +15,7 @@ PUBLIC_BLOCKLIST_API_KEY = os.getenv("PUBLIC_BLOCKLIST_API_KEY")
 if not PUBLIC_BLOCKLIST_API_KEY:
     raise RuntimeError("PUBLIC_BLOCKLIST_API_KEY environment variable is required")
 
-app = FastAPI()
+app = create_app()
 
 
 def _load_blocklist() -> List[str]:

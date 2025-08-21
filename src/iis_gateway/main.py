@@ -12,8 +12,10 @@ from dataclasses import dataclass
 import httpx
 import redis
 from cachetools import TTLCache
-from fastapi import FastAPI, Request, Response
+from fastapi import Request, Response
 from fastapi.responses import PlainTextResponse
+
+from src.shared.middleware import create_app
 
 
 @dataclass
@@ -41,7 +43,7 @@ BAD_BOTS = [
 
 logger = logging.getLogger("iis_gateway")
 
-app = FastAPI()
+app = create_app()
 redis_client = redis.Redis(
     host=settings.REDIS_HOST,
     port=settings.REDIS_PORT,

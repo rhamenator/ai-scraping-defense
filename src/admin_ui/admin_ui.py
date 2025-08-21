@@ -9,7 +9,7 @@ import logging
 import os
 import secrets
 
-from fastapi import Cookie, Depends, FastAPI, Request
+from fastapi import Cookie, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +18,7 @@ from jinja2 import pass_context
 
 from src.shared.audit import log_event
 from src.shared.config import CONFIG, tenant_key
+from src.shared.middleware import create_app
 from src.shared.redis_client import get_redis_connection
 
 from . import blocklist, metrics, webauthn
@@ -79,7 +80,7 @@ def _get_allowed_origins() -> list[str]:
     return origins
 
 
-app = FastAPI()
+app = create_app()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_get_allowed_origins(),

@@ -8,13 +8,14 @@ import os
 import time
 from typing import Any, Dict
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from redis.exceptions import RedisError
 
 from src.shared.audit import log_event as audit_log_event
 from src.shared.config import CONFIG, Config, tenant_key
+from src.shared.middleware import create_app
 from src.shared.redis_client import get_redis_connection
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ class WebhookEvent(BaseModel):
     )
 
 
-app = FastAPI()
+app = create_app()
 
 
 def get_config() -> Config:
