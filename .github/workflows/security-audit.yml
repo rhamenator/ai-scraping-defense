@@ -1,0 +1,97 @@
+name: Security Audit (consolidated)
+on:
+  workflow_dispatch:
+permissions: { contents: read, security-events: write, actions: read }
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: github/codeql-action/init@v3
+        with: { languages: javascript, typescript, python, go, ruby, java, cpp }
+      - uses: github/codeql-action/autobuild@v3
+      - uses: github/codeql-action/analyze@v3
+        with: { category: "/language:auto" }
+      - name: Install scanners & deps
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y jq shellcheck curl unzip golang cargo
+          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/install.sh | sudo bash -s -- -b /usr/local/bin
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
+          curl -sSfL https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 -o hadolint && sudo install hadolint /usr/local/bin/hadolint
+          pipx install semgrep || python3 -m pip install --user semgrep
+          pipx install bandit pip-audit black isort ruff || python3 -m pip install --user bandit pip-audit black isort ruff
+          sudo apt-get install -y luarocks lua5.4 || true
+          sudo luarocks install luacheck || true
+          STYLUA_URL="https://github.com/JohnnyMorganz/StyLua/releases/latest/download/stylua-linux-x86_64.zip"
+          curl -sSL $STYLUA_URL -o /tmp/stylua.zip || true
+          (cd /tmp && unzip -o stylua.zip && sudo install stylua /usr/local/bin/stylua) || true
+          npm i -g prettier markdownlint-cli eslint @eslint/js || true
+          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | sudo tar -xz -C /usr/local/bin kubeconform || true
+          go install github.com/securego/gosec/v2/cmd/gosec@latest || true
+          go install golang.org/x/vuln/cmd/govulncheck@latest || true
+          cargo install cargo-audit || true
+      - name: Prepare reports
+        run: mkdir -p reports
+      - name: Semgrep SAST
+        run: semgrep ci --config p/auto --json --severity=INFO --timeout 5m --output reports/semgrep.json || true
+      - name: Gitleaks
+        run: gitleaks detect --no-banner -s . -r reports/gitleaks.json -f json || true
+      - name: Trivy FS
+        run: trivy fs --quiet --format json --security-checks vuln,config,secret --output reports/trivy-fs.json . || true
+      - name: Trivy Config
+        run: trivy config --quiet --format json --output reports/trivy-config.json . || true
+      - name: Bandit
+        if: hashFiles('**/*.py') != ''
+        run: bandit -r . -f json -o reports/bandit.json || true
+      - name: pip-audit
+        if: hashFiles('**/requirements*.txt') != '' || hashFiles('**/poetry.lock') != ''
+        run: pip-audit -r -f json -o reports/pip-audit.json || true
+      - name: npm/yarn audit
+        if: hashFiles('**/package-lock.json') != '' || hashFiles('**/yarn.lock') != ''
+        run: |
+          if [ -f package-lock.json ]; then npm ci --ignore-scripts && npm audit --json > reports/npm-audit.json || true; fi
+          if [ -f yarn.lock ]; then corepack enable && yarn npm audit --json > reports/npm-audit.json || true; fi
+      - name: gosec
+        if: hashFiles('**/*.go') != ''
+        run: ~/go/bin/gosec -fmt=json -out=reports/gosec.json ./... || true
+      - name: govulncheck
+        if: hashFiles('**/go.mod') != ''
+        run: ~/go/bin/govulncheck -json ./... > reports/govuln.json || true
+      - name: cargo audit
+        if: hashFiles('**/Cargo.toml') != ''
+        run: cargo audit -q -o json > reports/cargo-audit.json || true
+      - name: hadolint
+        if: hashFiles('**/Dockerfile') != ''
+        run: |
+          (shopt -s globstar nullglob; for f in **/Dockerfile; do hadolint "$f" || true; done) | tee reports/hadolint.txt
+      - name: shellcheck
+        if: hashFiles('**/*.sh') != ''
+        run: |
+          (shopt -s globstar nullglob; for f in **/*.sh; do shellcheck "$f" || true; done) | tee reports/shellcheck.txt
+      - name: Markdown / YAML lint
+        run: |
+          (shopt -s globstar nullglob; for f in **/*.md; do npx markdownlint-cli "$f" || true; done) | tee -a reports/markdownlint.txt
+          sudo apt-get install -y yamllint || true
+          (shopt -s globstar nullglob; for f in **/*.yml **/*.yaml; do yamllint -s "$f" || true; done) | tee -a reports/yamllint.txt
+      - name: Kubeconform
+        if: hashFiles('**/*.yaml') != ''
+        run: |
+          kubeconform -ignore-missing-schemas -strict -summary -output json $(git ls-files '*.yaml' '*.yml' | tr '\n' ' ') > reports/kubeconform.json || true
+      - name: Aggregate findings
+        run: |
+          python3 .github/tools/aggregate_security_counts.py | tee reports/summary.json
+          echo "## Security Findings (remaining to fix)" >> $GITHUB_STEP_SUMMARY
+          python3 - <<'PY'
+import json
+d=json.load(open("reports/summary.json"))
+print("| Severity | Count |\n|---|---|")
+for k in ["critical","high","medium","low","info"]:
+    print(f"| {k.capitalize()} | {d.get(k,0)} |")
+print(f"| **Total** | **{d.get('total',0)}** |")
+PY
+      - uses: actions/upload-artifact@v4
+        with: { name: security-reports, path: reports/ }

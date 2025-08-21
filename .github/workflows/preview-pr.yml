@@ -1,0 +1,60 @@
+name: PR Preview (GKE via Helm)
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number: { description: 'Pull request number', required: true, type: number }
+permissions: { contents: read, packages: write, pull-requests: write }
+env: { REGISTRY: ghcr.io }
+jobs:
+  build-and-deploy-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u ${{ github.actor }} --password-stdin
+      - name: Build & push images for PR
+        run: |
+          set -eux
+          PR=${{ inputs.pr_number }}; SHORT_SHA=${GITHUB_SHA::12}; TAG="pr-${PR}-${SHORT_SHA}"
+          declare -A svc_map=([core]="." [proxy]="proxy" [cloud_proxy]="cloud-proxy" [prompt_router]="prompt-router")
+          : > images.txt
+          for svc in "${!svc_map[@]}"; do dir="${svc_map[$svc]}"; if [ -f "$dir/Dockerfile" ]; then
+              image="$REGISTRY/${{ github.repository_owner }}/$svc:$TAG"
+              docker build -t "$image" "$dir"; docker push "$image"; echo "$svc=$image" >> images.txt
+            fi
+          done; cat images.txt
+      - uses: google-github-actions/setup-gcloud@v2
+        with: { project_id: ${{ secrets.GCP_PROJECT }}, service_account_key: ${{ secrets.GCP_SA_KEY }}, export_default_credentials: true }
+      - uses: google-github-actions/get-gke-credentials@v2
+        with: { cluster_name: ${{ secrets.GKE_CLUSTER }}, location: ${{ secrets.GCP_REGION }} }
+      - uses: azure/setup-helm@v4
+      - name: Derive preview host
+        id: host
+        run: |
+          PR=${{ inputs.pr_number }}
+          if [ -n "${{ secrets.STAGING_BASE_URL }}" ]; then dom=$(echo "${{ secrets.STAGING_BASE_URL }}" | sed -E 's#^https?://##; s#/.*$##'); else dom="staging-yourdomain.example.com"; fi
+          echo "host=pr-${PR}.${dom}" >> $GITHUB_OUTPUT
+      - name: Helm install/upgrade preview
+        run: |
+          set -eux
+          PR=${{ inputs.pr_number }}; NS="pr-${PR}"; REL="ai-scraping-defense-pr-${PR}"
+          CHART="helm/ai-scraping-defense-v9"; OV=/tmp/values-images.yaml; echo "images:" > "$OV"
+          while IFS='=' read -r svc img; do echo "  $svc: \"$img\"" >> "$OV"; done < images.txt
+          kubectl create ns "$NS" --dry-run=client -o yaml | kubectl apply -f -
+          helm upgrade --install "$REL" "$CHART" -n "$NS" -f helm/values-staging.yaml -f "$OV" \
+            --set ingress.enabled=true --set ingress.hosts[0].host="${{ steps.host.outputs.host }}"
+      - name: Comment preview URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = "https://${{ steps.host.outputs.host }}/";
+            github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: ${{ inputs.pr_number }}, body: `🔎 Preview ready: ${url}` });
+  cleanup-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/setup-gcloud@v2
+        with: { project_id: ${{ secrets.GCP_PROJECT }}, service_account_key: ${{ secrets.GCP_SA_KEY }}, export_default_credentials: true }
+      - uses: google-github-actions/get-gke-credentials@v2
+        with: { cluster_name: ${{ secrets.GKE_CLUSTER }}, location: ${{ secrets.GCP_REGION }} }
+      - name: Delete preview namespace
+        run: PR=${{ inputs.pr_number }}; kubectl delete ns "pr-${PR}" --wait=false || true

@@ -1,0 +1,44 @@
+global:
+  registry: ghcr.io
+  pullPolicy: IfNotPresent
+
+images:
+  core: ""
+  proxy: ""
+  cloud_proxy: ""
+  prompt_router: ""
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: prod-yourdomain.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+services:
+  core:
+    enabled: true
+    replicas: 3
+    image: "{{ .Values.images.core }}"
+    resources:
+      requests: { cpu: "200m", memory: "256Mi" }
+      limits:   { cpu: "1",   memory: "512Mi" }
+  proxy:
+    enabled: true
+    replicas: 3
+    image: "{{ .Values.images.proxy }}"
+    resources:
+      requests: { cpu: "200m", memory: "256Mi" }
+      limits:   { cpu: "1",   memory: "512Mi" }
+  cloud_proxy:
+    enabled: false
+    replicas: 2
+    image: "{{ .Values.images.cloud_proxy }}"
+  prompt_router:
+    enabled: false
+    replicas: 2
+    image: "{{ .Values.images.prompt_router }}"

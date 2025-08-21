@@ -1,0 +1,21 @@
+name: Canary Shift
+on:
+  workflow_dispatch:
+    inputs:
+      weight: { description: "Canary weight (0-100)", required: true, type: number }
+      namespace: { description: "Kubernetes namespace", required: false, default: production }
+      canary_ingress: { description: "Canary ingress name", required: false, default: ai-scraping-defense-canary }
+jobs:
+  shift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/setup-gcloud@v2
+        with: { project_id: ${{ secrets.GCP_PROJECT }}, service_account_key: ${{ secrets.GCP_SA_KEY }}, export_default_credentials: true }
+      - uses: google-github-actions/get-gke-credentials@v2
+        with: { cluster_name: ${{ secrets.GKE_CLUSTER }}, location: ${{ secrets.GCP_REGION }} }
+      - name: Set weight
+        run: |
+          kubectl -n "${{ inputs.namespace }}" annotate ingress "${{ inputs.canary_ingress }}" \
+            nginx.ingress.kubernetes.io/canary="true" \
+            nginx.ingress.kubernetes.io/canary-weight="${{ inputs.weight }}" --overwrite
+          kubectl -n "${{ inputs.namespace }}" get ingress "${{ inputs.canary_ingress }}" -o yaml

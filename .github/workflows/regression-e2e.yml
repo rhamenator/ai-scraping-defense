@@ -1,0 +1,91 @@
+name: Regression E2E (Linux/Windows/macOS)
+on: { workflow_dispatch: {} }
+jobs:
+  e2e-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - name: Determine base URL
+        id: base
+        run: |
+          [ -n "${{ secrets.STAGING_BASE_URL }}" ] && echo "url=${{ secrets.STAGING_BASE_URL }}" >> $GITHUB_OUTPUT || (echo "No STAGING_BASE_URL"; exit 1)
+      - name: Python env for e2e
+        run: |
+          python3 -m venv .venv; . .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r .github/tools/e2e/requirements.txt
+      - name: k6 install (Linux)
+        uses: grafana/setup-k6-action@v1
+        with: { version: v0.50.0 }
+      - name: k6 rich scenarios
+        run: k6 run -e BASE_URL="${{ steps.base.outputs.url }}" .github/tools/e2e/k6-rich.js
+      - name: pytest e2e (Linux)
+        run: |
+          . .venv/bin/activate
+          BASE_URL="${{ steps.base.outputs.url }}" pytest -q .github/tools/e2e/tests
+      - name: Run user shell scripts
+        run: |
+          export BASE_URL="${{ steps.base.outputs.url }}"
+          [ -f "./security_test.sh" ] && bash ./security_test.sh || true
+          [ -f "./scripts/security_test.sh" ] && bash ./scripts/security_test.sh || true
+          [ -f "./stress_test.sh" ] && bash ./stress_test.sh || true
+          [ -f "./scripts/stress_test.sh" ] && bash ./scripts/stress_test.sh || true
+  e2e-windows:
+    runs-on: windows-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - name: Determine base URL
+        id: base
+        shell: pwsh
+        run: |
+          if ($env:STAGING_BASE_URL) { "url=$($env:STAGING_BASE_URL)" >> $env:GITHUB_OUTPUT } else { Write-Host "Set STAGING_BASE_URL"; exit 1 }
+      - name: Python env for e2e (Windows)
+        shell: pwsh
+        run: |
+          pip install --upgrade pip
+          pip install -r .github/tools/e2e/requirements.txt
+      - name: Install k6 (Windows)
+        shell: pwsh
+        run: |
+          $ver="v0.50.0"; $url="https://github.com/grafana/k6/releases/download/$ver/k6-$ver-windows-amd64.zip"
+          Invoke-WebRequest $url -OutFile k6.zip; Expand-Archive k6.zip -DestinationPath . -Force
+          $k6 = (Get-ChildItem -Recurse -Filter k6.exe | Select-Object -First 1).FullName
+          echo "K6_EXE=$k6" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: k6 rich scenarios (Windows)
+        shell: pwsh
+        run: |
+          & "${{ env.K6_EXE }}" run -e BASE_URL="${{ steps.base.outputs.url }}" .github/tools/e2e/k6-rich.js
+      - name: pytest e2e (Windows)
+        shell: pwsh
+        run: |
+          $env:BASE_URL = "${{ steps.base.outputs.url }}"; python -m pytest -q .github/tools/e2e/tests
+      - name: Run PowerShell scripts
+        shell: pwsh
+        run: |
+          $env:BASE_URL = "${{ steps.base.outputs.url }}"
+          if (Test-Path "./security_test.ps1") { ./security_test.ps1 -ErrorAction Continue }
+          if (Test-Path "./scripts/security_test.ps1") { ./scripts/security_test.ps1 -ErrorAction Continue }
+          if (Test-Path "./stress_test.ps1") { ./stress_test.ps1 -ErrorAction Continue }
+          if (Test-Path "./scripts/stress_test.ps1") { ./scripts/stress_test.ps1 -ErrorAction Continue }
+  e2e-macos:
+    runs-on: macos-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Determine base URL
+        id: base
+        run: |
+          [ -n "${{ secrets.STAGING_BASE_URL }}" ] && echo "url=${{ secrets.STAGING_BASE_URL }}" >> $GITHUB_OUTPUT || (echo "No STAGING_BASE_URL"; exit 1)
+      - name: pytest e2e (macOS)
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install -r .github/tools/e2e/requirements.txt
+          BASE_URL="${{ steps.base.outputs.url }}" pytest -q .github/tools/e2e/tests
+      - name: Run macOS helper scripts (zsh)
+        shell: zsh
+        run: |
+          export BASE_URL="${{ steps.base.outputs.url }}"
+          [ -f "./scripts/macos/setup.zsh" ] && zsh ./scripts/macos/setup.zsh || true
+          [ -f "./scripts/macos/test.zsh" ] && zsh ./scripts/macos/test.zsh || true
