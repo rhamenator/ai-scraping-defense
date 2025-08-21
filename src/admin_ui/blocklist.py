@@ -87,7 +87,9 @@ async def block_stats(user: str = Depends(require_auth)):
                     break
         except RedisError as exc:
             logger.error("Error loading blocklist from redis", exc_info=exc)
-            return JSONResponse({"error": f"Redis error: {exc}"}, status_code=503)
+            return JSONResponse(
+                {"error": "Service temporarily unavailable"}, status_code=503
+            )
         except Exception as exc:
             logger.error("Error loading blocklist from redis", exc_info=exc)
 
@@ -114,7 +116,10 @@ async def get_blocklist(user: str = Depends(require_auth)):
         if asyncio.iscoroutine(blocklist_set):
             blocklist_set = await blocklist_set
     except RedisError as exc:
-        return JSONResponse({"error": f"Redis error: {exc}"}, status_code=503)
+        logger.error("Error retrieving blocklist", exc_info=exc)
+        return JSONResponse(
+            {"error": "Service temporarily unavailable"}, status_code=503
+        )
 
     if isinstance(blocklist_set, (set, list)):
         return JSONResponse(list(blocklist_set))
@@ -149,7 +154,10 @@ async def block_ip(request: Request, user: str = Depends(require_admin)):
     try:
         redis_conn.sadd(tenant_key("blocklist"), normalized_ip)
     except RedisError as exc:
-        return JSONResponse({"error": f"Redis error: {exc}"}, status_code=503)
+        logger.error("Error adding IP to blocklist", exc_info=exc)
+        return JSONResponse(
+            {"error": "Service temporarily unavailable"}, status_code=503
+        )
     log_event(user, "block_ip", {"ip": normalized_ip})
     return JSONResponse({"status": "success", "ip": normalized_ip})
 
@@ -177,6 +185,9 @@ async def unblock_ip(request: Request, user: str = Depends(require_admin)):
     try:
         redis_conn.srem(tenant_key("blocklist"), normalized_ip)
     except RedisError as exc:
-        return JSONResponse({"error": f"Redis error: {exc}"}, status_code=503)
+        logger.error("Error removing IP from blocklist", exc_info=exc)
+        return JSONResponse(
+            {"error": "Service temporarily unavailable"}, status_code=503
+        )
     log_event(user, "unblock_ip", {"ip": normalized_ip})
     return JSONResponse({"status": "success", "ip": normalized_ip})

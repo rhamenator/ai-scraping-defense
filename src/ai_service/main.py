@@ -169,7 +169,7 @@ async def webhook_receiver(request: Request, response: Response):
         raise
     except RedisError as e:
         logger.error("Redis error during action %s: %s", action, e)
-        raise HTTPException(status_code=503, detail=f"Redis error: {e}")
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable")
     except Exception as e:
         logger.error("Failed to execute action: %s", e)
         raise HTTPException(status_code=500, detail="Failed to execute action")
