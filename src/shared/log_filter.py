@@ -40,7 +40,6 @@ def _mask(message: str) -> str:
         message = pattern.sub(repl, message)
     return message
 
-
 class SensitiveDataFormatter(logging.Formatter):
     """Formatter that masks sensitive data from log records."""
 
@@ -87,3 +86,4 @@ def configure_sensitive_logging(
         if include_existing_handlers:
             for handler in log.handlers:
                 _ensure_formatter(handler)
+
