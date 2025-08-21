@@ -4,7 +4,13 @@ from typing import List, Tuple
 
 _REPLACEMENTS: List[Tuple[re.Pattern[str], str]] = [
     # IPv4 addresses
-    (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), "[REDACTED_IP]"),
+    (
+        re.compile(
+            r"\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}"
+            r"(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\b"
+        ),
+        "[REDACTED_IP]",
+    ),
     # API keys and tokens
     (
         re.compile(r"(?i)(api[_-]?key|token|authorization)[:=]\s*[^\s]+"),
