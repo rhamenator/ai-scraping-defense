@@ -1,0 +1,64 @@
+name: Deploy to Production (GKE via Helm)
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (staging|production|preview)"
+        required: false
+      ref:
+        description: "Git ref to run against"
+        required: false
+      version_tag:
+        description: "Optional version tag (defaults to short SHA)"
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  cancel-in-progress: true
+env: { REGISTRY: ghcr.io, IMAGE_OWNER: ${{ github.repository_owner }} }
+jobs:
+  build-and-deploy:
+    permissions:
+      contents: read
+      packages: write
+      deployments: write
+      id-token: write
+    runs-on: ubuntu-latest
+    environment: { name: production, url: ${{ secrets.PROD_BASE_URL }} }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u ${{ github.actor }} --password-stdin
+      - name: Build & push images
+        run: |
+          set -eux
+          TAG="${{ github.event.inputs.version_tag || github.sha }}"; TAG=${TAG:0:12}
+          declare -A svc_map=([core]="." [proxy]="proxy" [cloud_proxy]="cloud-proxy" [prompt_router]="prompt-router")
+          : > images.txt
+          for svc in "${!svc_map[@]}"; do dir="${svc_map[$svc]}"; if [ -f "$dir/Dockerfile" ]; then
+              image="$REGISTRY/${{ github.repository_owner }}/$svc:$TAG"
+              docker build -t "$image" "$dir"; docker push "$image"; echo "$svc=$image" >> images.txt
+            fi
+          done; cat images.txt
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/get-gke-credentials@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          cluster_name: ${{ secrets.GKE_CLUSTER }}
+          location: ${{ secrets.GCP_REGION }}
+      - uses: azure/setup-helm@v4
+      - name: Helm upgrade/install (production)
+        run: |
+          set -eux
+          CHART="helm/ai-scraping-defense-v9"; OV=/tmp/values-images.yaml; echo "images:" > "$OV"
+          while IFS='=' read -r svc img; do echo "  $svc: \"$img\"" >> "$OV"; done < images.txt
+          helm upgrade --install ai-scraping-defense "$CHART" -n production --create-namespace -f helm/values-production.yaml -f "$OV"
+      - name: Wait for rollout
+        run: |
+          kubectl -n production rollout status deploy --timeout=600s || true
+          kubectl -n production get pods -o wide

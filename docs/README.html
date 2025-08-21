@@ -1,0 +1,29 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>AI Scraping Defense – Master Pack v9</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;max-width:980px;margin:40px auto;line-height:1.55}
+pre,code{background:#f6f8fa;padding:2px 4px;border-radius:4px}
+h1,h2{border-bottom:1px solid #eaecef;padding-bottom:.2em}
+</style></head><body>
+<h1>AI Scraping Defense — Master Pack v9</h1>
+<p>Drop these files into your repo, set environment secrets, and push. v9 is a complete superset:
+CI on Linux/Windows/macOS; consolidated security scanning; autofix PRs; staging/prod deploys; regression E2E; PR preview envs; Windows IIS checks; auto‑promotion; and canary controls. A minimal-but-solid Helm chart is included.</p>
+<h2>Quick Start</h2>
+<ol>
+<li>Copy everything into repo root; commit & push.</li>
+<li>GitHub → <em>Settings → Environments</em>:
+  <ul>
+    <li><b>staging</b> (no approval): secrets <code>GCP_PROJECT</code>, <code>GCP_REGION</code>, <code>GKE_CLUSTER</code>, <code>GCP_SA_KEY</code> (JSON), <code>STAGING_BASE_URL</code> (e.g. <code>https://staging.example.com</code>).</li>
+    <li><b>production</b> (approval‑gated): same GCP secrets + <code>PROD_BASE_URL</code>.</li>
+  </ul>
+</li>
+<li>DNS: <code>staging.example.com</code> and <code>*.staging.example.com</code> → your ingress LB.</li>
+<li>Protect <code>main</code>; require checks (CI, Security Audit, Regression E2E).</li>
+</ol>
+<h2>What’s included</h2>
+<ul>
+<li>Workflows: CI, Security (scan+autofix+triage), Staging/Prod deploy, Regression E2E, Windows IIS E2E, PR previews, Auto‑promotion, Canary Shift.</li>
+<li>Tools: autofix, security roll‑up, k6 & pytest E2E, Windows ARR/URL Rewrite & IIS provisioning.</li>
+<li>Helm: services <code>core</code>, <code>proxy</code>, <code>cloud_proxy</code>, <code>prompt_router</code>; Redis (optional); NGINX ingress and dedicated canary ingress; env‑specific values.</li>
+</ul>
+</body></html>

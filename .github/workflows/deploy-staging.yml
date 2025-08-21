@@ -1,0 +1,62 @@
+name: Deploy to Staging (GKE via Helm)
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (staging|production|preview)"
+        required: false
+      ref:
+        description: "Git ref to run against"
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  cancel-in-progress: true
+env: { REGISTRY: ghcr.io, IMAGE_OWNER: ${{ github.repository_owner }} }
+jobs:
+  build-and-deploy:
+    permissions:
+      contents: read
+      packages: write
+      deployments: write
+      id-token: write
+    runs-on: ubuntu-latest
+    environment: { name: staging, url: ${{ secrets.STAGING_BASE_URL }} }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u ${{ github.actor }} --password-stdin
+      - name: Build & push images (only where Dockerfile exists)
+        run: |
+          set -eux
+          TAG=${GITHUB_SHA::12}; echo "TAG=$TAG" >> $GITHUB_ENV
+          declare -A svc_map=([core]="." [proxy]="proxy" [cloud_proxy]="cloud-proxy" [prompt_router]="prompt-router")
+          : > images.txt
+          for svc in "${!svc_map[@]}"; do dir="${svc_map[$svc]}"; if [ -f "$dir/Dockerfile" ]; then
+              image="$REGISTRY/${{ github.repository_owner }}/$svc:$TAG"
+              docker build -t "$image" "$dir"; docker push "$image"; echo "$svc=$image" >> images.txt
+            else echo "Skip $svc: $dir/Dockerfile not found"; fi
+          done; cat images.txt || true
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/get-gke-credentials@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          cluster_name: ${{ secrets.GKE_CLUSTER }}
+          location: ${{ secrets.GCP_REGION }}
+      - uses: azure/setup-helm@v4
+      - name: Helm upgrade/install
+        run: |
+          set -eux
+          CHART="helm/ai-scraping-defense-v9"; [ -d "$CHART" ] || (echo "Chart missing"; exit 1)
+          OV=/tmp/values-images.yaml; echo "images:" > "$OV"
+          if [ -f images.txt ]; then while IFS='=' read -r svc img; do echo "  $svc: \"$img\"" >> "$OV"; done < images.txt; fi
+          helm upgrade --install ai-scraping-defense "$CHART" -n staging --create-namespace -f helm/values-staging.yaml -f "$OV"
+      - name: Wait for rollout
+        run: |
+          kubectl -n staging rollout status deploy --timeout=300s || true
+          kubectl -n staging get pods -o wide

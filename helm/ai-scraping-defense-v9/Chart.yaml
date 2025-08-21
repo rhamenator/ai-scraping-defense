@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ai-scraping-defense-v9
+description: Helm chart for AI Scraping Defense (core, proxy, cloud_proxy, prompt_router) with NGINX ingress and canary ingress.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
