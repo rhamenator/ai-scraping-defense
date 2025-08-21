@@ -7,6 +7,7 @@ from ipaddress import ip_address
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
+from redis.exceptions import RedisError
 
 from src.shared.audit import log_event
 from src.shared.config import tenant_key
@@ -84,6 +85,11 @@ async def block_stats(user: str = Depends(require_auth)):
                 temp_block_count += len(keys)
                 if cursor == 0:
                     break
+        except RedisError as exc:
+            logger.error("Error loading blocklist from redis", exc_info=exc)
+            return JSONResponse(
+                {"error": "Service temporarily unavailable"}, status_code=503
+            )
         except Exception as exc:
             logger.error("Error loading blocklist from redis", exc_info=exc)
 
@@ -105,9 +111,16 @@ async def get_blocklist(user: str = Depends(require_auth)):
     if not redis_conn:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
 
-    blocklist_set = redis_conn.smembers(tenant_key("blocklist"))
-    if asyncio.iscoroutine(blocklist_set):
-        blocklist_set = await blocklist_set
+    try:
+        blocklist_set = redis_conn.smembers(tenant_key("blocklist"))
+        if asyncio.iscoroutine(blocklist_set):
+            blocklist_set = await blocklist_set
+    except RedisError as exc:
+        logger.error("Error retrieving blocklist", exc_info=exc)
+        return JSONResponse(
+            {"error": "Service temporarily unavailable"}, status_code=503
+        )
+
     if isinstance(blocklist_set, (set, list)):
         return JSONResponse(list(blocklist_set))
 
@@ -138,7 +151,13 @@ async def block_ip(request: Request, user: str = Depends(require_admin)):
     if not redis_conn:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
 
-    redis_conn.sadd(tenant_key("blocklist"), normalized_ip)
+    try:
+        redis_conn.sadd(tenant_key("blocklist"), normalized_ip)
+    except RedisError as exc:
+        logger.error("Error adding IP to blocklist", exc_info=exc)
+        return JSONResponse(
+            {"error": "Service temporarily unavailable"}, status_code=503
+        )
     log_event(user, "block_ip", {"ip": normalized_ip})
     return JSONResponse({"status": "success", "ip": normalized_ip})
 
@@ -163,6 +182,12 @@ async def unblock_ip(request: Request, user: str = Depends(require_admin)):
     if not redis_conn:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
 
-    redis_conn.srem(tenant_key("blocklist"), normalized_ip)
+    try:
+        redis_conn.srem(tenant_key("blocklist"), normalized_ip)
+    except RedisError as exc:
+        logger.error("Error removing IP from blocklist", exc_info=exc)
+        return JSONResponse(
+            {"error": "Service temporarily unavailable"}, status_code=503
+        )
     log_event(user, "unblock_ip", {"ip": normalized_ip})
     return JSONResponse({"status": "success", "ip": normalized_ip})
