@@ -27,9 +27,10 @@ def _fetch_vault_secret(secret_path: str) -> Optional[str]:
     except requests.RequestException as exc:
         logger.warning("Could not read secret from Vault at %s: %s", secret_path, exc)
         return None
-    result = secret
-    secret = None
-    return result
+    try:
+        return secret
+    finally:
+        del secret
 
 
 def get_secret(file_variable_name: str) -> Optional[str]:
@@ -38,16 +39,20 @@ def get_secret(file_variable_name: str) -> Optional[str]:
     if vault_path:
         secret = _fetch_vault_secret(vault_path)
         if secret is not None:
-            return secret
+            try:
+                return secret
+            finally:
+                del secret
 
     file_path = os.environ.get(file_variable_name)
     if file_path and os.path.exists(file_path):
         try:
             with open(file_path, "r") as f:
                 secret = f.read().strip()
-            result = secret
-            secret = None
-            return result
+            try:
+                return secret
+            finally:
+                del secret
         except IOError as exc:
             logger.warning("Could not read secret file at %s: %s", file_path, exc)
     return None

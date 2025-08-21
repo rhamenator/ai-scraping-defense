@@ -41,19 +41,19 @@ def get_redis_connection(db_number: int = 0, fail_fast: bool = False):
     """
     redis_host = os.environ.get("REDIS_HOST", "localhost")
     password = get_secret("REDIS_PASSWORD_FILE")
+    redis_port = int(os.environ.get("REDIS_PORT", 6379))
 
     if password is None and os.environ.get("REDIS_PASSWORD_FILE"):
         msg = f"Redis password file not found at {os.environ['REDIS_PASSWORD_FILE']}"
         logging.error(msg)
         if fail_fast:
+            del password
             raise RedisConnectionError(msg)
+        del password
         return None
-
-    redis_port = int(os.environ.get("REDIS_PORT", 6379))
 
     try:
         r = _create_client(redis_host, redis_port, password, db_number)
-        password = None
         logging.info(
             f"Successfully connected to Redis at {redis_host} on DB {db_number}"
         )
@@ -79,3 +79,5 @@ def get_redis_connection(db_number: int = 0, fail_fast: bool = False):
         if fail_fast:
             raise RedisConnectionError(msg)
         return None
+    finally:
+        del password
