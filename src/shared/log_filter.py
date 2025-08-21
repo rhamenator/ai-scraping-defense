@@ -1,6 +1,13 @@
+"""Utilities for masking sensitive data in log messages.
+
+Masking is performed during formatting so ``LogRecord`` objects retain their
+original ``msg`` and ``args`` values for any handlers that inspect them."""
+
+from __future__ import annotations
+
 import logging
 import re
-from typing import List, Tuple
+from typing import List, Optional, Set, Tuple
 
 _REPLACEMENTS: List[Tuple[re.Pattern[str], str]] = [
     # IPv4 addresses
@@ -13,13 +20,17 @@ _REPLACEMENTS: List[Tuple[re.Pattern[str], str]] = [
     ),
     # API keys and tokens
     (
-        re.compile(r"(?i)(api[_-]?key|token|authorization)[:=]\s*[^\s]+"),
-        r"\1=<redacted>",
+        re.compile(
+            r"(?i)(\"?(?:api[_-]?key|token|authorization)\"?\s*[:=]\s*)(\"?)([^\"\s]+)(\"?)"
+        ),
+        r"\1\2<redacted>\4",
     ),
     # Passwords
     (
-        re.compile(r"(?i)(password|passwd|pwd)[:=]\s*[^\s]+"),
-        r"\1=<redacted>",
+        re.compile(
+            r"(?i)(\"?(?:password|passwd|pwd)\"?\s*[:=]\s*)(\"?)([^\"\s]+)(\"?)"
+        ),
+        r"\1\2<redacted>\4",
     ),
 ]
 
@@ -29,39 +40,50 @@ def _mask(message: str) -> str:
         message = pattern.sub(repl, message)
     return message
 
+class SensitiveDataFormatter(logging.Formatter):
+    """Formatter that masks sensitive data from log records."""
 
-class SensitiveDataFilter(logging.Filter):
-    """Mask sensitive data such as IPs, API keys, and passwords."""
+    def __init__(self, base_formatter: Optional[logging.Formatter] = None):
+        super().__init__()
+        self._base = base_formatter
 
-    def filter(self, record: logging.LogRecord) -> bool:  # pragma: no cover - simple
-        message = record.getMessage()
-        masked = _mask(message)
-        record.msg = masked
-        record.args = ()
-        return True
-
-
-_FILTER = SensitiveDataFilter()
+    def format(self, record: logging.LogRecord) -> str:  # pragma: no cover - simple
+        if self._base is not None:
+            formatted = self._base.format(record)
+        else:
+            formatted = super().format(record)
+        return _mask(formatted)
 
 
-def apply_sensitive_data_filter() -> None:
-    """Attach the sensitive data filter to all loggers."""
+_CONFIGURED_HANDLERS: Set[int] = set()
 
-    root_logger = logging.getLogger()
-    if _FILTER not in root_logger.filters:
-        root_logger.addFilter(_FILTER)
 
-    for name in list(logging.root.manager.loggerDict):
-        logger = logging.getLogger(name)
-        if _FILTER not in logger.filters:
-            logger.addFilter(_FILTER)
+def _ensure_formatter(handler: logging.Handler) -> None:
+    handler_id = id(handler)
+    if handler_id in _CONFIGURED_HANDLERS:
+        return
+    formatter = handler.formatter
+    if isinstance(formatter, SensitiveDataFormatter):
+        _CONFIGURED_HANDLERS.add(handler_id)
+        return
+    handler.setFormatter(SensitiveDataFormatter(formatter))
+    _CONFIGURED_HANDLERS.add(handler_id)
 
-    _orig_get_logger = logging.getLogger
 
-    def get_logger(name: str | None = None) -> logging.Logger:
-        logger = _orig_get_logger(name)
-        if _FILTER not in logger.filters:
-            logger.addFilter(_FILTER)
-        return logger
+def configure_sensitive_logging(
+    logger: Optional[logging.Logger] = None, *, include_existing_handlers: bool = True
+) -> None:
+    """Apply masking to handlers of ``logger`` or the root logger by default."""
 
-    logging.getLogger = get_logger
+    if logger is None:
+        loggers = [logging.getLogger()] + [
+            logging.getLogger(name) for name in logging.root.manager.loggerDict
+        ]
+    else:
+        loggers = [logger]
+
+    for log in loggers:
+        if include_existing_handlers:
+            for handler in log.handlers:
+                _ensure_formatter(handler)
+
