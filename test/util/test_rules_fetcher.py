@@ -6,6 +6,8 @@ import unittest
 import zipfile
 from unittest.mock import MagicMock, patch
 
+import requests
+
 from src.util import rules_fetcher
 
 
@@ -24,15 +26,15 @@ class MockResponse:
 
     def raise_for_status(self):
         if self.status_code >= 400:
-            raise rules_fetcher.requests.exceptions.HTTPError()
+            raise requests.exceptions.HTTPError()
 
 
 class TestRulesFetcher(unittest.TestCase):
     def setUp(self):
-        self.patcher_get = patch("src.util.rules_fetcher.requests.get")
+        self.patcher_get = patch("requests.get")
         self.mock_get = self.patcher_get.start()
         self.addCleanup(self.patcher_get.stop)
-        self.patcher_subprocess = patch("src.util.rules_fetcher.subprocess.run")
+        self.patcher_subprocess = patch("src.util.rules_fetcher.fetcher.subprocess.run")
         self.mock_subprocess = self.patcher_subprocess.start()
         self.addCleanup(self.patcher_subprocess.stop)
 
@@ -43,7 +45,7 @@ class TestRulesFetcher(unittest.TestCase):
         self.mock_get.assert_called_once()
 
     def test_fetch_rules_error(self):
-        self.mock_get.side_effect = rules_fetcher.requests.exceptions.RequestException()
+        self.mock_get.side_effect = requests.exceptions.RequestException()
         content = rules_fetcher.fetch_rules("https://example.com/rules")
         self.assertEqual(content, "")
 
@@ -78,10 +80,14 @@ class TestRulesFetcher(unittest.TestCase):
         mock_api.patch_namespaced_config_map.assert_called_once()
 
     def test_main_flow_local(self):
-        with patch.dict(os.environ, {}, clear=True), patch(
-            "src.util.rules_fetcher.reload_waf_rules"
-        ) as mock_reload, patch.object(
-            rules_fetcher, "RULES_URL", "https://example.com/rules"
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("src.util.rules_fetcher.fetcher.reload_waf_rules") as mock_reload,
+            patch(
+                "src.util.rules_fetcher.fetcher.RULES_URL", "https://example.com/rules"
+            ),
+            patch("src.util.rules_fetcher.fetcher.ALLOWED_RULES_DOMAINS", []),
+            patch("src.util.rules_fetcher.fetcher.CRS_DOWNLOAD_URL", ""),
         ):
             self.mock_get.return_value = MockResponse("SecRule ...", 200)
             rules_fetcher._run_as_script()
