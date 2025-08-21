@@ -18,6 +18,12 @@ async def read_json_body(
         if len(body) > max_bytes:
             raise HTTPException(status_code=413, detail="Payload too large")
     try:
-        return json.loads(body.decode())
+    body = io.BytesIO()
+    async for chunk in request.stream():
+        body.write(chunk)
+        if body.tell() > max_bytes:
+            raise HTTPException(status_code=413, detail="Payload too large")
+    try:
+        return json.loads(body.getvalue().decode())
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=400, detail="Invalid JSON") from exc
