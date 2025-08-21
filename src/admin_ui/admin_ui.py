@@ -21,6 +21,7 @@ from src.shared.config import CONFIG, tenant_key
 from src.shared.middleware import create_app
 from src.shared.redis_client import get_redis_connection
 
+from . import auth as auth_routes
 from . import blocklist, metrics, webauthn
 from .auth import require_admin, require_auth
 
@@ -122,6 +123,7 @@ app.mount(
 app.include_router(metrics.router)
 app.include_router(blocklist.router)
 app.include_router(webauthn.router)
+app.include_router(auth_routes.router)
 
 
 @app.get("/", response_class=HTMLResponse)
