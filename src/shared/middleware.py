@@ -1,8 +1,11 @@
 import asyncio
 import os
 import time
+from collections import deque
 
-from fastapi import FastAPI, HTTPException
+from cachetools import TTLCache
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
@@ -18,7 +21,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self._requests: dict[str, list[float]] = {}
+        self._requests: TTLCache[str, deque[float]] = TTLCache(
+            maxsize=10000, ttl=window_seconds * 2
+        )
         self._lock = asyncio.Lock()
 
     async def dispatch(self, request: Request, call_next):
@@ -27,13 +32,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         ip = request.client.host if request.client else "unknown"
         now = time.time()
         async with self._lock:
-            bucket = self._requests.setdefault(ip, [])
-            cutoff = now - self.window_seconds
-            while bucket and bucket[0] <= cutoff:
-                bucket.pop(0)
+            bucket = self._requests.get(ip)
+            if bucket is None:
+                bucket = deque()
+            else:
+                cutoff = now - self.window_seconds
+                while bucket and bucket[0] <= cutoff:
+                    bucket.popleft()
+                if not bucket:
+                    self._requests.pop(ip, None)
+                    bucket = deque()
             if len(bucket) >= self.max_requests:
-                raise HTTPException(status_code=429, detail="Too Many Requests")
+                return JSONResponse(
+                    status_code=429, content={"detail": "Too Many Requests"}
+                )
             bucket.append(now)
+            self._requests[ip] = bucket
         return await call_next(request)
 
 
@@ -49,10 +63,38 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         length = request.headers.get("content-length")
         if length and int(length) > self.max_body_size:
-            raise HTTPException(status_code=413, detail="Request body too large")
-        body = await request.body()
-        if len(body) > self.max_body_size:
-            raise HTTPException(status_code=413, detail="Request body too large")
+            return JSONResponse(
+                status_code=413, content={"detail": "Request body too large"}
+            )
+
+        size = 0
+        body = bytearray()
+        async for chunk in request.stream():
+            size += len(chunk)
+            if size > self.max_body_size:
+                return JSONResponse(
+                    status_code=413, content={"detail": "Request body too large"}
+                )
+            body.extend(chunk)
+
+        if body:
+            body_bytes = bytes(body)
+            received = False
+
+            async def receive() -> dict:
+                nonlocal received
+                if received:
+                    return {"type": "http.request", "body": b"", "more_body": False}
+                received = True
+                return {
+                    "type": "http.request",
+                    "body": body_bytes,
+                    "more_body": False,
+                }
+
+            request._receive = receive  # type: ignore[attr-defined]
+            request._body = body_bytes  # type: ignore[attr-defined]
+            request._stream_consumed = False  # type: ignore[attr-defined]
         return await call_next(request)
 
 
