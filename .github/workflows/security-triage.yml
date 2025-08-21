@@ -1,15 +1,31 @@
 name: Security Triage (Code Scanning Allowlist)
-on: { workflow_dispatch: {} }
-permissions: { contents: read, security-events: write }
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (staging|production|preview)"
+        required: false
+      ref:
+        description: "Git ref to run against"
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  cancel-in-progress: true
 jobs:
   triage:
+    permissions:
+      contents: read
+      security-events: write
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - name: Install jq & gh
         run: sudo apt-get update && sudo apt-get install -y jq
       - name: Dismiss allowlisted Code Scanning alerts
-        env: { GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
         run: |
           set -e
           gh api -H "Accept: application/sarif+json" /repos/${GITHUB_REPOSITORY}/code-scanning/alerts --paginate > /tmp/alerts.json

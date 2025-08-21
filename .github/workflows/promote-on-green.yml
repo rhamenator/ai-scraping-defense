@@ -1,9 +1,26 @@
 name: Promote to Production on Green
-on: { workflow_dispatch: {} }
-permissions: { contents: read, packages: write, deployments: write }
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (staging|production|preview)"
+        required: false
+      ref:
+        description: "Git ref to run against"
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  cancel-in-progress: true
 env: { REGISTRY: ghcr.io }
 jobs:
   promote:
+    permissions:
+      contents: read
+      packages: write
+      deployments: write
+      id-token: write
     runs-on: ubuntu-latest
     environment: { name: production, url: ${{ secrets.PROD_BASE_URL }} }
     steps:
@@ -21,10 +38,16 @@ jobs:
               docker build -t "$image" "$dir"; docker push "$image"; echo "$svc=$image" >> images.txt
             fi
           done
-      - uses: google-github-actions/setup-gcloud@v2
-        with: { project_id: ${{ secrets.GCP_PROJECT }}, service_account_key: ${{ secrets.GCP_SA_KEY }}, export_default_credentials: true }
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
       - uses: google-github-actions/get-gke-credentials@v2
-        with: { cluster_name: ${{ secrets.GKE_CLUSTER }}, location: ${{ secrets.GCP_REGION }} }
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          cluster_name: ${{ secrets.GKE_CLUSTER }}
+          location: ${{ secrets.GCP_REGION }}
       - uses: azure/setup-helm@v4
       - name: Helm upgrade/install (prod)
         run: |

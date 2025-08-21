@@ -2,11 +2,29 @@ name: PR Preview (GKE via Helm)
 on:
   workflow_dispatch:
     inputs:
-      pr_number: { description: 'Pull request number', required: true, type: number }
-permissions: { contents: read, packages: write, pull-requests: write }
+      environment:
+        description: "Target environment (staging|production|preview)"
+        required: false
+      ref:
+        description: "Git ref to run against"
+        required: false
+      pr_number:
+        description: 'Pull request number'
+        required: true
+        type: number
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  cancel-in-progress: true
 env: { REGISTRY: ghcr.io }
 jobs:
   build-and-deploy-preview:
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
+      id-token: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,10 +41,16 @@ jobs:
               docker build -t "$image" "$dir"; docker push "$image"; echo "$svc=$image" >> images.txt
             fi
           done; cat images.txt
-      - uses: google-github-actions/setup-gcloud@v2
-        with: { project_id: ${{ secrets.GCP_PROJECT }}, service_account_key: ${{ secrets.GCP_SA_KEY }}, export_default_credentials: true }
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
       - uses: google-github-actions/get-gke-credentials@v2
-        with: { cluster_name: ${{ secrets.GKE_CLUSTER }}, location: ${{ secrets.GCP_REGION }} }
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          cluster_name: ${{ secrets.GKE_CLUSTER }}
+          location: ${{ secrets.GCP_REGION }}
       - uses: azure/setup-helm@v4
       - name: Derive preview host
         id: host
@@ -45,16 +69,27 @@ jobs:
             --set ingress.enabled=true --set ingress.hosts[0].host="${{ steps.host.outputs.host }}"
       - name: Comment preview URL
         uses: actions/github-script@v7
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
           script: |
-            const url = "https://${{ steps.host.outputs.host }}/";
+            const url = `https://${{ steps.host.outputs.host }}/`;
             github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: ${{ inputs.pr_number }}, body: `🔎 Preview ready: ${url}` });
   cleanup-preview:
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: google-github-actions/setup-gcloud@v2
-        with: { project_id: ${{ secrets.GCP_PROJECT }}, service_account_key: ${{ secrets.GCP_SA_KEY }}, export_default_credentials: true }
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
       - uses: google-github-actions/get-gke-credentials@v2
-        with: { cluster_name: ${{ secrets.GKE_CLUSTER }}, location: ${{ secrets.GCP_REGION }} }
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          cluster_name: ${{ secrets.GKE_CLUSTER }}
+          location: ${{ secrets.GCP_REGION }}
       - name: Delete preview namespace
         run: PR=${{ inputs.pr_number }}; kubectl delete ns "pr-${PR}" --wait=false || true

@@ -1,8 +1,23 @@
 name: CI Tests (Linux, Windows, macOS)
-on: { workflow_dispatch: {} }
-permissions: { contents: read }
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (staging|production|preview)"
+        required: false
+      ref:
+        description: "Git ref to run against"
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  cancel-in-progress: true
 jobs:
   tests-linux:
+    permissions:
+      contents: read
+      checks: write
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -51,6 +66,9 @@ jobs:
             helm template helm/ai-scraping-defense-v9 | kubeconform -ignore-missing-schemas -strict || true
           fi
   tests-windows:
+    permissions:
+      contents: read
+      checks: write
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -76,6 +94,9 @@ jobs:
           Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
           Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Recurse -Severity Warning -OutVariable issues } ; $issues | Format-Table || $true
   tests-macos:
+    permissions:
+      contents: read
+      checks: write
     runs-on: macos-latest
     timeout-minutes: 45
     steps:

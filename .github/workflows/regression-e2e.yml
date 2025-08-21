@@ -1,7 +1,23 @@
 name: Regression E2E (Linux/Windows/macOS)
-on: { workflow_dispatch: {} }
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (staging|production|preview)"
+        required: false
+      ref:
+        description: "Git ref to run against"
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  cancel-in-progress: true
 jobs:
   e2e-linux:
+    permissions:
+      contents: read
+      checks: write
     runs-on: ubuntu-latest
     timeout-minutes: 70
     steps:
@@ -32,6 +48,9 @@ jobs:
           [ -f "./stress_test.sh" ] && bash ./stress_test.sh || true
           [ -f "./scripts/stress_test.sh" ] && bash ./scripts/stress_test.sh || true
   e2e-windows:
+    permissions:
+      contents: read
+      checks: write
     runs-on: windows-latest
     timeout-minutes: 70
     steps:
@@ -70,6 +89,9 @@ jobs:
           if (Test-Path "./stress_test.ps1") { ./stress_test.ps1 -ErrorAction Continue }
           if (Test-Path "./scripts/stress_test.ps1") { ./scripts/stress_test.ps1 -ErrorAction Continue }
   e2e-macos:
+    permissions:
+      contents: read
+      checks: write
     runs-on: macos-latest
     timeout-minutes: 50
     steps:

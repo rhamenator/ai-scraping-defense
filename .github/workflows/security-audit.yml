@@ -1,9 +1,24 @@
 name: Security Audit (consolidated)
 on:
   workflow_dispatch:
-permissions: { contents: read, security-events: write, actions: read }
+    inputs:
+      environment:
+        description: "Target environment (staging|production|preview)"
+        required: false
+      ref:
+        description: "Git ref to run against"
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  cancel-in-progress: true
 jobs:
   audit:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
