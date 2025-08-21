@@ -16,7 +16,7 @@ spec:
           - name: owasp-crs-fetcher
             image: your-registry/ai-scraping-defense:latest
             imagePullPolicy: Always
-            command: ["python", "src/util/rules_fetcher.py"]
+            command: ["python", "-m", "src.util.rules_fetcher"]
             env:
             - name: CRS_DOWNLOAD_URL
               value: "https://github.com/coreruleset/coreruleset/archive/refs/heads/v3.3/main.tar.gz"
