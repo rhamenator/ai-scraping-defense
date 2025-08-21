@@ -7,7 +7,9 @@ from typing import Dict
 import httpx
 
 from src.shared.config import CONFIG
-from src.shared.metrics import (
+from src.shared.utils import LOG_DIR, log_event
+
+from .metrics_ai_service import (
     COMMUNITY_REPORTS_ATTEMPTED,
     COMMUNITY_REPORTS_ERRORS_REQUEST,
     COMMUNITY_REPORTS_ERRORS_RESPONSE_DECODE,
@@ -17,7 +19,6 @@ from src.shared.metrics import (
     COMMUNITY_REPORTS_SUCCESS,
     increment_counter_metric,
 )
-from src.shared.utils import LOG_DIR, log_event
 
 logger = logging.getLogger(__name__)
 

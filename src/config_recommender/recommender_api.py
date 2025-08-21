@@ -5,7 +5,8 @@ from typing import Dict
 from fastapi import FastAPI, Header, HTTPException
 
 from src.shared.config import CONFIG
-from src.shared.metrics import get_metrics
+
+from .metrics_config_recommender import get_metrics
 
 app = FastAPI()
 
