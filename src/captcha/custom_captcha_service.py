@@ -7,12 +7,13 @@ import logging
 import os
 import secrets
 
-from fastapi import Cookie, FastAPI, Form, HTTPException, Request
+from fastapi import Cookie, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from src.shared.config import get_secret
+from src.shared.middleware import create_app
 
-app = FastAPI()
+app = create_app()
 
 CAPTCHA_SECRET = get_secret("CAPTCHA_SECRET_FILE") or os.getenv("CAPTCHA_SECRET")
 CAPTCHA_SUCCESS_LOG = os.getenv("CAPTCHA_SUCCESS_LOG", "/app/logs/captcha_success.log")

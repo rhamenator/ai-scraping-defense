@@ -5,8 +5,9 @@ import re
 import time
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import HTTPException, Request, Response
 
+from src.shared.middleware import create_app
 from src.shared.request_utils import read_json_body
 
 LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "http://llama3:11434/api/generate")
@@ -33,7 +34,7 @@ def count_tokens(text: str) -> int:
     return len(TOKEN_PATTERN.findall(text))
 
 
-app = FastAPI()
+app = create_app()
 
 
 @app.get("/health")

@@ -5,14 +5,15 @@ import json
 from json import JSONDecodeError
 from typing import Any, Dict, List
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from redis.exceptions import RedisError
 
 from src.shared.config import tenant_key
+from src.shared.middleware import create_app
 from src.shared.redis_client import get_redis_connection
 
-app = FastAPI()
+app = create_app()
 
 # Redis-backed storage of metrics per installation with TTLs
 METRICS_TTL = 60

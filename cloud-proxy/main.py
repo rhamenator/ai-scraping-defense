@@ -1,13 +1,16 @@
 import os
+import secrets
 
 import httpx
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Header, HTTPException
+
+from src.shared.middleware import create_app
 
 API_KEY = os.getenv("OPENAI_API_KEY")
 LLM_URL = os.getenv("CLOUD_LLM_API_URL", "https://api.openai.com/v1/chat/completions")
 PROXY_KEY = os.getenv("PROXY_KEY")
 
-app = FastAPI()
+app = create_app()
 
 
 @app.get("/health")
