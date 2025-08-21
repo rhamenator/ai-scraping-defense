@@ -50,7 +50,7 @@ except Exception as e:
 
 # --- Metrics Import (Preserved from your original file) ---
 try:
-    from src.shared.metrics import (
+    from .metrics_escalation import (
         BOTS_DETECTED_EXTERNAL_API,
         BOTS_DETECTED_HIGH_SCORE,
         BOTS_DETECTED_IP_REPUTATION,

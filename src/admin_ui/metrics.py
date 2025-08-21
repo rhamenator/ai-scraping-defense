@@ -13,9 +13,8 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBasicCredentials
 
-from src.shared.metrics import get_metrics
-
 from .auth import require_auth
+from .metrics_admin_ui import get_metrics
 
 logger = logging.getLogger(__name__)
 
