@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from src.ai_service import blocklist, community_reporting
 from src.ai_service import main as ai_webhook
+from src.shared.config import Config
 
 
 class TestAIWebhookComprehensive(unittest.TestCase):
@@ -19,27 +20,21 @@ class TestAIWebhookComprehensive(unittest.TestCase):
     def setUp(self):
         """Set up the FastAPI test client and patch dependencies."""
         self.secret = "test-secret"
-        self.env_patcher = patch.dict(
-            os.environ, {"WEBHOOK_SHARED_SECRET": self.secret}, clear=False
-        )
-        self.env_patcher.start()
         reload(ai_webhook)
         self.client = TestClient(ai_webhook.app)
-        ai_webhook.WEBHOOK_SHARED_SECRET = self.secret
         ai_webhook._request_counts.clear()
-
-        # The function is imported from shared.redis_client into the ai_webhook module.
-        # Therefore, we must patch it where it is used.
-        self.redis_client_patcher = patch("src.ai_service.main.get_redis_connection")
-        self.mock_get_redis = self.redis_client_patcher.start()
         self.mock_redis_client = MagicMock()
-        self.mock_get_redis.return_value = self.mock_redis_client
+        ai_webhook.app.dependency_overrides[ai_webhook.get_redis_blocklist] = (
+            lambda: self.mock_redis_client
+        )
+        ai_webhook.app.dependency_overrides[ai_webhook.get_config] = lambda: Config(
+            WEBHOOK_SHARED_SECRET=self.secret
+        )
 
     def tearDown(self):
         """Stop all patches."""
         patch.stopall()
-        self.env_patcher.stop()
-        ai_webhook.WEBHOOK_SHARED_SECRET = None
+        ai_webhook.app.dependency_overrides.clear()
 
     def _post(self, payload, headers=None):
         body = json.dumps(payload).encode("utf-8")
@@ -195,7 +190,9 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
     def test_webhook_receiver_redis_unavailable(self):
         """Test that a 503 error is returned if the Redis connection fails."""
-        self.mock_get_redis.return_value = None
+        ai_webhook.app.dependency_overrides[ai_webhook.get_redis_blocklist] = (
+            lambda: None
+        )
         payload = {"action": "block_ip", "ip": "1.2.3.4"}
         response = self._post(payload)
         self.assertEqual(response.status_code, 503)
@@ -221,7 +218,9 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
     def test_health_check_unhealthy(self):
         """Test the health check endpoint when Redis is not connected."""
-        self.mock_get_redis.return_value = None
+        ai_webhook.app.dependency_overrides[ai_webhook.get_redis_blocklist] = (
+            lambda: None
+        )
         response = self.client.get("/health")
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json(), {"status": "error", "redis_connected": False})
