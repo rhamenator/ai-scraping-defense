@@ -26,8 +26,10 @@ async def verify_captcha(token: str, request: Request):
         raise HTTPException(
             status_code=500, detail="CAPTCHA verification not configured"
         )
-    ip = request.client.host if request.client else "unknown"
-    payload = {"secret": CAPTCHA_SECRET, "response": token, "remoteip": ip}
+    ip = request.client.host if request.client else None
+    payload = {"secret": CAPTCHA_SECRET, "response": token}
+    if ip is not None:
+        payload["remoteip"] = ip
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
@@ -36,7 +38,7 @@ async def verify_captcha(token: str, request: Request):
             resp.raise_for_status()
             result = resp.json()
     except Exception as e:
-        logger.error(f"Error verifying CAPTCHA for IP {ip}: {e}")
+        logger.error(f"Error verifying CAPTCHA for IP {ip or 'unknown'}: {e}")
         raise HTTPException(status_code=502, detail="CAPTCHA verification failed")
     success = bool(result.get("success"))
     if success:
@@ -44,7 +46,7 @@ async def verify_captcha(token: str, request: Request):
             os.makedirs(os.path.dirname(CAPTCHA_SUCCESS_LOG), exist_ok=True)
             with open(CAPTCHA_SUCCESS_LOG, "a") as f:
                 f.write(
-                    f"{datetime.datetime.now(datetime.timezone.utc).isoformat()},{ip}\n"
+                    f"{datetime.datetime.now(datetime.timezone.utc).isoformat()},{ip or 'unknown'}\n"
                 )
         except Exception as e:
             logger.error(f"Failed to log CAPTCHA success: {e}")
