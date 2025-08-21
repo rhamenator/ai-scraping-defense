@@ -68,10 +68,9 @@ def get_redis_connection(db_number: int = 0, fail_fast: bool = False):
     except RetryError as e:
         if isinstance(e.last_attempt.exception(), redis.AuthenticationError):
             msg = f"Redis authentication failed for DB {db_number}. Check password."
-            logging.error(msg)
         else:
             msg = f"Failed to connect to Redis at {redis_host} on DB {db_number}: {e}"
-            logging.error(msg)
+        logging.error(msg)
         if fail_fast:
             raise RedisConnectionError(msg)
         return None
