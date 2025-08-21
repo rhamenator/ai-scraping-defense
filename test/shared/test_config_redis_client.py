@@ -20,6 +20,22 @@ class TestGetSecret(unittest.TestCase):
         ):
             self.assertIsNone(config.get_secret("MY_SECRET_FILE"))
 
+    def test_secret_from_vault(self):
+        env = {
+            "VAULT_ADDR": "http://vault:8200",
+            "VAULT_TOKEN": "token",
+            "MY_SECRET_FILE_VAULT_PATH": "secret/data/myapp/mysecret",
+        }
+        with patch.dict(os.environ, env), patch(
+            "os.path.exists", return_value=False
+        ), patch("requests.get") as mock_get:
+            mock_resp = MagicMock()
+            mock_resp.ok = True
+            mock_resp.json.return_value = {"data": {"data": {"value": "secret_value"}}}
+            mock_get.return_value.__enter__.return_value = mock_resp
+            self.assertEqual(config.get_secret("MY_SECRET_FILE"), "secret_value")
+            mock_get.assert_called_once()
+
 
 class TestGetConfig(unittest.TestCase):
     def test_get_config_returns_env_overrides(self):
@@ -53,8 +69,10 @@ class TestRedisClient(unittest.TestCase):
         mock_instance = MagicMock()
         mock_instance.ping.side_effect = redis_client.redis.AuthenticationError()
         with patch.dict(os.environ, {"REDIS_PASSWORD_FILE": "/tmp/secret"}), patch(
-            "builtins.open", mock_open(read_data="pw")
-        ), patch("redis.Redis", return_value=mock_instance) as mock_redis, patch(
+            "os.path.exists", return_value=True
+        ), patch("builtins.open", mock_open(read_data="pw")), patch(
+            "redis.Redis", return_value=mock_instance
+        ) as mock_redis, patch(
             "logging.error"
         ) as mock_log:
             conn = redis_client.get_redis_connection()

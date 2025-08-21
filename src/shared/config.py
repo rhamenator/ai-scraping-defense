@@ -5,14 +5,54 @@ import os
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
+import requests
+
+logger = logging.getLogger(__name__)
+
+
+def _fetch_vault_secret(secret_path: str) -> Optional[str]:
+    """Retrieve a secret from HashiCorp Vault via HTTP."""
+    vault_addr = os.getenv("VAULT_ADDR")
+    token = os.getenv("VAULT_TOKEN")
+    if not (vault_addr and token):
+        return None
+    url = f"{vault_addr.rstrip('/')}/v1/{secret_path.lstrip('/')}"
+    try:
+        with requests.get(url, headers={"X-Vault-Token": token}, timeout=5) as resp:
+            if resp.ok:
+                data = resp.json().get("data", {}).get("data", {})
+                secret = data.get("value")
+            else:
+                secret = None
+    except requests.RequestException as exc:
+        logger.warning("Could not read secret from Vault at %s: %s", secret_path, exc)
+        return None
+    try:
+        return secret
+    finally:
+        del secret
+
 
 def get_secret(file_variable_name: str) -> Optional[str]:
-    """Read a secret from the file path specified in an environment variable."""
+    """Read a secret from a file or Vault and clear variables after use."""
+    vault_path = os.environ.get(f"{file_variable_name}_VAULT_PATH")
+    if vault_path:
+        secret = _fetch_vault_secret(vault_path)
+        if secret is not None:
+            try:
+                return secret
+            finally:
+                del secret
+
     file_path = os.environ.get(file_variable_name)
     if file_path and os.path.exists(file_path):
         try:
             with open(file_path, "r") as f:
-                return f.read().strip()
+                secret = f.read().strip()
+            try:
+                return secret
+            finally:
+                del secret
         except IOError as exc:
             logger.warning("Could not read secret file at %s: %s", file_path, exc)
     return None

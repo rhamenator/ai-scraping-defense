@@ -6,6 +6,8 @@ import os
 import redis
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
+from src.shared.config import get_secret
+
 
 class RedisConnectionError(Exception):
     """Raised when a Redis connection cannot be established."""
@@ -38,20 +40,17 @@ def get_redis_connection(db_number: int = 0, fail_fast: bool = False):
             returning ``None`` when the connection cannot be established.
     """
     redis_host = os.environ.get("REDIS_HOST", "localhost")
-    password = None
-
-    if password_file := os.environ.get("REDIS_PASSWORD_FILE"):
-        try:
-            with open(password_file, "r") as f:
-                password = f.read().strip()
-        except FileNotFoundError:
-            msg = f"Redis password file not found at {password_file}"
-            logging.error(msg)
-            if fail_fast:
-                raise RedisConnectionError(msg)
-            return None
-
+    password = get_secret("REDIS_PASSWORD_FILE")
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
+
+    if password is None and os.environ.get("REDIS_PASSWORD_FILE"):
+        msg = f"Redis password file not found at {os.environ['REDIS_PASSWORD_FILE']}"
+        logging.error(msg)
+        if fail_fast:
+            del password
+            raise RedisConnectionError(msg)
+        del password
+        return None
 
     try:
         r = _create_client(redis_host, redis_port, password, db_number)
@@ -80,3 +79,5 @@ def get_redis_connection(db_number: int = 0, fail_fast: bool = False):
         if fail_fast:
             raise RedisConnectionError(msg)
         return None
+    finally:
+        del password
