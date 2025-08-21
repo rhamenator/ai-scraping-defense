@@ -14,7 +14,7 @@ def get_secret(file_variable_name: str) -> Optional[str]:
             with open(file_path, "r") as f:
                 return f.read().strip()
         except IOError as exc:
-            logging.warning("Could not read secret file at %s: %s", file_path, exc)
+            logger.warning("Could not read secret file at %s: %s", file_path, exc)
     return None
 
 
