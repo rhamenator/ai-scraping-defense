@@ -100,8 +100,7 @@ def get_model_adapter(
             return adapter_class(model_path)
         except Exception as e:
             logging.error(
-                f"Attempt {attempt} failed to instantiate adapter for scheme '{scheme}': {e}",
-                exc_info=True,
+                f"Attempt {attempt} failed to instantiate adapter for scheme '{scheme}': {e}"
             )
             if attempt < retries:
                 backoff = delay * (2 ** (attempt - 1))

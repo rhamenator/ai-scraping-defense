@@ -4,7 +4,7 @@ This module provides a generic abstraction for sending alerts via HTTP webhooks
 and APIs. It handles alert formatting, error handling, retry logic, and logging
 specific to alert delivery scenarios.
 
-The module is designed to be extended by specific alert implementations (like Slack, 
+The module is designed to be extended by specific alert implementations (like Slack,
 Discord, Teams, etc.) while providing common functionality for HTTP-based alerting.
 
 Key Features:
@@ -19,7 +19,7 @@ Usage Example:
         webhook_url="https://hooks.example.com/webhook",
         timeout=10.0
     )
-    
+
     result = await alert_sender.send_alert({
         "message": "Alert from AI Defense System",
         "severity": "high",
@@ -30,7 +30,7 @@ Usage Example:
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from .http_client import AsyncHttpClient, httpx
 
@@ -39,8 +39,13 @@ logger = logging.getLogger(__name__)
 
 class AlertDeliveryError(Exception):
     """Raised when an alert fails to be delivered."""
-    
-    def __init__(self, message: str, response_status: Optional[int] = None, response_body: Optional[str] = None):
+
+    def __init__(
+        self,
+        message: str,
+        response_status: Optional[int] = None,
+        response_body: Optional[str] = None,
+    ):
         super().__init__(message)
         self.response_status = response_status
         self.response_body = response_body
@@ -48,29 +53,29 @@ class AlertDeliveryError(Exception):
 
 class HttpAlertSender:
     """Generic async alert sender for webhook/API-based alerts.
-    
+
     This class provides a foundation for sending alerts via HTTP webhooks and APIs.
     It handles the common patterns of alert delivery including payload formatting,
     error handling, and logging. Specific alert services can extend this class
     to implement their own formatting and authentication requirements.
-    
+
     Attributes:
         webhook_url (str): The URL to send alerts to
         timeout (float): Timeout in seconds for HTTP requests
         default_headers (Dict[str, str]): Default headers to include with requests
         max_retry_attempts (int): Maximum number of retry attempts for failed requests
     """
-    
+
     def __init__(
         self,
         webhook_url: str,
         timeout: float = 10.0,
         default_headers: Optional[Dict[str, str]] = None,
         max_retry_attempts: int = 3,
-        verify_ssl: bool = True
+        verify_ssl: bool = True,
     ):
         """Initialize the HTTP alert sender.
-        
+
         Args:
             webhook_url: The webhook URL to send alerts to
             timeout: Timeout in seconds for HTTP requests
@@ -83,16 +88,16 @@ class HttpAlertSender:
         self.default_headers = default_headers or {"Content-Type": "application/json"}
         self.max_retry_attempts = max_retry_attempts
         self.verify_ssl = verify_ssl
-    
+
     def format_alert_payload(self, alert_data: Dict[str, Any]) -> Dict[str, Any]:
         """Format alert data into a payload suitable for HTTP delivery.
-        
+
         This method can be overridden by subclasses to implement specific
         formatting requirements for different alert services.
-        
+
         Args:
             alert_data: Raw alert data containing message, severity, details, etc.
-            
+
         Returns:
             Dict containing the formatted payload ready for HTTP transmission
         """
@@ -103,23 +108,25 @@ class HttpAlertSender:
             "message": alert_data.get("message", "Alert from AI Defense System"),
             "severity": alert_data.get("severity", "medium"),
             "source": alert_data.get("source", "ai-scraping-defense"),
-            "details": alert_data.get("details", {})
+            "details": alert_data.get("details", {}),
         }
-        
+
         # Include any additional fields from the original alert data
         for key, value in alert_data.items():
             if key not in payload:
                 payload[key] = value
-        
+
         logger.debug(f"Formatted alert payload: {json.dumps(payload, default=str)}")
         return payload
-    
-    def prepare_headers(self, additional_headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+
+    def prepare_headers(
+        self, additional_headers: Optional[Dict[str, str]] = None
+    ) -> Dict[str, str]:
         """Prepare HTTP headers for the alert request.
-        
+
         Args:
             additional_headers: Additional headers to include for this specific request
-            
+
         Returns:
             Dict containing all headers to be sent with the request
         """
@@ -127,100 +134,96 @@ class HttpAlertSender:
         if additional_headers:
             headers.update(additional_headers)
         return headers
-    
+
     async def send_alert(
         self,
         alert_data: Dict[str, Any],
         additional_headers: Optional[Dict[str, str]] = None,
-        retry_attempts: Optional[int] = None
+        retry_attempts: Optional[int] = None,
     ) -> bool:
         """Send an alert via HTTP POST request with error handling and retry logic.
-        
+
         Args:
             alert_data: Alert data to be formatted and sent
             additional_headers: Optional additional headers for this request
             retry_attempts: Override the default retry attempts for this request
-            
+
         Returns:
             bool: True if the alert was successfully delivered, False otherwise
-            
+
         Raises:
             AlertDeliveryError: If all delivery attempts fail
         """
         if not self.webhook_url:
-            logger.warning("Alert webhook URL is not configured. Skipping alert delivery.")
+            logger.warning(
+                "Alert webhook URL is not configured. Skipping alert delivery."
+            )
             return False
-        
-        max_attempts = retry_attempts if retry_attempts is not None else self.max_retry_attempts
+
+        max_attempts = (
+            retry_attempts if retry_attempts is not None else self.max_retry_attempts
+        )
         payload = self.format_alert_payload(alert_data)
         headers = self.prepare_headers(additional_headers)
-        
+
         logger.info(f"Sending alert to {self.webhook_url}")
-        
+
         # Attempt delivery with retry logic
-        last_exception = None
+
         for attempt in range(1, max_attempts + 1):
             try:
                 async with AsyncHttpClient(
-                    timeout=self.timeout,
-                    verify=self.verify_ssl
+                    timeout=self.timeout, verify=self.verify_ssl
                 ) as client:
                     response = await client.async_post_json(
-                        self.webhook_url,
-                        payload,
-                        headers=headers,
-                        timeout=self.timeout
+                        self.webhook_url, payload, headers=headers, timeout=self.timeout
                     )
-                    
+
                     # Check if the response indicates success
                     response.raise_for_status()
-                    
+
                     logger.info(
                         f"Alert delivered successfully to {self.webhook_url} "
                         f"(Status: {response.status_code})"
                     )
-                    
+
                     return True
-                    
-            except httpx.TimeoutException as e:
+
+            except httpx.TimeoutException:
                 error_msg = f"Timeout delivering alert to {self.webhook_url} (attempt {attempt}/{max_attempts})"
                 logger.error(error_msg)
-                last_exception = AlertDeliveryError(error_msg)
-                
+
             except httpx.HTTPStatusError as e:
                 error_msg = (
                     f"HTTP error delivering alert to {self.webhook_url} "
                     f"(Status: {e.response.status_code}, attempt {attempt}/{max_attempts})"
                 )
-                response_body = e.response.text[:500] if hasattr(e.response, 'text') else None
-                logger.error(f"{error_msg}. Response: {response_body}")
-                last_exception = AlertDeliveryError(
-                    error_msg,
-                    response_status=e.response.status_code,
-                    response_body=response_body
+                response_body = (
+                    e.response.text[:500] if hasattr(e.response, "text") else None
                 )
-                
+                logger.error(f"{error_msg}. Response: {response_body}")
+
             except httpx.RequestError as e:
                 error_msg = f"Request error delivering alert to {self.webhook_url} (attempt {attempt}/{max_attempts}): {e}"
                 logger.error(error_msg)
-                last_exception = AlertDeliveryError(error_msg)
-                
+
             except Exception as e:
                 error_msg = f"Unexpected error delivering alert to {self.webhook_url} (attempt {attempt}/{max_attempts}): {e}"
-                logger.error(error_msg, exc_info=True)
-                last_exception = AlertDeliveryError(error_msg)
-            
+                logger.error(error_msg)
+
             # If this wasn't the last attempt, log retry information
             if attempt < max_attempts:
-                logger.info(f"Retrying alert delivery in attempt {attempt + 1}/{max_attempts}")
-        
+                logger.info(
+                    f"Retrying alert delivery in attempt {attempt + 1}/{max_attempts}"
+                )
+
         # All attempts failed
         logger.error(f"Failed to deliver alert after {max_attempts} attempts")
         return False
-    
+
     async def send_test_alert(self) -> bool:
         """Send a test alert to verify the webhook configuration.
-        
+
         Returns:
             bool: True if the test alert was successfully delivered
         """
@@ -230,51 +233,51 @@ class HttpAlertSender:
             "severity": "info",
             "details": {
                 "test": True,
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            }
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
         }
-        
+
         logger.info("Sending test alert")
         return await self.send_alert(test_data)
 
 
 class MultiChannelAlertSender:
     """Manages multiple alert channels and sends alerts to all configured channels.
-    
+
     This class allows for sending alerts to multiple webhooks or alert services
     simultaneously, providing redundancy and multi-channel notification capabilities.
-    
+
     Usage Example:
         sender = MultiChannelAlertSender()
         sender.add_channel("slack", HttpAlertSender("https://hooks.slack.com/..."))
         sender.add_channel("teams", HttpAlertSender("https://outlook.office.com/..."))
-        
+
         success_count = await sender.send_alert_to_all({
             "message": "Critical alert",
             "severity": "high"
         })
     """
-    
+
     def __init__(self):
         """Initialize the multi-channel alert sender."""
         self.channels: Dict[str, HttpAlertSender] = {}
-    
+
     def add_channel(self, name: str, sender: HttpAlertSender) -> None:
         """Add an alert channel.
-        
+
         Args:
             name: Unique name for the channel
             sender: HttpAlertSender instance for this channel
         """
         self.channels[name] = sender
         logger.debug(f"Added alert channel: {name}")
-    
+
     def remove_channel(self, name: str) -> bool:
         """Remove an alert channel.
-        
+
         Args:
             name: Name of the channel to remove
-            
+
         Returns:
             bool: True if the channel was removed, False if it didn't exist
         """
@@ -283,31 +286,31 @@ class MultiChannelAlertSender:
             logger.debug(f"Removed alert channel: {name}")
             return True
         return False
-    
+
     def get_channel_names(self) -> List[str]:
         """Get list of configured channel names.
-        
+
         Returns:
             List of channel names
         """
         return list(self.channels.keys())
-    
+
     async def send_alert_to_all(self, alert_data: Dict[str, Any]) -> int:
         """Send an alert to all configured channels.
-        
+
         Args:
             alert_data: Alert data to send to all channels
-            
+
         Returns:
             int: Number of channels that successfully received the alert
         """
         if not self.channels:
             logger.warning("No alert channels configured")
             return 0
-        
+
         logger.info(f"Sending alert to {len(self.channels)} channels")
         success_count = 0
-        
+
         for channel_name, sender in self.channels.items():
             try:
                 success = await sender.send_alert(alert_data)
@@ -317,14 +320,16 @@ class MultiChannelAlertSender:
                 else:
                     logger.warning(f"Failed to send alert to channel: {channel_name}")
             except Exception as e:
-                logger.error(f"Error sending alert to channel {channel_name}: {e}", exc_info=True)
-        
-        logger.info(f"Alert delivery completed: {success_count}/{len(self.channels)} channels successful")
+                logger.error(f"Error sending alert to channel {channel_name}: {e}")
+
+        logger.info(
+            f"Alert delivery completed: {success_count}/{len(self.channels)} channels successful"
+        )
         return success_count
-    
+
     async def send_test_alerts(self) -> Dict[str, bool]:
         """Send test alerts to all configured channels.
-        
+
         Returns:
             Dict mapping channel names to success status
         """
@@ -336,5 +341,5 @@ class MultiChannelAlertSender:
             except Exception as e:
                 logger.error(f"Error sending test alert to channel {channel_name}: {e}")
                 results[channel_name] = False
-        
+
         return results

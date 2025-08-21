@@ -34,6 +34,7 @@ from src.shared.decision_db import record_decision
 # --- Refactored Imports ---
 from src.shared.model_provider import get_model_adapter
 from src.shared.redis_client import get_redis_connection
+from src.shared.request_utils import read_json_body
 
 # --- Setup Logging ---
 logger = logging.getLogger(__name__)
@@ -220,7 +221,7 @@ if ANOMALY_MODEL_PATH:
         if anomaly_detector.model:
             logger.info(f"Anomaly detector loaded from {ANOMALY_MODEL_PATH}")
     except Exception as e:  # pragma: no cover - unexpected
-        logger.error(f"Failed to initialize anomaly detector: {e}", exc_info=True)
+        logger.error(f"Failed to initialize anomaly detector: {e}")
 
 # --- Plugin System ---
 from src.plugins import load_plugins
@@ -275,9 +276,7 @@ try:
             "Model adapter failed to initialize or load model. Heuristic scoring only."
         )
 except Exception as e:
-    logger.error(
-        f"CRITICAL: Unhandled exception during model loading: {e}", exc_info=True
-    )
+    logger.error(f"CRITICAL: Unhandled exception during model loading: {e}")
 
 local_llm_adapter = None
 external_api_adapter = None
@@ -297,7 +296,7 @@ try:
             delay=MODEL_ADAPTER_RETRY_DELAY,
         )
 except Exception as e:
-    logger.error(f"Error initializing LLM adapters: {e}", exc_info=True)
+    logger.error(f"Error initializing LLM adapters: {e}")
 
 redis_client_freq = get_redis_connection(db_number=REDIS_DB_FREQUENCY)
 FREQUENCY_TRACKING_ENABLED = bool(redis_client_freq)
@@ -609,7 +608,7 @@ async def check_ip_reputation(ip: str) -> Optional[Dict[str, Any]]:
         increment_counter_metric(IP_REPUTATION_ERRORS_RESPONSE_DECODE)
         return None
     except Exception as e:
-        logger.error(f"Unexpected error IP rep for {ip}: {e}", exc_info=True)
+        logger.error(f"Unexpected error IP rep for {ip}: {e}")
         increment_counter_metric(IP_REPUTATION_ERRORS_UNEXPECTED)
         return None
 
@@ -717,9 +716,7 @@ def run_heuristic_and_model_analysis(
                     f"Could not extract features for RF model (IP: {metadata.ip})"
                 )
         except Exception as e:
-            logger.error(
-                f"RF model prediction failed for IP {metadata.ip}: {e}", exc_info=True
-            )
+            logger.error(f"RF model prediction failed for IP {metadata.ip}: {e}")
             increment_counter_metric(RF_MODEL_ERRORS)
 
     anomaly_score = 0.0
@@ -757,8 +754,7 @@ async def classify_with_local_llm_api(metadata: RequestMetadata) -> Optional[boo
         result = await asyncio.to_thread(local_llm_adapter.predict, safe_metadata)
     except Exception as e:
         logger.error(
-            f"Unexpected error calling local LLM adapter for IP {metadata.ip}: {e}",
-            exc_info=True,
+            f"Unexpected error calling local LLM adapter for IP {metadata.ip}: {e}"
         )
         increment_counter_metric(LOCAL_LLM_ERRORS_UNEXPECTED)
         return None
@@ -805,8 +801,7 @@ async def classify_with_external_api(metadata: RequestMetadata) -> Optional[bool
         result = await asyncio.to_thread(external_api_adapter.predict, external_payload)
     except Exception as e:
         logger.error(
-            f"Unexpected error calling external API adapter for IP {metadata.ip}: {e}",
-            exc_info=True,
+            f"Unexpected error calling external API adapter for IP {metadata.ip}: {e}"
         )
         increment_counter_metric(EXTERNAL_API_ERRORS_UNEXPECTED)
         return None
@@ -872,8 +867,7 @@ async def forward_to_webhook(payload: Dict[str, Any], reason: str):
         increment_counter_metric(ESCALATION_WEBHOOK_ERRORS_REQUEST)
     except Exception as e:
         logger.error(
-            f"Unexpected error during webhook forwarding for IP {payload.get('ip')}: {e}",
-            exc_info=True,
+            f"Unexpected error during webhook forwarding for IP {payload.get('ip')}: {e}"
         )
         increment_counter_metric(ESCALATION_WEBHOOK_ERRORS_UNEXPECTED)
 
@@ -925,9 +919,7 @@ async def trigger_captcha_challenge(metadata: RequestMetadata) -> bool:
             result = resp.json()
             success = bool(result.get("success"))
     except Exception as e:
-        logger.error(
-            f"Error verifying CAPTCHA for IP {metadata.ip}: {e}", exc_info=True
-        )
+        logger.error(f"Error verifying CAPTCHA for IP {metadata.ip}: {e}")
         return False
     if success:
         try:
@@ -1041,10 +1033,7 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
             try:
                 external_api_result = await classify_with_external_api(metadata_req)
             except Exception as e:
-                logger.error(
-                    f"Fallback external API error for {ip_under_test}: {e}",
-                    exc_info=True,
-                )
+                logger.error(f"Fallback external API error for {ip_under_test}: {e}")
 
         # Adjust score with IP reputation if malicious
         final_score = base_score
@@ -1132,10 +1121,7 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
         logger.error(f"Invalid request payload received from {client_ip}: {e.errors()}")
         raise HTTPException(status_code=422, detail=f"Invalid payload: {e.errors()}")
     except Exception as e:
-        logger.error(
-            f"Unexpected error during escalation for IP {ip_under_test}: {e}",
-            exc_info=True,
-        )
+        logger.error(f"Unexpected error during escalation for IP {ip_under_test}: {e}")
         action_taken = "internal_server_error"
         is_bot_decision = None
         final_score = -1.0
@@ -1158,9 +1144,7 @@ async def handle_escalation(metadata_req: RequestMetadata, request: Request):
             timestamp,
         )
     except Exception as e:
-        logger.error(
-            f"Failed to record decision for IP {ip_under_test}: {e}", exc_info=True
-        )
+        logger.error(f"Failed to record decision for IP {ip_under_test}: {e}")
 
     log_msg = f"IP={ip_under_test}, Source={metadata_req.source}, Score={final_score:.3f}, Decision={is_bot_decision}, Action={action_taken}"
     if ip_rep_result:
@@ -1188,7 +1172,7 @@ async def get_metrics_endpoint_escalation():
             content=prometheus_metrics_bytes, media_type="text/plain; version=0.0.4"
         )
     except Exception as e:
-        logger.error(f"Error retrieving metrics: {e}", exc_info=True)
+        logger.error(f"Error retrieving metrics: {e}")
         return Response(
             content=b"# Error retrieving metrics\n",
             media_type="text/plain; version=0.0.4",
@@ -1216,7 +1200,7 @@ async def health_check():
 async def admin_reload_plugins(request: Request):
     if ESCALATION_API_KEY and request.headers.get("X-API-Key") != ESCALATION_API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    data = await request.json()
+    data = await read_json_body(request)
     allowed = data.get("allowed_plugins")
     if not isinstance(allowed, list):
         raise HTTPException(status_code=400, detail="Invalid allowed_plugins")

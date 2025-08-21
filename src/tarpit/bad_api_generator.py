@@ -74,7 +74,7 @@ def register_bad_endpoints(app: FastAPI, count: int = 5) -> List[str]:
                 try:
                     log_honeypot_hit(details)
                 except Exception as exc:  # pragma: no cover - log unexpected error
-                    logger.error(f"Error logging honeypot hit: {exc}", exc_info=True)
+                    logger.error(f"Error logging honeypot hit: {exc}")
             logger.info(f"BAD API HIT: /api{path} from {client_ip}")
             return JSONResponse({"detail": "Invalid API endpoint"}, status_code=404)
 

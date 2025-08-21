@@ -166,8 +166,8 @@ async def webhook_receiver(request: Request, response: Response):
             raise HTTPException(status_code=400, detail=f"Invalid action: {action}")
     except HTTPException:
         raise
-    except Exception:
-        logger.error("Failed to execute action", exc_info=True)
+    except Exception as e:
+        logger.error("Failed to execute action: %s", e)
         raise HTTPException(status_code=500, detail="Failed to execute action")
 
 
