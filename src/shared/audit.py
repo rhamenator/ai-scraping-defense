@@ -14,9 +14,11 @@ except OSError as e:
 logger = logging.getLogger("audit")
 if not logger.handlers:
     try:
-        handler = RotatingFileHandler(LOG_PATH, maxBytes=1_000_000, backupCount=3)
         Path(LOG_PATH).touch(exist_ok=True)
-        os.chmod(LOG_PATH, 0o600)
+        try:
+            os.chmod(LOG_PATH, 0o600)
+        except OSError as e:
+            logger.warning("Cannot set audit log file permissions: %s", e)
         handler = RotatingFileHandler(LOG_PATH, maxBytes=1_000_000, backupCount=3)
         formatter = logging.Formatter("%(asctime)s %(message)s")
         handler.setFormatter(formatter)
