@@ -1,4 +1,7 @@
-"""Utilities for masking sensitive data in log messages."""
+"""Utilities for masking sensitive data in log messages.
+
+Masking is performed during formatting so ``LogRecord`` objects retain their
+original ``msg`` and ``args`` values for any handlers that inspect them."""
 
 from __future__ import annotations
 
