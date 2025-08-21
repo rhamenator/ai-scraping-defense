@@ -3,7 +3,7 @@ import logging
 import os
 
 import httpx
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 from src.shared.config import get_secret
 from src.shared.middleware import create_app
@@ -20,12 +20,13 @@ logger = logging.getLogger(__name__)
 
 
 @app.post("/verify")
-async def verify_captcha(token: str, ip: str):
+async def verify_captcha(token: str, request: Request):
     if not CAPTCHA_SECRET:
         logger.error("CAPTCHA secret not configured")
         raise HTTPException(
             status_code=500, detail="CAPTCHA verification not configured"
         )
+    ip = request.client.host if request.client else "unknown"
     payload = {"secret": CAPTCHA_SECRET, "response": token, "remoteip": ip}
     try:
         async with httpx.AsyncClient() as client:
