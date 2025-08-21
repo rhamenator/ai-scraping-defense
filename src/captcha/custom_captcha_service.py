@@ -1,6 +1,6 @@
-import base64
-import datetime
-import hashlib
+import base64  # Token encoding
+import datetime  # Timestamp handling
+import hashlib  # Signature hashing
 import hmac
 import json
 import logging
