@@ -15,7 +15,19 @@ class TestAuditLogging(unittest.TestCase):
 
                 for h in list(audit.logger.handlers):
                     audit.logger.removeHandler(h)
-                    h.close()
+    def tearDown(self):
+        # Clean up logger handlers if audit module was imported
+        if hasattr(self, "audit"):
+            for h in list(self.audit.logger.handlers):
+                self.audit.logger.removeHandler(h)
+                h.close()
+
+    def test_log_event_writes_expected_format(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_file = os.path.join(tmpdir, "audit.log")
+            with patch.dict(os.environ, {"AUDIT_LOG_FILE": log_file}):
+                from src.shared import audit
+                self.audit = audit
                 importlib.reload(audit)
                 audit.log_event("user", "action", {"foo": "bar"})
             with open(log_file) as f:
