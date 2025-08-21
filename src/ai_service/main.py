@@ -8,13 +8,13 @@ import os
 import time
 from typing import Any, Dict
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from redis.exceptions import RedisError
 
 from src.shared.audit import log_event as audit_log_event
-from src.shared.config import CONFIG, tenant_key
+from src.shared.config import CONFIG, Config, tenant_key
 from src.shared.redis_client import get_redis_connection
 
 logger = logging.getLogger(__name__)
@@ -25,9 +25,6 @@ try:
 except OSError as e:  # pragma: no cover
     logger.error("Cannot create log directory %s: %s", LOG_DIR, e)
 
-WEBHOOK_SHARED_SECRET = CONFIG.WEBHOOK_SHARED_SECRET
-RATE_LIMIT_REQUESTS = CONFIG.WEBHOOK_RATE_LIMIT_REQUESTS
-RATE_LIMIT_WINDOW = CONFIG.WEBHOOK_RATE_LIMIT_WINDOW
 _request_counts: dict[str, tuple[int, float]] = {}
 _rate_lock = asyncio.Lock()
 
@@ -49,6 +46,14 @@ class WebhookEvent(BaseModel):
 app = FastAPI()
 
 
+def get_config() -> Config:
+    return CONFIG
+
+
+def get_redis_blocklist(config: Config = Depends(get_config)):
+    return get_redis_connection(db_number=config.REDIS_DB_BLOCKLIST)
+
+
 # ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
@@ -58,9 +63,9 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def calculate_window_reset(now: float) -> int:
-    current_window_start = (now // RATE_LIMIT_WINDOW) * RATE_LIMIT_WINDOW
-    next_window_start = current_window_start + RATE_LIMIT_WINDOW
+def calculate_window_reset(now: float, window: int) -> int:
+    current_window_start = (now // window) * window
+    next_window_start = current_window_start + window
     return int(next_window_start)
 
 
@@ -77,32 +82,37 @@ async def _cleanup_expired_requests(now: float) -> None:
 
 
 @app.post("/webhook")
-async def webhook_receiver(request: Request, response: Response):
+async def webhook_receiver(
+    request: Request,
+    response: Response,
+    config: Config = Depends(get_config),
+    redis_conn=Depends(get_redis_blocklist),
+):
     """Handle blocklist/flag actions from the escalation engine tests."""
-    if not WEBHOOK_SHARED_SECRET:
+    if not config.WEBHOOK_SHARED_SECRET:
         raise HTTPException(status_code=500, detail="Shared secret not configured")
     client_ip = get_client_ip(request)
     body = await request.body()
     signature = request.headers.get("X-Signature", "")
     expected = hmac.new(
-        WEBHOOK_SHARED_SECRET.encode("utf-8"), body, hashlib.sha256
+        config.WEBHOOK_SHARED_SECRET.encode("utf-8"), body, hashlib.sha256
     ).hexdigest()
     if not hmac.compare_digest(signature, expected):
         audit_log_event(client_ip, "webhook_auth_failed", {"ip": client_ip})
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     now = time.time()
-    window_reset = calculate_window_reset(now)
+    window_reset = calculate_window_reset(now, config.WEBHOOK_RATE_LIMIT_WINDOW)
     await _cleanup_expired_requests(now)
     async with _rate_lock:
         count, reset = _request_counts.get(client_ip, (0, window_reset))
         if now > reset:
             count, reset = 0, window_reset
         new_count = count + 1
-        if new_count > RATE_LIMIT_REQUESTS:
+        if new_count > config.WEBHOOK_RATE_LIMIT_REQUESTS:
             retry_after = int(reset - now)
             headers = {
-                "X-RateLimit-Limit": str(RATE_LIMIT_REQUESTS),
+                "X-RateLimit-Limit": str(config.WEBHOOK_RATE_LIMIT_REQUESTS),
                 "X-RateLimit-Remaining": "0",
                 "X-RateLimit-Reset": str(int(reset)),
                 "Retry-After": str(retry_after),
@@ -112,9 +122,9 @@ async def webhook_receiver(request: Request, response: Response):
                 status_code=429, detail="Too Many Requests", headers=headers
             )
         _request_counts[client_ip] = (new_count, reset)
-        remaining = RATE_LIMIT_REQUESTS - new_count
+        remaining = config.WEBHOOK_RATE_LIMIT_REQUESTS - new_count
 
-    response.headers["X-RateLimit-Limit"] = str(RATE_LIMIT_REQUESTS)
+    response.headers["X-RateLimit-Limit"] = str(config.WEBHOOK_RATE_LIMIT_REQUESTS)
     response.headers["X-RateLimit-Remaining"] = str(remaining)
     response.headers["X-RateLimit-Reset"] = str(int(reset))
 
@@ -122,7 +132,6 @@ async def webhook_receiver(request: Request, response: Response):
     if request.headers.get("content-type", "").startswith("application/json") and body:
         payload = json.loads(body.decode("utf-8"))
 
-    redis_conn = get_redis_connection(db_number=CONFIG.REDIS_DB_BLOCKLIST)
     if not redis_conn:
         audit_log_event(client_ip, "webhook_redis_unavailable", {"ip": client_ip})
         raise HTTPException(status_code=503, detail="Redis service unavailable")
@@ -176,8 +185,10 @@ async def webhook_receiver(request: Request, response: Response):
 
 
 @app.get("/health")
-async def health_check():
-    redis_conn = get_redis_connection(db_number=CONFIG.REDIS_DB_BLOCKLIST)
+async def health_check(
+    config: Config = Depends(get_config),
+    redis_conn=Depends(get_redis_blocklist),
+):
     if not redis_conn:
         return JSONResponse(
             {"status": "error", "redis_connected": False}, status_code=503
