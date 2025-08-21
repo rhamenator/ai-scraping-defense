@@ -11,6 +11,7 @@ from typing import Any, Dict
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from redis.exceptions import RedisError
 
 from src.shared.audit import log_event as audit_log_event
 from src.shared.config import CONFIG, tenant_key
@@ -166,6 +167,9 @@ async def webhook_receiver(request: Request, response: Response):
             raise HTTPException(status_code=400, detail=f"Invalid action: {action}")
     except HTTPException:
         raise
+    except RedisError as e:
+        logger.error("Redis error during action %s: %s", action, e)
+        raise HTTPException(status_code=503, detail=f"Redis error: {e}")
     except Exception as e:
         logger.error("Failed to execute action: %s", e)
         raise HTTPException(status_code=500, detail="Failed to execute action")

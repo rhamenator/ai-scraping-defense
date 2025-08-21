@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
+from redis.exceptions import RedisError
 
 from src.shared.config import tenant_key
 from src.shared.redis_client import get_redis_connection
@@ -31,7 +32,12 @@ async def register_installation(payload: Dict[str, Any]):
         return JSONResponse({"error": "storage unavailable"}, status_code=500)
     # Mark the installation as registered with its own, longer-lived key
     registration_key = tenant_key(f"cloud:install:registered:{installation_id}")
-    redis_conn.set(registration_key, json.dumps({"registered": True}), ex=REGISTRATION_TTL)
+    try:
+        redis_conn.set(
+            registration_key, json.dumps({"registered": True}), ex=REGISTRATION_TTL
+        )
+    except RedisError as e:
+        return JSONResponse({"error": f"Redis error: {e}"}, status_code=503)
     return {"status": "registered", "installation_id": installation_id}
 
 
@@ -45,7 +51,10 @@ async def push_metrics(payload: Dict[str, Any]):
     if not redis_conn:
         return JSONResponse({"error": "storage unavailable"}, status_code=500)
     key = tenant_key(f"cloud:install:{installation_id}")
-    redis_conn.set(key, json.dumps(metrics), ex=METRICS_TTL)
+    try:
+        redis_conn.set(key, json.dumps(metrics), ex=METRICS_TTL)
+    except RedisError as e:
+        return JSONResponse({"error": f"Redis error: {e}"}, status_code=503)
     for ws in list(WATCHERS.get(installation_id, [])):
         try:
             await ws.send_json(metrics)
@@ -61,7 +70,10 @@ async def get_metrics(installation_id: str):
     if not redis_conn:
         return JSONResponse({"error": "storage unavailable"}, status_code=500)
     key = tenant_key(f"cloud:install:{installation_id}")
-    raw = redis_conn.get(key)
+    try:
+        raw = redis_conn.get(key)
+    except RedisError as e:
+        return JSONResponse({"error": f"Redis error: {e}"}, status_code=503)
     if raw:
         try:
             return json.loads(raw)
@@ -84,7 +96,10 @@ async def metrics_websocket(websocket: WebSocket, installation_id: str):
         key = tenant_key(f"cloud:install:{installation_id}")
 
         def read_metrics() -> dict:
-            raw = redis_conn.get(key)
+            try:
+                raw = redis_conn.get(key)
+            except RedisError as e:
+                return {"error": f"Redis error: {e}"}
             if not raw:
                 return {}
             try:
