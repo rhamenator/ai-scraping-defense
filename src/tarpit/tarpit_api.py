@@ -6,7 +6,6 @@ import logging
 import os
 import random
 import re
-import sys
 from typing import Dict
 
 import httpx
@@ -26,16 +25,14 @@ from .bad_api_generator import register_bad_endpoints
 
 logger = logging.getLogger(__name__)
 
-# --- Import Local & Shared Modules (Preserved from your original file) ---
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 try:
-    from shared.honeypot_logger import log_honeypot_hit
+    from src.shared.honeypot_logger import log_honeypot_hit
 
     HONEYPOT_LOGGING_AVAILABLE = True
     logger.debug("Honeypot logger imported.")
 except ImportError as e:
     logger.warning(
-        f"Could not import shared.honeypot_logger: {e}. Honeypot hits will not be logged to dedicated file."
+        f"Could not import src.shared.honeypot_logger: {e}. Honeypot hits will not be logged to dedicated file."
     )
 
     def log_honeypot_hit(details: dict):
