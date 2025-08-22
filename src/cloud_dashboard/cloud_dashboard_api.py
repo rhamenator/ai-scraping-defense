@@ -2,10 +2,11 @@
 
 import asyncio
 import json
+import os
 from json import JSONDecodeError
 from typing import Any, Dict, List
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from redis.exceptions import RedisError
 
@@ -14,6 +15,8 @@ from src.shared.middleware import create_app
 from src.shared.redis_client import get_redis_connection
 
 app = create_app()
+
+API_KEY = os.getenv("CLOUD_DASHBOARD_API_KEY")
 
 # Redis-backed storage of metrics per installation with TTLs
 METRICS_TTL = 60
@@ -24,10 +27,14 @@ WEBSOCKET_METRICS_INTERVAL = 5
 
 
 @app.post("/register")
-async def register_installation(payload: Dict[str, Any]):
+async def register_installation(payload: Dict[str, Any], request: Request):
+    if API_KEY and request.headers.get("X-API-Key") != API_KEY:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
     installation_id = payload.get("installation_id")
     if not installation_id:
         return JSONResponse({"error": "installation_id required"}, status_code=400)
+
     redis_conn = get_redis_connection()
     if not redis_conn:
         return JSONResponse({"error": "storage unavailable"}, status_code=500)
@@ -43,11 +50,15 @@ async def register_installation(payload: Dict[str, Any]):
 
 
 @app.post("/metrics")
-async def push_metrics(payload: Dict[str, Any]):
+async def push_metrics(payload: Dict[str, Any], request: Request):
+    if API_KEY and request.headers.get("X-API-Key") != API_KEY:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
     installation_id = payload.get("installation_id")
     metrics = payload.get("metrics")
     if not installation_id or not isinstance(metrics, dict):
         return JSONResponse({"error": "invalid payload"}, status_code=400)
+
     redis_conn = get_redis_connection()
     if not redis_conn:
         return JSONResponse({"error": "storage unavailable"}, status_code=500)
