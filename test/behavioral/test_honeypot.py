@@ -35,6 +35,20 @@ class TestBehavioralHoneypot(unittest.TestCase):
         seq = tracker.get_sequence("1.1.1.1")
         self.assertEqual(seq, ["/a", "/b"])
 
+    def test_fallback_eviction(self):
+        tracker = SessionTracker(
+            redis_db=99, max_fallback_entries=2, cleanup_interval=0
+        )
+        tracker.log_request("1.1.1.1", "/a")
+        tracker.log_request("2.2.2.2", "/b")
+        tracker.log_request("3.3.3.3", "/c")
+        self.assertNotIn("1.1.1.1", tracker.fallback)
+        tracker.log_request("2.2.2.2", "/d")
+        tracker.log_request("4.4.4.4", "/e")
+        self.assertNotIn("3.3.3.3", tracker.fallback)
+        self.assertIn("2.2.2.2", tracker.fallback)
+        self.assertIn("4.4.4.4", tracker.fallback)
+
 
 if __name__ == "__main__":
     unittest.main()
