@@ -3,14 +3,18 @@ import secrets
 
 import bcrypt
 import pyotp
-from fastapi import Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from pydantic import BaseModel
 from redis.exceptions import RedisError
 
 from src.shared.config import get_secret
 from src.shared.redis_client import get_redis_connection
 
+from . import passkeys
+
 security = HTTPBasic()
+router = APIRouter()
 
 ADMIN_UI_ROLE = os.getenv("ADMIN_UI_ROLE", "admin")
 
@@ -63,7 +67,9 @@ def require_auth(
     if not valid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
 
-    token_user = webauthn._consume_webauthn_token(x_2fa_token)
+    token_user = passkeys._consume_passkey_token(
+        x_2fa_token
+    ) or webauthn._consume_webauthn_token(x_2fa_token)
     if token_user and token_user != credentials.username:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -91,7 +97,9 @@ def require_auth(
 
     if token_user:
         return credentials.username
-    if webauthn._has_webauthn_tokens() and not token_user:
+    if (
+        passkeys._has_passkey_tokens() or webauthn._has_webauthn_tokens()
+    ) and not token_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="2FA token required",
@@ -105,3 +113,34 @@ def require_admin(user: str = Depends(require_auth)) -> str:
     if ADMIN_UI_ROLE != "admin":
         raise HTTPException(status_code=403, detail="Admin privileges required")
     return user
+
+
+class PasskeyRegisterRequest(BaseModel):
+    credential: dict | None = None
+
+
+class PasskeyLoginRequest(BaseModel):
+    username: str | None = None
+    credential: dict | None = None
+
+
+@router.post("/passkey/register")
+async def passkey_register(
+    data: PasskeyRegisterRequest = Body(...), user: str = Depends(require_auth)
+):
+    """Begin or complete passkey registration for the authenticated user."""
+    if data.credential is not None:
+        return passkeys.complete_registration({"credential": data.credential}, user)
+    return passkeys.begin_registration(user)
+
+
+@router.post("/passkey/login")
+async def passkey_login(data: PasskeyLoginRequest = Body(...)):
+    """Begin or complete passkey login and return a token on success."""
+    if data.credential is not None:
+        return passkeys.complete_login(
+            {"username": data.username, "credential": data.credential}
+        )
+    if not data.username:
+        raise HTTPException(status_code=422, detail="Username required")
+    return passkeys.begin_login(data.username)
