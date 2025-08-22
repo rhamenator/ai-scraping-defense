@@ -34,8 +34,10 @@ def _load_blocklist() -> List[str]:
 
 def _save_blocklist(ips: List[str]) -> None:
     os.makedirs(os.path.dirname(PUBLIC_BLOCKLIST_FILE), exist_ok=True)
-    with open(PUBLIC_BLOCKLIST_FILE, "w", encoding="utf-8") as f:
+    with open(PUBLIC_BLOCKLIST_FILE, "a+", encoding="utf-8") as f:
         fcntl.flock(f, fcntl.LOCK_EX)
+        f.seek(0)
+        f.truncate()
         json.dump({"ips": ips}, f)
         f.flush()
         os.fsync(f.fileno())
