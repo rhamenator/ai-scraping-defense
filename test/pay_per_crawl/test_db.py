@@ -28,7 +28,6 @@ class TestCrawlerDB(unittest.TestCase):
         db.register_crawler("bot", "tok", "crawl", self.db_path)
         info: Optional[Dict[str, str]] = db.get_crawler("tok", self.db_path)
         self.assertIsNotNone(info)
-        assert info is not None
         self.assertEqual(info["name"], "bot")
         self.assertEqual(info["purpose"], "crawl")
         self.assertEqual(self._balance("tok"), 0)
