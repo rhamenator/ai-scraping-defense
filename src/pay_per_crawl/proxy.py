@@ -80,13 +80,12 @@ async def proxy(full_path: str, request: Request):
     ):
         raise HTTPException(status_code=400, detail="Invalid upstream URL")
     headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
-    body = await request.body()
     async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
         resp = await client.request(
             request.method,
             upstream,
             params=request.query_params,
-            content=body,
+            content=request.stream(),
             headers=headers,
             timeout=HTTPX_TIMEOUT,
         )
