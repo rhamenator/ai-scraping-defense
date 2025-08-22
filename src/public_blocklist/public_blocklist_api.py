@@ -36,22 +36,9 @@ def _save_blocklist(ips: List[str]) -> None:
     os.makedirs(os.path.dirname(PUBLIC_BLOCKLIST_FILE), exist_ok=True)
     with open(PUBLIC_BLOCKLIST_FILE, "w", encoding="utf-8") as f:
         fcntl.flock(f, fcntl.LOCK_EX)
-    try:
-        # Try to open the file in r+ mode (read/write, does not truncate)
-        f = open(PUBLIC_BLOCKLIST_FILE, "r+", encoding="utf-8")
-    except FileNotFoundError:
-        # If the file does not exist, create it with w+ mode
-        f = open(PUBLIC_BLOCKLIST_FILE, "w+", encoding="utf-8")
-    with f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        try:
-            f.seek(0)
-            f.truncate()
-            json.dump({"ips": ips}, f)
-            f.flush()
-            os.fsync(f.fileno())
-        finally:
-            pass
+        json.dump({"ips": ips}, f)
+        f.flush()
+        os.fsync(f.fileno())
 
 
 BLOCKLIST_IPS = set(_load_blocklist())
