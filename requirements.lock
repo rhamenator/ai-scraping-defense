@@ -389,6 +389,7 @@ ua-parser-builtins==0.18.0.post1
     # via ua-parser
 urllib3==2.5.0
     # via
+    #   -r requirements.txt
     #   kubernetes
     #   requests
     #   types-requests
