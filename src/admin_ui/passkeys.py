@@ -1,10 +1,13 @@
 import json
+import logging
+import math
 import os
 import time
 from base64 import b64decode, b64encode
 from json import JSONDecodeError
 from uuid import uuid4
 
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from webauthn import (
@@ -29,6 +32,50 @@ RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
 ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost")
 
 
+logger = logging.getLogger(__name__)
+
+
+_ENC_KEY: bytes | None = None
+
+
+def _get_enc_key() -> bytes:
+    """Return the AES-GCM key from PASSKEYS_ENC_KEY env var."""
+    global _ENC_KEY
+    if _ENC_KEY is not None:
+        return _ENC_KEY
+    key_b64 = os.getenv("PASSKEYS_ENC_KEY")
+    if not key_b64:
+        raise RuntimeError("PASSKEYS_ENC_KEY environment variable must be set")
+    try:
+        key = b64decode(key_b64)
+    except Exception as exc:  # pragma: no cover - defensive
+        raise RuntimeError("PASSKEYS_ENC_KEY must be base64-encoded") from exc
+    if len(key) != 32:
+        raise RuntimeError("PASSKEYS_ENC_KEY must decode to 32 bytes")
+    _ENC_KEY = key
+    return key
+
+
+def encrypt_json(obj: dict) -> str:
+    """Encrypt a JSON-serializable dict and return base64 payload."""
+    payload = json.dumps(obj, separators=(",", ":"), sort_keys=True).encode()
+    aes = AESGCM(_get_enc_key())
+    nonce = os.urandom(12)
+    cipher = aes.encrypt(nonce, payload, None)
+    return b64encode(nonce + cipher).decode()
+
+
+def decrypt_json(data: str) -> dict:
+    """Decrypt base64 payload produced by encrypt_json."""
+    raw = b64decode(data)
+    if len(raw) < 12:
+        raise ValueError("Invalid ciphertext")
+    nonce, cipher = raw[:12], raw[12:]
+    aes = AESGCM(_get_enc_key())
+    plain = aes.decrypt(nonce, cipher, None)
+    return json.loads(plain)
+
+
 def _cred_key(user: str) -> str:
     return tenant_key(f"passkey:cred:{user}")
 
@@ -45,7 +92,7 @@ def _store_credential(user: str, cred: dict) -> None:
     redis_conn = get_redis_connection()
     if not redis_conn:
         raise RuntimeError("Redis unavailable")
-    redis_conn.set(_cred_key(user), json.dumps(cred))
+    redis_conn.set(_cred_key(user), encrypt_json(cred))
 
 
 def _load_credential(user: str) -> dict | None:
@@ -55,10 +102,17 @@ def _load_credential(user: str) -> dict | None:
     raw = redis_conn.get(_cred_key(user))
     if not raw:
         return None
+    if isinstance(raw, bytes):
+        raw = raw.decode()
     try:
-        return json.loads(raw)
-    except JSONDecodeError:
-        return None
+        return decrypt_json(raw)
+    except Exception:
+        try:
+            cred = json.loads(raw)
+            logger.warning("Stored passkey credential for %s is plaintext", user)
+            return cred
+        except JSONDecodeError:
+            return None
 
 
 def _store_challenge(user: str, challenge: bytes) -> None:
@@ -81,12 +135,16 @@ def _consume_challenge(user: str) -> bytes | None:
 
 
 def _store_passkey_token(token: str, user: str, exp: float | None = None) -> None:
+    """Persist a login token with an expiration time."""
+    now = time.time()
     if exp is None:
-        exp = time.time() + PASSKEY_TOKEN_TTL
+        exp = now + PASSKEY_TOKEN_TTL
+    elif exp <= now:
+        raise ValueError("Cannot store passkey token: expiration time is in the past")
     redis_conn = get_redis_connection()
     if not redis_conn:
         raise RuntimeError("Redis unavailable")
-    ttl = max(int(exp - time.time()), 1)
+    ttl = max(1, math.ceil(exp - now))
     redis_conn.set(_token_key(token), user, ex=ttl)
 
 

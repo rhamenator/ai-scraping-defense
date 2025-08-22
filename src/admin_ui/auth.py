@@ -3,8 +3,9 @@ import secrets
 
 import bcrypt
 import pyotp
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from pydantic import BaseModel
 from redis.exceptions import RedisError
 
 from src.shared.config import get_secret
@@ -114,21 +115,32 @@ def require_admin(user: str = Depends(require_auth)) -> str:
     return user
 
 
+class PasskeyRegisterRequest(BaseModel):
+    credential: dict | None = None
+
+
+class PasskeyLoginRequest(BaseModel):
+    username: str | None = None
+    credential: dict | None = None
+
+
 @router.post("/passkey/register")
-async def passkey_register(data: dict | None = None, user: str = Depends(require_auth)):
+async def passkey_register(
+    data: PasskeyRegisterRequest = Body(...), user: str = Depends(require_auth)
+):
     """Begin or complete passkey registration for the authenticated user."""
-    payload = data or {}
-    if "credential" in payload:
-        return passkeys.complete_registration(payload, user)
+    if data.credential is not None:
+        return passkeys.complete_registration({"credential": data.credential}, user)
     return passkeys.begin_registration(user)
 
 
 @router.post("/passkey/login")
-async def passkey_login(data: dict):
+async def passkey_login(data: PasskeyLoginRequest = Body(...)):
     """Begin or complete passkey login and return a token on success."""
-    if "credential" in data:
-        return passkeys.complete_login(data)
-    username = data.get("username")
-    if not isinstance(username, str) or not username:
-        raise HTTPException(status_code=400, detail="Invalid or missing username")
-    return passkeys.begin_login(username)
+    if data.credential is not None:
+        return passkeys.complete_login(
+            {"username": data.username, "credential": data.credential}
+        )
+    if not data.username:
+        raise HTTPException(status_code=422, detail="Username required")
+    return passkeys.begin_login(data.username)
