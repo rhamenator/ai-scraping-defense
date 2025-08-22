@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Validate required settings in the .env file."""
 from __future__ import annotations
+
 import argparse
+import json  # noqa: F401
+import logging  # noqa: F401
+import os  # noqa: F401
 from pathlib import Path
 
 
