@@ -36,14 +36,22 @@ def get_recent_counts(redis_conn, window_seconds: int) -> List[int]:
 def update_rate_limit(new_limit: int) -> bool:
     """Write the limit_req configuration for Nginx."""
     line = f"limit_req_zone $binary_remote_addr zone=req_rate_limit:10m rate={new_limit}r/m;"
+    temp_path = f"{NGINX_RATE_LIMIT_CONF}.tmp"
     try:
-        with open(NGINX_RATE_LIMIT_CONF, "w", encoding="utf-8") as f:
+        with open(temp_path, "w", encoding="utf-8") as f:
             f.write(line + "\n")
+        os.replace(temp_path, NGINX_RATE_LIMIT_CONF)
         logger.info("Wrote new Nginx rate limit: %sr/m", new_limit)
         return True
     except Exception as exc:  # pragma: no cover - file system issues
         logger.error("Failed to write Nginx rate limit config: %s", exc)
         return False
+    finally:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
 
 
 def compute_and_update(redis_conn: Optional[object] = None) -> int:
