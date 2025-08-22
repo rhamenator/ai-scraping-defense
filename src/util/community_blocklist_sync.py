@@ -51,16 +51,16 @@ def update_redis_blocklist(ips: List[str], redis_conn) -> int:
     added = 0
     for ip in ips:
         try:
-            ipaddress.ip_address(ip)
+            parsed_ip = ipaddress.ip_address(ip)
         except ValueError:
             logger.warning("Skipping invalid IP address: %s", ip)
             continue
-        key = tenant_key(f"blocklist:ip:{ip}")
+        key = tenant_key(f"blocklist:ip:{parsed_ip}")
         try:
             redis_conn.setex(key, BLOCKLIST_TTL_SECONDS, "community")
             added += 1
         except Exception as e:  # pragma: no cover - unexpected redis error
-            logger.error(f"Failed to set Redis key for IP {ip}: {e}")
+            logger.error(f"Failed to set Redis key for IP {parsed_ip}: {e}")
     return added
 
 
