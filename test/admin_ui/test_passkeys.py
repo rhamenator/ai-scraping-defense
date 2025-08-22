@@ -22,7 +22,7 @@ class TestPasskeyEncryption(unittest.TestCase):
     def test_encrypt_decrypt_round_trip(self):
         data = {"a": 1}
         encrypted = passkeys.encrypt_json(data)
-        json_str = json.dumps(data, separators=(",", ":"), sort_keys=True)
+        json_str = json.dumps(data, **passkeys.JSON_SERIALIZATION_PARAMS)
         self.assertNotIn(json_str, encrypted)
         decrypted = passkeys.decrypt_json(encrypted)
         self.assertEqual(decrypted, data)
