@@ -77,12 +77,12 @@ async def rate_limited(ip: str) -> bool:
         count = redis_client.incr(key)
         if count == 1:
             redis_client.expire(key, 60)
+        if count > limit:
+            await escalate(ip, "RateLimit")
+            return True
     except RedisError:
         logger.exception("Redis rate limit update failed")
         raise
-    if count > limit:
-        await escalate(ip, "RateLimit")
-        return True
     return False
 
 
