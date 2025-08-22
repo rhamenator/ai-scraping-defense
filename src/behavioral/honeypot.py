@@ -29,6 +29,8 @@ class SessionTracker:
         self.max_fallback_entries = max_fallback_entries
         self.cleanup_interval = cleanup_interval
         self._last_cleanup = datetime.datetime.now(datetime.UTC)
+        self._fallback_counter = 0
+        self._cleanup_every = 100
 
     def log_request(self, ip: str, path: str, timestamp: float | None = None) -> None:
         timestamp = timestamp or datetime.datetime.now(datetime.UTC).timestamp()
@@ -36,12 +38,18 @@ class SessionTracker:
         if self.redis:
             self.redis.rpush(f"session:{ip}", entry)
         else:
-            self.fallback.setdefault(ip, []).append(entry)
+            if ip in self.fallback:
+                self.fallback[ip].append(entry)
+            else:
+                self.fallback[ip] = [entry]
             self.fallback.move_to_end(ip)
-            now = datetime.datetime.now(datetime.UTC)
-            if (now - self._last_cleanup).total_seconds() >= self.cleanup_interval:
-                self._evict_excess()
-                self._last_cleanup = now
+            self._fallback_counter += 1
+            if self._fallback_counter >= self._cleanup_every:
+                now = datetime.datetime.now(datetime.UTC)
+                if (now - self._last_cleanup).total_seconds() >= self.cleanup_interval:
+                    self._evict_excess()
+                    self._last_cleanup = now
+                self._fallback_counter = 0
 
     def get_sequence(self, ip: str) -> List[str]:
         if self.redis:

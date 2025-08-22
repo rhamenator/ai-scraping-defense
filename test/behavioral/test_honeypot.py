@@ -39,6 +39,7 @@ class TestBehavioralHoneypot(unittest.TestCase):
         tracker = SessionTracker(
             redis_db=99, max_fallback_entries=2, cleanup_interval=0
         )
+        tracker._cleanup_every = 1
         tracker.log_request("1.1.1.1", "/a")
         tracker.log_request("2.2.2.2", "/b")
         tracker.log_request("3.3.3.3", "/c")
@@ -48,6 +49,17 @@ class TestBehavioralHoneypot(unittest.TestCase):
         self.assertNotIn("3.3.3.3", tracker.fallback)
         self.assertIn("2.2.2.2", tracker.fallback)
         self.assertIn("4.4.4.4", tracker.fallback)
+
+    def test_batched_cleanup(self):
+        tracker = SessionTracker(redis_db=99, cleanup_interval=0)
+        tracker._cleanup_every = 2
+        first_cleanup = tracker._last_cleanup
+        tracker.log_request("1.1.1.1", "/a")
+        self.assertEqual(tracker._fallback_counter, 1)
+        self.assertEqual(tracker._last_cleanup, first_cleanup)
+        tracker.log_request("2.2.2.2", "/b")
+        self.assertEqual(tracker._fallback_counter, 0)
+        self.assertNotEqual(tracker._last_cleanup, first_cleanup)
 
 
 if __name__ == "__main__":
