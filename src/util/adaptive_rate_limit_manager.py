@@ -37,8 +37,10 @@ def update_rate_limit(new_limit: int) -> bool:
     """Write the limit_req configuration for Nginx."""
     line = f"limit_req_zone $binary_remote_addr zone=req_rate_limit:10m rate={new_limit}r/m;"
     try:
-        with open(NGINX_RATE_LIMIT_CONF, "w", encoding="utf-8") as f:
+        temp_path = f"{NGINX_RATE_LIMIT_CONF}.tmp"
+        with open(temp_path, "w", encoding="utf-8") as f:
             f.write(line + "\n")
+        os.replace(temp_path, NGINX_RATE_LIMIT_CONF)
         logger.info("Wrote new Nginx rate limit: %sr/m", new_limit)
         return True
     except Exception as exc:  # pragma: no cover - file system issues
