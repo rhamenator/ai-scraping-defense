@@ -35,6 +35,9 @@ ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost")
 logger = logging.getLogger(__name__)
 
 
+JSON_SERIALIZATION_PARAMS = {"separators": (",", ":"), "sort_keys": True}
+
+
 _ENC_KEY: bytes | None = None
 
 
@@ -58,7 +61,7 @@ def _get_enc_key() -> bytes:
 
 def encrypt_json(obj: dict) -> str:
     """Encrypt a JSON-serializable dict and return base64 payload."""
-    payload = json.dumps(obj, separators=(",", ":"), sort_keys=True).encode()
+    payload = json.dumps(obj, **JSON_SERIALIZATION_PARAMS).encode()
     aes = AESGCM(_get_enc_key())
     nonce = os.urandom(12)
     cipher = aes.encrypt(nonce, payload, None)
