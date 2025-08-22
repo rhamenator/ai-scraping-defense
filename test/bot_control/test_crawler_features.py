@@ -18,6 +18,7 @@ class TestCrawlerFeatures(unittest.TestCase):
         class MockRedis:
             def __init__(self):
                 self.store = {}
+                self.ttl = {}
 
             def hset(self, name, key=None, value=None, mapping=None):
                 if mapping is not None:
@@ -36,13 +37,16 @@ class TestCrawlerFeatures(unittest.TestCase):
                 self.store.setdefault(name, {})[field] = current
                 return current
 
+            def expire(self, name, ttl):
+                self.ttl[name] = ttl
+
         mock_redis = MockRedis()
         with patch(
             "src.bot_control.crawler_auth.get_redis_connection", return_value=mock_redis
         ), patch(
             "src.bot_control.pricing.get_redis_connection", return_value=mock_redis
         ):
-            register_crawler("testbot", "token123", "training")
+            self.assertTrue(register_crawler("testbot", "token123", "training"))
             self.assertTrue(verify_crawler("token123"))
             self.assertTrue(verify_crawler("token123", "training"))
             info = get_crawler_info("token123")
