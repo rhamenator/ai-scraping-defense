@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """Validate required settings in the .env file."""
 from __future__ import annotations
+
 import argparse
+import logging
+import os
 from pathlib import Path
+from typing import Mapping
+
+logger = logging.getLogger(__name__)
 
 
 def parse_env(path: Path) -> dict[str, str]:
@@ -40,7 +46,8 @@ PROVIDER_KEYS = {
 }
 
 
-def validate_env(env: dict[str, str]) -> list[str]:
+def validate_env(env: Mapping[str, str] | None = None) -> list[str]:
+    env = env or os.environ
     errors: list[str] = []
 
     for key in REQUIRED_KEYS:
@@ -85,17 +92,18 @@ def main() -> int:
         help="Path to the env file (default: .env)",
     )
     args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO)
     env_file = Path(args.env_path)
 
-    env = parse_env(env_file)
-    errors = validate_env(env)
+    os.environ.update(parse_env(env_file))
+    errors = validate_env()
 
     if errors:
         for err in errors:
-            print(f"ERROR: {err}")
+            logger.error(err)
         return 1
 
-    print("Environment looks valid.")
+    logger.info("Environment looks valid.")
     return 0
 
 
