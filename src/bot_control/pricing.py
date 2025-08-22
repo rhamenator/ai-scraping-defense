@@ -31,19 +31,16 @@ def record_crawl(token: str, purpose: str) -> float:
         return _default_price
     try:
         raw = redis_conn.hget(PRICES_KEY, purpose)
-    except RedisError:
-        raw = None
-    if raw is not None:
-        try:
-            price = float(raw)
-        except ValueError:
+        if raw is not None:
+            try:
+                price = float(raw)
+            except ValueError:
+                price = _default_price
+        else:
             price = _default_price
-    else:
-        price = _default_price
-    try:
         redis_conn.hincrbyfloat(USAGE_KEY, token, price)
     except RedisError:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Redis unavailable")
+        return _default_price
     return price
 
 

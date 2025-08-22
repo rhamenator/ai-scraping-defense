@@ -100,6 +100,20 @@ class TestCrawlerFeatures(unittest.TestCase):
                 exc2.exception.status_code, status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
+    def test_record_crawl_returns_default_when_usage_fails(self):
+        class MockRedis:
+            def hget(self, name, field):
+                return "0.1"
+
+            def hincrbyfloat(self, name, field, amount):
+                raise RedisError("fail")
+
+        mock_redis = MockRedis()
+        with patch(
+            "src.bot_control.pricing.get_redis_connection", return_value=mock_redis
+        ):
+            self.assertEqual(record_crawl("tok", "purpose"), 0.001)
+
     def test_labyrinth_generation_no_fp(self):
         html = generate_labyrinth_page("seed", depth=3)
         self.assertIn("/tarpit/", html)
