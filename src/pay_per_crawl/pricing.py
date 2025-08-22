@@ -10,10 +10,10 @@ def load_pricing(path: str) -> Dict[str, float]:
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
+        return {str(k): float(v) for k, v in data.items()}
     except (OSError, yaml.YAMLError) as exc:
         logging.warning("Failed to load pricing from %s: %s", path, exc)
         return {}
-    return {str(k): float(v) for k, v in data.items()}
 
 
 class PricingEngine:
