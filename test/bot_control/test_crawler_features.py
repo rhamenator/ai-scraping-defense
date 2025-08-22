@@ -2,6 +2,7 @@ import os
 import unittest
 from unittest.mock import patch
 
+from fastapi import HTTPException, status
 from redis.exceptions import RedisError
 
 from src.bot_control.crawler_auth import (
@@ -84,6 +85,20 @@ class TestCrawlerFeatures(unittest.TestCase):
             self.assertTrue(register_crawler("bot", "tok", "purpose"))
             # And the token should be considered registered
             self.assertTrue(verify_crawler("tok"))
+
+    def test_pricing_handles_redis_unavailable(self):
+        with patch("src.bot_control.pricing.get_redis_connection", return_value=None):
+            self.assertEqual(record_crawl("tok", "purpose"), 0.001)
+            with self.assertRaises(HTTPException) as exc:
+                set_price("purpose", 0.1)
+            self.assertEqual(
+                exc.exception.status_code, status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+            with self.assertRaises(HTTPException) as exc2:
+                get_usage("tok")
+            self.assertEqual(
+                exc2.exception.status_code, status.HTTP_503_SERVICE_UNAVAILABLE
+            )
 
     def test_labyrinth_generation_no_fp(self):
         html = generate_labyrinth_page("seed", depth=3)
