@@ -2,6 +2,8 @@ import os
 import unittest
 from unittest.mock import patch
 
+from redis.exceptions import RedisError
+
 from src.bot_control.crawler_auth import (
     get_crawler_info,
     register_crawler,
@@ -56,6 +58,32 @@ class TestCrawlerFeatures(unittest.TestCase):
             charge = record_crawl("token123", "training")
             self.assertEqual(charge, 0.01)
             self.assertAlmostEqual(get_usage("token123"), 0.01)
+
+    def test_register_crawler_tolerates_expire_failure(self):
+        class MockRedis:
+            def __init__(self):
+                self.store = {}
+
+            def hset(self, name, key=None, value=None, mapping=None):
+                if mapping is not None:
+                    self.store.setdefault(name, {}).update(mapping)
+                elif key is not None:
+                    self.store.setdefault(name, {})[key] = value
+
+            def hgetall(self, name):
+                return self.store.get(name, {}).copy()
+
+            def expire(self, name, ttl):
+                raise RedisError("fail")
+
+        mock_redis = MockRedis()
+        with patch(
+            "src.bot_control.crawler_auth.get_redis_connection", return_value=mock_redis
+        ):
+            # Should still return True even if expiration cannot be set
+            self.assertTrue(register_crawler("bot", "tok", "purpose"))
+            # And the token should be considered registered
+            self.assertTrue(verify_crawler("tok"))
 
     def test_labyrinth_generation_no_fp(self):
         html = generate_labyrinth_page("seed", depth=3)

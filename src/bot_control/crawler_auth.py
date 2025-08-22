@@ -22,12 +22,15 @@ def register_crawler(name: str, token: str, purpose: str) -> bool:
     redis_conn = get_redis_connection()
     if not redis_conn:
         return False
+    key = _key(token)
     try:
-        key = _key(token)
         redis_conn.hset(key, mapping={"name": name, "purpose": purpose})
-        redis_conn.expire(key, CRAWLER_TTL_SECONDS)
     except RedisError:
         return False
+    try:
+        redis_conn.expire(key, CRAWLER_TTL_SECONDS)
+    except RedisError:
+        pass
     return True
 
 
