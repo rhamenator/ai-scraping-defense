@@ -1,4 +1,5 @@
 import asyncio
+import ipaddress
 import json
 import logging
 import os
@@ -44,6 +45,11 @@ def update_redis_blocklist(ips: List[str], redis_conn) -> int:
         return 0
     added = 0
     for ip in ips:
+        try:
+            ipaddress.ip_address(ip)
+        except ValueError:
+            logger.warning("Skipping invalid IP address: %s", ip)
+            continue
         key = tenant_key(f"blocklist:ip:{ip}")
         try:
             redis_conn.setex(key, PEER_BLOCKLIST_TTL_SECONDS, "peer")
