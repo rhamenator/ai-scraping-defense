@@ -12,10 +12,11 @@ if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administr
     Write-Warning "It's recommended to run this script from an elevated PowerShell session."
 }
 
-$K8sDir = Join-Path $PSScriptRoot "kubernetes"
+$RootDir = Split-Path -Parent $PSScriptRoot
+$K8sDir = Join-Path $RootDir "kubernetes"
 if (-not (Test-Path $K8sDir)) { New-Item -ItemType Directory -Path $K8sDir | Out-Null }
 $OutputFile = Join-Path $K8sDir "secrets.yaml"
-$NginxHtpasswdFile = Join-Path $PSScriptRoot "nginx/.htpasswd"
+$NginxHtpasswdFile = Join-Path $RootDir "nginx/.htpasswd"
 
 function New-RandomPassword {
     param([int]$Length = 24)

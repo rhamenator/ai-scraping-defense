@@ -11,7 +11,9 @@ set -e
 
 # Define the namespace for easy reference
 NAMESPACE="ai-defense"
-K8S_DIR="$(dirname "$0")/kubernetes"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+K8S_DIR="$ROOT_DIR/kubernetes"
 
 echo "--- Starting Kubernetes Deployment for AI Scraping Defense ---"
 echo "Target Namespace: $NAMESPACE"
@@ -32,11 +34,11 @@ kubectl apply -f "$K8S_DIR/configmap.yaml"
 echo "Applying PostgreSQL init script..."
 kubectl apply -f "$K8S_DIR/postgres-init-script-cm.yaml"
 echo "Applying all generated secrets..."
-# This assumes you have already run generate_secrets.sh to create this file.
+# This assumes you have already run scripts/linux/generate_secrets.sh to create this file.
 if [ -f "$K8S_DIR/secrets.yaml" ]; then
     kubectl apply -f "$K8S_DIR/secrets.yaml"
 else
-    echo "ERROR: kubernetes/secrets.yaml not found. Please run generate_secrets.sh first."
+    echo "ERROR: kubernetes/secrets.yaml not found. Please run scripts/linux/generate_secrets.sh first."
     exit 1
 fi
 echo "Applying robots fetcher RBAC..."

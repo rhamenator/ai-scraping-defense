@@ -132,7 +132,7 @@ services:
       - ./src:/app/src
       - ./models:/app/models
       - ./data:/app/data
-      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh
+      - ./scripts/linux/docker-entrypoint.sh:/app/docker-entrypoint.sh
       - ./secrets:/run/secrets:ro
     depends_on:
       postgres:

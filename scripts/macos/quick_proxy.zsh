@@ -2,7 +2,8 @@
 # Quick setup for Apache or Nginx reverse proxy deployment
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$ROOT_DIR"
 
 echo "=== AI Scraping Defense: Proxy Quick Start ==="
 

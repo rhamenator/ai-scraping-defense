@@ -14,7 +14,9 @@ if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administr
 # --- Script Configuration ---
 $ErrorActionPreference = "Stop"
 $Namespace = "ai-defense"
-$K8sDir = Join-Path $PSScriptRoot "kubernetes"
+$RootDir = Split-Path -Parent $PSScriptRoot
+Set-Location -Path $RootDir
+$K8sDir = Join-Path $RootDir "kubernetes"
 
 Write-Host "--- Starting Kubernetes Deployment for AI Scraping Defense ---" -ForegroundColor Yellow
 Write-Host "Target Namespace: $Namespace"
@@ -36,13 +38,13 @@ kubectl apply -f (Join-Path $K8sDir "configmap.yaml")
 Write-Host "Applying PostgreSQL init script..."
 kubectl apply -f (Join-Path $K8sDir "postgres-init-script-cm.yaml")
 Write-Host "Applying all generated secrets..."
-# This assumes you have already run Generate-Secrets.ps1 to create this file.
+# This assumes you have already run scripts/windows/Generate-Secrets.ps1 to create this file.
 $secretsFile = Join-Path $K8sDir "secrets.yaml"
 if (Test-Path $secretsFile) {
     kubectl apply -f $secretsFile
 }
 else {
-    Write-Error "ERROR: kubernetes\secrets.yaml not found. Please run Generate-Secrets.ps1 first."
+    Write-Error "ERROR: kubernetes\secrets.yaml not found. Please run scripts/windows/Generate-Secrets.ps1 first."
     exit 1
 }
 Write-Host "Applying robots fetcher RBAC..."

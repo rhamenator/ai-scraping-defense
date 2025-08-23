@@ -71,8 +71,8 @@ The application's secrets (passwords, API keys) are managed via a single secrets
 
 First, run the secret generation script:
 
-- **On Linux/macOS:** bash ./generate_secrets.sh
-- **On Windows:** .Generate-Secrets.ps1
+- **On Linux/macOS:** bash ./scripts/linux/generate_secrets.sh
+- **On Windows:** .\scripts\windows\Generate-Secrets.ps1
 
 This creates a `kubernetes/secrets.yaml` file with securely generated, base64-encoded values and prints the plaintext credentials to your console.
 

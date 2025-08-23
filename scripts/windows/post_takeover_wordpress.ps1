@@ -2,7 +2,8 @@
 # Assumes quick_takeover has already launched the AI Scraping Defense stack.
 param()
 $ErrorActionPreference = 'Stop'
-Set-Location -Path $PSScriptRoot
+$RootDir = Split-Path -Parent $PSScriptRoot
+Set-Location -Path $RootDir
 
 Write-Host "=== Attaching WordPress after quick_takeover ===" -ForegroundColor Cyan
 

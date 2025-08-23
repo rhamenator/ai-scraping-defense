@@ -1,7 +1,8 @@
 # Attach simple test site after quick_takeover
 param()
 $ErrorActionPreference = 'Stop'
-Set-Location -Path $PSScriptRoot
+$RootDir = Split-Path -Parent $PSScriptRoot
+Set-Location -Path $RootDir
 
 Write-Host "=== Attaching test site after quick_takeover ===" -ForegroundColor Cyan
 

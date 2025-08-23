@@ -7,9 +7,10 @@ if [ "$(id -u)" -ne 0 ]; then
   echo "WARNING: It's recommended to run this script with sudo on Linux/macOS" >&2
 fi
 
-# Always operate from the directory where this script resides
+# Always operate from the repository root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$ROOT_DIR"
 
 echo "=== AI Scraping Defense: Development Quickstart ==="
 
@@ -20,13 +21,13 @@ if [ ! -f .env ]; then
 fi
 
 # Prepare local directories
-bash ./setup_local_dirs.sh
+bash "$SCRIPT_DIR/setup_local_dirs.sh"
 
 # Generate local secrets
-bash ./generate_secrets.sh
+bash "$SCRIPT_DIR/generate_secrets.sh"
 
 # Reset Python virtual environment (requires sudo for system packages)
-sudo bash ./reset_venv.sh
+sudo bash "$SCRIPT_DIR/reset_venv.sh"
 
 # Install Python requirements with constraints
 ./.venv/bin/pip install -r requirements.txt -c constraints.txt

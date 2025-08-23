@@ -1,12 +1,13 @@
-#!/bin/zsh
+#!/bin/bash
 #
 # Creates a complete Kubernetes secrets manifest for the entire application stack.
 
 # --- Configuration ---
 GREEN='\033[0;32m'; YELLOW='\033[0;33m'; CYAN='\033[0;36m'; NC='\033[0m'
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-K8S_DIR="$SCRIPT_DIR/kubernetes"; mkdir -p "$K8S_DIR"; OUTPUT_FILE="$K8S_DIR/secrets.yaml"
-HTPASSWD_OUTPUT_FILE="$SCRIPT_DIR/nginx/.htpasswd"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+K8S_DIR="$ROOT_DIR/kubernetes"; mkdir -p "$K8S_DIR"; OUTPUT_FILE="$K8S_DIR/secrets.yaml"
+HTPASSWD_OUTPUT_FILE="$ROOT_DIR/nginx/.htpasswd"
 
 # --- Functions ---
 generate_password() {
@@ -130,7 +131,7 @@ data:
 EOL
 
 if [ -n "$export_path" ]; then
-  cat > "$export_path" << EOF2
+  cat > "$export_path" << EOF
 {
   "ADMIN_UI_USERNAME": "$ADMIN_UI_USERNAME",
   "ADMIN_UI_PASSWORD": "$ADMIN_UI_PASSWORD",
@@ -147,7 +148,7 @@ if [ -n "$export_path" ]; then
   "IP_REPUTATION_API_KEY": "$IP_REPUTATION_API_KEY",
   "COMMUNITY_BLOCKLIST_API_KEY": "$COMMUNITY_BLOCKLIST_API_KEY"
 }
-EOF2
+EOF
   chmod 600 "$export_path"
   echo -e "${GREEN}Credentials exported to: ${export_path}${NC}"
 fi
@@ -181,9 +182,9 @@ echo -e "${YELLOW}You can now apply the secrets to your Kubernetes cluster using
 echo -e "  kubectl apply -f ${OUTPUT_FILE}${NC}"
 # Optionally update .env with generated values
 if [ "$update_env" = true ]; then
-  ENV_FILE="$SCRIPT_DIR/.env"
-  if [ ! -f "$ENV_FILE" ] && [ -f "$SCRIPT_DIR/sample.env" ]; then
-    cp "$SCRIPT_DIR/sample.env" "$ENV_FILE"
+  ENV_FILE="$ROOT_DIR/.env"
+  if [ ! -f "$ENV_FILE" ] && [ -f "$ROOT_DIR/sample.env" ]; then
+    cp "$ROOT_DIR/sample.env" "$ENV_FILE"
   fi
   echo -e "${CYAN}Updating ${ENV_FILE} with generated values...${NC}"
   update_var POSTGRES_PASSWORD "$POSTGRES_PASSWORD" "$ENV_FILE"
@@ -202,7 +203,7 @@ if [ "$update_env" = true ]; then
   update_var COMMUNITY_BLOCKLIST_API_KEY "$COMMUNITY_BLOCKLIST_API_KEY" "$ENV_FILE"
 
   # Write secret files for Docker Compose
-  SECRETS_DIR="$SCRIPT_DIR/secrets"
+  SECRETS_DIR="$ROOT_DIR/secrets"
   mkdir -p "$SECRETS_DIR"
   echo -n "$POSTGRES_PASSWORD" > "$SECRETS_DIR/pg_password.txt"
   echo -n "$REDIS_PASSWORD" > "$SECRETS_DIR/redis_password.txt"

@@ -162,10 +162,10 @@
                     <p class="mb-2 text-gray-600">3. Run the quick deploy script for your operating system.</p>
                     <div class="code-block">
                         <pre class="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto"><code class="language-bash"># For Mac/Linux
-./quick_deploy.sh
+./scripts/linux/quick_deploy.sh
 
 # For Windows (in PowerShell)
-./quick_deploy.ps1</code></pre>
+./scripts/windows/quick_deploy.ps1</code></pre>
                         <button class="copy-btn">Copy</button>
                     </div>
                 </div>
@@ -203,7 +203,7 @@
                     <h4 class="font-semibold text-lg mb-2">Scripts & Automation</h4>
                     <p class="mb-4 text-gray-600">The project includes several scripts to simplify common tasks. Here's what they do:</p>
                     <ul class="list-disc list-inside mb-4 text-gray-600 space-y-2">
-                        <li><strong class="font-semibold text-gray-700">quick_deploy.sh / .ps1:</strong> The fastest way to get started. It creates a default `.env` file and starts all services for a local test environment.</li>
+                        <li><strong class="font-semibold text-gray-700">scripts/linux/quick_deploy.sh / scripts/windows/quick_deploy.ps1:</strong> The fastest way to get started. It creates a default `.env` file and starts all services for a local test environment.</li>
                         <li><strong class="font-semibold text-gray-700">deploy.sh / .ps1:</strong> For production. It builds and starts the services, and also runs Certbot to provision an SSL certificate for your configured domain.</li>
                         <li><strong class="font-semibold text-gray-700">setup_fake_website.sh / .ps1:</strong> A utility script that configures the proxy to point to an internal, simple "fake" website for demonstration purposes.</li>
                         <li><strong class="font-semibold text-gray-700">setup_wordpress_website.sh / .ps1:</strong> A powerful script that adds WordPress and a database to your `docker-compose.yaml` file, allowing you to spin up a new, protected WordPress site instantly.</li>
