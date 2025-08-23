@@ -39,7 +39,7 @@ This guide explains how to deploy the AI Scraping Defense stack to **Google Kube
    Run the provided script to create `kubernetes/secrets.yaml`:
 
    ```bash
-   ./generate_secrets.sh
+   ./scripts/linux/generate_secrets.sh
    ```
 
    Replace the placeholder API keys in `kubernetes/secrets.yaml` with your actual base64‑encoded credentials before applying.

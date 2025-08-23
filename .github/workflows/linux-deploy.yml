@@ -31,10 +31,10 @@ jobs:
           fi
 
       - name: Prepare local directories
-        run: bash ./setup_local_dirs.sh
+        run: bash ./scripts/linux/setup_local_dirs.sh
 
       - name: Generate local secrets
-        run: bash ./generate_secrets.sh --update-env
+        run: bash ./scripts/linux/generate_secrets.sh --update-env
 
       - name: Create /app directories for tests
         run: |

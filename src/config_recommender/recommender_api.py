@@ -2,13 +2,14 @@ import os
 import secrets
 from typing import Dict
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Header, HTTPException
 
 from src.shared.config import CONFIG
+from src.shared.middleware import create_app
 
 from .metrics_config_recommender import get_metrics
 
-app = FastAPI()
+app = create_app()
 
 
 def _parse_prometheus_metrics(text: str) -> Dict[str, float]:

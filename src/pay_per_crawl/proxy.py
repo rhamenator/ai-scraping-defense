@@ -5,8 +5,10 @@ import secrets
 from urllib.parse import urljoin, urlparse
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import HTTPException, Request, Response
 from pydantic import BaseModel
+
+from src.shared.middleware import create_app
 
 from .db import add_credit, charge, get_crawler, init_db, register_crawler
 from .pricing import PricingEngine, load_pricing
@@ -19,7 +21,7 @@ HTTPX_TIMEOUT = float(os.getenv("HTTPX_TIMEOUT", "10.0"))
 pricing_engine = PricingEngine(load_pricing(PRICING_PATH), DEFAULT_PRICE)
 init_db()
 
-app = FastAPI()
+app = create_app()
 
 
 class RegisterPayload(BaseModel):
@@ -78,16 +80,32 @@ async def proxy(full_path: str, request: Request):
     ):
         raise HTTPException(status_code=400, detail="Invalid upstream URL")
     headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
-    body = await request.body()
+    body_chunks: list[bytes] = []
+
+    async def stream_with_buffer():
+        async for chunk in request.stream():
+            body_chunks.append(chunk)
+            yield chunk
+
     async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
-        resp = await client.request(
-            request.method,
-            upstream,
-            params=request.query_params,
-            content=body,
-            headers=headers,
-            timeout=HTTPX_TIMEOUT,
-        )
+        try:
+            resp = await client.request(
+                request.method,
+                upstream,
+                params=request.query_params,
+                content=stream_with_buffer(),
+                headers=headers,
+                timeout=HTTPX_TIMEOUT,
+            )
+        except httpx.RequestError:
+            resp = await client.request(
+                request.method,
+                upstream,
+                params=request.query_params,
+                content=b"".join(body_chunks),
+                headers=headers,
+                timeout=HTTPX_TIMEOUT,
+            )
     return Response(
         content=resp.content, status_code=resp.status_code, headers=resp.headers
     )

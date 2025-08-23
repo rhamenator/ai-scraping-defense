@@ -60,7 +60,7 @@ COPY --chown=appuser:appuser --from=builder /build/tarpit-rs/target/release/libt
 COPY --chown=appuser:appuser --from=builder /build/frequency-rs/target/release/libfrequency_rs.so /app/frequency_rs.so
 COPY --chown=appuser:appuser --from=builder /build/markov-train-rs/target/release/libmarkov_train_rs.so /app/markov_train_rs.so
 
-COPY --chown=appuser:appuser docker-entrypoint.sh /app/docker-entrypoint.sh
+COPY --chown=appuser:appuser scripts/linux/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh && \
     chown -R appuser:appuser /app
 

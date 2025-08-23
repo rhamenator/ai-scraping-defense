@@ -12,8 +12,11 @@ from dataclasses import dataclass
 import httpx
 import redis
 from cachetools import TTLCache
-from fastapi import FastAPI, Request, Response
+from fastapi import Request, Response
 from fastapi.responses import PlainTextResponse
+from redis.exceptions import RedisError
+
+from src.shared.middleware import create_app
 
 
 @dataclass
@@ -41,7 +44,7 @@ BAD_BOTS = [
 
 logger = logging.getLogger("iis_gateway")
 
-app = FastAPI()
+app = create_app()
 redis_client = redis.Redis(
     host=settings.REDIS_HOST,
     port=settings.REDIS_PORT,
@@ -56,7 +59,11 @@ def ip_blocked(ip: str) -> bool:
     if ip in BLOCK_CACHE:
         return BLOCK_CACHE[ip]
     key = f"{settings.TENANT_ID}:blocklist:ip:{ip}"
-    blocked = bool(redis_client.exists(key))
+    try:
+        blocked = bool(redis_client.exists(key))
+    except RedisError:
+        logger.exception("Redis blocklist lookup failed")
+        raise
     BLOCK_CACHE[ip] = blocked
     return blocked
 
@@ -66,12 +73,16 @@ async def rate_limited(ip: str) -> bool:
     if limit <= 0:
         return False
     key = f"{settings.TENANT_ID}:ratelimit:{ip}"
-    count = redis_client.incr(key)
-    if count == 1:
-        redis_client.expire(key, 60)
-    if count > limit:
-        await escalate(ip, "RateLimit")
-        return True
+    try:
+        count = redis_client.incr(key)
+        if count == 1:
+            redis_client.expire(key, 60)
+        if count > limit:
+            await escalate(ip, "RateLimit")
+            return True
+    except RedisError:
+        logger.exception("Redis rate limit update failed")
+        raise
     return False
 
 
@@ -95,11 +106,17 @@ async def escalate(ip: str, reason: str) -> None:
 )
 async def proxy(path: str, request: Request) -> Response:
     client_ip = request.client.host
-    if ip_blocked(client_ip):
-        return PlainTextResponse("Forbidden", status_code=403)
+    try:
+        if ip_blocked(client_ip):
+            return PlainTextResponse("Forbidden", status_code=403)
+    except RedisError:
+        return PlainTextResponse("Service Unavailable", status_code=503)
 
-    if await rate_limited(client_ip):
-        return PlainTextResponse("Too Many Requests", status_code=429)
+    try:
+        if await rate_limited(client_ip):
+            return PlainTextResponse("Too Many Requests", status_code=429)
+    except RedisError:
+        return PlainTextResponse("Service Unavailable", status_code=503)
 
     ua = request.headers.get("user-agent", "")
     if not ua:
@@ -121,7 +138,7 @@ async def proxy(path: str, request: Request) -> Response:
                 request.method,
                 url,
                 headers=request.headers.raw,
-                content=await request.body(),
+                content=request.stream(),
                 params=request.query_params,
             )
         except httpx.TimeoutException:

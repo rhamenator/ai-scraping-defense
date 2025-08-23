@@ -139,7 +139,7 @@ installs dependencies, and starts Docker Compose. See
    ```bash
    git clone https://github.com/your-username/ai-scraping-defense.git
    cd ai-scraping-defense
-   sudo ./quickstart_dev.sh
+    sudo ./scripts/linux/quickstart_dev.sh
    ```
 4. When the containers finish starting, open [http://localhost:5002](http://localhost:5002) to view the Admin UI dashboard.
 5. If you see "Cannot connect to the Docker daemon," start the service with
@@ -152,7 +152,7 @@ installs dependencies, and starts Docker Compose. See
    ```bash
    git clone https://github.com/your-username/ai-scraping-defense.git
    cd ai-scraping-defense
-   ./quickstart_dev.zsh
+    ./scripts/macos/quickstart_dev.zsh
    ```
 4. When the containers finish starting, visit [http://localhost:5002](http://localhost:5002) to open the Admin UI.
 5. If containers fail to start, confirm Docker Desktop is running by opening the Docker menu.
@@ -165,7 +165,7 @@ installs dependencies, and starts Docker Compose. See
    ```powershell
    git clone https://github.com/your-username/ai-scraping-defense.git
    cd ai-scraping-defense
-   .\quickstart_dev.ps1
+   .\scripts\windows\quickstart_dev.ps1
    ```
 4. After the containers start, browse to [http://localhost:5002](http://localhost:5002) to access the Admin UI.
 5. If Docker commands are not found, verify Docker Desktop is running and try `docker version`.
@@ -181,14 +181,14 @@ cd ai-scraping-defense
 cp sample.env .env
 python scripts/validate_env.py
 
-sudo ./quickstart_dev.sh   # Linux
-./quickstart_dev.zsh   # macOS
+sudo ./scripts/linux/quickstart_dev.sh   # Linux
+./scripts/macos/quickstart_dev.zsh   # macOS
 
 ```
 
-For the security testing environment, a helper `security_setup.sh` script installs all Python requirements and security tools used by `security_scan.sh`.
+For the security testing environment, a helper `scripts/linux/security_setup.sh` script installs all Python requirements and security tools used by `scripts/linux/security_scan.sh`.
 
-On Windows, open an **Administrator PowerShell** window and run `quickstart_dev.ps1` instead.
+On Windows, open an **Administrator PowerShell** window and run `scripts\windows\quickstart_dev.ps1` instead.
 
 The script generates secrets, installs Python requirements with
 `pip install -r requirements.txt -c constraints.txt`, re-runs
@@ -262,17 +262,17 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     *On Linux or macOS:*
 
     ```bash
-    bash ./generate_secrets.sh --update-env
-    # export credentials to a JSON file
-    bash ./generate_secrets.sh --export-path my_secrets.json
+     bash ./scripts/linux/generate_secrets.sh --update-env
+     # export credentials to a JSON file
+     bash ./scripts/linux/generate_secrets.sh --export-path my_secrets.json
     ```
 
     *On Windows:*
 
     ```powershell
-    .\Generate-Secrets.ps1
-    # save credentials to a JSON file
-    .\Generate-Secrets.ps1 -ExportPath my_secrets.json
+     .\scripts\windows\Generate-Secrets.ps1
+     # save credentials to a JSON file
+     .\scripts\windows\Generate-Secrets.ps1 -ExportPath my_secrets.json
     ```
 
 5. **Enable HTTPS (Optional):**
@@ -327,7 +327,7 @@ Several integrations are disabled by default to keep the stack lightweight. You 
 - `jszip-rs/`: Rust implementation of the fake JavaScript archive generator.
 - `markov-train-rs/`: Rust implementation of the Markov training utility.
 
-When running in the security testing environment, execute `./security_setup.sh` first to install all dependencies required for the unit tests and security scans.
+When running in the security testing environment, execute `./scripts/linux/security_setup.sh` first to install all dependencies required for the unit tests and security scans.
 
 ### Running Multiple Tenants
 
@@ -425,13 +425,13 @@ This flexibility makes it easy to experiment with different classifiers.
 
 Run the helper script to deploy everything to Kubernetes in one step. Ensure the
 `kubernetes/secrets.yaml` file already exists (generate it with
-`generate_secrets.sh` or the interactive setup):
+`scripts/linux/generate_secrets.sh` or the interactive setup):
 
 ```bash
-./quick_deploy.sh       # or .\quick_deploy.ps1 on Windows
+./scripts/linux/quick_deploy.sh       # or .\scripts\windows\quick_deploy.ps1 on Windows
 ```
 
-If you're on Windows, run `quick_deploy.ps1` from an **Administrator PowerShell** window.
+If you're on Windows, run `scripts\windows\quick_deploy.ps1` from an **Administrator PowerShell** window.
 
 The script applies all manifests using `kubectl`; it does not generate secrets.
 
@@ -474,7 +474,7 @@ After installing the tools, you can run a basic stress test using the provided s
 
 ## Security Scan Helper
 
-The optional scripts `security_scan.sh` and `security_scan.ps1` automate tools such as **Nmap**, **Nikto**, and **Trivy** to perform vulnerability checks. Install these dependencies and run them with the appropriate privileges so network scans can complete. See [docs/security_scan.md](docs/security_scan.md) for more details. **Use these scripts only on systems you own or have permission to test.**
+The optional scripts `scripts/linux/security_scan.sh` and `scripts/windows/security_scan.ps1` automate tools such as **Nmap**, **Nikto**, and **Trivy** to perform vulnerability checks. Install these dependencies and run them with the appropriate privileges so network scans can complete. See [docs/security_scan.md](docs/security_scan.md) for more details. **Use these scripts only on systems you own or have permission to test.**
 
 ## Monitoring Stack
 

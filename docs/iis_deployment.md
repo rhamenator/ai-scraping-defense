@@ -11,7 +11,7 @@ This guide describes how to run the AI Scraping Defense stack on a Windows serve
   The `iis-deploy.yml` workflow in `.github/workflows` shows how this
   configuration can run end-to-end on a Windows runner.
 ### Quick Setup
-Run `./quick_iis.ps1` (or `./quick_iis.sh` on WSL) to start all services and configure IIS automatically.
+Run `./scripts/windows/quick_iis.ps1` (or `./scripts/linux/quick_iis.sh` on WSL) to start all services and configure IIS automatically.
 
 
 ## 1. Start the Python Services
@@ -73,7 +73,7 @@ The gateway also supports per-IP rate limiting and header validation. Set
 Generate required secrets with the PowerShell script:
 
 ```powershell
-./Generate-Secrets.ps1
+./scripts/windows/Generate-Secrets.ps1
 ```
 
 Ensure the resulting environment variables are available to each service when you launch them.

@@ -7,7 +7,8 @@ if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administr
     Write-Warning "It's recommended to run this script from an elevated PowerShell session."
 }
 $ErrorActionPreference = 'Stop'
-Set-Location -Path $PSScriptRoot
+$RootDir = Split-Path -Parent $PSScriptRoot
+Set-Location -Path $RootDir
 Write-Host '=== AI Scraping Defense: Development Quickstart ===' -ForegroundColor Cyan
 
 if (-not (Test-Path '.env')) {
@@ -16,7 +17,11 @@ if (-not (Test-Path '.env')) {
 }
 
 # Prepare local directories
-if (Test-Path "setup_local_dirs.ps1") { & "$PSScriptRoot/setup_local_dirs.ps1" } else { bash ./setup_local_dirs.sh }
+if (Test-Path (Join-Path $PSScriptRoot "setup_local_dirs.ps1")) {
+    & "$PSScriptRoot/setup_local_dirs.ps1"
+} else {
+    bash "$PSScriptRoot/../linux/setup_local_dirs.sh"
+}
 
 # Generate local secrets
 & "$PSScriptRoot/Generate-Secrets.ps1"
@@ -25,13 +30,13 @@ if (Test-Path "setup_local_dirs.ps1") { & "$PSScriptRoot/setup_local_dirs.ps1" }
 & "$PSScriptRoot/reset_venv.ps1"
 
 # Install Python requirements with constraints
-& "$PSScriptRoot/.venv/Scripts/pip.exe" install -r requirements.txt -c constraints.txt
+& "$RootDir/.venv/Scripts/pip.exe" install -r requirements.txt -c constraints.txt
 
 # Validate .env configuration
-& "$PSScriptRoot/.venv/Scripts/python.exe" scripts/validate_env.py
+& "$RootDir/.venv/Scripts/python.exe" scripts/validate_env.py
 
 # Run tests
-& "$PSScriptRoot/.venv/Scripts/python.exe" test/run_all_tests.py
+& "$RootDir/.venv/Scripts/python.exe" test/run_all_tests.py
 
 # Launch with Docker Compose
 docker-compose up --build -d

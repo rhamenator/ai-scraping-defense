@@ -1,4 +1,5 @@
 import asyncio
+import ipaddress
 import json
 import logging
 import os
@@ -49,12 +50,17 @@ def update_redis_blocklist(ips: List[str], redis_conn) -> int:
         return 0
     added = 0
     for ip in ips:
-        key = tenant_key(f"blocklist:ip:{ip}")
+        try:
+            parsed_ip = ipaddress.ip_address(ip)
+        except ValueError:
+            logger.warning("Skipping invalid IP address: %s", ip)
+            continue
+        key = tenant_key(f"blocklist:ip:{parsed_ip}")
         try:
             redis_conn.setex(key, BLOCKLIST_TTL_SECONDS, "community")
             added += 1
         except Exception as e:  # pragma: no cover - unexpected redis error
-            logger.error(f"Failed to set Redis key for IP {ip}: {e}")
+            logger.error(f"Failed to set Redis key for IP {parsed_ip}: {e}")
     return added
 
 

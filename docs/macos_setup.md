@@ -24,7 +24,7 @@ The script verifies Homebrew, installs required XML libraries (`libxml2` and `li
 ## Start the Stack
 With Docker Desktop running, launch the development stack:
 ```zsh
-./quickstart_dev.zsh
+./scripts/macos/quickstart_dev.zsh
 ```
 After the containers start, open <http://localhost:5002> to access the Admin UI.
 

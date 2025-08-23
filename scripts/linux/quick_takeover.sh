@@ -1,9 +1,10 @@
-#!/bin/zsh
+#!/bin/bash
 # Quick script to stop host web server and run stack on port 80
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$ROOT_DIR"
 
 echo "=== AI Scraping Defense: Server Takeover ==="
 
@@ -15,22 +16,18 @@ fi
 
 PROXY=${1:-nginx}
 
-if [[ "$(uname)" == "Darwin" ]]; then
-  for svc in apachectl nginx; do
-    if command -v $svc >/dev/null 2>&1; then
-      echo "Stopping $svc service..."
-      sudo $svc stop
-    fi
-  done
-elif command -v systemctl >/dev/null 2>&1; then
+# Determine if sudo is needed for systemctl
+if [ "$(id -u)" -eq 0 ]; then
+  SUDO=""
+else
+  SUDO="sudo"
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
   for svc in apache2 nginx; do
     if systemctl is-active --quiet "$svc"; then
       echo "Stopping $svc service..."
-      if [ "$(id -u)" -eq 0 ]; then
-        systemctl stop "$svc"
-      else
-        sudo systemctl stop "$svc"
-      fi
+      $SUDO systemctl stop "$svc"
     fi
   done
 fi
@@ -48,6 +45,7 @@ case "$PROXY" in
     echo "Usage: $0 [apache|nginx]"
     exit 1
     ;;
-esac
+fi
 
 echo "Stack is now serving on port 80 via $PROXY."
+

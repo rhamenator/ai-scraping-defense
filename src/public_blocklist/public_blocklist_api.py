@@ -3,8 +3,10 @@ import json
 import os
 from typing import List, Optional
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Header, HTTPException
 from pydantic import BaseModel, IPvAnyAddress
+
+from src.shared.middleware import create_app
 
 PUBLIC_BLOCKLIST_FILE = os.getenv(
     "PUBLIC_BLOCKLIST_FILE", "./data/public_blocklist.json"
@@ -13,7 +15,7 @@ PUBLIC_BLOCKLIST_API_KEY = os.getenv("PUBLIC_BLOCKLIST_API_KEY")
 if not PUBLIC_BLOCKLIST_API_KEY:
     raise RuntimeError("PUBLIC_BLOCKLIST_API_KEY environment variable is required")
 
-app = FastAPI()
+app = create_app()
 
 
 def _load_blocklist() -> List[str]:
@@ -32,24 +34,13 @@ def _load_blocklist() -> List[str]:
 
 def _save_blocklist(ips: List[str]) -> None:
     os.makedirs(os.path.dirname(PUBLIC_BLOCKLIST_FILE), exist_ok=True)
-    with open(PUBLIC_BLOCKLIST_FILE, "w", encoding="utf-8") as f:
+    with open(PUBLIC_BLOCKLIST_FILE, "a+", encoding="utf-8") as f:
         fcntl.flock(f, fcntl.LOCK_EX)
-    try:
-        # Try to open the file in r+ mode (read/write, does not truncate)
-        f = open(PUBLIC_BLOCKLIST_FILE, "r+", encoding="utf-8")
-    except FileNotFoundError:
-        # If the file does not exist, create it with w+ mode
-        f = open(PUBLIC_BLOCKLIST_FILE, "w+", encoding="utf-8")
-    with f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        try:
-            f.seek(0)
-            f.truncate()
-            json.dump({"ips": ips}, f)
-            f.flush()
-            os.fsync(f.fileno())
-        finally:
-            pass
+        f.seek(0)
+        f.truncate()
+        json.dump({"ips": ips}, f)
+        f.flush()
+        os.fsync(f.fileno())
 
 
 BLOCKLIST_IPS = set(_load_blocklist())

@@ -2,9 +2,10 @@
 # Quick deployment for Kubernetes
 set -e
 
-# Always operate from the directory where this script resides
+# Always operate from the repository root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$ROOT_DIR"
 
 echo "=== AI Scraping Defense: Quick Deploy ==="
 
@@ -15,6 +16,6 @@ if [ ! -f .env ]; then
 fi
 
 # Deploy to Kubernetes
-bash ./deploy.sh
+bash "$SCRIPT_DIR/deploy.sh"
 
 echo "Deployment complete. Monitor pods with: kubectl get pods -n ai-defense"

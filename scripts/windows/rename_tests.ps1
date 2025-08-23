@@ -17,8 +17,9 @@ if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administr
     Write-Warning "It's recommended to run this script from an elevated PowerShell session."
 }
 
-# Get the path to the 'test' directory relative to the script's location
-$testDirectory = Join-Path -Path $PSScriptRoot -ChildPath "test"
+# Get the path to the 'test' directory relative to the repository root
+$RootDir = Split-Path -Parent $PSScriptRoot
+$testDirectory = Join-Path -Path $RootDir -ChildPath "test"
 
 Write-Host "Searching for test files to rename in: $testDirectory" -ForegroundColor Yellow
 

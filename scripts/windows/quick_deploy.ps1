@@ -7,7 +7,8 @@ if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administr
     Write-Warning "It's recommended to run this script from an elevated PowerShell session."
 }
 $ErrorActionPreference = 'Stop'
-Set-Location -Path $PSScriptRoot
+$RootDir = Split-Path -Parent $PSScriptRoot
+Set-Location -Path $RootDir
 Write-Host '=== AI Scraping Defense: Quick Deploy ===' -ForegroundColor Cyan
 
 if (-not (Test-Path '.env')) {

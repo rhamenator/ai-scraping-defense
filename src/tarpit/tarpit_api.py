@@ -6,11 +6,10 @@ import logging
 import os
 import random
 import re
-import sys
 from typing import Dict
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 # The direct 'redis' import is no longer needed as the client handles it.
@@ -19,22 +18,21 @@ from redis.exceptions import RedisError
 # --- Setup Logging ---
 # Preserved from your original file.
 from src.shared.config import CONFIG, tenant_key
+from src.shared.middleware import create_app
 from src.shared.redis_client import get_redis_connection
 
 from .bad_api_generator import register_bad_endpoints
 
 logger = logging.getLogger(__name__)
 
-# --- Import Local & Shared Modules (Preserved from your original file) ---
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 try:
-    from shared.honeypot_logger import log_honeypot_hit
+    from src.shared.honeypot_logger import log_honeypot_hit
 
     HONEYPOT_LOGGING_AVAILABLE = True
     logger.debug("Honeypot logger imported.")
 except ImportError as e:
     logger.warning(
-        f"Could not import shared.honeypot_logger: {e}. Honeypot hits will not be logged to dedicated file."
+        f"Could not import src.shared.honeypot_logger: {e}. Honeypot hits will not be logged to dedicated file."
     )
 
     def log_honeypot_hit(details: dict):
@@ -145,7 +143,7 @@ if not redis_hops or not redis_blocklist:
 
 
 # --- FastAPI App ---
-app = FastAPI()
+app = create_app()
 BAD_API_ENDPOINTS = register_bad_endpoints(app)
 
 

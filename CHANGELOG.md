@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### **Added**
 
 * **Kubernetes PostgreSQL Schema Initialization:** Implemented automatic schema initialization for PostgreSQL in Kubernetes by mounting db/init_markov.sql via a new postgres-init-script-cm ConfigMap into the standard /docker-entrypoint-initdb.d/ directory of the PostgreSQL container. This removes the need for manual schema setup in Kubernetes.  
-* **Helper Script for Local Setup:** Added setup_local_dirs.sh to assist users in creating the necessary local directory structure and placeholder secret files.
+* **Helper Script for Local Setup:** Added scripts/linux/setup_local_dirs.sh to assist users in creating the necessary local directory structure and placeholder secret files.
 
 ### **Changed**
 

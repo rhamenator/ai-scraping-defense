@@ -14,10 +14,11 @@ from urllib.parse import urlparse
 
 import httpx
 import numpy as np
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import HTTPException, Request, Response
 from pydantic import BaseModel, Field, ValidationError
 
 from src.shared.config import tenant_key
+from src.shared.middleware import create_app
 
 # GeoIP
 try:
@@ -627,7 +628,7 @@ class RequestMetadata(BaseModel):
 
 
 # --- FastAPI App ---
-app = FastAPI(
+app = create_app(
     title="Escalation Engine",
     description="Analyzes suspicious requests and escalates if necessary.",
 )
