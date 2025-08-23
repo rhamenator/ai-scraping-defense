@@ -1,0 +1,61 @@
+name: Security Triage (Code Scanning Allowlist)
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (staging|production|preview)"
+        required: false
+      ref:
+        description: "Git ref to run against"
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  cancel-in-progress: true
+jobs:
+  triage:
+    permissions:
+      contents: read
+      security-events: write
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install jq & gh
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Dismiss allowlisted Code Scanning alerts
+        run: |
+          set -e
+          gh api -H "Accept: application/sarif+json" /repos/${GITHUB_REPOSITORY}/code-scanning/alerts --paginate > /tmp/alerts.json
+          python3 - <<'PY'
+import os, json, yaml, subprocess
+allow_path=".github/triage/allowlist.yml"
+allow = yaml.safe_load(open(allow_path)) if os.path.exists(allow_path) else {}
+alerts = json.load(open("/tmp/alerts.json"))
+def allowed(alert):
+    rid = (alert.get("rule",{}) or {}).get("id","")
+    if rid in (allow.get("false_positives") or []): return ("false positive","Rule allowlisted")
+    loc = (alert.get("most_recent_instance",{}) or {}).get("location",{}) or {}
+    path = ((loc.get("file") or {}).get("path")) or ""
+    for entry in (allow.get("won_t_fix") or []):
+        if rid in set(entry.get("rules") or []) and path.startswith(entry.get("path","")):
+            return ("won't fix","Path allowlisted")
+    for entry in (allow.get("used_in_tests") or []):
+        if rid in set(entry.get("rules") or []) and path.startswith(entry.get("path","")):
+            return ("used in tests","Fixtures/tests")
+    return None
+for a in alerts:
+    if a.get("state") != "open": continue
+    info = allowed(a)
+    if not info: continue
+    reason, note = info
+    num = a.get("number")
+    if not num: continue
+    subprocess.run([
+        "gh","api","-X","PATCH",
+        f"/repos/{os.environ['GITHUB_REPOSITORY']}/code-scanning/alerts/{num}",
+        "-f","state=dismissed","-f",f"dismissed_reason={reason}","-f",f"dismissed_comment={note}"
+    ], check=False)
+PY

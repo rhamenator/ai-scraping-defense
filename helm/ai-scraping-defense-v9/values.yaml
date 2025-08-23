@@ -1,0 +1,61 @@
+global:
+  imagePullSecrets: []
+  registry: ghcr.io
+  pullPolicy: IfNotPresent
+
+images:
+  core: ""
+  proxy: ""
+  cloud_proxy: ""
+  prompt_router: ""
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: example.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+redis:
+  enabled: false
+  image: redis:7-alpine
+  persistence:
+    enabled: false
+
+services:
+  core:
+    enabled: true
+    replicas: 1
+    image: "{{ .Values.images.core }}"
+    containerPort: 8080
+    service: { type: ClusterIP, port: 80 }
+    env: []
+    resources: {}
+  proxy:
+    enabled: false
+    replicas: 1
+    image: "{{ .Values.images.proxy }}"
+    containerPort: 8080
+    service: { type: ClusterIP, port: 8080 }
+    env: []
+    resources: {}
+  cloud_proxy:
+    enabled: false
+    replicas: 1
+    image: "{{ .Values.images.cloud_proxy }}"
+    containerPort: 8080
+    service: { type: ClusterIP, port: 8080 }
+    env: []
+    resources: {}
+  prompt_router:
+    enabled: false
+    replicas: 1
+    image: "{{ .Values.images.prompt_router }}"
+    containerPort: 8080
+    service: { type: ClusterIP, port: 8080 }
+    env: []
+    resources: {}

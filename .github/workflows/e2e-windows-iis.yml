@@ -1,0 +1,47 @@
+name: E2E (Windows IIS, self-hosted)
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (staging|production|preview)"
+        required: false
+      ref:
+        description: "Git ref to run against"
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  cancel-in-progress: true
+jobs:
+  e2e-windows-iis:
+    permissions:
+      contents: read
+      checks: write
+    runs-on: [self-hosted, Windows, iis]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Determine base URL
+        id: base
+        shell: pwsh
+        run: |
+          if ($env:STAGING_BASE_URL) { "url=$($env:STAGING_BASE_URL)" >> $env:GITHUB_OUTPUT } else { Write-Host "STAGING_BASE_URL not set"; exit 1 }
+      - name: Install ARR & URL Rewrite
+        shell: pwsh
+        run: .\.github\tools\windows\Install-ARR-URLRewrite.ps1 -Verbose
+      - name: Provision IIS
+        shell: pwsh
+        run: .\.github\tools\windows\Setup-IIS.ps1 -Verbose
+      - name: Validate web.config files
+        shell: pwsh
+        run: .\.github\tools\windows\Validate-WebConfig.ps1 -Verbose
+      - name: Start temporary IIS site
+        shell: pwsh
+        run: .\.github\tools\windows\Start-IIS-TempSite.ps1 -SiteName "AI-Scraping-Defense-Temp" -Port 8081 -Verbose
+      - name: Smoke from Windows to Staging
+        shell: pwsh
+        run: |
+          $base = "${{ steps.base.outputs.url }}"
+          $r = Invoke-WebRequest -Uri "$base/" -UseBasicParsing -MaximumRedirection 0 -ErrorAction SilentlyContinue
+          if (-not $r -or $r.StatusCode -ge 500) { throw "Bad status: $($r.StatusCode)" }

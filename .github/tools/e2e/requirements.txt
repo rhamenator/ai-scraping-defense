@@ -1,0 +1,5 @@
+pytest
+pytest-httpx
+requests
+httpx
+beautifulsoup4
