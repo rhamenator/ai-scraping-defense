@@ -8,6 +8,10 @@ GKE_ZONE="${GKE_ZONE:-us-central1-a}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 IMAGE="gcr.io/$PROJECT_ID/ai-scraping-defense:$IMAGE_TAG"
 
+# Ensure commands run from repository root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$ROOT_DIR"
 # Build and push the Docker image
 echo "Building Docker image $IMAGE"
 gcloud auth configure-docker --quiet
@@ -31,10 +35,10 @@ find kubernetes -name '*.yaml' -print0 | xargs -0 sed -i "s|your-registry/ai-scr
 # Generate secrets if missing
 if [ ! -f kubernetes/secrets.yaml ]; then
   echo "Generating secrets file"
-  bash ./generate_secrets.sh
+  bash "$SCRIPT_DIR/generate_secrets.sh"
 fi
 
 # Deploy the manifests
-bash ./deploy.sh
+bash "$SCRIPT_DIR/deploy.sh"
 
 echo "Deployment complete. View pods with: kubectl get pods -n ai-defense"

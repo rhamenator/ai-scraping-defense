@@ -1,6 +1,6 @@
 # Security Scan Helper
 
-`security_scan.sh` runs a collection of open-source tools to audit a target for common weaknesses. It invokes scanners such as **Nmap**, **Nikto**, **OWASP ZAP**, and **Trivy** alongside optional checks like **SQLMap** and **Bandit**.
+`scripts/linux/security_scan.sh` runs a collection of open-source tools to audit a target for common weaknesses. It invokes scanners such as **Nmap**, **Nikto**, **OWASP ZAP**, and **Trivy** alongside optional checks like **SQLMap** and **Bandit**.
 
 ## Prerequisites
 - Linux environment with the required utilities installed (e.g. `nmap`, `nikto`, `zaproxy`, `trivy`, `sqlmap`, `masscan`, `bandit`, etc.)
@@ -11,7 +11,7 @@
 Only run the script against systems you own or have explicit permission to test. Unauthorized scanning can be illegal and may violate service agreements. Always consult local laws and organizational policies before performing any security tests.
 
 ## System Defenses
-The AI Scraping Defense stack includes multiple layers designed to detect or mitigate the scanning techniques used by `security_scan.sh`:
+The AI Scraping Defense stack includes multiple layers designed to detect or mitigate the scanning techniques used by `scripts/linux/security_scan.sh`:
 
 - **Nginx/Lua Filtering** – Blocks known bad user agents and IPs before heavy scanners like *Nikto* or *ZAP* can probe the site.
 - **Rate Limit Daemon** – Throttles traffic spikes from tools such as *ffuf*, *wfuzz*, or *masscan*.
@@ -20,4 +20,4 @@ The AI Scraping Defense stack includes multiple layers designed to detect or mit
 - **Tarpit APIs** – Malicious scanners can be redirected to slow or fake endpoints, wasting their resources.
 - **Comprehensive Logging** – All requests are logged and exported to Prometheus/Grafana for monitoring unusual activity.
 
-Both `security_scan.sh` and the new **`security_scan.ps1`** script produce reports in the `reports` directory, allowing you to verify that these defenses are functioning as expected.
+Both `scripts/linux/security_scan.sh` and the new **`scripts/windows/security_scan.ps1`** script produce reports in the `reports` directory, allowing you to verify that these defenses are functioning as expected.

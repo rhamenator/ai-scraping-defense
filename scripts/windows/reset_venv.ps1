@@ -28,11 +28,12 @@ if (-Not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 # --- Main Script Logic ---
 # All commands are wrapped in a try/catch/finally block for robust execution.
+$RootDir = Split-Path -Parent $PSScriptRoot
 
 try {
-    # Set the working directory to the script's own location. This is crucial for making sure
+    # Set the working directory to the repository root. This is crucial for making sure
     # relative paths like '.\.venv' and 'requirements.txt' are found correctly.
-    Set-Location -Path $PSScriptRoot
+    Set-Location -Path $RootDir
 
     # Set the name of the virtual environment folder
     $venvPath = ".venv"
@@ -55,7 +56,7 @@ try {
     Write-Host "New .venv created successfully." -ForegroundColor Green
 
     # Define the absolute path to the Python executable inside the new venv
-    $pythonExecutable = Join-Path -Path $PSScriptRoot -ChildPath "$venvPath\Scripts\python.exe"
+    $pythonExecutable = Join-Path -Path $RootDir -ChildPath "$venvPath\Scripts\python.exe"
 
     Write-Host "`n--- Step 3: Upgrading core packaging tools ---" -ForegroundColor Yellow
     # Use the call operator '&' with the full path to the venv's python.exe

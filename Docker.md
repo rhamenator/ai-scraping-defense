@@ -14,7 +14,7 @@ This file's only responsibility is to create a lean, optimized base image for al
 2. Sets up the working directory and PYTHONPATH.  
 3. Copies and installs all dependencies from requirements.txt.  
 4. Copies the entire src/ directory into the image.  
-5. Copies the docker-entrypoint.sh script for services that need it.
+5. Copies the scripts/linux/docker-entrypoint.sh script for services that need it.
 
 This approach significantly reduces build times and ensures that all Python services run in an identical, consistent environment.
 

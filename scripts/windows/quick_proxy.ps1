@@ -10,7 +10,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-Set-Location -Path $PSScriptRoot
+$RootDir = Split-Path -Parent $PSScriptRoot
+Set-Location -Path $RootDir
 
 Write-Host '=== AI Scraping Defense: Proxy Quick Start ===' -ForegroundColor Cyan
 

@@ -10,7 +10,8 @@ if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administr
 }
 
 $ErrorActionPreference = 'Stop'
-Set-Location -Path $PSScriptRoot
+$RootDir = Split-Path -Parent $PSScriptRoot
+Set-Location -Path $RootDir
 
 Write-Host '=== AI Scraping Defense: IIS Quick Start ===' -ForegroundColor Cyan
 
@@ -20,9 +21,9 @@ if (-not (Test-Path '.env')) {
 }
 
 # Start backend services
-& "$PSScriptRoot/iis/start_services.ps1"
+& "$RootDir/iis/start_services.ps1"
 
 # Configure IIS proxy rules
-& "$PSScriptRoot/iis/configure_proxy.ps1"
+& "$RootDir/iis/configure_proxy.ps1"
 
 Write-Host 'IIS deployment is ready.' -ForegroundColor Green

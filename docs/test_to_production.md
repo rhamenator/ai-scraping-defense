@@ -42,8 +42,8 @@ Follow these steps in your **Terminal (Mac/Linux)** or **PowerShell (Windows)**.
 
    *(If you ran git pull above, you can skip this step as you are already in the correct directory.)*  
 3. **Run the Quick Deploy Script:** This is the easiest way to start the system locally. It will use test ports like 8080 to avoid conflicting with other services on your computer.  
-   * **Mac/Linux:** ```./quick_deploy.sh```
-   * **Windows:** ```./quick_deploy.ps1```
+   * **Mac/Linux:** ```./scripts/linux/quick_deploy.sh```
+   * **Windows:** ```./scripts/windows/quick_deploy.ps1```
 
 At this point, you can connect the system to a local or test website. The key thing to remember is that this local setup uses http://localhost:8080 for the website and http://localhost:8081 for the admin panel.
 

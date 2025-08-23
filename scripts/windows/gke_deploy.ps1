@@ -35,7 +35,7 @@ Get-ChildItem -Path kubernetes -Filter '*.yaml' -Recurse | ForEach-Object {
 # Generate secrets if needed
 if (-not (Test-Path 'kubernetes/secrets.yaml')) {
     Write-Host 'Generating secrets file'
-    ./Generate-Secrets.ps1
+    ./scripts/windows/Generate-Secrets.ps1
 }
 
 # Deploy manifests

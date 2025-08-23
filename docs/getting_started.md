@@ -9,11 +9,11 @@ Run the helper script after cloning the repository:
 ```bash
 git clone https://github.com/your-username/ai-scraping-defense.git
 cd ai-scraping-defense
-sudo ./quickstart_dev.sh  # Linux
-./quickstart_dev.zsh      # macOS
+sudo ./scripts/linux/quickstart_dev.sh  # Linux
+./scripts/macos/quickstart_dev.zsh      # macOS
 ```
 
-On Windows, run `quickstart_dev.ps1` from an **Administrator PowerShell** window instead of the shell script.
+On Windows, run `scripts\\windows\\quickstart_dev.ps1` from an **Administrator PowerShell** window instead of the shell script.
 
 The script copies `sample.env`, generates secrets, installs dependencies, and launches Docker Compose.
 If you encounter setup issues, see [Troubleshooting](troubleshooting.md) for common fixes.
@@ -125,17 +125,17 @@ The application requires several secrets to run (e.g., database passwords). A sc
 
 ```  bash
   # update .env and create secret files
-  ./generate_secrets.sh --update-env
+  ./scripts/linux/generate_secrets.sh --update-env
   # save credentials to a JSON file
-  ./generate_secrets.sh --export-path my_secrets.json
+  ./scripts/linux/generate_secrets.sh --export-path my_secrets.json
 ```
 
 * **On Windows (in a PowerShell terminal):**
 
 ``` PowerShell
-  .\Generate-Secrets.ps1
+  .\scripts\windows\Generate-Secrets.ps1
   # export credentials to JSON
-  .\Generate-Secrets.ps1 -ExportPath my_secrets.json
+  .\scripts\windows\Generate-Secrets.ps1 -ExportPath my_secrets.json
 ```
 
 When run from the interactive helper, the correct script is chosen
@@ -273,10 +273,10 @@ Running these models locally consumes substantial memory and disk space &mdash; 
 To deploy the stack to a Kubernetes cluster in one step run:
 
 ```bash
-./quick_deploy.sh       # run .\quick_deploy.ps1 on Windows
+./scripts/linux/quick_deploy.sh       # run .\scripts\windows\quick_deploy.ps1 on Windows
 ```
 
-On Windows, use `quick_deploy.ps1` from an **Administrator PowerShell** window instead of the shell script.
+On Windows, use `scripts\\windows\\quick_deploy.ps1` from an **Administrator PowerShell** window instead of the shell script.
 
 This script generates the required secrets and applies all manifests using `kubectl`.
 
