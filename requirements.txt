@@ -46,7 +46,7 @@ evaluate>=0.4,<1.0
 
 # Local LLM Libraries
 ollama~=0.5
-llama-cpp-python~=0.2
+llama-cpp-python~=0.3
 
 # --- Development and Testing Dependencies ---
 freezegun~=1.5
