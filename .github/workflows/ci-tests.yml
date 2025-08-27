@@ -60,7 +60,8 @@ jobs:
         run: docker run --rm -v "$PWD/nginx:/etc/nginx:ro" nginx:stable nginx -t -c /etc/nginx/nginx.conf || true
       - name: Helm/K8s lint
         run: |
-          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | sudo tar -xz -C /usr/local/bin kubeconform || true
+          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tar.gz
+          sudo tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin || true
           if [ -d helm/ai-scraping-defense-v9 ]; then
             helm lint helm/ai-scraping-defense-v9 || true
             helm template helm/ai-scraping-defense-v9 | kubeconform -ignore-missing-schemas -strict || true

@@ -33,7 +33,8 @@ jobs:
           sudo apt-get install -y luarocks lua5.4 || true
           sudo luarocks install luacheck || true
           curl -sSfL https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 -o hadolint && sudo install hadolint /usr/local/bin/hadolint
-          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | sudo tar -xz -C /usr/local/bin kubeconform || true
+          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tar.gz
+          sudo tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin || true
       - name: Create branch
         id: br
         run: |

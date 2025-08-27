@@ -45,7 +45,8 @@ jobs:
           curl -sSL $STYLUA_URL -o /tmp/stylua.zip || true
           (cd /tmp && unzip -o stylua.zip && sudo install stylua /usr/local/bin/stylua) || true
           npm i -g prettier markdownlint-cli eslint @eslint/js || true
-          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | sudo tar -xz -C /usr/local/bin kubeconform || true
+          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tar.gz
+          sudo tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin || true
           go install github.com/securego/gosec/v2/cmd/gosec@latest || true
           go install golang.org/x/vuln/cmd/govulncheck@latest || true
           cargo install cargo-audit || true
