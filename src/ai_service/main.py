@@ -2,7 +2,6 @@ import asyncio
 import hashlib
 import hmac
 import ipaddress
-import json
 import logging
 import os
 import time
@@ -17,6 +16,7 @@ from src.shared.audit import log_event as audit_log_event
 from src.shared.config import CONFIG, Config, tenant_key
 from src.shared.middleware import create_app
 from src.shared.redis_client import get_redis_connection
+from src.shared.request_utils import read_json_body
 
 logger = logging.getLogger(__name__)
 
@@ -93,10 +93,11 @@ async def webhook_receiver(
     if not config.WEBHOOK_SHARED_SECRET:
         raise HTTPException(status_code=500, detail="Shared secret not configured")
     client_ip = get_client_ip(request)
-    body = await request.body()
+    payload = await read_json_body(request)
+    body_bytes = request.state.body_bytes
     signature = request.headers.get("X-Signature", "")
     expected = hmac.new(
-        config.WEBHOOK_SHARED_SECRET.encode("utf-8"), body, hashlib.sha256
+        config.WEBHOOK_SHARED_SECRET.encode("utf-8"), body_bytes, hashlib.sha256
     ).hexdigest()
     if not hmac.compare_digest(signature, expected):
         audit_log_event(client_ip, "webhook_auth_failed", {"ip": client_ip})
@@ -128,10 +129,6 @@ async def webhook_receiver(
     response.headers["X-RateLimit-Limit"] = str(config.WEBHOOK_RATE_LIMIT_REQUESTS)
     response.headers["X-RateLimit-Remaining"] = str(remaining)
     response.headers["X-RateLimit-Reset"] = str(int(reset))
-
-    payload = {}
-    if request.headers.get("content-type", "").startswith("application/json") and body:
-        payload = json.loads(body.decode("utf-8"))
 
     if not redis_conn:
         audit_log_event(client_ip, "webhook_redis_unavailable", {"ip": client_ip})
