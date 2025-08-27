@@ -2,7 +2,6 @@ import asyncio
 import hashlib
 import hmac
 import ipaddress
-import json
 import logging
 import os
 import time
@@ -95,7 +94,7 @@ async def webhook_receiver(
         raise HTTPException(status_code=500, detail="Shared secret not configured")
     client_ip = get_client_ip(request)
     payload = await read_json_body(request)
-    body_bytes = json.dumps(payload).encode("utf-8")
+    body_bytes = request.state.body_bytes
     signature = request.headers.get("X-Signature", "")
     expected = hmac.new(
         config.WEBHOOK_SHARED_SECRET.encode("utf-8"), body_bytes, hashlib.sha256
