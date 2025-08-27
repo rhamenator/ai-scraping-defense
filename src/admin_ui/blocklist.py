@@ -1,9 +1,10 @@
 import asyncio
+import datetime
+import ipaddress
 import json
 import logging
 import os
 from collections import deque
-from ipaddress import ip_address
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
@@ -35,10 +36,29 @@ def _load_recent_block_events(limit: int = 5) -> list[dict]:
         for line in lines:
             try:
                 data = json.loads(line)
+                ts = data.get("timestamp")
+                if not ts:
+                    logger.debug("Missing timestamp in block event: %s", line)
+                    continue
+                try:
+                    _ = datetime.datetime.fromisoformat(ts)
+                except ValueError:
+                    logger.debug("Invalid timestamp in block event: %s", ts)
+                    continue
+
+                ip_val = data.get("ip_address")
+                try:
+                    normalized_ip = (
+                        str(ipaddress.ip_address(ip_val)) if ip_val else None
+                    )
+                except ValueError:
+                    logger.warning("Invalid IP address in block event: %s", ip_val)
+                    continue
+
                 events.append(
                     {
-                        "timestamp": data.get("timestamp"),
-                        "ip": data.get("ip_address"),
+                        "timestamp": ts,
+                        "ip": normalized_ip,
                         "reason": data.get("reason"),
                     }
                 )
@@ -143,7 +163,7 @@ async def block_ip(request: Request, user: str = Depends(require_admin)):
     if not ip:
         return JSONResponse({"error": "Invalid request, missing ip"}, status_code=400)
     try:
-        normalized_ip = str(ip_address(ip))
+        normalized_ip = str(ipaddress.ip_address(ip))
     except ValueError:
         return JSONResponse({"error": "Invalid ip"}, status_code=400)
 
@@ -174,7 +194,7 @@ async def unblock_ip(request: Request, user: str = Depends(require_admin)):
     if not ip:
         return JSONResponse({"error": "Invalid request, missing ip"}, status_code=400)
     try:
-        normalized_ip = str(ip_address(ip))
+        normalized_ip = str(ipaddress.ip_address(ip))
     except ValueError:
         return JSONResponse({"error": "Invalid ip"}, status_code=400)
 
