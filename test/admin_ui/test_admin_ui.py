@@ -90,7 +90,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
                 tmp.write(
                     json.dumps(
                         {
-                            "timestamp": f"t{i}",
+                            "timestamp": f"2024-01-01T00:00:0{i}",
                             "ip_address": f"1.1.1.{i}",
                             "reason": "r",
                         }

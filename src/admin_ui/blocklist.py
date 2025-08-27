@@ -37,18 +37,24 @@ def _load_recent_block_events(limit: int = 5) -> list[dict]:
             try:
                 data = json.loads(line)
                 ts = data.get("timestamp")
-                if ts:
-                    try:
-                        _ = datetime.datetime.fromisoformat(ts)
-                    except ValueError:
-                        logger.debug("Invalid timestamp in block event: %s", ts)
+                if not ts:
+                    logger.debug("Missing timestamp in block event: %s", line)
+                    continue
+                try:
+                    _ = datetime.datetime.fromisoformat(ts)
+                except ValueError:
+                    logger.debug("Invalid timestamp in block event: %s", ts)
+                    continue
+
                 ip_val = data.get("ip_address")
                 try:
                     normalized_ip = (
                         str(ipaddress.ip_address(ip_val)) if ip_val else None
                     )
                 except ValueError:
-                    normalized_ip = ip_val
+                    logger.warning("Invalid IP address in block event: %s", ip_val)
+                    continue
+
                 events.append(
                     {
                         "timestamp": ts,
