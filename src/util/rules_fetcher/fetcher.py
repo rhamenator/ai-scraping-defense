@@ -47,21 +47,26 @@ def fetch_rules(url: str, allowed_domains: Optional[list[str]] = None) -> str:
         return ""
 
 
-def _run_as_script() -> None:
+def _run_as_script() -> bool:
     """Helper to execute the module's main block."""
     logger.info("WAF rules fetcher script started.")
 
     if CRS_DOWNLOAD_URL:
         logger.info("Fetching OWASP CRS from %s", CRS_DOWNLOAD_URL)
         success = download_and_extract_crs(CRS_DOWNLOAD_URL, MODSEC_DIR)
-        if success:
-            subprocess.run(NGINX_RELOAD_CMD, check=False)
+        if not success:
+            return False
+        try:
+            subprocess.run(NGINX_RELOAD_CMD, check=True)
+        except subprocess.CalledProcessError as exc:
+            logger.error("Failed to reload Nginx after CRS install: %s", exc)
+            return False
     else:
         rules_content = fetch_rules(RULES_URL)
 
         if not rules_content:
             logger.warning("No rules content retrieved. Exiting.")
-            return
+            return False
 
         if KUBE_AVAILABLE and os.environ.get("KUBERNETES_SERVICE_HOST"):
             logger.info("Running inside Kubernetes. Attempting to update ConfigMap.")
@@ -75,3 +80,4 @@ def _run_as_script() -> None:
             reload_waf_rules(rules_content.splitlines())
 
     logger.info("WAF rules fetcher script finished.")
+    return True

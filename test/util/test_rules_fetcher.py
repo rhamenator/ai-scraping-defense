@@ -1,5 +1,6 @@
 import io
 import os
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -90,8 +91,40 @@ class TestRulesFetcher(unittest.TestCase):
             patch("src.util.rules_fetcher.fetcher.CRS_DOWNLOAD_URL", ""),
         ):
             self.mock_get.return_value = MockResponse("SecRule ...", 200)
-            rules_fetcher._run_as_script()
+            result = rules_fetcher._run_as_script()
+            self.assertTrue(result)
             mock_reload.assert_called_once()
+
+    def test_main_flow_no_rules_returns_false(self):
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("src.util.rules_fetcher.fetcher.reload_waf_rules") as mock_reload,
+            patch(
+                "src.util.rules_fetcher.fetcher.RULES_URL", "https://example.com/rules"
+            ),
+            patch("src.util.rules_fetcher.fetcher.ALLOWED_RULES_DOMAINS", []),
+            patch("src.util.rules_fetcher.fetcher.CRS_DOWNLOAD_URL", ""),
+        ):
+            self.mock_get.return_value = MockResponse("", 200)
+            result = rules_fetcher._run_as_script()
+            self.assertFalse(result)
+            mock_reload.assert_not_called()
+
+    def test_reload_failure_returns_false(self):
+        with (
+            patch(
+                "src.util.rules_fetcher.fetcher.CRS_DOWNLOAD_URL", "https://crs.example"
+            ),
+            patch(
+                "src.util.rules_fetcher.fetcher.download_and_extract_crs",
+                return_value=True,
+            ),
+        ):
+            self.mock_subprocess.side_effect = subprocess.CalledProcessError(
+                1, ["nginx"]
+            )
+            result = rules_fetcher._run_as_script()
+            self.assertFalse(result)
 
     def test_download_and_extract_crs(self):
         # Create tiny tar.gz archive with CRS structure
