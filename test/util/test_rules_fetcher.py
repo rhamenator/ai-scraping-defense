@@ -1,5 +1,6 @@
 import io
 import os
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -92,6 +93,22 @@ class TestRulesFetcher(unittest.TestCase):
             self.mock_get.return_value = MockResponse("SecRule ...", 200)
             rules_fetcher._run_as_script()
             mock_reload.assert_called_once()
+
+    def test_reload_failure_returns_false(self):
+        with (
+            patch(
+                "src.util.rules_fetcher.fetcher.CRS_DOWNLOAD_URL", "https://crs.example"
+            ),
+            patch(
+                "src.util.rules_fetcher.fetcher.download_and_extract_crs",
+                return_value=True,
+            ),
+        ):
+            self.mock_subprocess.side_effect = subprocess.CalledProcessError(
+                1, ["nginx"]
+            )
+            result = rules_fetcher._run_as_script()
+            self.assertFalse(result)
 
     def test_download_and_extract_crs(self):
         # Create tiny tar.gz archive with CRS structure

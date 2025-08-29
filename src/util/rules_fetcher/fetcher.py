@@ -55,7 +55,11 @@ def _run_as_script() -> None:
         logger.info("Fetching OWASP CRS from %s", CRS_DOWNLOAD_URL)
         success = download_and_extract_crs(CRS_DOWNLOAD_URL, MODSEC_DIR)
         if success:
-            subprocess.run(NGINX_RELOAD_CMD, check=False)
+            try:
+                subprocess.run(NGINX_RELOAD_CMD, check=True)
+            except subprocess.CalledProcessError as exc:
+                logger.error("Failed to reload Nginx after CRS install: %s", exc)
+                return False
     else:
         rules_content = fetch_rules(RULES_URL)
 
