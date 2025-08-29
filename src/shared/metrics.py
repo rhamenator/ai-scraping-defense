@@ -9,14 +9,6 @@ functions is implemented.
 import time
 from collections import defaultdict
 
-from prometheus_client import (
-    CollectorRegistry,
-    Counter,
-    Gauge,
-    Histogram,
-    generate_latest,
-)
-
 
 class InMemoryCounter:
     """Simple in-memory counter supporting optional labels."""
@@ -47,6 +39,83 @@ class _InMemoryCounterChild:
 
     def inc(self) -> None:
         self._parent._label_counts[self._key] += 1
+
+
+try:  # pragma: no cover - exercised in fallback test
+    from prometheus_client import (
+        CollectorRegistry,
+        Counter,
+        Gauge,
+        Histogram,
+        generate_latest,
+    )
+except ImportError:  # pragma: no cover
+
+    class CollectorRegistry:
+        """Minimal registry storing counters for fallback metrics."""
+
+        def __init__(self) -> None:
+            self._metrics: dict[str, InMemoryCounter] = {}
+
+        def register(self, metric: "InMemoryCounter") -> None:
+            self._metrics[metric._name] = metric
+
+    class Counter(InMemoryCounter):
+        def __init__(self, name, documentation, labelnames=None, registry=None):
+            super().__init__(name)
+            self._documentation = documentation
+            if registry is not None:
+                registry.register(self)
+
+    class Gauge:
+        def __init__(self, name, documentation, labelnames=None, registry=None):
+            self._name = name
+            self._value = 0
+
+        def labels(self, **labels):
+            return self
+
+        def set(self, value):
+            self._value = value
+
+        def inc(self):
+            self._value += 1
+
+        def dec(self):
+            self._value -= 1
+
+    class Histogram:
+        def __init__(
+            self, name, documentation, labelnames=None, registry=None, buckets=None
+        ):
+            self._name = name
+
+        def labels(self, **labels):
+            return self
+
+        def observe(self, value):
+            pass
+
+        def time(self):
+            def decorator(func):
+                return func
+
+            return decorator
+
+    def generate_latest(registry):
+        lines = []
+        for metric in getattr(registry, "_metrics", {}).values():
+            lines.append(
+                f"# HELP {metric._name} {getattr(metric, '_documentation', '')}"
+            )
+            lines.append(f"# TYPE {metric._name} counter")
+            lines.append(f"{metric._name}_total {metric.get()}")
+            for labels, value in metric._label_counts.items():
+                label_str = ",".join(f'{k}="{v}"' for k, v in labels)
+                lines.append(
+                    f"{metric._name}_total{{{label_str}}} {value}"  # include labeled metrics
+                )
+        return "\n".join(lines).encode()
 
 
 # 0. Global Registry

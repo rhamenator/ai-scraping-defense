@@ -1,13 +1,18 @@
 # test/shared/metrics.test.py
 import importlib
+import sys
 import unittest
 from unittest.mock import patch
 
-from prometheus_client import CollectorRegistry, generate_latest
+try:  # pragma: no cover
+    from prometheus_client import CollectorRegistry
+except ImportError:  # pragma: no cover
+    CollectorRegistry = None  # type: ignore[assignment]
 
 from src.shared import metrics
 
 
+@unittest.skipIf(CollectorRegistry is None, "prometheus_client not installed")
 class TestMetricsComprehensive(unittest.TestCase):
 
     def setUp(self):
@@ -125,6 +130,49 @@ class TestMetricsComprehensive(unittest.TestCase):
             metrics.observe_histogram_metric(gauge, 0.5)  # Can't observe a gauge
         with self.assertRaises(TypeError):
             metrics.increment_counter_metric(histo)  # Can't increment a histogram
+
+
+class TestMetricsFallback(unittest.TestCase):
+    def test_in_memory_metrics_when_prometheus_missing(self):
+        with patch.dict(sys.modules, {"prometheus_client": None}):
+            importlib.reload(metrics)
+            counter = metrics.REQUEST_COUNT
+            metrics.increment_counter_metric(counter)
+            self.assertEqual(counter.get(), 1)
+            output = metrics.get_metrics().decode("utf-8")
+            self.assertIn("http_requests_total", output)
+        importlib.reload(metrics)
+
+    def test_in_memory_metrics_with_labels_when_prometheus_missing(self):
+        with patch.dict(sys.modules, {"prometheus_client": None}):
+            importlib.reload(metrics)
+            counter = metrics.REQUEST_COUNT
+            metrics.increment_counter_metric(
+                counter,
+                labels={
+                    "method": "GET",
+                    "endpoint": "/a",
+                    "status_code": "200",
+                },
+            )
+            metrics.increment_counter_metric(
+                counter,
+                labels={
+                    "method": "POST",
+                    "endpoint": "/b",
+                    "status_code": "500",
+                },
+            )
+            output = metrics.get_metrics().decode("utf-8")
+            self.assertIn(
+                'http_requests_total_total{endpoint="/a",method="GET",status_code="200"} 1',
+                output,
+            )
+            self.assertIn(
+                'http_requests_total_total{endpoint="/b",method="POST",status_code="500"} 1',
+                output,
+            )
+        importlib.reload(metrics)
 
 
 if __name__ == "__main__":
