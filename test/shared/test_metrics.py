@@ -143,6 +143,37 @@ class TestMetricsFallback(unittest.TestCase):
             self.assertIn("http_requests_total", output)
         importlib.reload(metrics)
 
+    def test_in_memory_metrics_with_labels_when_prometheus_missing(self):
+        with patch.dict(sys.modules, {"prometheus_client": None}):
+            importlib.reload(metrics)
+            counter = metrics.REQUEST_COUNT
+            metrics.increment_counter_metric(
+                counter,
+                labels={
+                    "method": "GET",
+                    "endpoint": "/a",
+                    "status_code": "200",
+                },
+            )
+            metrics.increment_counter_metric(
+                counter,
+                labels={
+                    "method": "POST",
+                    "endpoint": "/b",
+                    "status_code": "500",
+                },
+            )
+            output = metrics.get_metrics().decode("utf-8")
+            self.assertIn(
+                'http_requests_total_total{endpoint="/a",method="GET",status_code="200"} 1',
+                output,
+            )
+            self.assertIn(
+                'http_requests_total_total{endpoint="/b",method="POST",status_code="500"} 1',
+                output,
+            )
+        importlib.reload(metrics)
+
 
 if __name__ == "__main__":
     unittest.main()

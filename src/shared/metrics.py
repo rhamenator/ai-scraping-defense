@@ -112,7 +112,9 @@ except ImportError:  # pragma: no cover
             lines.append(f"{metric._name}_total {metric.get()}")
             for labels, value in metric._label_counts.items():
                 label_str = ",".join(f'{k}="{v}"' for k, v in labels)
-                lines.append(f"{metric._name}_total{{{label_str}}} {value}")
+                lines.append(
+                    f"{metric._name}_total{{{label_str}}} {value}"  # include labeled metrics
+                )
         return "\n".join(lines).encode()
 
 
