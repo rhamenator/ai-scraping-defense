@@ -1,5 +1,5 @@
-import hmac
 import os
+import secrets
 
 import httpx
 from fastapi import Header, HTTPException
@@ -24,7 +24,7 @@ async def proxy_chat(payload: dict, x_proxy_key: str | None = Header(None)) -> d
         raise HTTPException(status_code=500, detail="API key not configured")
     if not PROXY_KEY:
         raise HTTPException(status_code=500, detail="Proxy key not configured")
-    if not hmac.compare_digest(x_proxy_key or "", PROXY_KEY or ""):
+    if not secrets.compare_digest(x_proxy_key or "", PROXY_KEY or ""):
         raise HTTPException(status_code=401, detail="Invalid proxy key")
     headers = {"Authorization": f"Bearer {API_KEY}"}
     try:
