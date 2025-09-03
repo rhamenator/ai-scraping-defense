@@ -77,7 +77,10 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
         content = robots_fetcher.fetch_robots_txt("http://example.com")
         self.assertEqual(content, "User-agent: TestBot\nDisallow: /test/")
         self.mocks["requests.get"].assert_called_with(
-            "http://example.com/robots.txt", headers=ANY, timeout=ANY
+            "http://example.com/robots.txt",
+            headers=ANY,
+            timeout=ANY,
+            allow_redirects=False,
         )
 
     def test_fetch_robots_txt_http_error_returns_default(self):
@@ -114,6 +117,14 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
         self.assertEqual(content, robots_fetcher.get_default_robots_txt())
         self.mocks["requests.get"].assert_not_called()
         self.mocks["logger"].error.assert_called_once()
+
+    def test_fetch_robots_txt_redirect_returns_default(self):
+        """Redirect responses should result in default robots.txt content."""
+        self.mocks["requests.get"].return_value = MockResponse("", 302)
+        content = robots_fetcher.fetch_robots_txt("http://example.com")
+        self.assertEqual(content, robots_fetcher.get_default_robots_txt())
+        self.mocks["logger"].warning.assert_called_once()
+        self.assertIn("Redirect", self.mocks["logger"].warning.call_args[0][0])
 
     @unittest.skipIf(not KUBE_AVAILABLE, "Kubernetes library not installed")
     def test_update_configmap_patches_existing(self):

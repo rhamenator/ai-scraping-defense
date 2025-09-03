@@ -83,8 +83,16 @@ def fetch_robots_txt(
     logger.info(f"Attempting to fetch robots.txt from: {robots_url}")
     try:
         response = requests.get(
-            robots_url, headers={"User-Agent": FETCHER_USER_AGENT}, timeout=10
+            robots_url,
+            headers={"User-Agent": FETCHER_USER_AGENT},
+            timeout=10,
+            allow_redirects=False,
         )
+        if 300 <= response.status_code < 400:
+            logger.warning(
+                f"Redirect detected while fetching robots.txt from {robots_url}. Returning default."
+            )
+            return get_default_robots_txt()
         response.raise_for_status()
         logger.info("Successfully fetched robots.txt.")
         return response.text
