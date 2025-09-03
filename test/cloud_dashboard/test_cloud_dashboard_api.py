@@ -32,6 +32,9 @@ class TestCloudDashboardAPI(unittest.TestCase):
 
         self.client = TestClient(cd.app)
 
+    def tearDown(self):
+        self.client.close()
+
     def test_register_and_push_metrics(self):
         resp = self.client.post("/register", json={"installation_id": "inst1"})
         self.assertEqual(resp.status_code, 200)
