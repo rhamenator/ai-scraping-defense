@@ -50,3 +50,16 @@ class TestPublicBlocklistAPI(unittest.TestCase):
     def test_report_ip_missing_key(self):
         resp = self.client.post("/report", json={"ip": "9.9.9.9"})
         self.assertEqual(resp.status_code, 401)
+
+    def test_report_ip_service_unavailable_when_key_missing(self):
+        self.env_patch.stop()
+        self.env_patch = unittest.mock.patch.dict(
+            os.environ, {"PUBLIC_BLOCKLIST_FILE": self.tempfile.name}, clear=True
+        )
+        self.env_patch.start()
+        import src.public_blocklist.public_blocklist_api as pb
+
+        importlib.reload(pb)
+        client = TestClient(pb.app)
+        resp = client.post("/report", json={"ip": "1.1.1.1"})
+        self.assertEqual(resp.status_code, 503)

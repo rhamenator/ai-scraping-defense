@@ -1,5 +1,6 @@
 import fcntl
 import json
+import logging
 import os
 from typing import List, Optional
 
@@ -8,12 +9,12 @@ from pydantic import BaseModel, IPvAnyAddress
 
 from src.shared.middleware import create_app
 
+logger = logging.getLogger(__name__)
+
 PUBLIC_BLOCKLIST_FILE = os.getenv(
     "PUBLIC_BLOCKLIST_FILE", "./data/public_blocklist.json"
 )
 PUBLIC_BLOCKLIST_API_KEY = os.getenv("PUBLIC_BLOCKLIST_API_KEY")
-if not PUBLIC_BLOCKLIST_API_KEY:
-    raise RuntimeError("PUBLIC_BLOCKLIST_API_KEY environment variable is required")
 
 app = create_app()
 
@@ -27,8 +28,10 @@ def _load_blocklist() -> List[str]:
                     return [ip for ip in data if isinstance(ip, str)]
                 if isinstance(data, dict) and isinstance(data.get("ips"), list):
                     return [ip for ip in data["ips"] if isinstance(ip, str)]
-        except Exception:
-            pass
+        except Exception:  # pragma: no cover - logging side effect
+            logger.exception(
+                "Failed to load public blocklist from %s", PUBLIC_BLOCKLIST_FILE
+            )
     return []
 
 
@@ -58,7 +61,12 @@ def get_list() -> dict:
 
 @app.post("/report")
 def report_ip(report: IPReport, x_api_key: Optional[str] = Header(None)) -> dict:
-    """Add an IP address to the public blocklist."""
+    """Add an IP address to the public blocklist.
+
+    Returns HTTP 503 if the API key is not configured.
+    """
+    if not PUBLIC_BLOCKLIST_API_KEY:
+        raise HTTPException(status_code=503, detail="Service misconfigured")
     if not x_api_key or x_api_key != PUBLIC_BLOCKLIST_API_KEY:
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
     BLOCKLIST_IPS.add(str(report.ip))
