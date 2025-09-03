@@ -1,3 +1,4 @@
+import hmac
 import os
 import secrets
 
@@ -9,6 +10,7 @@ from src.shared.middleware import create_app
 API_KEY = os.getenv("OPENAI_API_KEY")
 LLM_URL = os.getenv("CLOUD_LLM_API_URL", "https://api.openai.com/v1/chat/completions")
 PROXY_KEY = os.getenv("PROXY_KEY")
+compare_digest = getattr(secrets, "compare_digest", hmac.compare_digest)
 
 app = create_app()
 
@@ -24,7 +26,7 @@ async def proxy_chat(payload: dict, x_proxy_key: str | None = Header(None)) -> d
         raise HTTPException(status_code=500, detail="API key not configured")
     if not PROXY_KEY:
         raise HTTPException(status_code=500, detail="Proxy key not configured")
-    if not secrets.compare_digest(x_proxy_key or "", PROXY_KEY or ""):
+    if not compare_digest(x_proxy_key or "", PROXY_KEY or ""):
         raise HTTPException(status_code=401, detail="Invalid proxy key")
     headers = {"Authorization": f"Bearer {API_KEY}"}
     try:
