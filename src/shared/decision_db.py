@@ -4,9 +4,11 @@ This module wraps a simple SQLite database used to persist blocklist
 decisions and related metadata for analysis and debugging.
 """
 
+import logging
 import os
 import sqlite3
 from contextlib import contextmanager
+
 from src.shared.config import CONFIG
 
 DEFAULT_DB_DIR = "/app/data"
@@ -16,7 +18,11 @@ DB_PATH = os.getenv(
 )
 
 # Ensure the directory for the database exists so connecting does not fail
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+try:
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+except OSError as e:
+    logging.error("Failed to create directory for decision DB: %s", e)
+    raise RuntimeError(f"Failed to create directory for decision DB: {e}") from e
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS decisions (
