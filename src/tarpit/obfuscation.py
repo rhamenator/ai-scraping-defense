@@ -1,3 +1,4 @@
+# Utilities for generating obfuscated assets
 import base64
 import random
 import string
