@@ -1,9 +1,11 @@
+# Built-in modules
 import asyncio
 import hmac
 import os
 import re
 import time
 
+# Third-party modules
 import httpx
 from fastapi import HTTPException, Request, Response
 
