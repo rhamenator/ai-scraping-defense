@@ -28,7 +28,20 @@ def _load_blocklist() -> List[str]:
                     return [ip for ip in data if isinstance(ip, str)]
                 if isinstance(data, dict) and isinstance(data.get("ips"), list):
                     return [ip for ip in data["ips"] if isinstance(ip, str)]
-        except Exception:  # pragma: no cover - logging side effect
+        except FileNotFoundError:  # pragma: no cover - logging side effect
+            logger.exception(
+                "Public blocklist file not found: %s", PUBLIC_BLOCKLIST_FILE
+            )
+        except PermissionError:  # pragma: no cover - logging side effect
+            logger.exception(
+                "Permission denied reading public blocklist file: %s",
+                PUBLIC_BLOCKLIST_FILE,
+            )
+        except json.JSONDecodeError:  # pragma: no cover - logging side effect
+            logger.exception(
+                "Invalid JSON in public blocklist file: %s", PUBLIC_BLOCKLIST_FILE
+            )
+        except OSError:  # pragma: no cover - logging side effect
             logger.exception(
                 "Failed to load public blocklist from %s", PUBLIC_BLOCKLIST_FILE
             )
