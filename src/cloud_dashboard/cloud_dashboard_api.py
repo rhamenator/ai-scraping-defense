@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 from fastapi import Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from redis.exceptions import RedisError
+from starlette.websockets import WebSocketState
 
 from src.shared.config import tenant_key
 from src.shared.middleware import create_app
@@ -24,6 +25,26 @@ REGISTRATION_TTL = 86400  # 24h registration marker by default
 WATCHERS: Dict[str, List[WebSocket]] = {}
 
 WEBSOCKET_METRICS_INTERVAL = 5
+WATCHERS_CLEANUP_INTERVAL = 60
+
+
+async def _cleanup_stale_watchers() -> None:
+    while True:
+        await asyncio.sleep(WATCHERS_CLEANUP_INTERVAL)
+        for inst_id, sockets in list(WATCHERS.items()):
+            WATCHERS[inst_id] = [
+                ws
+                for ws in sockets
+                if ws.client_state == WebSocketState.CONNECTED
+                and ws.application_state == WebSocketState.CONNECTED
+            ]
+            if not WATCHERS[inst_id]:
+                WATCHERS.pop(inst_id, None)
+
+
+@app.on_event("startup")
+async def _start_watchers_cleanup() -> None:  # pragma: no cover - background task
+    asyncio.create_task(_cleanup_stale_watchers())
 
 
 @app.post("/register")
@@ -136,3 +157,5 @@ async def metrics_websocket(websocket: WebSocket, installation_id: str):
                 lst.remove(websocket)
             except ValueError:
                 pass
+            if not lst:
+                WATCHERS.pop(installation_id, None)

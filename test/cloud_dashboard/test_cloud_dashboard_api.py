@@ -62,6 +62,12 @@ class TestCloudDashboardAPI(unittest.TestCase):
             data = ws.receive_json()
             self.assertEqual(data, {"m": 1})
 
+    def test_watchers_entry_removed_when_empty(self):
+        self.client.post("/register", json={"installation_id": "ws2"})
+        with self.client.websocket_connect("/ws/ws2"):
+            self.assertIn("ws2", cd.WATCHERS)
+        self.assertNotIn("ws2", cd.WATCHERS)
+
     def test_api_key_enforced_when_configured(self):
         with patch.dict(os.environ, {"CLOUD_DASHBOARD_API_KEY": "sek"}):
             importlib.reload(cd)
