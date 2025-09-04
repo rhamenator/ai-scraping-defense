@@ -4,10 +4,13 @@ import datetime
 import json
 import logging
 import os
-from typing import Optional
+from logging.handlers import RotatingFileHandler
+from typing import Dict, Optional
 
 LOG_DIR = "/app/logs"
 ERROR_LOG_FILE = os.path.join(LOG_DIR, "aiservice_errors.log")
+LOG_MAX_BYTES = 1_000_000
+LOG_BACKUP_COUNT = 3
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +18,44 @@ try:
     os.makedirs(LOG_DIR, exist_ok=True)
 except OSError as e:  # pragma: no cover - catastrophic failure
     logger.error("Cannot create log directory %s: %s", LOG_DIR, e)
+
+
+_error_logger = logging.getLogger("aiservice.error")
+if not _error_logger.handlers:
+    handler = RotatingFileHandler(
+        ERROR_LOG_FILE,
+        maxBytes=LOG_MAX_BYTES,
+        backupCount=LOG_BACKUP_COUNT,
+        encoding="utf-8",
+    )
+    formatter = logging.Formatter("%(asctime)s - %(message)s")
+    handler.setFormatter(formatter)
+    _error_logger.addHandler(handler)
+    _error_logger.setLevel(logging.ERROR)
+    _error_logger.propagate = False
+
+
+_event_loggers: Dict[str, logging.Logger] = {}
+
+
+def _get_event_logger(log_file: str) -> logging.Logger:
+    logger = _event_loggers.get(log_file)
+    if logger is None:
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        handler = RotatingFileHandler(
+            log_file,
+            maxBytes=LOG_MAX_BYTES,
+            backupCount=LOG_BACKUP_COUNT,
+            encoding="utf-8",
+        )
+        formatter = logging.Formatter("%(message)s")
+        handler.setFormatter(formatter)
+        logger = logging.getLogger(f"event.{log_file}")
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+        logger.propagate = False
+        _event_loggers[log_file] = logger
+    return logger
 
 
 def log_error(
@@ -29,8 +70,10 @@ def log_error(
         log_entry += f" | Exception: {type(exception).__name__}: {exception}"
     logger.error(log_entry)
     try:
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(log_entry + "\n")
+        logger_to_use = (
+            _error_logger if log_file == ERROR_LOG_FILE else _get_event_logger(log_file)
+        )
+        logger_to_use.error(log_entry)
     except Exception as log_e:  # pragma: no cover - logging failure
         logger.critical(
             "FATAL: Could not write to error log file %s: %s | Original error: %s",
@@ -51,7 +94,7 @@ def log_event(log_file: str, event_type: str, data: dict) -> None:
             "event_type": event_type,
             **serializable_data,
         }
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(log_entry) + "\n")
+        event_logger = _get_event_logger(log_file)
+        event_logger.info(json.dumps(log_entry))
     except Exception as e:  # pragma: no cover - logging failure
         log_error(f"Failed to write to log file {log_file}", e)
