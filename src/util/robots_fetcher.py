@@ -167,8 +167,8 @@ def _run_as_script() -> None:
         )
         with open(ROBOTS_OUTPUT_FILE, "w", encoding="utf-8") as f:
             f.write(robots_content)
-        print("\n--- Fetched Robots.txt Content ---")
-        print(robots_content)
+        logger.info("\n--- Fetched Robots.txt Content ---")
+        logger.info(robots_content)
 
     logger.info("Robots.txt Fetcher script finished.")
 
