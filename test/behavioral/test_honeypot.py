@@ -1,5 +1,6 @@
 import datetime
 import unittest
+from unittest.mock import patch
 
 from src.behavioral import SessionTracker, train_behavior_model
 
@@ -66,11 +67,15 @@ class TestBehavioralHoneypot(unittest.TestCase):
 
     def test_fallback_expiry(self):
         tracker = SessionTracker(redis_db=99, session_ttl=1, cleanup_interval=0)
-        tracker.log_request("1.1.1.1", "/a")
-        tracker.fallback_expiry["1.1.1.1"] = datetime.datetime.now(
-            datetime.UTC
-        ) - datetime.timedelta(seconds=1)
-        tracker.log_request("2.2.2.2", "/b")
+        tracker._cleanup_every = 1
+        real_datetime = datetime.datetime
+        base_time = tracker._last_cleanup + datetime.timedelta(seconds=1)
+        with patch("src.behavioral.honeypot.datetime.datetime") as mock_dt:
+            mock_dt.now.return_value = base_time
+            mock_dt.side_effect = lambda *a, **kw: real_datetime(*a, **kw)
+            tracker.log_request("1.1.1.1", "/a")
+            mock_dt.now.return_value = base_time + datetime.timedelta(seconds=2)
+            tracker.log_request("2.2.2.2", "/b")
         self.assertNotIn("1.1.1.1", tracker.fallback)
 
     def test_batched_cleanup(self):

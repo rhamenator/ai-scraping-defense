@@ -44,7 +44,7 @@ class SessionTracker:
             self.redis.expire(key, self.session_ttl)
         else:
             now = datetime.datetime.now(datetime.UTC)
-            self._cleanup_expired(now)
+            # Cleanup happens in batches to reduce per-request overhead
             if ip in self.fallback:
                 self.fallback[ip].append(entry)
             else:
