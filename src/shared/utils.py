@@ -28,7 +28,7 @@ if not _error_logger.handlers:
         backupCount=LOG_BACKUP_COUNT,
         encoding="utf-8",
     )
-    formatter = logging.Formatter("%(asctime)s - %(message)s")
+    formatter = logging.Formatter("%(message)s")
     handler.setFormatter(formatter)
     _error_logger.addHandler(handler)
     _error_logger.setLevel(logging.ERROR)
@@ -68,7 +68,6 @@ def log_error(
     log_entry = f"{timestamp} - ERROR: {message}"
     if exception:
         log_entry += f" | Exception: {type(exception).__name__}: {exception}"
-    logger.error(log_entry)
     try:
         logger_to_use = (
             _error_logger if log_file == ERROR_LOG_FILE else _get_event_logger(log_file)
