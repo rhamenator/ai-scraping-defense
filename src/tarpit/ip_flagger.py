@@ -4,6 +4,7 @@ in a dedicated Redis database. It uses a centralized Redis connection
 utility from the 'shared' module.
 """
 
+import ipaddress
 import logging
 import os
 
@@ -27,12 +28,24 @@ REPEAT_OFFENDER_THRESHOLD = int(os.getenv("REPEAT_OFFENDER_THRESHOLD", 3))
 FLAG_COUNT_PREFIX = tenant_key("ip_flag_count:")
 
 
+def _validate_ip(ip_address: str) -> bool:
+    try:
+        ipaddress.ip_address(ip_address)
+        return True
+    except ValueError:
+        logger.error(f"Invalid IP address: {ip_address}")
+        return False
+
+
 def flag_suspicious_ip(ip_address: str, reason: str = "Suspicious activity"):
     """
     Flags an IP address by setting a key in Redis.
     Connects to the dedicated database for flagged IPs.
     (Formerly flag_ip)
     """
+    if not _validate_ip(ip_address):
+        return False
+
     r = get_redis_connection(db_number=REDIS_DB_FLAGGED_IPS)
     if not r:
         logger.error("Redis unavailable. Cannot flag IP.")
@@ -64,6 +77,9 @@ def is_ip_flagged(ip_address: str) -> bool:
     """
     Checks if an IP address is flagged by checking for the key's existence.
     """
+    if not _validate_ip(ip_address):
+        return False
+
     r = get_redis_connection(db_number=REDIS_DB_FLAGGED_IPS)
     if r:
         try:
