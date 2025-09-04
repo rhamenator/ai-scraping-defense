@@ -1,8 +1,11 @@
 # rag/email_entropy_scanner.py
 
+import logging
 import math
 from collections import Counter
 from typing import List
+
+logger = logging.getLogger(__name__)
 
 
 # Calculate Shannon entropy
@@ -81,6 +84,9 @@ def is_suspicious_email(email: str, disposable_list: List[str]) -> bool:
 
 # Example usage block (only runs if script is executed directly)
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     # Sample disposable domains list (load from file/config in production)
     default_disposable_domains = [
         "mailinator.com",
@@ -113,8 +119,8 @@ if __name__ == "__main__":
         "@test.com",  # SUSPICIOUS (Invalid)
     ]
 
-    print("--- Email Suspicion Test ---")
+    logger.info("--- Email Suspicion Test ---")
     for email in test_emails:
         result = is_suspicious_email(email, default_disposable_domains)
-        print(f"'{email}': {'SUSPICIOUS' if result else 'OK'}")
-    print("----------------------------")
+        logger.info("'%s': %s", email, "SUSPICIOUS" if result else "OK")
+    logger.info("----------------------------")
