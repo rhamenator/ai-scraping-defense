@@ -17,12 +17,12 @@ class TestPayPerCrawlDB(unittest.TestCase):
         os.environ.pop("CRAWLER_DB_PATH", None)
 
     def test_register_and_charge(self):
-        db.register_crawler("bot", "token", "training", self.db_path)
-        db.add_credit("token", 1.0, self.db_path)
-        info = db.get_crawler("token", self.db_path)
+        db.register_crawler("bot", "token", "training")
+        db.add_credit("token", 1.0)
+        info = db.get_crawler("token")
         self.assertAlmostEqual(info["balance"], 1.0)
-        self.assertTrue(db.charge("token", 0.5, self.db_path))
-        info = db.get_crawler("token", self.db_path)
+        self.assertTrue(db.charge("token", 0.5))
+        info = db.get_crawler("token")
         self.assertAlmostEqual(info["balance"], 0.5)
 
 
