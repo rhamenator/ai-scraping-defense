@@ -12,8 +12,10 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
     """Initialize the crawler database if it hasn't been already."""
     global _CONNECTION, _DB_PATH
     if _CONNECTION is not None and db_path != _DB_PATH:
-        _CONNECTION.close()
-        _CONNECTION = None
+        try:
+            _CONNECTION.close()
+        finally:
+            _CONNECTION = None
     if _CONNECTION is None:
         _CONNECTION = sqlite3.connect(db_path)
         _CONNECTION.execute(

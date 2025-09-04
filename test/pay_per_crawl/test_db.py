@@ -12,9 +12,17 @@ class TestCrawlerDB(unittest.TestCase):
         self.tmpdir = tempfile.TemporaryDirectory()
         self.db_path = os.path.join(self.tmpdir.name, "crawler.db")
         os.environ["CRAWLER_DB_PATH"] = self.db_path
-        db.init_db(self.db_path)
 
     def tearDown(self) -> None:
+        try:
+            conn = db._get_conn()
+        except RuntimeError:
+            conn = None
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                db._CONNECTION = None
         self.tmpdir.cleanup()
         os.environ.pop("CRAWLER_DB_PATH", None)
 
@@ -25,6 +33,7 @@ class TestCrawlerDB(unittest.TestCase):
             return row[0] if row else None
 
     def test_register_and_get(self) -> None:
+        db.init_db(self.db_path)
         db.register_crawler("bot", "tok", "crawl")
         info: Optional[Dict[str, str]] = db.get_crawler("tok")
         self.assertIsNotNone(info)
@@ -33,6 +42,7 @@ class TestCrawlerDB(unittest.TestCase):
         self.assertEqual(self._balance("tok"), 0)
 
     def test_add_credit_and_charge(self) -> None:
+        db.init_db(self.db_path)
         db.register_crawler("bot", "tok", "crawl")
         db.add_credit("tok", 2.0)
         self.assertTrue(db.charge("tok", 1.5))
@@ -40,6 +50,7 @@ class TestCrawlerDB(unittest.TestCase):
         self.assertFalse(db.charge("tok", 1.0))
 
     def test_get_crawler_missing(self) -> None:
+        db.init_db(self.db_path)
         info: Optional[Dict[str, str]] = db.get_crawler("nope")
         self.assertIsNone(info)
 
