@@ -12,9 +12,8 @@ The module handles Slack-specific requirements including:
 - Proper handling of Slack webhook response formats
 
 Usage Example:
-    slack_sender = SlackAlertSender(
-        webhook_url="https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX"
-    )
+    # Ensure the ALERT_SLACK_WEBHOOK_URL environment variable is set
+    slack_sender = SlackAlertSender()
 
     await slack_sender.send_slack_alert({
         "reason": "High Combined Score (0.95)",
@@ -26,9 +25,11 @@ Usage Example:
 """
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from .config import CONFIG
 from .http_alert import AlertDeliveryError, HttpAlertSender
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class SlackAlertSender(HttpAlertSender):
 
     def __init__(
         self,
-        webhook_url: str,
+        webhook_url: Optional[str] = None,
         timeout: float = 10.0,
         channel: Optional[str] = None,
         username: str = "AI Defense Bot",
@@ -60,13 +61,24 @@ class SlackAlertSender(HttpAlertSender):
         """Initialize the Slack alert sender.
 
         Args:
-            webhook_url: Slack webhook URL for sending messages
+            webhook_url: Slack webhook URL for sending messages. If omitted,
+                the value is read from the ALERT_SLACK_WEBHOOK_URL environment
+                variable or the shared configuration.
             timeout: Timeout in seconds for HTTP requests
             channel: Optional channel override (e.g., "#alerts")
             username: Display name for the bot in Slack
             icon_emoji: Emoji icon for the bot (e.g., ":shield:")
             verify_ssl: Whether to verify SSL certificates
         """
+        if webhook_url is None:
+            webhook_url = (
+                os.getenv("ALERT_SLACK_WEBHOOK_URL") or CONFIG.ALERT_SLACK_WEBHOOK_URL
+            )
+        if not webhook_url:
+            raise ValueError(
+                "Slack webhook URL not configured. Set ALERT_SLACK_WEBHOOK_URL."
+            )
+
         # Set Slack-specific default headers
         super().__init__(
             webhook_url=webhook_url,
@@ -341,14 +353,26 @@ class SlackAlertSender(HttpAlertSender):
         return await self.send_slack_alert(test_alert_data)
 
 
-def create_slack_alert_sender(webhook_url: str, **kwargs) -> SlackAlertSender:
+def create_slack_alert_sender(
+    webhook_url: Optional[str] = None, **kwargs
+) -> SlackAlertSender:
     """Factory function to create a SlackAlertSender instance.
 
     Args:
-        webhook_url: Slack webhook URL
+        webhook_url: Slack webhook URL. When not provided, the value is
+            obtained from the ALERT_SLACK_WEBHOOK_URL environment variable or
+            the shared configuration.
         **kwargs: Additional configuration options for SlackAlertSender
 
     Returns:
         SlackAlertSender: Configured Slack alert sender instance
     """
+    if webhook_url is None:
+        webhook_url = (
+            os.getenv("ALERT_SLACK_WEBHOOK_URL") or CONFIG.ALERT_SLACK_WEBHOOK_URL
+        )
+    if not webhook_url:
+        raise ValueError(
+            "Slack webhook URL not configured. Set ALERT_SLACK_WEBHOOK_URL."
+        )
     return SlackAlertSender(webhook_url=webhook_url, **kwargs)
