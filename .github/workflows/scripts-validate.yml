@@ -30,13 +30,16 @@ jobs:
 
       - name: List target scripts
         id: list
+        env:
+          SCRIPT_GLOB: ${{ inputs.script_glob }}
         run: |
           python3 - << 'PY'
-import glob, json, os
-pat = os.getenv('INPUT_SCRIPT_GLOB') or 'scripts/**/*.sh'
+import glob, json, os, sys
+pat = os.getenv('SCRIPT_GLOB') or 'scripts/**/*.sh'
 files = sorted(glob.glob(pat, recursive=True))
 print("Found", len(files), "scripts")
-print("::set-output name=files::" + json.dumps(files))
+with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+    fh.write('files=' + json.dumps(files) + '\n')
 PY
 
       - name: Bash syntax check (bash -n)
@@ -79,6 +82,7 @@ for f in files:
 PY
         env:
           FILES: ${{ steps.list.outputs.files }}
+          INPUT_DRY_RUN_ARGS: ${{ inputs.dry_run_args }}
 
       - name: Try running scripts in httpd container (dry-run/help)
         run: |
@@ -100,6 +104,7 @@ for f in files:
 PY
         env:
           FILES: ${{ steps.list.outputs.files }}
+          INPUT_DRY_RUN_ARGS: ${{ inputs.dry_run_args }}
 
       - name: Try running generic scripts in Ubuntu container (dry-run/help)
         run: |
@@ -121,6 +126,7 @@ for f in files:
 PY
         env:
           FILES: ${{ steps.list.outputs.files }}
+          INPUT_DRY_RUN_ARGS: ${{ inputs.dry_run_args }}
 
       - name: Summary
         run: |

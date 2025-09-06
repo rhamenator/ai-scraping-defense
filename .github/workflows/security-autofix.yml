@@ -17,9 +17,11 @@ on:
         type: string
         required: false
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+  issues: write
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.environment }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   autofix:
