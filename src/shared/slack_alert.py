@@ -49,6 +49,20 @@ class SlackAlertSender(HttpAlertSender):
         color_mapping (Dict[str, str]): Mapping of alert severities to Slack colors
     """
 
+    @staticmethod
+    def _resolve_webhook_url(webhook_url: Optional[str]) -> str:
+        """Resolve the Slack webhook URL from inputs or environment."""
+        resolved = (
+            webhook_url
+            or os.getenv("ALERT_SLACK_WEBHOOK_URL")
+            or CONFIG.ALERT_SLACK_WEBHOOK_URL
+        )
+        if not resolved:
+            raise ValueError(
+                "Slack webhook URL not configured. Set ALERT_SLACK_WEBHOOK_URL."
+            )
+        return resolved
+
     def __init__(
         self,
         webhook_url: Optional[str] = None,
@@ -70,14 +84,7 @@ class SlackAlertSender(HttpAlertSender):
             icon_emoji: Emoji icon for the bot (e.g., ":shield:")
             verify_ssl: Whether to verify SSL certificates
         """
-        if webhook_url is None:
-            webhook_url = (
-                os.getenv("ALERT_SLACK_WEBHOOK_URL") or CONFIG.ALERT_SLACK_WEBHOOK_URL
-            )
-        if not webhook_url:
-            raise ValueError(
-                "Slack webhook URL not configured. Set ALERT_SLACK_WEBHOOK_URL."
-            )
+        webhook_url = self._resolve_webhook_url(webhook_url)
 
         # Set Slack-specific default headers
         super().__init__(
@@ -367,12 +374,4 @@ def create_slack_alert_sender(
     Returns:
         SlackAlertSender: Configured Slack alert sender instance
     """
-    if webhook_url is None:
-        webhook_url = (
-            os.getenv("ALERT_SLACK_WEBHOOK_URL") or CONFIG.ALERT_SLACK_WEBHOOK_URL
-        )
-    if not webhook_url:
-        raise ValueError(
-            "Slack webhook URL not configured. Set ALERT_SLACK_WEBHOOK_URL."
-        )
     return SlackAlertSender(webhook_url=webhook_url, **kwargs)
