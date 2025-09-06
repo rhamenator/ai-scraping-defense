@@ -42,7 +42,7 @@ google-genai>=1.0,<2.0
 cohere>=5.3,<6.0
 mistralai>=0.1.4,<2.0
 transformers>=4.38,<5.0
-datasets>=2.18,<3.0
+datasets>=2.18,<5.0
 evaluate>=0.4,<1.0
 
 # Local LLM Libraries
