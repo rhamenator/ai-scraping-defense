@@ -1,4 +1,6 @@
 name: Tests
+permissions:
+  contents: read
 
 # Controls when the workflow will run
 on:
@@ -11,6 +13,9 @@ on:
 
 jobs:
   build:
+    permissions:
+      contents: read
+      checks: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
