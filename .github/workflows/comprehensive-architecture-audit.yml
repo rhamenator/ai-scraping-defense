@@ -1,0 +1,302 @@
+name: Comprehensive Architecture Problem Detection
+on:
+  workflow_dispatch:
+    inputs:
+      analysis_depth:
+        description: "Analysis depth (basic|detailed|comprehensive)"
+        required: false
+        default: "detailed"
+      focus_area:
+        description: "Focus area (coupling|patterns|scalability|all)"
+        required: false
+        default: "all"
+
+permissions:
+  contents: read
+
+jobs:
+  comprehensive-architecture-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Setup Analysis Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip nodejs npm golang-go
+          pip3 install --user radon complexity-report lizard
+          npm install -g jscpd dependency-cruiser madge
+          go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+          
+          # Architecture analysis tools
+          pip3 install --user prospector vulture
+          npm install -g plato complexity-report
+
+      - name: Create Reports Directory
+        run: mkdir -p reports/architecture
+
+      # Service Coupling Analysis
+      - name: Analyze Service Coupling
+        run: |
+          echo "Analyzing service coupling and dependencies..."
+          
+          # Python import analysis
+          find . -name "*.py" -exec grep -H "^import\|^from.*import" {} \; > reports/architecture/python-imports.txt || true
+          
+          # JavaScript/Node.js dependency analysis
+          if [ -f package.json ]; then
+            madge --json . > reports/architecture/js-dependencies.json || true
+            dependency-cruiser --output-type json --output-to reports/architecture/js-coupling.json . || true
+          fi
+          
+          # Go module analysis
+          if [ -f go.mod ]; then
+            go list -json -m all > reports/architecture/go-modules.json || true
+            go mod graph > reports/architecture/go-dependencies.txt || true
+          fi
+          
+          # Cross-service communication patterns
+          grep -r "http://\|https://\|grpc\|amqp\|redis\|kafka" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/service-communication.txt || true
+
+      # Design Pattern Analysis
+      - name: Analyze Design Patterns
+        run: |
+          echo "Analyzing design pattern implementation..."
+          
+          # Singleton pattern detection
+          grep -r "class.*Singleton\|__new__.*cls\|getInstance" --include="*.py" --include="*.js" . > reports/architecture/singleton-patterns.txt || true
+          
+          # Factory pattern detection
+          grep -r "Factory\|create.*\(\)\|builder" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/factory-patterns.txt || true
+          
+          # Observer pattern detection
+          grep -r "Observer\|subscribe\|notify\|addEventListener" --include="*.py" --include="*.js" . > reports/architecture/observer-patterns.txt || true
+          
+          # Strategy pattern detection
+          grep -r "Strategy\|algorithm\|execute.*method" --include="*.py" --include="*.js" . > reports/architecture/strategy-patterns.txt || true
+
+      # Circuit Breaker and Resilience Patterns
+      - name: Analyze Resilience Patterns
+        run: |
+          echo "Analyzing resilience and fault tolerance patterns..."
+          
+          # Circuit breaker pattern
+          grep -r "circuit.*breaker\|CircuitBreaker\|failfast\|timeout" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/circuit-breaker.txt || true
+          
+          # Retry patterns
+          grep -r "retry\|backoff\|exponential.*delay" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/retry-patterns.txt || true
+          
+          # Bulkhead pattern
+          grep -r "bulkhead\|isolation\|thread.*pool\|connection.*pool" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/bulkhead-patterns.txt || true
+          
+          # Health check patterns
+          grep -r "health.*check\|/health\|/status\|ping.*pong" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/health-checks.txt || true
+
+      # Microservices Architecture Analysis
+      - name: Analyze Microservices Architecture
+        run: |
+          echo "Analyzing microservices architecture patterns..."
+          
+          # Service discovery patterns
+          grep -r "service.*discovery\|consul\|eureka\|etcd" --include="*.py" --include="*.js" --include="*.go" --include="*.yaml" . > reports/architecture/service-discovery.txt || true
+          
+          # API Gateway patterns
+          grep -r "gateway\|proxy\|load.*balancer\|nginx\|traefik" --include="*.conf" --include="*.yaml" --include="*.py" . > reports/architecture/api-gateway.txt || true
+          
+          # Event-driven patterns
+          grep -r "event.*bus\|message.*queue\|pub.*sub\|kafka\|rabbitmq" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/event-driven.txt || true
+          
+          # Database per service
+          find . -name "*.sql" -o -name "*database*" -o -name "*db*" | wc -l > reports/architecture/database-count.txt || true
+
+      # Layered Architecture Analysis
+      - name: Analyze Layered Architecture
+        run: |
+          echo "Analyzing layered architecture implementation..."
+          
+          # Layer separation analysis
+          find . -type d -name "*controller*" -o -name "*service*" -o -name "*repository*" -o -name "*model*" > reports/architecture/layer-structure.txt || true
+          
+          # Cross-layer dependencies
+          grep -r "from.*controller\|import.*controller" --include="*.py" src/ > reports/architecture/controller-dependencies.txt || true
+          grep -r "from.*model\|import.*model" --include="*.py" src/ > reports/architecture/model-dependencies.txt || true
+          
+          # Business logic in wrong layers
+          grep -r "business.*logic\|domain.*logic" --include="*.py" --include="*.js" . > reports/architecture/business-logic-location.txt || true
+
+      # Clean Architecture Analysis
+      - name: Analyze Clean Architecture
+        run: |
+          echo "Analyzing clean architecture principles..."
+          
+          # Dependency inversion
+          grep -r "interface\|abstract\|protocol" --include="*.py" --include="*.go" . > reports/architecture/abstractions.txt || true
+          
+          # Use case patterns
+          grep -r "use.*case\|UseCase\|interactor" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/use-cases.txt || true
+          
+          # Entity patterns
+          grep -r "entity\|Entity\|domain.*model" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/entities.txt || true
+
+      # Code Complexity Analysis
+      - name: Analyze Code Complexity
+        run: |
+          echo "Analyzing code complexity and maintainability..."
+          
+          # Python complexity
+          find . -name "*.py" -exec radon cc {} -s \; > reports/architecture/python-complexity.txt || true
+          find . -name "*.py" -exec radon mi {} -s \; > reports/architecture/python-maintainability.txt || true
+          
+          # JavaScript complexity
+          if [ -f package.json ]; then
+            plato -r -d reports/architecture/js-complexity . || true
+          fi
+          
+          # Go complexity
+          if [ -f go.mod ]; then
+            ~/go/bin/gocyclo -over 10 . > reports/architecture/go-complexity.txt || true
+          fi
+          
+          # General complexity with lizard
+          lizard . -o reports/architecture/overall-complexity.txt || true
+
+      # Scalability Analysis
+      - name: Analyze Scalability Patterns
+        run: |
+          echo "Analyzing scalability and performance architecture..."
+          
+          # Caching patterns
+          grep -r "cache\|Cache\|redis\|memcached" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/caching-patterns.txt || true
+          
+          # Database scaling patterns
+          grep -r "shard\|partition\|replica\|master.*slave" --include="*.py" --include="*.js" --include="*.go" --include="*.sql" . > reports/architecture/db-scaling.txt || true
+          
+          # Load balancing
+          grep -r "load.*balance\|round.*robin\|sticky.*session" --include="*.conf" --include="*.yaml" --include="*.py" . > reports/architecture/load-balancing.txt || true
+          
+          # Async patterns
+          grep -r "async\|await\|promise\|future\|goroutine" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/async-patterns.txt || true
+
+      # Data Architecture Analysis
+      - name: Analyze Data Architecture
+        run: |
+          echo "Analyzing data architecture patterns..."
+          
+          # CQRS patterns
+          grep -r "CQRS\|command.*query\|read.*model\|write.*model" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/cqrs-patterns.txt || true
+          
+          # Event sourcing
+          grep -r "event.*sourcing\|event.*store\|aggregate" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/event-sourcing.txt || true
+          
+          # Repository patterns
+          grep -r "Repository\|repository\|data.*access" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/repository-patterns.txt || true
+
+      # Security Architecture Analysis
+      - name: Analyze Security Architecture
+        run: |
+          echo "Analyzing security architecture patterns..."
+          
+          # Authentication patterns
+          grep -r "auth\|jwt\|oauth\|saml" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/auth-patterns.txt || true
+          
+          # Authorization patterns
+          grep -r "rbac\|acl\|permission\|role" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/authz-patterns.txt || true
+          
+          # Security boundaries
+          grep -r "firewall\|security.*group\|network.*policy" --include="*.yaml" --include="*.conf" . > reports/architecture/security-boundaries.txt || true
+
+      # Code Duplication Analysis
+      - name: Analyze Code Duplication
+        run: |
+          echo "Analyzing code duplication..."
+          
+          # JavaScript/TypeScript duplication
+          if [ -f package.json ]; then
+            jscpd . --reporters json --output reports/architecture/ || true
+          fi
+          
+          # Python duplication (simple approach)
+          find . -name "*.py" -exec wc -l {} \; | sort -nr > reports/architecture/python-file-sizes.txt || true
+
+      # Generate Architecture Summary
+      - name: Generate Architecture Summary
+        run: |
+          python3 - <<'EOF'
+          import json
+          import os
+          import glob
+          
+          def count_lines_in_file(filepath):
+              try:
+                  with open(filepath, 'r') as f:
+                      lines = f.readlines()
+                      return len([l for l in lines if l.strip()])
+              except:
+                  return 0
+          
+          def analyze_json_file(filepath):
+              try:
+                  with open(filepath, 'r') as f:
+                      data = json.load(f)
+                      if isinstance(data, list):
+                          return len(data)
+                      elif isinstance(data, dict):
+                          return len(data.keys())
+                      return 1 if data else 0
+              except:
+                  return 0
+          
+          summary = {
+              "total_architecture_issues": 0,
+              "categories": {},
+              "complexity_metrics": {},
+              "files_analyzed": 0
+          }
+          
+          report_files = glob.glob("reports/architecture/*")
+          for report_file in report_files:
+              category = os.path.basename(report_file).replace('.json', '').replace('.txt', '')
+              
+              if report_file.endswith('.json'):
+                  issue_count = analyze_json_file(report_file)
+              else:
+                  issue_count = count_lines_in_file(report_file)
+              
+              summary["categories"][category] = issue_count
+              summary["total_architecture_issues"] += issue_count
+              summary["files_analyzed"] += 1
+          
+          with open("reports/architecture/summary.json", "w") as f:
+              json.dump(summary, f, indent=2)
+          
+          print(f"Architecture analysis complete. Found {summary['total_architecture_issues']} potential issues across {summary['files_analyzed']} categories.")
+          
+          # Generate markdown summary
+          with open("reports/architecture/ARCHITECTURE_SUMMARY.md", "w") as f:
+              f.write("# Architecture Analysis Summary\n\n")
+              f.write(f"**Total Issues Found:** {summary['total_architecture_issues']}\n\n")
+              f.write("## Issues by Category\n\n")
+              f.write("| Category | Count |\n|----------|-------|\n")
+              for category, count in sorted(summary["categories"].items()):
+                  f.write(f"| {category.replace('-', ' ').title()} | {count} |\n")
+              
+              f.write("\n## Architecture Recommendations\n\n")
+              f.write("### High Priority Issues\n")
+              high_priority = [(k, v) for k, v in summary["categories"].items() if v > 10]
+              for category, count in sorted(high_priority, key=lambda x: x[1], reverse=True):
+                  f.write(f"- **{category.replace('-', ' ').title()}**: {count} issues found\n")
+          EOF
+
+      - name: Upload Architecture Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-architecture-reports
+          path: reports/architecture/
+          retention-days: 30
+
+      - name: Display Summary
+        run: |
+          echo "## 🏗️ Architecture Analysis Results" >> $GITHUB_STEP_SUMMARY
+          cat reports/architecture/ARCHITECTURE_SUMMARY.md >> $GITHUB_STEP_SUMMARY

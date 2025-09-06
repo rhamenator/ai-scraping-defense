@@ -1,0 +1,309 @@
+{
+  "security_problems_batch5": {
+    "category": "Security",
+    "batch": 5,
+    "total_problems": 50,
+    "problems": [
+      {
+        "id": 201,
+        "problem": "Missing Istio Service Mesh Security",
+        "affected_files": ["Service mesh configuration", "Microservice communication"],
+        "fix_prompt": "Implement Istio service mesh with mTLS, add traffic policies, create security policies, and implement service mesh monitoring."
+      },
+      {
+        "id": 202,
+        "problem": "Inadequate Linkerd Security",
+        "affected_files": ["Service mesh", "Traffic encryption"],
+        "fix_prompt": "Implement Linkerd service mesh security, add automatic mTLS, create traffic policies, and implement Linkerd monitoring."
+      },
+      {
+        "id": 203,
+        "problem": "Insecure Consul Connect",
+        "affected_files": ["Service discovery", "Service segmentation"],
+        "fix_prompt": "Implement Consul Connect for service segmentation, add intention-based policies, create service identity, and implement Consul security monitoring."
+      },
+      {
+        "id": 204,
+        "problem": "Missing Envoy Proxy Security",
+        "affected_files": ["Proxy configuration", "Traffic filtering"],
+        "fix_prompt": "Implement Envoy proxy security configuration, add traffic filtering, create rate limiting, and implement Envoy security monitoring."
+      },
+      {
+        "id": 205,
+        "problem": "Inadequate NGINX Ingress Security",
+        "affected_files": ["Ingress controller", "Traffic routing"],
+        "fix_prompt": "Implement NGINX Ingress security hardening, add WAF rules, create rate limiting, and implement ingress security monitoring."
+      },
+      {
+        "id": 206,
+        "problem": "Missing Traefik Security",
+        "affected_files": ["Reverse proxy", "Load balancing"],
+        "fix_prompt": "Implement Traefik security configuration, add middleware security, create access controls, and implement Traefik security monitoring."
+      },
+      {
+        "id": 207,
+        "problem": "Insecure HAProxy Configuration",
+        "affected_files": ["Load balancer", "Traffic distribution"],
+        "fix_prompt": "Implement HAProxy security hardening, add SSL termination, create access controls, and implement HAProxy security monitoring."
+      },
+      {
+        "id": 208,
+        "problem": "Missing Kong Gateway Security",
+        "affected_files": ["API gateway", "Plugin security"],
+        "fix_prompt": "Implement Kong Gateway security plugins, add authentication, create rate limiting, and implement Kong security monitoring."
+      },
+      {
+        "id": 209,
+        "problem": "Inadequate Ambassador Security",
+        "affected_files": ["Kubernetes ingress", "API gateway"],
+        "fix_prompt": "Implement Ambassador security configuration, add authentication policies, create traffic management, and implement Ambassador security monitoring."
+      },
+      {
+        "id": 210,
+        "problem": "Missing Contour Security",
+        "affected_files": ["Ingress controller", "HTTPProxy"],
+        "fix_prompt": "Implement Contour security configuration, add TLS policies, create access controls, and implement Contour security monitoring."
+      },
+      {
+        "id": 211,
+        "problem": "Insecure Cilium Network Policies",
+        "affected_files": ["Network security", "eBPF policies"],
+        "fix_prompt": "Implement Cilium network policies with eBPF, add Layer 7 security, create network segmentation, and implement Cilium monitoring."
+      },
+      {
+        "id": 212,
+        "problem": "Missing Calico Network Security",
+        "affected_files": ["Network policies", "Workload security"],
+        "fix_prompt": "Implement Calico network security policies, add workload isolation, create security zones, and implement Calico monitoring."
+      },
+      {
+        "id": 213,
+        "problem": "Inadequate Weave Net Security",
+        "affected_files": ["Network overlay", "Encryption"],
+        "fix_prompt": "Implement Weave Net security with encryption, add network policies, create secure networking, and implement Weave monitoring."
+      },
+      {
+        "id": 214,
+        "problem": "Missing Flannel Security",
+        "affected_files": ["Network fabric", "Overlay network"],
+        "fix_prompt": "Implement Flannel security configuration, add network isolation, create secure overlay, and implement Flannel monitoring."
+      },
+      {
+        "id": 215,
+        "problem": "Insecure Kubernetes Dashboard",
+        "affected_files": ["Web UI", "Cluster management"],
+        "fix_prompt": "Implement Kubernetes Dashboard security hardening, add RBAC controls, create access restrictions, and implement dashboard monitoring."
+      },
+      {
+        "id": 216,
+        "problem": "Missing Rancher Security",
+        "affected_files": ["Cluster management", "Multi-cluster"],
+        "fix_prompt": "Implement Rancher security hardening, add cluster isolation, create access controls, and implement Rancher security monitoring."
+      },
+      {
+        "id": 217,
+        "problem": "Inadequate OpenShift Security",
+        "affected_files": ["Container platform", "Security contexts"],
+        "fix_prompt": "Implement OpenShift security hardening, add security context constraints, create security policies, and implement OpenShift monitoring."
+      },
+      {
+        "id": 218,
+        "problem": "Missing Tanzu Security",
+        "affected_files": ["Application platform", "Kubernetes distribution"],
+        "fix_prompt": "Implement VMware Tanzu security controls, add platform security, create workload isolation, and implement Tanzu monitoring."
+      },
+      {
+        "id": 219,
+        "problem": "Insecure EKS Security",
+        "affected_files": ["AWS Kubernetes", "Managed service"],
+        "fix_prompt": "Implement Amazon EKS security hardening, add IAM integration, create security groups, and implement EKS monitoring."
+      },
+      {
+        "id": 220,
+        "problem": "Missing GKE Security",
+        "affected_files": ["Google Kubernetes", "Managed clusters"],
+        "fix_prompt": "Implement Google GKE security hardening, add Workload Identity, create Binary Authorization, and implement GKE monitoring."
+      },
+      {
+        "id": 221,
+        "problem": "Inadequate AKS Security",
+        "affected_files": ["Azure Kubernetes", "Managed service"],
+        "fix_prompt": "Implement Azure AKS security hardening, add Azure AD integration, create network policies, and implement AKS monitoring."
+      },
+      {
+        "id": 222,
+        "problem": "Missing Docker Security",
+        "affected_files": ["Container runtime", "Image security"],
+        "fix_prompt": "Implement Docker security hardening, add image scanning, create runtime protection, and implement Docker monitoring."
+      },
+      {
+        "id": 223,
+        "problem": "Insecure Podman Security",
+        "affected_files": ["Rootless containers", "Container security"],
+        "fix_prompt": "Implement Podman security configuration, add rootless operation, create security policies, and implement Podman monitoring."
+      },
+      {
+        "id": 224,
+        "problem": "Missing CRI-O Security",
+        "affected_files": ["Container runtime", "OCI compliance"],
+        "fix_prompt": "Implement CRI-O security hardening, add runtime security, create container policies, and implement CRI-O monitoring."
+      },
+      {
+        "id": 225,
+        "problem": "Inadequate Containerd Security",
+        "affected_files": ["Container runtime", "Image management"],
+        "fix_prompt": "Implement containerd security configuration, add image verification, create runtime policies, and implement containerd monitoring."
+      },
+      {
+        "id": 226,
+        "problem": "Missing runc Security",
+        "affected_files": ["Container runtime", "Low-level operations"],
+        "fix_prompt": "Implement runc security hardening, add namespace isolation, create security constraints, and implement runc monitoring."
+      },
+      {
+        "id": 227,
+        "problem": "Insecure gVisor Security",
+        "affected_files": ["Container sandbox", "Kernel isolation"],
+        "fix_prompt": "Implement gVisor security configuration, add application kernel, create isolation boundaries, and implement gVisor monitoring."
+      },
+      {
+        "id": 228,
+        "problem": "Missing Kata Containers Security",
+        "affected_files": ["VM-based containers", "Hardware isolation"],
+        "fix_prompt": "Implement Kata Containers security, add VM isolation, create secure boundaries, and implement Kata monitoring."
+      },
+      {
+        "id": 229,
+        "problem": "Inadequate Firecracker Security",
+        "affected_files": ["Microvm", "Serverless containers"],
+        "fix_prompt": "Implement Firecracker security configuration, add microVM isolation, create security boundaries, and implement Firecracker monitoring."
+      },
+      {
+        "id": 230,
+        "problem": "Missing Cloud Hypervisor Security",
+        "affected_files": ["Rust hypervisor", "VM security"],
+        "fix_prompt": "Implement Cloud Hypervisor security, add VM isolation, create secure virtualization, and implement hypervisor monitoring."
+      },
+      {
+        "id": 231,
+        "problem": "Insecure QEMU Security",
+        "affected_files": ["Virtualization", "Emulation"],
+        "fix_prompt": "Implement QEMU security hardening, add VM isolation, create security policies, and implement QEMU monitoring."
+      },
+      {
+        "id": 232,
+        "problem": "Missing KVM Security",
+        "affected_files": ["Kernel virtualization", "Hardware acceleration"],
+        "fix_prompt": "Implement KVM security configuration, add hypervisor security, create VM isolation, and implement KVM monitoring."
+      },
+      {
+        "id": 233,
+        "problem": "Inadequate Xen Security",
+        "affected_files": ["Type-1 hypervisor", "Dom0 security"],
+        "fix_prompt": "Implement Xen security hardening, add domain isolation, create security policies, and implement Xen monitoring."
+      },
+      {
+        "id": 234,
+        "problem": "Missing VMware Security",
+        "affected_files": ["vSphere platform", "VM security"],
+        "fix_prompt": "Implement VMware security hardening, add VM encryption, create security policies, and implement VMware monitoring."
+      },
+      {
+        "id": 235,
+        "problem": "Insecure Hyper-V Security",
+        "affected_files": ["Windows hypervisor", "VM isolation"],
+        "fix_prompt": "Implement Hyper-V security configuration, add VM security, create isolation policies, and implement Hyper-V monitoring."
+      },
+      {
+        "id": 236,
+        "problem": "Missing Proxmox Security",
+        "affected_files": ["Virtualization platform", "Container management"],
+        "fix_prompt": "Implement Proxmox security hardening, add access controls, create security policies, and implement Proxmox monitoring."
+      },
+      {
+        "id": 237,
+        "problem": "Inadequate oVirt Security",
+        "affected_files": ["Virtualization management", "Data center"],
+        "fix_prompt": "Implement oVirt security configuration, add management security, create access controls, and implement oVirt monitoring."
+      },
+      {
+        "id": 238,
+        "problem": "Missing OpenStack Security",
+        "affected_files": ["Cloud platform", "Multi-tenant"],
+        "fix_prompt": "Implement OpenStack security hardening, add tenant isolation, create security groups, and implement OpenStack monitoring."
+      },
+      {
+        "id": 239,
+        "problem": "Insecure CloudStack Security",
+        "affected_files": ["IaaS platform", "Multi-tenancy"],
+        "fix_prompt": "Implement CloudStack security configuration, add network isolation, create security policies, and implement CloudStack monitoring."
+      },
+      {
+        "id": 240,
+        "problem": "Missing Eucalyptus Security",
+        "affected_files": ["Private cloud", "AWS compatibility"],
+        "fix_prompt": "Implement Eucalyptus security hardening, add cloud security, create access controls, and implement Eucalyptus monitoring."
+      },
+      {
+        "id": 241,
+        "problem": "Inadequate Nextcloud Security",
+        "affected_files": ["File sharing", "Collaboration platform"],
+        "fix_prompt": "Implement Nextcloud security hardening, add encryption, create access controls, and implement Nextcloud monitoring."
+      },
+      {
+        "id": 242,
+        "problem": "Missing ownCloud Security",
+        "affected_files": ["File synchronization", "Enterprise sharing"],
+        "fix_prompt": "Implement ownCloud security configuration, add file encryption, create user management, and implement ownCloud monitoring."
+      },
+      {
+        "id": 243,
+        "problem": "Insecure Seafile Security",
+        "affected_files": ["File hosting", "Team collaboration"],
+        "fix_prompt": "Implement Seafile security hardening, add client-side encryption, create access policies, and implement Seafile monitoring."
+      },
+      {
+        "id": 244,
+        "problem": "Missing Pydio Security",
+        "affected_files": ["File sharing", "Document management"],
+        "fix_prompt": "Implement Pydio security configuration, add enterprise security, create workflow security, and implement Pydio monitoring."
+      },
+      {
+        "id": 245,
+        "problem": "Inadequate Mattermost Security",
+        "affected_files": ["Team messaging", "Collaboration"],
+        "fix_prompt": "Implement Mattermost security hardening, add end-to-end encryption, create compliance features, and implement Mattermost monitoring."
+      },
+      {
+        "id": 246,
+        "problem": "Missing Rocket.Chat Security",
+        "affected_files": ["Team communication", "Chat platform"],
+        "fix_prompt": "Implement Rocket.Chat security configuration, add encryption, create access controls, and implement Rocket.Chat monitoring."
+      },
+      {
+        "id": 247,
+        "problem": "Insecure Zulip Security",
+        "affected_files": ["Team chat", "Threaded conversations"],
+        "fix_prompt": "Implement Zulip security hardening, add authentication, create security policies, and implement Zulip monitoring."
+      },
+      {
+        "id": 248,
+        "problem": "Missing Element Security",
+        "affected_files": ["Matrix client", "Decentralized chat"],
+        "fix_prompt": "Implement Element security configuration, add end-to-end encryption, create federation security, and implement Element monitoring."
+      },
+      {
+        "id": 249,
+        "problem": "Inadequate Jitsi Security",
+        "affected_files": ["Video conferencing", "WebRTC"],
+        "fix_prompt": "Implement Jitsi security hardening, add meeting security, create access controls, and implement Jitsi monitoring."
+      },
+      {
+        "id": 250,
+        "problem": "Missing BigBlueButton Security",
+        "affected_files": ["Web conferencing", "Online learning"],
+        "fix_prompt": "Implement BigBlueButton security configuration, add meeting protection, create user authentication, and implement BigBlueButton monitoring."
+      }
+    ]
+  }
+}

@@ -1,0 +1,334 @@
+name: Comprehensive Operations Problem Detection
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (dev|staging|prod|all)"
+        required: false
+        default: "all"
+      check_external_deps:
+        description: "Check external dependencies (true|false)"
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+
+jobs:
+  comprehensive-operations-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Setup Operations Analysis Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip nodejs npm docker.io kubectl
+          pip3 install --user ansible-lint yamllint
+          npm install -g dockerfile-lint
+          
+          # Infrastructure tools
+          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tar.gz
+          sudo tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin
+          
+          # Monitoring tools
+          curl -L https://github.com/prometheus/prometheus/releases/latest/download/prometheus-*.linux-amd64.tar.gz -o /tmp/prometheus.tar.gz || true
+
+      - name: Create Reports Directory
+        run: mkdir -p reports/operations
+
+      # Monitoring and Observability Analysis
+      - name: Analyze Monitoring Setup
+        run: |
+          echo "Analyzing monitoring and observability..."
+          
+          # Prometheus/metrics patterns
+          grep -r "prometheus\|metrics\|gauge\|counter\|histogram" --include="*.py" --include="*.js" --include="*.go" --include="*.yaml" . > reports/operations/monitoring-patterns.txt || true
+          
+          # Logging patterns
+          grep -r "log\|Log\|logger\|Logger" --include="*.py" --include="*.js" --include="*.go" . | head -100 > reports/operations/logging-patterns.txt || true
+          
+          # Health check endpoints
+          grep -r "/health\|/status\|/ping\|healthcheck" --include="*.py" --include="*.js" --include="*.go" . > reports/operations/health-endpoints.txt || true
+          
+          # Alerting configurations
+          find . -name "*alert*" -o -name "*notification*" > reports/operations/alerting-files.txt || true
+          grep -r "alert\|notification\|webhook" --include="*.yaml" --include="*.yml" . > reports/operations/alerting-config.txt || true
+
+      # Deployment and CI/CD Analysis
+      - name: Analyze Deployment Processes
+        run: |
+          echo "Analyzing deployment and CI/CD processes..."
+          
+          # CI/CD configurations
+          find .github/workflows -name "*.yml" -o -name "*.yaml" | wc -l > reports/operations/cicd-workflow-count.txt || true
+          
+          # Deployment scripts
+          find . -name "*deploy*" -o -name "*release*" > reports/operations/deployment-scripts.txt || true
+          
+          # Docker configurations
+          find . -name "Dockerfile*" -o -name "docker-compose*" > reports/operations/docker-files.txt || true
+          
+          # Kubernetes manifests
+          find . -name "*.yaml" -o -name "*.yml" | grep -E "(k8s|kubernetes|helm)" > reports/operations/k8s-manifests.txt || true
+          
+          # Infrastructure as Code
+          find . -name "*.tf" -o -name "*.tfvars" -o -name "*.hcl" > reports/operations/terraform-files.txt || true
+
+      # Backup and Disaster Recovery Analysis
+      - name: Analyze Backup and DR
+        run: |
+          echo "Analyzing backup and disaster recovery..."
+          
+          # Backup scripts and configurations
+          grep -r "backup\|restore\|snapshot" --include="*.sh" --include="*.py" --include="*.yaml" . > reports/operations/backup-patterns.txt || true
+          
+          # Database backup patterns
+          grep -r "pg_dump\|mysqldump\|mongodump" --include="*.sh" --include="*.py" . > reports/operations/db-backup.txt || true
+          
+          # Disaster recovery procedures
+          find . -name "*disaster*" -o -name "*recovery*" -o -name "*dr*" > reports/operations/dr-files.txt || true
+          
+          # Data retention policies
+          grep -r "retention\|expire\|cleanup\|purge" --include="*.py" --include="*.sh" --include="*.yaml" . > reports/operations/retention-policies.txt || true
+
+      # Capacity Planning Analysis
+      - name: Analyze Capacity Planning
+        run: |
+          echo "Analyzing capacity planning and scaling..."
+          
+          # Auto-scaling configurations
+          grep -r "autoscale\|hpa\|vpa\|scaling" --include="*.yaml" --include="*.yml" . > reports/operations/autoscaling-config.txt || true
+          
+          # Resource limits and requests
+          grep -r "limits:\|requests:\|cpu:\|memory:" --include="*.yaml" --include="*.yml" . > reports/operations/resource-limits.txt || true
+          
+          # Load balancing configurations
+          grep -r "load.*balance\|nginx\|haproxy\|traefik" --include="*.conf" --include="*.yaml" . > reports/operations/load-balancing.txt || true
+          
+          # Capacity monitoring
+          grep -r "capacity\|utilization\|threshold" --include="*.py" --include="*.js" --include="*.yaml" . > reports/operations/capacity-monitoring.txt || true
+
+      # Configuration Management Analysis
+      - name: Analyze Configuration Management
+        run: |
+          echo "Analyzing configuration management..."
+          
+          # Environment configurations
+          find . -name "*.env*" -o -name "config.*" -o -name "settings.*" > reports/operations/config-files.txt || true
+          
+          # Secret management
+          grep -r "secret\|Secret\|password\|token" --include="*.yaml" --include="*.yml" . | grep -v "example" > reports/operations/secrets-in-config.txt || true
+          
+          # Configuration validation
+          grep -r "validate\|schema\|config.*check" --include="*.py" --include="*.js" . > reports/operations/config-validation.txt || true
+          
+          # Feature flags
+          grep -r "feature.*flag\|toggle\|experiment" --include="*.py" --include="*.js" . > reports/operations/feature-flags.txt || true
+
+      # Security Operations Analysis
+      - name: Analyze Security Operations
+        run: |
+          echo "Analyzing security operations..."
+          
+          # Security scanning in CI/CD
+          grep -r "security.*scan\|vulnerability\|audit" .github/workflows/ > reports/operations/security-cicd.txt || true
+          
+          # Certificate management
+          find . -name "*.crt" -o -name "*.pem" -o -name "*.key" > reports/operations/certificates.txt || true
+          grep -r "certificate\|cert\|tls\|ssl" --include="*.yaml" --include="*.conf" . > reports/operations/cert-config.txt || true
+          
+          # Access control
+          grep -r "rbac\|role\|permission\|auth" --include="*.yaml" --include="*.yml" . > reports/operations/access-control.txt || true
+          
+          # Network policies
+          grep -r "network.*policy\|firewall\|security.*group" --include="*.yaml" --include="*.tf" . > reports/operations/network-security.txt || true
+
+      # Incident Response Analysis
+      - name: Analyze Incident Response
+        run: |
+          echo "Analyzing incident response capabilities..."
+          
+          # Incident response procedures
+          find . -name "*incident*" -o -name "*runbook*" -o -name "*playbook*" > reports/operations/incident-files.txt || true
+          
+          # Error handling and recovery
+          grep -r "try.*except\|catch\|error.*handler" --include="*.py" --include="*.js" . | head -50 > reports/operations/error-handling.txt || true
+          
+          # Circuit breaker patterns
+          grep -r "circuit.*breaker\|fallback\|timeout" --include="*.py" --include="*.js" --include="*.go" . > reports/operations/resilience-patterns.txt || true
+          
+          # Graceful shutdown
+          grep -r "shutdown\|sigterm\|sigint\|graceful" --include="*.py" --include="*.js" --include="*.go" . > reports/operations/graceful-shutdown.txt || true
+
+      # Performance Monitoring Analysis
+      - name: Analyze Performance Monitoring
+        run: |
+          echo "Analyzing performance monitoring..."
+          
+          # APM and tracing
+          grep -r "trace\|span\|jaeger\|zipkin\|opentelemetry" --include="*.py" --include="*.js" --include="*.go" . > reports/operations/tracing-patterns.txt || true
+          
+          # Performance metrics
+          grep -r "latency\|response.*time\|throughput\|rps" --include="*.py" --include="*.js" --include="*.go" . > reports/operations/performance-metrics.txt || true
+          
+          # Profiling integration
+          grep -r "profile\|profiler\|pprof" --include="*.py" --include="*.js" --include="*.go" . > reports/operations/profiling-integration.txt || true
+
+      # Database Operations Analysis
+      - name: Analyze Database Operations
+        run: |
+          echo "Analyzing database operations..."
+          
+          # Database migrations
+          find . -name "*migration*" -o -name "*migrate*" > reports/operations/db-migrations.txt || true
+          
+          # Database monitoring
+          grep -r "db.*monitor\|database.*health\|connection.*pool" --include="*.py" --include="*.js" . > reports/operations/db-monitoring.txt || true
+          
+          # Database backup automation
+          grep -r "backup.*schedule\|cron.*backup" --include="*.sh" --include="*.py" --include="*.yaml" . > reports/operations/db-backup-automation.txt || true
+
+      # Container Operations Analysis
+      - name: Analyze Container Operations
+        run: |
+          echo "Analyzing container operations..."
+          
+          # Container health checks
+          grep -r "HEALTHCHECK\|health.*check" Dockerfile* > reports/operations/container-health.txt || true
+          
+          # Container resource limits
+          grep -r "memory\|cpu\|limits" docker-compose*.yml > reports/operations/container-resources.txt || true
+          
+          # Container security
+          grep -r "USER\|security.*opt\|cap.*drop" Dockerfile* > reports/operations/container-security.txt || true
+          
+          # Multi-stage builds
+          grep -r "FROM.*as\|COPY.*--from" Dockerfile* > reports/operations/multistage-builds.txt || true
+
+      # Service Mesh and Networking Analysis
+      - name: Analyze Service Mesh and Networking
+        run: |
+          echo "Analyzing service mesh and networking..."
+          
+          # Service mesh configurations
+          grep -r "istio\|linkerd\|consul.*connect" --include="*.yaml" --include="*.yml" . > reports/operations/service-mesh.txt || true
+          
+          # Network policies
+          grep -r "NetworkPolicy\|network.*policy" --include="*.yaml" . > reports/operations/k8s-network-policies.txt || true
+          
+          # Ingress configurations
+          grep -r "Ingress\|ingress" --include="*.yaml" . > reports/operations/ingress-config.txt || true
+
+      # External Dependencies Analysis
+      - name: Analyze External Dependencies
+        if: ${{ github.event.inputs.check_external_deps == 'true' }}
+        run: |
+          echo "Analyzing external dependencies..."
+          
+          # External service calls
+          grep -r "http://\|https://" --include="*.py" --include="*.js" --include="*.go" . | grep -v "localhost\|127.0.0.1" > reports/operations/external-calls.txt || true
+          
+          # Third-party integrations
+          grep -r "api.*key\|webhook\|integration" --include="*.py" --include="*.js" . > reports/operations/third-party-integrations.txt || true
+          
+          # Dependency health checks
+          grep -r "dependency.*check\|upstream.*health" --include="*.py" --include="*.js" . > reports/operations/dependency-health.txt || true
+
+      # Generate Operations Summary
+      - name: Generate Operations Summary
+        run: |
+          python3 - <<'EOF'
+          import json
+          import os
+          import glob
+          
+          def count_lines_in_file(filepath):
+              try:
+                  with open(filepath, 'r') as f:
+                      lines = f.readlines()
+                      return len([l for l in lines if l.strip()])
+              except:
+                  return 0
+          
+          def count_files_in_file(filepath):
+              try:
+                  with open(filepath, 'r') as f:
+                      lines = f.readlines()
+                      return len([l for l in lines if l.strip() and not l.startswith('#')])
+              except:
+                  return 0
+          
+          summary = {
+              "total_operations_issues": 0,
+              "categories": {},
+              "operational_maturity": {},
+              "files_analyzed": 0
+          }
+          
+          report_files = glob.glob("reports/operations/*")
+          for report_file in report_files:
+              category = os.path.basename(report_file).replace('.txt', '')
+              
+              if 'count' in category or 'files' in category:
+                  issue_count = count_files_in_file(report_file)
+              else:
+                  issue_count = count_lines_in_file(report_file)
+              
+              summary["categories"][category] = issue_count
+              summary["total_operations_issues"] += issue_count
+              summary["files_analyzed"] += 1
+          
+          # Calculate operational maturity indicators
+          monitoring_score = summary["categories"].get("monitoring-patterns", 0)
+          cicd_score = summary["categories"].get("cicd-workflow-count", 0)
+          backup_score = summary["categories"].get("backup-patterns", 0)
+          
+          summary["operational_maturity"] = {
+              "monitoring": "Good" if monitoring_score > 10 else "Needs Improvement",
+              "cicd": "Good" if cicd_score > 5 else "Needs Improvement", 
+              "backup": "Good" if backup_score > 5 else "Needs Improvement"
+          }
+          
+          with open("reports/operations/summary.json", "w") as f:
+              json.dump(summary, f, indent=2)
+          
+          print(f"Operations analysis complete. Found {summary['total_operations_issues']} operational elements across {summary['files_analyzed']} categories.")
+          
+          # Generate markdown summary
+          with open("reports/operations/OPERATIONS_SUMMARY.md", "w") as f:
+              f.write("# Operations Analysis Summary\n\n")
+              f.write(f"**Total Operational Elements:** {summary['total_operations_issues']}\n\n")
+              
+              f.write("## Operational Maturity Assessment\n\n")
+              f.write("| Area | Status |\n|------|--------|\n")
+              for area, status in summary["operational_maturity"].items():
+                  emoji = "✅" if status == "Good" else "⚠️"
+                  f.write(f"| {area.title()} | {emoji} {status} |\n")
+              
+              f.write("\n## Elements by Category\n\n")
+              f.write("| Category | Count | Status |\n|----------|-------|--------|\n")
+              for category, count in sorted(summary["categories"].items(), key=lambda x: x[1], reverse=True):
+                  status = "🟢 Good" if count > 10 else "🟡 Moderate" if count > 5 else "🔴 Low"
+                  f.write(f"| {category.replace('-', ' ').title()} | {count} | {status} |\n")
+              
+              f.write("\n## Operations Recommendations\n\n")
+              f.write("### Priority Actions\n")
+              low_areas = [(k, v) for k, v in summary["categories"].items() if v < 5]
+              for category, count in sorted(low_areas, key=lambda x: x[1]):
+                  f.write(f"- **Improve {category.replace('-', ' ').title()}**: Only {count} elements found\n")
+          EOF
+
+      - name: Upload Operations Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-operations-reports
+          path: reports/operations/
+          retention-days: 30
+
+      - name: Display Summary
+        run: |
+          echo "## 🔧 Operations Analysis Results" >> $GITHUB_STEP_SUMMARY
+          cat reports/operations/OPERATIONS_SUMMARY.md >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,309 @@
+{
+  "security_problems_batch2": {
+    "category": "Security",
+    "batch": 2,
+    "total_problems": 50,
+    "problems": [
+      {
+        "id": 51,
+        "problem": "Insecure JWT Implementation",
+        "affected_files": ["src/shared/jwt_handler.py", "JWT token handling throughout"],
+        "fix_prompt": "Implement secure JWT with proper signing algorithms (RS256/ES256), add token expiration validation, implement token blacklisting, and add JWT security headers."
+      },
+      {
+        "id": 52,
+        "problem": "Missing CSRF Protection",
+        "affected_files": ["src/admin_ui/admin_ui.py", "Form submissions throughout"],
+        "fix_prompt": "Implement CSRF tokens for all state-changing operations, add SameSite cookie attributes, create CSRF validation middleware, and implement double-submit cookie pattern."
+      },
+      {
+        "id": 53,
+        "problem": "Inadequate Password Policy",
+        "affected_files": ["Password validation", "User registration systems"],
+        "fix_prompt": "Implement strong password policies with complexity requirements, add password history checking, create password strength meters, and implement password breach checking."
+      },
+      {
+        "id": 54,
+        "problem": "Missing Password Hashing",
+        "affected_files": ["Password storage", "Authentication systems"],
+        "fix_prompt": "Implement secure password hashing with bcrypt/scrypt/Argon2, add salt generation, create hash verification, and implement hash upgrade mechanisms."
+      },
+      {
+        "id": 55,
+        "problem": "Insecure Direct Object References",
+        "affected_files": ["API endpoints with object IDs", "Resource access patterns"],
+        "fix_prompt": "Implement indirect object references with mapping tables, add authorization checks for all object access, create access control lists, and implement object ownership validation."
+      },
+      {
+        "id": 56,
+        "problem": "Missing Security Testing",
+        "affected_files": ["Test suites", "Security validation"],
+        "fix_prompt": "Implement automated security testing with SAST/DAST tools, add security unit tests, create penetration testing automation, and implement security regression testing."
+      },
+      {
+        "id": 57,
+        "problem": "Inadequate Error Information Disclosure",
+        "affected_files": ["Error handling throughout", "Exception responses"],
+        "fix_prompt": "Implement generic error messages for users, add detailed logging for developers, create error classification, and implement error sanitization."
+      },
+      {
+        "id": 58,
+        "problem": "Missing Security Configuration Management",
+        "affected_files": ["Configuration files", "Security settings"],
+        "fix_prompt": "Implement security configuration baselines, add configuration drift detection, create security hardening guides, and implement configuration compliance monitoring."
+      },
+      {
+        "id": 59,
+        "problem": "Insecure API Design",
+        "affected_files": ["API endpoints", "REST API implementation"],
+        "fix_prompt": "Implement secure API design patterns, add API security gateways, create API rate limiting, and implement API security monitoring."
+      },
+      {
+        "id": 60,
+        "problem": "Missing Content Security Policy",
+        "affected_files": ["HTML responses", "Web application headers"],
+        "fix_prompt": "Implement comprehensive Content Security Policy headers, add nonce-based script execution, create CSP violation reporting, and implement CSP policy testing."
+      },
+      {
+        "id": 61,
+        "problem": "Inadequate Session Timeout",
+        "affected_files": ["Session management", "Authentication timeouts"],
+        "fix_prompt": "Implement appropriate session timeouts based on risk levels, add idle timeout detection, create session extension mechanisms, and implement timeout warnings."
+      },
+      {
+        "id": 62,
+        "problem": "Missing Clickjacking Protection",
+        "affected_files": ["Web pages", "Frame options"],
+        "fix_prompt": "Implement X-Frame-Options headers, add frame-ancestors CSP directive, create clickjacking detection, and implement frame-busting techniques."
+      },
+      {
+        "id": 63,
+        "problem": "Insecure Cookie Configuration",
+        "affected_files": ["Cookie settings", "Session cookies"],
+        "fix_prompt": "Implement secure cookie attributes (Secure, HttpOnly, SameSite), add cookie encryption, create cookie integrity validation, and implement cookie expiration management."
+      },
+      {
+        "id": 64,
+        "problem": "Missing Input Length Validation",
+        "affected_files": ["Input processing", "Form validation"],
+        "fix_prompt": "Implement input length limits to prevent buffer overflow attacks, add payload size validation, create input truncation handling, and implement DoS protection."
+      },
+      {
+        "id": 65,
+        "problem": "Inadequate File Type Validation",
+        "affected_files": ["File upload handling", "File processing"],
+        "fix_prompt": "Implement MIME type validation with magic number checking, add file content scanning, create file type whitelisting, and implement malicious file detection."
+      },
+      {
+        "id": 66,
+        "problem": "Missing Security Logging",
+        "affected_files": ["Security events", "Audit trails"],
+        "fix_prompt": "Implement comprehensive security event logging, add log correlation IDs, create security log analysis, and implement real-time security alerting."
+      },
+      {
+        "id": 67,
+        "problem": "Insecure Redirect Handling",
+        "affected_files": ["Redirect functionality", "URL handling"],
+        "fix_prompt": "Implement redirect URL validation with whitelisting, add open redirect protection, create redirect logging, and implement redirect abuse detection."
+      },
+      {
+        "id": 68,
+        "problem": "Missing Privilege Escalation Protection",
+        "affected_files": ["User role management", "Permission systems"],
+        "fix_prompt": "Implement privilege escalation detection, add role transition monitoring, create privilege abuse detection, and implement least privilege enforcement."
+      },
+      {
+        "id": 69,
+        "problem": "Inadequate API Versioning Security",
+        "affected_files": ["API version handling", "Backward compatibility"],
+        "fix_prompt": "Implement security controls for all API versions, add version-specific security policies, create deprecated version monitoring, and implement version sunset procedures."
+      },
+      {
+        "id": 70,
+        "problem": "Missing Security Headers Validation",
+        "affected_files": ["HTTP response headers", "Security header implementation"],
+        "fix_prompt": "Implement security header validation and testing, add header policy enforcement, create header monitoring, and implement header compliance checking."
+      },
+      {
+        "id": 71,
+        "problem": "Insecure WebSocket Implementation",
+        "affected_files": ["WebSocket connections", "Real-time communication"],
+        "fix_prompt": "Implement WebSocket authentication and authorization, add message validation, create connection rate limiting, and implement WebSocket security monitoring."
+      },
+      {
+        "id": 72,
+        "problem": "Missing Timing Attack Protection",
+        "affected_files": ["Authentication comparisons", "Cryptographic operations"],
+        "fix_prompt": "Implement constant-time comparison functions, add timing attack detection, create response time normalization, and implement timing analysis protection."
+      },
+      {
+        "id": 73,
+        "problem": "Inadequate Memory Protection",
+        "affected_files": ["Memory handling", "Sensitive data processing"],
+        "fix_prompt": "Implement secure memory allocation and deallocation, add memory encryption for sensitive data, create memory leak detection, and implement memory access controls."
+      },
+      {
+        "id": 74,
+        "problem": "Missing Side-Channel Attack Protection",
+        "affected_files": ["Cryptographic implementations", "Sensitive operations"],
+        "fix_prompt": "Implement side-channel attack resistant algorithms, add power analysis protection, create electromagnetic emission shielding, and implement timing channel protection."
+      },
+      {
+        "id": 75,
+        "problem": "Insecure Microservice Communication",
+        "affected_files": ["Inter-service communication", "Service mesh"],
+        "fix_prompt": "Implement mutual TLS for service-to-service communication, add service identity verification, create communication encryption, and implement service mesh security."
+      },
+      {
+        "id": 76,
+        "problem": "Missing Blockchain Security",
+        "affected_files": ["Blockchain integrations", "Smart contracts"],
+        "fix_prompt": "Implement blockchain security best practices, add smart contract auditing, create transaction validation, and implement blockchain monitoring."
+      },
+      {
+        "id": 77,
+        "problem": "Inadequate IoT Security",
+        "affected_files": ["IoT device communication", "Device management"],
+        "fix_prompt": "Implement IoT device authentication and encryption, add device lifecycle management, create IoT security monitoring, and implement device firmware validation."
+      },
+      {
+        "id": 78,
+        "problem": "Missing Cloud Security Controls",
+        "affected_files": ["Cloud configurations", "Cloud service usage"],
+        "fix_prompt": "Implement cloud security posture management, add cloud access controls, create cloud monitoring, and implement cloud compliance validation."
+      },
+      {
+        "id": 79,
+        "problem": "Insecure Mobile API Security",
+        "affected_files": ["Mobile API endpoints", "Mobile authentication"],
+        "fix_prompt": "Implement mobile-specific security controls, add mobile app attestation, create mobile API rate limiting, and implement mobile threat detection."
+      },
+      {
+        "id": 80,
+        "problem": "Missing Quantum-Resistant Cryptography",
+        "affected_files": ["Cryptographic implementations", "Long-term security"],
+        "fix_prompt": "Implement post-quantum cryptographic algorithms, add crypto-agility for quantum transition, create quantum-safe key exchange, and implement quantum threat assessment."
+      },
+      {
+        "id": 81,
+        "problem": "Inadequate Biometric Security",
+        "affected_files": ["Biometric authentication", "Biometric data handling"],
+        "fix_prompt": "Implement secure biometric template storage, add biometric liveness detection, create biometric privacy protection, and implement biometric revocation mechanisms."
+      },
+      {
+        "id": 82,
+        "problem": "Missing Homomorphic Encryption",
+        "affected_files": ["Sensitive data processing", "Privacy-preserving computation"],
+        "fix_prompt": "Implement homomorphic encryption for sensitive computations, add secure multi-party computation, create privacy-preserving analytics, and implement encrypted search capabilities."
+      },
+      {
+        "id": 83,
+        "problem": "Insecure Edge Computing Security",
+        "affected_files": ["Edge deployments", "Distributed processing"],
+        "fix_prompt": "Implement edge security controls, add edge device authentication, create edge-to-cloud secure communication, and implement edge threat detection."
+      },
+      {
+        "id": 84,
+        "problem": "Missing AI/ML Security",
+        "affected_files": ["AI model implementations", "ML pipeline security"],
+        "fix_prompt": "Implement AI model security validation, add adversarial attack protection, create model poisoning detection, and implement AI privacy protection."
+      },
+      {
+        "id": 85,
+        "problem": "Inadequate Serverless Security",
+        "affected_files": ["Serverless functions", "Function-as-a-Service"],
+        "fix_prompt": "Implement serverless security controls, add function isolation, create serverless monitoring, and implement function vulnerability scanning."
+      },
+      {
+        "id": 86,
+        "problem": "Missing DevSecOps Integration",
+        "affected_files": ["CI/CD pipeline", "Development workflow"],
+        "fix_prompt": "Implement security in CI/CD pipeline, add security gates, create security automation, and implement shift-left security practices."
+      },
+      {
+        "id": 87,
+        "problem": "Insecure API Gateway Configuration",
+        "affected_files": ["API gateway settings", "Traffic management"],
+        "fix_prompt": "Implement API gateway security policies, add traffic filtering, create API threat protection, and implement gateway monitoring."
+      },
+      {
+        "id": 88,
+        "problem": "Missing Runtime Application Self-Protection",
+        "affected_files": ["Application runtime", "Real-time protection"],
+        "fix_prompt": "Implement RASP technology, add runtime threat detection, create application behavior monitoring, and implement automatic threat response."
+      },
+      {
+        "id": 89,
+        "problem": "Inadequate Container Runtime Security",
+        "affected_files": ["Container runtime", "Runtime monitoring"],
+        "fix_prompt": "Implement container runtime security monitoring, add behavioral analysis, create runtime policy enforcement, and implement container anomaly detection."
+      },
+      {
+        "id": 90,
+        "problem": "Missing Security Chaos Engineering",
+        "affected_files": ["Security testing", "Resilience validation"],
+        "fix_prompt": "Implement security chaos engineering practices, add failure injection testing, create security resilience validation, and implement security game days."
+      },
+      {
+        "id": 91,
+        "problem": "Insecure GraphQL Implementation",
+        "affected_files": ["GraphQL endpoints", "Query processing"],
+        "fix_prompt": "Implement GraphQL security controls, add query complexity analysis, create GraphQL rate limiting, and implement GraphQL introspection protection."
+      },
+      {
+        "id": 92,
+        "problem": "Missing Security Data Lake",
+        "affected_files": ["Security data collection", "Threat intelligence"],
+        "fix_prompt": "Implement security data lake for threat intelligence, add security data analytics, create threat hunting capabilities, and implement security data governance."
+      },
+      {
+        "id": 93,
+        "problem": "Inadequate Insider Threat Detection",
+        "affected_files": ["User behavior monitoring", "Access patterns"],
+        "fix_prompt": "Implement insider threat detection systems, add user behavior analytics, create anomaly detection, and implement insider threat response procedures."
+      },
+      {
+        "id": 94,
+        "problem": "Missing Security Automation",
+        "affected_files": ["Security operations", "Incident response"],
+        "fix_prompt": "Implement security automation platforms, add automated threat response, create security workflow automation, and implement security orchestration."
+      },
+      {
+        "id": 95,
+        "problem": "Insecure Supply Chain Attacks",
+        "affected_files": ["Dependencies", "Third-party components"],
+        "fix_prompt": "Implement supply chain attack detection, add dependency integrity verification, create software bill of materials, and implement supply chain monitoring."
+      },
+      {
+        "id": 96,
+        "problem": "Missing Security Metrics and KPIs",
+        "affected_files": ["Security measurement", "Performance indicators"],
+        "fix_prompt": "Implement comprehensive security metrics collection, add security KPI dashboards, create security scorecards, and implement security performance monitoring."
+      },
+      {
+        "id": 97,
+        "problem": "Inadequate Threat Modeling",
+        "affected_files": ["System design", "Security architecture"],
+        "fix_prompt": "Implement systematic threat modeling processes, add threat model validation, create attack surface analysis, and implement threat model maintenance."
+      },
+      {
+        "id": 98,
+        "problem": "Missing Security Culture",
+        "affected_files": ["Organizational practices", "Security awareness"],
+        "fix_prompt": "Implement security culture development programs, add security awareness training, create security champions network, and implement security culture measurement."
+      },
+      {
+        "id": 99,
+        "problem": "Insecure Legacy System Integration",
+        "affected_files": ["Legacy system interfaces", "Integration points"],
+        "fix_prompt": "Implement secure legacy system integration, add security wrappers, create legacy system monitoring, and implement legacy security enhancement."
+      },
+      {
+        "id": 100,
+        "problem": "Missing Security Innovation",
+        "affected_files": ["Emerging technologies", "Security research"],
+        "fix_prompt": "Implement security innovation programs, add emerging threat research, create security technology evaluation, and implement security innovation adoption."
+      }
+    ]
+  }
+}

@@ -1,0 +1,308 @@
+{
+  "operations_problems": {
+    "category": "Operations",
+    "total_problems": 50,
+    "problems": [
+      {
+        "id": 1,
+        "problem": "Inadequate Monitoring and Observability",
+        "affected_files": ["Monitoring setup", "Metrics collection", "Observability infrastructure"],
+        "fix_prompt": "Implement comprehensive monitoring with Prometheus and Grafana, add custom metrics collection, create observability dashboards, implement distributed tracing with Jaeger, and add real-time alerting systems."
+      },
+      {
+        "id": 2,
+        "problem": "Missing Disaster Recovery Plan",
+        "affected_files": ["Backup procedures", "Recovery documentation", "Business continuity"],
+        "fix_prompt": "Implement automated disaster recovery with backup verification, create recovery testing procedures, add recovery monitoring with RTO/RPO objectives, and implement cross-region failover mechanisms."
+      },
+      {
+        "id": 3,
+        "problem": "No Capacity Planning Strategy",
+        "affected_files": ["Resource allocation", "Scaling policies", "Growth projections"],
+        "fix_prompt": "Implement capacity monitoring and forecasting with predictive analytics, add resource optimization recommendations, create auto-scaling policies, and implement capacity alerting and planning dashboards."
+      },
+      {
+        "id": 4,
+        "problem": "Insufficient Logging Infrastructure",
+        "affected_files": ["Logging throughout codebase", "Log configuration", "Log aggregation"],
+        "fix_prompt": "Implement structured logging with JSON format and centralized log aggregation using ELK stack, create log retention policies, implement security event logging, and add log analysis automation."
+      },
+      {
+        "id": 5,
+        "problem": "Manual Deployment Processes",
+        "affected_files": ["Deployment scripts", "CI/CD pipeline", "Release management"],
+        "fix_prompt": "Implement automated CI/CD pipeline with GitOps workflows, add deployment approval processes, create rollback mechanisms, implement blue-green deployments, and add deployment monitoring."
+      },
+      {
+        "id": 6,
+        "problem": "Missing Health Check Implementation",
+        "affected_files": ["Service endpoints", "Health monitoring", "Availability checks"],
+        "fix_prompt": "Implement comprehensive health checks with dependency verification, add readiness and liveness probes, create health check aggregation, add health metrics collection, and implement automated recovery."
+      },
+      {
+        "id": 7,
+        "problem": "Inadequate Incident Response System",
+        "affected_files": ["Incident management", "Response procedures", "Escalation workflows"],
+        "fix_prompt": "Implement incident response automation with PagerDuty integration, add incident classification and escalation, create response playbooks, implement post-incident reviews, and add incident metrics tracking."
+      },
+      {
+        "id": 8,
+        "problem": "Missing Configuration Management",
+        "affected_files": ["Configuration files", "Environment management", "Settings deployment"],
+        "fix_prompt": "Implement configuration management with Ansible or Terraform, add configuration versioning and validation, create environment-specific configurations, implement configuration drift detection, and add configuration auditing."
+      },
+      {
+        "id": 9,
+        "problem": "Lack of Infrastructure as Code",
+        "affected_files": ["Infrastructure provisioning", "Resource management", "Environment setup"],
+        "fix_prompt": "Implement Infrastructure as Code with Terraform or CloudFormation, add infrastructure versioning, create modular infrastructure components, implement infrastructure testing, and add infrastructure monitoring."
+      },
+      {
+        "id": 10,
+        "problem": "Inadequate Backup Strategy",
+        "affected_files": ["Data backup", "System backups", "Recovery procedures"],
+        "fix_prompt": "Implement comprehensive backup strategy with automated backups, add backup verification and testing, create backup retention policies, implement cross-region backup replication, and add backup monitoring."
+      },
+      {
+        "id": 11,
+        "problem": "Missing Service Level Objectives",
+        "affected_files": ["SLA management", "Performance targets", "Service quality"],
+        "fix_prompt": "Implement Service Level Objectives (SLOs) with error budgets, add SLI monitoring and alerting, create SLO dashboards, implement SLO-based decision making, and add SLO reporting automation."
+      },
+      {
+        "id": 12,
+        "problem": "Inadequate Change Management",
+        "affected_files": ["Change processes", "Release coordination", "Risk management"],
+        "fix_prompt": "Implement change management processes with approval workflows, add change impact analysis, create change scheduling and coordination, implement change rollback procedures, and add change tracking and auditing."
+      },
+      {
+        "id": 13,
+        "problem": "Missing Runbook Automation",
+        "affected_files": ["Operational procedures", "Manual processes", "Troubleshooting guides"],
+        "fix_prompt": "Implement runbook automation with executable documentation, add automated troubleshooting procedures, create self-healing systems, implement operational workflow automation, and add runbook versioning."
+      },
+      {
+        "id": 14,
+        "problem": "Lack of Performance Baseline Management",
+        "affected_files": ["Performance metrics", "Baseline tracking", "Performance trends"],
+        "fix_prompt": "Implement performance baseline management with historical tracking, add performance trend analysis, create baseline alerting, implement performance regression detection, and add baseline reporting."
+      },
+      {
+        "id": 15,
+        "problem": "Inadequate Resource Optimization",
+        "affected_files": ["Resource utilization", "Cost optimization", "Efficiency metrics"],
+        "fix_prompt": "Implement resource optimization with usage analytics, add cost optimization recommendations, create resource rightsizing automation, implement waste detection, and add optimization reporting."
+      },
+      {
+        "id": 16,
+        "problem": "Missing Chaos Engineering Implementation",
+        "affected_files": ["Resilience testing", "Failure simulation", "System reliability"],
+        "fix_prompt": "Implement chaos engineering with Chaos Monkey or Litmus, add failure injection automation, create resilience testing scenarios, implement chaos experiment tracking, and add resilience metrics collection."
+      },
+      {
+        "id": 17,
+        "problem": "Inadequate Security Operations Center",
+        "affected_files": ["Security monitoring", "Threat detection", "Security response"],
+        "fix_prompt": "Implement Security Operations Center (SOC) with SIEM integration, add threat detection automation, create security incident response, implement security metrics dashboards, and add threat intelligence integration."
+      },
+      {
+        "id": 18,
+        "problem": "Missing Multi-Environment Management",
+        "affected_files": ["Environment provisioning", "Environment consistency", "Promotion workflows"],
+        "fix_prompt": "Implement multi-environment management with environment parity, add environment provisioning automation, create promotion pipelines, implement environment monitoring, and add environment lifecycle management."
+      },
+      {
+        "id": 19,
+        "problem": "Lack of Dependency Management",
+        "affected_files": ["Service dependencies", "Dependency tracking", "Impact analysis"],
+        "fix_prompt": "Implement dependency management with service mapping, add dependency health monitoring, create dependency impact analysis, implement dependency change coordination, and add dependency visualization."
+      },
+      {
+        "id": 20,
+        "problem": "Inadequate Alerting Strategy",
+        "affected_files": ["Alert configuration", "Notification systems", "Alert fatigue"],
+        "fix_prompt": "Implement intelligent alerting with alert correlation and deduplication, add alert prioritization and routing, create alert escalation policies, implement alert fatigue reduction, and add alert effectiveness metrics."
+      },
+      {
+        "id": 21,
+        "problem": "Missing Compliance Automation",
+        "affected_files": ["Compliance checking", "Regulatory requirements", "Audit trails"],
+        "fix_prompt": "Implement compliance automation with policy-as-code, add continuous compliance monitoring, create compliance reporting automation, implement compliance drift detection, and add audit trail automation."
+      },
+      {
+        "id": 22,
+        "problem": "Inadequate Patch Management",
+        "affected_files": ["System updates", "Security patches", "Vulnerability management"],
+        "fix_prompt": "Implement automated patch management with vulnerability scanning, add patch testing automation, create patch deployment scheduling, implement patch rollback procedures, and add patch compliance monitoring."
+      },
+      {
+        "id": 23,
+        "problem": "Missing Asset Management",
+        "affected_files": ["Infrastructure inventory", "Asset tracking", "Lifecycle management"],
+        "fix_prompt": "Implement comprehensive asset management with automated discovery, add asset lifecycle tracking, create asset compliance monitoring, implement asset optimization recommendations, and add asset reporting automation."
+      },
+      {
+        "id": 24,
+        "problem": "Lack of Network Operations Center",
+        "affected_files": ["Network monitoring", "Network performance", "Network troubleshooting"],
+        "fix_prompt": "Implement Network Operations Center (NOC) with network monitoring tools, add network performance analytics, create network troubleshooting automation, implement network capacity planning, and add network security monitoring."
+      },
+      {
+        "id": 25,
+        "problem": "Inadequate Database Operations",
+        "affected_files": ["Database maintenance", "Performance tuning", "Backup management"],
+        "fix_prompt": "Implement database operations automation with maintenance scheduling, add database performance monitoring, create backup automation and verification, implement database optimization recommendations, and add database health monitoring."
+      },
+      {
+        "id": 26,
+        "problem": "Missing Container Operations",
+        "affected_files": ["Container management", "Orchestration", "Container security"],
+        "fix_prompt": "Implement container operations with Kubernetes management, add container monitoring and logging, create container security scanning, implement container lifecycle automation, and add container optimization."
+      },
+      {
+        "id": 27,
+        "problem": "Inadequate Cloud Operations",
+        "affected_files": ["Cloud resource management", "Cloud cost optimization", "Cloud security"],
+        "fix_prompt": "Implement cloud operations with multi-cloud management, add cloud cost optimization automation, create cloud security monitoring, implement cloud resource governance, and add cloud compliance automation."
+      },
+      {
+        "id": 28,
+        "problem": "Missing DevOps Culture Integration",
+        "affected_files": ["Team collaboration", "Process automation", "Cultural practices"],
+        "fix_prompt": "Implement DevOps culture with cross-functional collaboration, add automation-first mindset, create continuous improvement processes, implement feedback loops, and add DevOps metrics and KPIs."
+      },
+      {
+        "id": 29,
+        "problem": "Lack of Site Reliability Engineering",
+        "affected_files": ["Reliability practices", "Error budgets", "Reliability metrics"],
+        "fix_prompt": "Implement Site Reliability Engineering (SRE) practices with error budget management, add reliability metrics and SLOs, create reliability automation, implement toil reduction, and add reliability culture development."
+      },
+      {
+        "id": 30,
+        "problem": "Inadequate Capacity Testing",
+        "affected_files": ["Load testing", "Stress testing", "Performance validation"],
+        "fix_prompt": "Implement comprehensive capacity testing with automated load testing, add stress testing scenarios, create performance benchmarking, implement capacity validation automation, and add testing result analysis."
+      },
+      {
+        "id": 31,
+        "problem": "Missing Operational Metrics",
+        "affected_files": ["KPI tracking", "Operational dashboards", "Performance indicators"],
+        "fix_prompt": "Implement operational metrics collection with KPI dashboards, add operational analytics, create metrics-driven decision making, implement metrics automation, and add operational reporting."
+      },
+      {
+        "id": 32,
+        "problem": "Inadequate Documentation Management",
+        "affected_files": ["Operational documentation", "Procedure documentation", "Knowledge management"],
+        "fix_prompt": "Implement documentation management with automated documentation generation, add documentation versioning, create searchable knowledge base, implement documentation quality assurance, and add documentation maintenance automation."
+      },
+      {
+        "id": 33,
+        "problem": "Missing Training and Skill Development",
+        "affected_files": ["Team skills", "Knowledge transfer", "Competency development"],
+        "fix_prompt": "Implement training and skill development programs with competency mapping, add knowledge transfer processes, create learning automation, implement skill gap analysis, and add training effectiveness measurement."
+      },
+      {
+        "id": 34,
+        "problem": "Lack of Vendor Management",
+        "affected_files": ["Third-party services", "Vendor relationships", "Service agreements"],
+        "fix_prompt": "Implement vendor management with SLA monitoring, add vendor performance tracking, create vendor risk assessment, implement vendor relationship management, and add vendor compliance monitoring."
+      },
+      {
+        "id": 35,
+        "problem": "Inadequate Cost Management",
+        "affected_files": ["Cost tracking", "Budget management", "Cost optimization"],
+        "fix_prompt": "Implement cost management with detailed cost tracking, add budget monitoring and alerting, create cost optimization recommendations, implement cost allocation automation, and add cost reporting and analysis."
+      },
+      {
+        "id": 36,
+        "problem": "Missing Quality Assurance Operations",
+        "affected_files": ["Quality processes", "Testing automation", "Quality metrics"],
+        "fix_prompt": "Implement quality assurance operations with automated testing, add quality metrics tracking, create quality gates, implement quality process automation, and add quality reporting and analysis."
+      },
+      {
+        "id": 37,
+        "problem": "Inadequate Risk Management",
+        "affected_files": ["Risk assessment", "Risk mitigation", "Risk monitoring"],
+        "fix_prompt": "Implement risk management with automated risk assessment, add risk monitoring and alerting, create risk mitigation automation, implement risk reporting, and add risk culture development."
+      },
+      {
+        "id": 38,
+        "problem": "Missing Business Continuity Planning",
+        "affected_files": ["Continuity procedures", "Recovery planning", "Business impact analysis"],
+        "fix_prompt": "Implement business continuity planning with impact analysis, add continuity testing automation, create recovery procedures, implement continuity monitoring, and add continuity plan maintenance."
+      },
+      {
+        "id": 39,
+        "problem": "Lack of Innovation Management",
+        "affected_files": ["Innovation processes", "Technology adoption", "Improvement initiatives"],
+        "fix_prompt": "Implement innovation management with innovation tracking, add technology evaluation processes, create improvement initiative management, implement innovation metrics, and add innovation culture development."
+      },
+      {
+        "id": 40,
+        "problem": "Inadequate Communication Systems",
+        "affected_files": ["Team communication", "Stakeholder communication", "Information sharing"],
+        "fix_prompt": "Implement communication systems with collaboration tools, add communication automation, create information sharing processes, implement communication effectiveness measurement, and add communication culture development."
+      },
+      {
+        "id": 41,
+        "problem": "Missing Performance Engineering",
+        "affected_files": ["Performance optimization", "Performance culture", "Performance processes"],
+        "fix_prompt": "Implement performance engineering with performance-first culture, add performance optimization processes, create performance automation, implement performance metrics and KPIs, and add performance expertise development."
+      },
+      {
+        "id": 42,
+        "problem": "Inadequate Scalability Planning",
+        "affected_files": ["Scaling strategies", "Growth planning", "Capacity forecasting"],
+        "fix_prompt": "Implement scalability planning with growth modeling, add scaling automation, create capacity forecasting, implement scalability testing, and add scalability metrics and monitoring."
+      },
+      {
+        "id": 43,
+        "problem": "Missing Operational Excellence",
+        "affected_files": ["Excellence practices", "Continuous improvement", "Operational maturity"],
+        "fix_prompt": "Implement operational excellence with maturity assessment, add continuous improvement processes, create excellence metrics, implement best practice adoption, and add excellence culture development."
+      },
+      {
+        "id": 44,
+        "problem": "Lack of Digital Transformation",
+        "affected_files": ["Digital processes", "Automation adoption", "Technology modernization"],
+        "fix_prompt": "Implement digital transformation with automation-first approach, add digital process optimization, create technology modernization roadmap, implement digital metrics, and add digital culture development."
+      },
+      {
+        "id": 45,
+        "problem": "Inadequate Customer Experience Operations",
+        "affected_files": ["Customer metrics", "Experience monitoring", "Customer feedback"],
+        "fix_prompt": "Implement customer experience operations with experience monitoring, add customer feedback automation, create experience optimization, implement customer metrics and KPIs, and add customer-centric culture development."
+      },
+      {
+        "id": 46,
+        "problem": "Missing Sustainability Operations",
+        "affected_files": ["Environmental impact", "Sustainability metrics", "Green operations"],
+        "fix_prompt": "Implement sustainability operations with environmental monitoring, add sustainability metrics tracking, create green optimization processes, implement sustainability reporting, and add sustainability culture development."
+      },
+      {
+        "id": 47,
+        "problem": "Inadequate Agility and Flexibility",
+        "affected_files": ["Agile processes", "Flexibility metrics", "Adaptation capabilities"],
+        "fix_prompt": "Implement agility and flexibility with adaptive processes, add agility metrics, create flexibility optimization, implement rapid adaptation capabilities, and add agile culture development."
+      },
+      {
+        "id": 48,
+        "problem": "Missing Resilience Engineering",
+        "affected_files": ["Resilience practices", "Failure recovery", "System robustness"],
+        "fix_prompt": "Implement resilience engineering with failure analysis, add resilience testing automation, create recovery optimization, implement resilience metrics, and add resilience culture development."
+      },
+      {
+        "id": 49,
+        "problem": "Inadequate Knowledge Management",
+        "affected_files": ["Knowledge capture", "Information organization", "Expertise sharing"],
+        "fix_prompt": "Implement knowledge management with automated knowledge capture, add knowledge organization systems, create expertise sharing processes, implement knowledge metrics, and add learning culture development."
+      },
+      {
+        "id": 50,
+        "problem": "Missing Operational Intelligence",
+        "affected_files": ["Data-driven operations", "Operational analytics", "Intelligence systems"],
+        "fix_prompt": "Implement operational intelligence with data analytics, add predictive operations, create intelligent automation, implement intelligence metrics and KPIs, and add data-driven culture development."
+      }
+    ]
+  }
+}

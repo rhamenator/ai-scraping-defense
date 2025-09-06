@@ -1,0 +1,308 @@
+{
+  "compliance_problems": {
+    "category": "Compliance",
+    "total_problems": 50,
+    "problems": [
+      {
+        "id": 1,
+        "problem": "No GDPR Compliance Framework",
+        "affected_files": ["Data processing", "Privacy controls", "User consent management"],
+        "fix_prompt": "Implement GDPR compliance framework with consent management systems, data minimization principles, right-to-be-forgotten functionality, privacy impact assessments, data protection officer designation, and automated compliance reporting."
+      },
+      {
+        "id": 2,
+        "problem": "Missing CCPA Compliance",
+        "affected_files": ["California consumer data", "Privacy rights", "Data disclosure"],
+        "fix_prompt": "Implement CCPA compliance with consumer rights management, data disclosure requirements, opt-out mechanisms, privacy policy updates, consumer request handling, and CCPA-specific reporting and auditing."
+      },
+      {
+        "id": 3,
+        "problem": "Inadequate Audit Logging",
+        "affected_files": ["Security events", "Data access", "System changes"],
+        "fix_prompt": "Implement comprehensive audit logging with immutable audit trails, compliance-specific log formats, automated log analysis, log retention policies, audit trail integrity verification, and compliance reporting automation."
+      },
+      {
+        "id": 4,
+        "problem": "Missing Data Retention Policies",
+        "affected_files": ["Data lifecycle management", "Storage policies", "Deletion procedures"],
+        "fix_prompt": "Implement data retention policies with automated data purging, retention schedule management, legal hold capabilities, data archival strategies, retention compliance monitoring, and policy enforcement automation."
+      },
+      {
+        "id": 5,
+        "problem": "Insufficient Privacy Controls",
+        "affected_files": ["Personal data handling", "Privacy settings", "Data anonymization"],
+        "fix_prompt": "Implement privacy controls with data anonymization and pseudonymization, privacy-by-design principles, granular privacy settings, privacy impact assessments, privacy monitoring, and privacy violation detection."
+      },
+      {
+        "id": 6,
+        "problem": "No Regulatory Compliance Monitoring",
+        "affected_files": ["Compliance tracking", "Regulatory updates", "Violation detection"],
+        "fix_prompt": "Implement regulatory compliance monitoring with automated compliance checking, regulatory change tracking, violation detection and alerting, compliance dashboard creation, and regulatory reporting automation."
+      },
+      {
+        "id": 7,
+        "problem": "Missing Data Governance Framework",
+        "affected_files": ["Data management", "Data quality", "Data stewardship"],
+        "fix_prompt": "Implement data governance framework with data stewardship roles, data quality management, data lineage tracking, data classification systems, governance policy enforcement, and data governance metrics."
+      },
+      {
+        "id": 8,
+        "problem": "Inadequate SOX Compliance",
+        "affected_files": ["Financial controls", "Internal controls", "Financial reporting"],
+        "fix_prompt": "Implement SOX compliance with internal control frameworks, financial reporting controls, control testing automation, SOX documentation management, control deficiency tracking, and SOX audit preparation."
+      },
+      {
+        "id": 9,
+        "problem": "Missing HIPAA Compliance",
+        "affected_files": ["Healthcare data", "PHI protection", "Access controls"],
+        "fix_prompt": "Implement HIPAA compliance with PHI protection mechanisms, access control systems, encryption requirements, breach notification procedures, HIPAA risk assessments, and healthcare compliance monitoring."
+      },
+      {
+        "id": 10,
+        "problem": "No PCI DSS Compliance",
+        "affected_files": ["Payment data", "Cardholder information", "Security controls"],
+        "fix_prompt": "Implement PCI DSS compliance with cardholder data protection, secure payment processing, network security controls, vulnerability management, access control systems, and PCI compliance monitoring."
+      },
+      {
+        "id": 11,
+        "problem": "Inadequate ISO 27001 Implementation",
+        "affected_files": ["Information security management", "Security controls", "Risk management"],
+        "fix_prompt": "Implement ISO 27001 compliance with information security management systems, security control implementation, risk assessment procedures, security policy management, incident response processes, and ISO audit preparation."
+      },
+      {
+        "id": 12,
+        "problem": "Missing SOC 2 Compliance",
+        "affected_files": ["Service organization controls", "Trust services", "Control activities"],
+        "fix_prompt": "Implement SOC 2 compliance with trust services criteria, control activity documentation, control testing procedures, SOC 2 reporting, vendor management controls, and SOC 2 audit preparation."
+      },
+      {
+        "id": 13,
+        "problem": "No NIST Framework Implementation",
+        "affected_files": ["Cybersecurity framework", "Security controls", "Risk management"],
+        "fix_prompt": "Implement NIST Cybersecurity Framework with framework adoption, security control implementation, risk management processes, framework maturity assessment, continuous improvement, and NIST compliance reporting."
+      },
+      {
+        "id": 14,
+        "problem": "Inadequate Data Classification",
+        "affected_files": ["Data sensitivity", "Classification schemes", "Handling procedures"],
+        "fix_prompt": "Implement data classification with sensitivity labeling, classification automation, handling procedure enforcement, classification policy management, data discovery and classification, and classification compliance monitoring."
+      },
+      {
+        "id": 15,
+        "problem": "Missing Consent Management",
+        "affected_files": ["User consent", "Consent tracking", "Consent withdrawal"],
+        "fix_prompt": "Implement consent management with consent collection mechanisms, consent tracking systems, consent withdrawal procedures, consent audit trails, granular consent options, and consent compliance reporting."
+      },
+      {
+        "id": 16,
+        "problem": "No Data Subject Rights Implementation",
+        "affected_files": ["Access requests", "Rectification", "Erasure rights"],
+        "fix_prompt": "Implement data subject rights with automated request handling, data access provision, rectification procedures, erasure capabilities, data portability features, and rights fulfillment tracking."
+      },
+      {
+        "id": 17,
+        "problem": "Inadequate Privacy Impact Assessments",
+        "affected_files": ["Privacy risk assessment", "Impact analysis", "Mitigation measures"],
+        "fix_prompt": "Implement privacy impact assessments with automated PIA workflows, risk assessment templates, impact analysis tools, mitigation tracking, PIA documentation management, and privacy risk monitoring."
+      },
+      {
+        "id": 18,
+        "problem": "Missing Data Protection Officer Role",
+        "affected_files": ["Privacy governance", "DPO responsibilities", "Privacy oversight"],
+        "fix_prompt": "Implement Data Protection Officer role with DPO appointment procedures, responsibility definition, privacy oversight processes, DPO reporting systems, privacy training coordination, and DPO performance metrics."
+      },
+      {
+        "id": 19,
+        "problem": "No Breach Notification System",
+        "affected_files": ["Incident detection", "Notification procedures", "Regulatory reporting"],
+        "fix_prompt": "Implement breach notification system with automated breach detection, notification workflows, regulatory reporting automation, breach impact assessment, notification tracking, and breach response coordination."
+      },
+      {
+        "id": 20,
+        "problem": "Inadequate Vendor Compliance Management",
+        "affected_files": ["Third-party assessments", "Vendor contracts", "Compliance monitoring"],
+        "fix_prompt": "Implement vendor compliance management with third-party risk assessments, compliance contract clauses, vendor monitoring systems, compliance reporting requirements, vendor audit procedures, and compliance violation tracking."
+      },
+      {
+        "id": 21,
+        "problem": "Missing Regulatory Change Management",
+        "affected_files": ["Regulation tracking", "Change impact analysis", "Compliance updates"],
+        "fix_prompt": "Implement regulatory change management with regulation monitoring, change impact assessment, compliance update procedures, regulatory calendar management, change communication, and compliance adaptation tracking."
+      },
+      {
+        "id": 22,
+        "problem": "No Compliance Training Program",
+        "affected_files": ["Employee training", "Compliance awareness", "Training tracking"],
+        "fix_prompt": "Implement compliance training program with role-based training, compliance awareness campaigns, training effectiveness measurement, training record management, compliance certification, and ongoing education programs."
+      },
+      {
+        "id": 23,
+        "problem": "Inadequate Document Management",
+        "affected_files": ["Policy documents", "Procedure documentation", "Version control"],
+        "fix_prompt": "Implement compliance document management with policy version control, document approval workflows, document distribution systems, document retention management, document access controls, and document compliance tracking."
+      },
+      {
+        "id": 24,
+        "problem": "Missing Compliance Metrics and KPIs",
+        "affected_files": ["Compliance measurement", "Performance indicators", "Reporting dashboards"],
+        "fix_prompt": "Implement compliance metrics and KPIs with measurement frameworks, compliance dashboards, performance tracking, trend analysis, compliance scorecards, and metrics-driven improvement."
+      },
+      {
+        "id": 25,
+        "problem": "No Compliance Risk Assessment",
+        "affected_files": ["Risk identification", "Risk analysis", "Risk mitigation"],
+        "fix_prompt": "Implement compliance risk assessment with risk identification procedures, risk analysis methodologies, risk mitigation strategies, risk monitoring systems, risk reporting, and risk-based compliance prioritization."
+      },
+      {
+        "id": 26,
+        "problem": "Inadequate Internal Audit Function",
+        "affected_files": ["Audit planning", "Audit execution", "Audit reporting"],
+        "fix_prompt": "Implement internal audit function with audit planning processes, audit execution procedures, audit finding management, audit reporting systems, audit follow-up tracking, and audit quality assurance."
+      },
+      {
+        "id": 27,
+        "problem": "Missing Compliance Automation",
+        "affected_files": ["Automated controls", "Compliance workflows", "Control testing"],
+        "fix_prompt": "Implement compliance automation with automated control execution, compliance workflow automation, automated testing procedures, compliance monitoring automation, automated reporting, and compliance process optimization."
+      },
+      {
+        "id": 28,
+        "problem": "No Cross-Border Data Transfer Controls",
+        "affected_files": ["International data transfers", "Adequacy decisions", "Transfer mechanisms"],
+        "fix_prompt": "Implement cross-border data transfer controls with adequacy assessment, transfer mechanism implementation, binding corporate rules, standard contractual clauses, transfer impact assessments, and transfer monitoring."
+      },
+      {
+        "id": 29,
+        "problem": "Inadequate Records Management",
+        "affected_files": ["Record retention", "Record disposal", "Record access"],
+        "fix_prompt": "Implement records management with retention schedule enforcement, secure disposal procedures, record access controls, record integrity protection, legal hold management, and records compliance monitoring."
+      },
+      {
+        "id": 30,
+        "problem": "Missing Compliance Culture Development",
+        "affected_files": ["Organizational culture", "Compliance mindset", "Ethical behavior"],
+        "fix_prompt": "Implement compliance culture development with culture assessment, compliance communication, ethical behavior promotion, compliance recognition programs, culture measurement, and continuous culture improvement."
+      },
+      {
+        "id": 31,
+        "problem": "No Industry-Specific Compliance",
+        "affected_files": ["Sector regulations", "Industry standards", "Specialized requirements"],
+        "fix_prompt": "Implement industry-specific compliance with sector regulation analysis, industry standard adoption, specialized requirement implementation, industry compliance monitoring, sector-specific reporting, and industry best practice adoption."
+      },
+      {
+        "id": 32,
+        "problem": "Inadequate Compliance Reporting",
+        "affected_files": ["Regulatory reports", "Compliance status", "Management reporting"],
+        "fix_prompt": "Implement compliance reporting with automated report generation, compliance status dashboards, regulatory submission automation, management reporting systems, compliance analytics, and reporting quality assurance."
+      },
+      {
+        "id": 33,
+        "problem": "Missing Compliance Technology Integration",
+        "affected_files": ["GRC platforms", "Compliance tools", "Technology automation"],
+        "fix_prompt": "Implement compliance technology integration with GRC platform deployment, compliance tool integration, technology automation, compliance data integration, tool interoperability, and technology compliance monitoring."
+      },
+      {
+        "id": 34,
+        "problem": "No Compliance Performance Management",
+        "affected_files": ["Performance measurement", "Improvement planning", "Performance tracking"],
+        "fix_prompt": "Implement compliance performance management with performance measurement systems, improvement planning processes, performance tracking mechanisms, performance analytics, benchmarking, and continuous performance improvement."
+      },
+      {
+        "id": 35,
+        "problem": "Inadequate Compliance Communication",
+        "affected_files": ["Stakeholder communication", "Compliance updates", "Communication channels"],
+        "fix_prompt": "Implement compliance communication with stakeholder engagement, compliance update distribution, communication channel management, communication effectiveness measurement, feedback collection, and communication improvement."
+      },
+      {
+        "id": 36,
+        "problem": "Missing Compliance Innovation",
+        "affected_files": ["Emerging regulations", "Technology adoption", "Innovation processes"],
+        "fix_prompt": "Implement compliance innovation with emerging regulation monitoring, technology evaluation, innovation process development, compliance experimentation, innovation metrics, and innovation culture development."
+      },
+      {
+        "id": 37,
+        "problem": "No Compliance Incident Management",
+        "affected_files": ["Compliance violations", "Incident response", "Corrective actions"],
+        "fix_prompt": "Implement compliance incident management with violation detection, incident response procedures, corrective action tracking, incident analysis, root cause analysis, and incident prevention measures."
+      },
+      {
+        "id": 38,
+        "problem": "Inadequate Compliance Monitoring",
+        "affected_files": ["Continuous monitoring", "Control effectiveness", "Compliance status"],
+        "fix_prompt": "Implement compliance monitoring with continuous monitoring systems, control effectiveness assessment, compliance status tracking, monitoring automation, real-time alerting, and monitoring optimization."
+      },
+      {
+        "id": 39,
+        "problem": "Missing Compliance Integration",
+        "affected_files": ["Business process integration", "System integration", "Workflow integration"],
+        "fix_prompt": "Implement compliance integration with business process embedding, system integration, workflow automation, compliance-by-design, integration testing, and integration monitoring."
+      },
+      {
+        "id": 40,
+        "problem": "No Compliance Maturity Assessment",
+        "affected_files": ["Maturity models", "Assessment frameworks", "Improvement roadmaps"],
+        "fix_prompt": "Implement compliance maturity assessment with maturity model adoption, assessment framework development, maturity measurement, improvement roadmap creation, maturity tracking, and continuous maturity improvement."
+      },
+      {
+        "id": 41,
+        "problem": "Inadequate Compliance Governance",
+        "affected_files": ["Governance structure", "Oversight mechanisms", "Accountability frameworks"],
+        "fix_prompt": "Implement compliance governance with governance structure definition, oversight mechanism establishment, accountability framework creation, governance process documentation, governance effectiveness measurement, and governance improvement."
+      },
+      {
+        "id": 42,
+        "problem": "Missing Compliance Sustainability",
+        "affected_files": ["Long-term compliance", "Sustainability planning", "Resource allocation"],
+        "fix_prompt": "Implement compliance sustainability with long-term planning, resource allocation optimization, sustainability measurement, compliance program evolution, sustainability reporting, and sustainable compliance culture."
+      },
+      {
+        "id": 43,
+        "problem": "No Compliance Benchmarking",
+        "affected_files": ["Industry comparisons", "Best practice adoption", "Performance benchmarks"],
+        "fix_prompt": "Implement compliance benchmarking with industry comparison analysis, best practice identification, benchmark establishment, performance comparison, benchmarking reporting, and benchmark-driven improvement."
+      },
+      {
+        "id": 44,
+        "problem": "Inadequate Compliance Quality Assurance",
+        "affected_files": ["Quality controls", "Quality measurement", "Quality improvement"],
+        "fix_prompt": "Implement compliance quality assurance with quality control systems, quality measurement frameworks, quality improvement processes, quality auditing, quality metrics, and continuous quality enhancement."
+      },
+      {
+        "id": 45,
+        "problem": "Missing Compliance Stakeholder Management",
+        "affected_files": ["Stakeholder engagement", "Stakeholder communication", "Stakeholder satisfaction"],
+        "fix_prompt": "Implement compliance stakeholder management with stakeholder identification, engagement strategies, communication plans, satisfaction measurement, feedback integration, and stakeholder relationship optimization."
+      },
+      {
+        "id": 46,
+        "problem": "No Compliance Value Demonstration",
+        "affected_files": ["Value measurement", "ROI calculation", "Benefit realization"],
+        "fix_prompt": "Implement compliance value demonstration with value measurement frameworks, ROI calculation methodologies, benefit realization tracking, value communication, value optimization, and value-driven compliance management."
+      },
+      {
+        "id": 47,
+        "problem": "Inadequate Compliance Resilience",
+        "affected_files": ["Resilience planning", "Disruption management", "Recovery procedures"],
+        "fix_prompt": "Implement compliance resilience with resilience planning, disruption impact assessment, recovery procedure development, resilience testing, resilience monitoring, and resilience improvement."
+      },
+      {
+        "id": 48,
+        "problem": "Missing Compliance Digitalization",
+        "affected_files": ["Digital transformation", "Digital compliance tools", "Automation adoption"],
+        "fix_prompt": "Implement compliance digitalization with digital transformation planning, digital tool adoption, automation implementation, digital compliance processes, digitalization measurement, and digital compliance culture."
+      },
+      {
+        "id": 49,
+        "problem": "No Compliance Future-Readiness",
+        "affected_files": ["Future regulation preparation", "Emerging compliance requirements", "Adaptive compliance"],
+        "fix_prompt": "Implement compliance future-readiness with future regulation monitoring, emerging requirement preparation, adaptive compliance frameworks, future-readiness assessment, scenario planning, and future-oriented compliance culture."
+      },
+      {
+        "id": 50,
+        "problem": "Inadequate Compliance Excellence",
+        "affected_files": ["Excellence frameworks", "Best-in-class practices", "Continuous improvement"],
+        "fix_prompt": "Implement compliance excellence with excellence framework adoption, best-in-class practice implementation, continuous improvement processes, excellence measurement, excellence recognition, and excellence culture development."
+      }
+    ]
+  }
+}

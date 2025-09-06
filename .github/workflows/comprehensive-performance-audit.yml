@@ -1,0 +1,316 @@
+name: Comprehensive Performance Problem Detection
+on:
+  workflow_dispatch:
+    inputs:
+      benchmark_duration:
+        description: "Benchmark duration in seconds (30|60|120)"
+        required: false
+        default: "60"
+      memory_analysis:
+        description: "Enable memory analysis (true|false)"
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+
+jobs:
+  comprehensive-performance-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Setup Performance Analysis Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip nodejs npm golang-go valgrind htop iotop
+          pip3 install --user memory-profiler psutil py-spy line-profiler
+          npm install -g clinic autocannon 0x
+          go install github.com/google/pprof@latest
+          
+          # Performance monitoring tools
+          pip3 install --user locust pytest-benchmark
+          npm install -g loadtest artillery
+
+      - name: Create Reports Directory
+        run: mkdir -p reports/performance
+
+      # Connection Pooling Analysis
+      - name: Analyze Connection Pooling
+        run: |
+          echo "Analyzing connection pooling implementations..."
+          
+          # Database connection patterns
+          grep -r "connect\|pool\|connection" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/connection-patterns.txt || true
+          
+          # Redis connection pooling
+          grep -r "redis\|Redis" --include="*.py" --include="*.js" --include="*.go" . | grep -i "pool\|connect" > reports/performance/redis-connections.txt || true
+          
+          # PostgreSQL connection pooling
+          grep -r "psycopg\|postgresql\|postgres" --include="*.py" . | grep -i "pool\|connect" > reports/performance/postgres-connections.txt || true
+          
+          # Connection leaks detection
+          grep -r "close\|disconnect" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/connection-cleanup.txt || true
+
+      # Caching Analysis
+      - name: Analyze Caching Strategies
+        run: |
+          echo "Analyzing caching implementations..."
+          
+          # Cache usage patterns
+          grep -r "cache\|Cache" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/cache-usage.txt || true
+          
+          # Redis caching
+          grep -r "redis.*get\|redis.*set\|redis.*del" --include="*.py" --include="*.js" . > reports/performance/redis-cache.txt || true
+          
+          # In-memory caching
+          grep -r "lru_cache\|functools\|memoize" --include="*.py" . > reports/performance/memory-cache.txt || true
+          
+          # Cache invalidation patterns
+          grep -r "invalidate\|expire\|ttl" --include="*.py" --include="*.js" . > reports/performance/cache-invalidation.txt || true
+
+      # Memory Management Analysis
+      - name: Analyze Memory Management
+        run: |
+          echo "Analyzing memory management patterns..."
+          
+          # Memory allocation patterns
+          grep -r "malloc\|calloc\|new\|delete" --include="*.c" --include="*.cpp" --include="*.go" . > reports/performance/memory-allocation.txt || true
+          
+          # Python memory patterns
+          grep -r "gc\.|garbage\|weakref" --include="*.py" . > reports/performance/python-memory.txt || true
+          
+          # Large object handling
+          grep -r "large\|big\|huge\|massive" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/large-objects.txt || true
+          
+          # Memory leak indicators
+          grep -r "leak\|retain\|circular" --include="*.py" --include="*.js" . > reports/performance/memory-leaks.txt || true
+
+      # I/O Performance Analysis
+      - name: Analyze I/O Performance
+        run: |
+          echo "Analyzing I/O performance patterns..."
+          
+          # Async I/O patterns
+          grep -r "async\|await\|asyncio" --include="*.py" . > reports/performance/async-io.txt || true
+          grep -r "Promise\|async\|await" --include="*.js" . > reports/performance/js-async.txt || true
+          grep -r "goroutine\|channel\|go func" --include="*.go" . > reports/performance/go-async.txt || true
+          
+          # File I/O patterns
+          grep -r "open\|read\|write\|close" --include="*.py" --include="*.js" --include="*.go" . | head -100 > reports/performance/file-io.txt || true
+          
+          # Network I/O patterns
+          grep -r "request\|http\|tcp\|udp" --include="*.py" --include="*.js" --include="*.go" . | head -100 > reports/performance/network-io.txt || true
+          
+          # Blocking operations
+          grep -r "sleep\|time\.sleep\|setTimeout\|delay" --include="*.py" --include="*.js" . > reports/performance/blocking-ops.txt || true
+
+      # Database Performance Analysis
+      - name: Analyze Database Performance
+        run: |
+          echo "Analyzing database performance patterns..."
+          
+          # Query patterns
+          find . -name "*.sql" -exec grep -H "SELECT\|INSERT\|UPDATE\|DELETE" {} \; > reports/performance/sql-queries.txt || true
+          
+          # N+1 query patterns
+          grep -r "for.*in\|forEach" --include="*.py" --include="*.js" . | grep -i "query\|select\|find" > reports/performance/n-plus-one.txt || true
+          
+          # Index usage
+          grep -r "index\|INDEX" --include="*.sql" --include="*.py" . > reports/performance/index-usage.txt || true
+          
+          # Transaction patterns
+          grep -r "transaction\|commit\|rollback" --include="*.py" --include="*.js" --include="*.sql" . > reports/performance/transactions.txt || true
+
+      # Concurrency Analysis
+      - name: Analyze Concurrency Patterns
+        run: |
+          echo "Analyzing concurrency and parallelism..."
+          
+          # Thread usage
+          grep -r "thread\|Thread\|threading" --include="*.py" --include="*.js" . > reports/performance/threading.txt || true
+          
+          # Process pools
+          grep -r "multiprocessing\|ProcessPool\|worker" --include="*.py" . > reports/performance/process-pools.txt || true
+          
+          # Lock patterns
+          grep -r "lock\|Lock\|mutex\|semaphore" --include="*.py" --include="*.go" . > reports/performance/locking.txt || true
+          
+          # Race condition indicators
+          grep -r "race\|atomic\|synchronized" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/race-conditions.txt || true
+
+      # Resource Usage Analysis
+      - name: Analyze Resource Usage
+        run: |
+          echo "Analyzing resource usage patterns..."
+          
+          # CPU intensive operations
+          grep -r "cpu\|compute\|calculate\|process" --include="*.py" --include="*.js" --include="*.go" . | head -50 > reports/performance/cpu-intensive.txt || true
+          
+          # Memory intensive operations
+          grep -r "memory\|buffer\|array\|list" --include="*.py" --include="*.js" --include="*.go" . | head -50 > reports/performance/memory-intensive.txt || true
+          
+          # Disk I/O operations
+          grep -r "disk\|file\|storage\|write\|read" --include="*.py" --include="*.js" --include="*.go" . | head -50 > reports/performance/disk-io.txt || true
+
+      # Algorithm Complexity Analysis
+      - name: Analyze Algorithm Complexity
+        run: |
+          echo "Analyzing algorithm complexity..."
+          
+          # Nested loops (potential O(n²) or worse)
+          grep -r "for.*for\|while.*while" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/nested-loops.txt || true
+          
+          # Sorting operations
+          grep -r "sort\|Sort\|sorted" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/sorting.txt || true
+          
+          # Search operations
+          grep -r "search\|find\|index\|indexOf" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/searching.txt || true
+          
+          # Recursive patterns
+          grep -r "recursive\|recursion" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/recursion.txt || true
+
+      # Performance Monitoring Analysis
+      - name: Analyze Performance Monitoring
+        run: |
+          echo "Analyzing performance monitoring implementations..."
+          
+          # Metrics collection
+          grep -r "metric\|gauge\|counter\|histogram" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/metrics.txt || true
+          
+          # Profiling code
+          grep -r "profile\|profiler\|benchmark" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/profiling.txt || true
+          
+          # Performance logging
+          grep -r "performance\|timing\|duration\|elapsed" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/perf-logging.txt || true
+          
+          # Health checks
+          grep -r "health\|status\|ping" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/health-checks.txt || true
+
+      # Memory Profiling (if enabled)
+      - name: Run Memory Analysis
+        if: ${{ github.event.inputs.memory_analysis == 'true' }}
+        run: |
+          echo "Running memory analysis..."
+          
+          # Python memory profiling
+          find . -name "*.py" -path "./src/*" | head -5 | while read file; do
+            python3 -m memory_profiler "$file" > "reports/performance/memory-$(basename $file).txt" 2>/dev/null || true
+          done
+          
+          # Check for memory usage patterns in code
+          grep -r "sys\.getsizeof\|resource\.getrusage" --include="*.py" . > reports/performance/memory-monitoring.txt || true
+
+      # Performance Testing Setup Analysis
+      - name: Analyze Performance Testing
+        run: |
+          echo "Analyzing performance testing setup..."
+          
+          # Load testing configurations
+          find . -name "*load*" -o -name "*perf*" -o -name "*bench*" > reports/performance/perf-test-files.txt || true
+          
+          # Benchmark code
+          grep -r "benchmark\|Benchmark\|@pytest.mark.benchmark" --include="*.py" . > reports/performance/benchmarks.txt || true
+          
+          # Performance test patterns
+          grep -r "performance.*test\|load.*test\|stress.*test" --include="*.py" --include="*.js" . > reports/performance/perf-tests.txt || true
+
+      # Resource Optimization Analysis
+      - name: Analyze Resource Optimization
+        run: |
+          echo "Analyzing resource optimization opportunities..."
+          
+          # Lazy loading patterns
+          grep -r "lazy\|defer\|on.*demand" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/lazy-loading.txt || true
+          
+          # Batch processing
+          grep -r "batch\|bulk\|chunk" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/batch-processing.txt || true
+          
+          # Compression usage
+          grep -r "compress\|gzip\|deflate" --include="*.py" --include="*.js" --include="*.go" . > reports/performance/compression.txt || true
+          
+          # CDN and static asset optimization
+          grep -r "cdn\|static\|asset" --include="*.py" --include="*.js" --include="*.html" . > reports/performance/static-assets.txt || true
+
+      # Generate Performance Summary
+      - name: Generate Performance Summary
+        run: |
+          python3 - <<'EOF'
+          import json
+          import os
+          import glob
+          
+          def count_lines_in_file(filepath):
+              try:
+                  with open(filepath, 'r') as f:
+                      lines = f.readlines()
+                      return len([l for l in lines if l.strip()])
+              except:
+                  return 0
+          
+          summary = {
+              "total_performance_issues": 0,
+              "categories": {},
+              "high_priority_areas": [],
+              "files_analyzed": 0
+          }
+          
+          report_files = glob.glob("reports/performance/*")
+          for report_file in report_files:
+              category = os.path.basename(report_file).replace('.txt', '')
+              issue_count = count_lines_in_file(report_file)
+              summary["categories"][category] = issue_count
+              summary["total_performance_issues"] += issue_count
+              summary["files_analyzed"] += 1
+              
+              # Identify high priority areas
+              if issue_count > 20:
+                  summary["high_priority_areas"].append({
+                      "category": category,
+                      "count": issue_count
+                  })
+          
+          with open("reports/performance/summary.json", "w") as f:
+              json.dump(summary, f, indent=2)
+          
+          print(f"Performance analysis complete. Found {summary['total_performance_issues']} potential issues across {summary['files_analyzed']} categories.")
+          
+          # Generate markdown summary
+          with open("reports/performance/PERFORMANCE_SUMMARY.md", "w") as f:
+              f.write("# Performance Analysis Summary\n\n")
+              f.write(f"**Total Issues Found:** {summary['total_performance_issues']}\n\n")
+              
+              if summary["high_priority_areas"]:
+                  f.write("## High Priority Areas (>20 issues)\n\n")
+                  for area in sorted(summary["high_priority_areas"], key=lambda x: x["count"], reverse=True):
+                      f.write(f"- **{area['category'].replace('-', ' ').title()}**: {area['count']} issues\n")
+                  f.write("\n")
+              
+              f.write("## Issues by Category\n\n")
+              f.write("| Category | Count | Priority |\n|----------|-------|----------|\n")
+              for category, count in sorted(summary["categories"].items(), key=lambda x: x[1], reverse=True):
+                  priority = "🔴 High" if count > 20 else "🟡 Medium" if count > 10 else "🟢 Low"
+                  f.write(f"| {category.replace('-', ' ').title()} | {count} | {priority} |\n")
+              
+              f.write("\n## Performance Recommendations\n\n")
+              f.write("### Immediate Actions\n")
+              f.write("1. Review high-priority areas with >20 issues\n")
+              f.write("2. Implement connection pooling where missing\n")
+              f.write("3. Add caching layers for frequently accessed data\n")
+              f.write("4. Optimize database queries and add proper indexing\n")
+              f.write("5. Implement async I/O patterns where applicable\n")
+          EOF
+
+      - name: Upload Performance Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-performance-reports
+          path: reports/performance/
+          retention-days: 30
+
+      - name: Display Summary
+        run: |
+          echo "## ⚡ Performance Analysis Results" >> $GITHUB_STEP_SUMMARY
+          cat reports/performance/PERFORMANCE_SUMMARY.md >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,309 @@
+{
+  "architecture_problems_batch2": {
+    "category": "Architecture",
+    "batch": 2,
+    "total_problems": 50,
+    "problems": [
+      {
+        "id": 51,
+        "problem": "Missing Domain-Driven Design Implementation",
+        "affected_files": ["Domain model throughout", "Business logic organization"],
+        "fix_prompt": "Implement Domain-Driven Design with bounded contexts, add ubiquitous language, create domain entities and value objects, and implement repository patterns for data access."
+      },
+      {
+        "id": 52,
+        "problem": "Inadequate Dependency Injection",
+        "affected_files": ["Service instantiation", "Dependency management throughout"],
+        "fix_prompt": "Implement comprehensive dependency injection container, add interface-based programming, create service lifetimes management, and implement dependency resolution strategies."
+      },
+      {
+        "id": 53,
+        "problem": "Missing Factory Pattern Implementation",
+        "affected_files": ["Object creation", "Complex instantiation logic"],
+        "fix_prompt": "Implement factory patterns for complex object creation, add abstract factories for families of objects, create builder patterns for complex configurations, and implement prototype patterns."
+      },
+      {
+        "id": 54,
+        "problem": "Lack of Observer Pattern",
+        "affected_files": ["Event handling", "State change notifications"],
+        "fix_prompt": "Implement observer pattern for event-driven communication, add event aggregators, create publish-subscribe mechanisms, and implement reactive programming patterns."
+      },
+      {
+        "id": 55,
+        "problem": "Missing Strategy Pattern",
+        "affected_files": ["Algorithm selection", "Business rule variations"],
+        "fix_prompt": "Implement strategy pattern for algorithm variations, add policy-based designs, create pluggable business rules, and implement runtime strategy selection."
+      },
+      {
+        "id": 56,
+        "problem": "Inadequate Command Pattern",
+        "affected_files": ["Action encapsulation", "Undo/redo functionality"],
+        "fix_prompt": "Implement command pattern for action encapsulation, add command queuing, create undo/redo mechanisms, and implement macro command composition."
+      },
+      {
+        "id": 57,
+        "problem": "Missing Decorator Pattern",
+        "affected_files": ["Feature enhancement", "Cross-cutting concerns"],
+        "fix_prompt": "Implement decorator pattern for feature enhancement, add aspect-oriented programming, create middleware chains, and implement dynamic behavior modification."
+      },
+      {
+        "id": 58,
+        "problem": "Lack of Adapter Pattern",
+        "affected_files": ["Interface compatibility", "Legacy integration"],
+        "fix_prompt": "Implement adapter pattern for interface compatibility, add legacy system integration, create protocol adapters, and implement data format conversions."
+      },
+      {
+        "id": 59,
+        "problem": "Missing Facade Pattern",
+        "affected_files": ["Complex subsystem access", "API simplification"],
+        "fix_prompt": "Implement facade pattern to simplify complex subsystems, add unified interfaces, create API aggregation layers, and implement client-friendly abstractions."
+      },
+      {
+        "id": 60,
+        "problem": "Inadequate Proxy Pattern",
+        "affected_files": ["Access control", "Lazy loading", "Caching"],
+        "fix_prompt": "Implement proxy pattern for access control and optimization, add virtual proxies for lazy loading, create protection proxies for security, and implement caching proxies."
+      },
+      {
+        "id": 61,
+        "problem": "Missing Template Method Pattern",
+        "affected_files": ["Algorithm structure", "Common workflows"],
+        "fix_prompt": "Implement template method pattern for algorithm skeletons, add hook methods for customization, create workflow templates, and implement inheritance-based customization."
+      },
+      {
+        "id": 62,
+        "problem": "Lack of State Pattern",
+        "affected_files": ["State-dependent behavior", "State machines"],
+        "fix_prompt": "Implement state pattern for state-dependent behavior, add state machines, create state transitions, and implement context-aware state management."
+      },
+      {
+        "id": 63,
+        "problem": "Missing Chain of Responsibility",
+        "affected_files": ["Request processing", "Handler chains"],
+        "fix_prompt": "Implement chain of responsibility pattern for request processing, add handler chains, create dynamic handler composition, and implement request routing mechanisms."
+      },
+      {
+        "id": 64,
+        "problem": "Inadequate Mediator Pattern",
+        "affected_files": ["Component communication", "Coupling reduction"],
+        "fix_prompt": "Implement mediator pattern to reduce coupling between components, add centralized communication, create interaction protocols, and implement component coordination."
+      },
+      {
+        "id": 65,
+        "problem": "Missing Visitor Pattern",
+        "affected_files": ["Operation extension", "Data structure traversal"],
+        "fix_prompt": "Implement visitor pattern for operation extension, add double dispatch mechanisms, create traversal algorithms, and implement operation separation from data structures."
+      },
+      {
+        "id": 66,
+        "problem": "Lack of Memento Pattern",
+        "affected_files": ["State preservation", "Snapshot functionality"],
+        "fix_prompt": "Implement memento pattern for state preservation, add snapshot mechanisms, create state restoration, and implement checkpoint functionality."
+      },
+      {
+        "id": 67,
+        "problem": "Missing Iterator Pattern",
+        "affected_files": ["Collection traversal", "Data access"],
+        "fix_prompt": "Implement iterator pattern for collection traversal, add custom iterators, create lazy evaluation, and implement streaming data access patterns."
+      },
+      {
+        "id": 68,
+        "problem": "Inadequate Composite Pattern",
+        "affected_files": ["Hierarchical structures", "Tree operations"],
+        "fix_prompt": "Implement composite pattern for hierarchical structures, add tree operations, create uniform interfaces for leaf and composite objects, and implement recursive operations."
+      },
+      {
+        "id": 69,
+        "problem": "Missing Flyweight Pattern",
+        "affected_files": ["Memory optimization", "Object sharing"],
+        "fix_prompt": "Implement flyweight pattern for memory optimization, add intrinsic state sharing, create extrinsic state management, and implement object pooling mechanisms."
+      },
+      {
+        "id": 70,
+        "problem": "Lack of Bridge Pattern",
+        "affected_files": ["Abstraction-implementation separation", "Platform independence"],
+        "fix_prompt": "Implement bridge pattern to separate abstraction from implementation, add platform-independent designs, create implementation hierarchies, and implement runtime implementation switching."
+      },
+      {
+        "id": 71,
+        "problem": "Missing Model-View-Controller",
+        "affected_files": ["UI architecture", "Separation of concerns"],
+        "fix_prompt": "Implement MVC pattern for UI architecture, add clear separation between model, view, and controller, create data binding mechanisms, and implement event-driven updates."
+      },
+      {
+        "id": 72,
+        "problem": "Inadequate Model-View-Presenter",
+        "affected_files": ["Presentation logic", "View abstraction"],
+        "fix_prompt": "Implement MVP pattern for testable presentation logic, add view interfaces, create presenter coordination, and implement passive view patterns."
+      },
+      {
+        "id": 73,
+        "problem": "Missing Model-View-ViewModel",
+        "affected_files": ["Data binding", "UI state management"],
+        "fix_prompt": "Implement MVVM pattern with data binding, add observable properties, create command binding, and implement two-way data synchronization."
+      },
+      {
+        "id": 74,
+        "problem": "Lack of Repository Pattern",
+        "affected_files": ["Data access", "Domain isolation"],
+        "fix_prompt": "Implement repository pattern for data access abstraction, add unit of work patterns, create specification patterns for queries, and implement domain-driven data access."
+      },
+      {
+        "id": 75,
+        "problem": "Missing Unit of Work Pattern",
+        "affected_files": ["Transaction management", "Change tracking"],
+        "fix_prompt": "Implement unit of work pattern for transaction management, add change tracking, create batch operations, and implement transactional boundaries."
+      },
+      {
+        "id": 76,
+        "problem": "Inadequate Specification Pattern",
+        "affected_files": ["Business rules", "Query composition"],
+        "fix_prompt": "Implement specification pattern for business rules, add composable specifications, create query building, and implement rule validation mechanisms."
+      },
+      {
+        "id": 77,
+        "problem": "Missing Data Mapper Pattern",
+        "affected_files": ["Object-relational mapping", "Data transformation"],
+        "fix_prompt": "Implement data mapper pattern for object-relational mapping, add data transformation layers, create mapping configurations, and implement lazy loading strategies."
+      },
+      {
+        "id": 78,
+        "problem": "Lack of Active Record Pattern",
+        "affected_files": ["Data access simplification", "Object persistence"],
+        "fix_prompt": "Implement active record pattern for simplified data access, add CRUD operations to domain objects, create validation mechanisms, and implement relationship management."
+      },
+      {
+        "id": 79,
+        "problem": "Missing Table Data Gateway",
+        "affected_files": ["Database table access", "SQL encapsulation"],
+        "fix_prompt": "Implement table data gateway pattern for database access, add SQL encapsulation, create table-specific operations, and implement data access optimization."
+      },
+      {
+        "id": 80,
+        "problem": "Inadequate Row Data Gateway",
+        "affected_files": ["Record-level operations", "Database rows"],
+        "fix_prompt": "Implement row data gateway pattern for record operations, add row-level access, create update mechanisms, and implement concurrency control."
+      },
+      {
+        "id": 81,
+        "problem": "Missing Service Layer Pattern",
+        "affected_files": ["Business operations", "Transaction boundaries"],
+        "fix_prompt": "Implement service layer pattern for business operations, add transaction management, create operation coordination, and implement business workflow orchestration."
+      },
+      {
+        "id": 82,
+        "problem": "Lack of Application Service",
+        "affected_files": ["Use case implementation", "Application logic"],
+        "fix_prompt": "Implement application service pattern for use case coordination, add application logic organization, create service composition, and implement cross-cutting concern handling."
+      },
+      {
+        "id": 83,
+        "problem": "Missing Domain Service",
+        "affected_files": ["Domain operations", "Business logic"],
+        "fix_prompt": "Implement domain service pattern for domain operations that don't belong to entities, add stateless domain logic, create domain operation coordination, and implement business rule enforcement."
+      },
+      {
+        "id": 84,
+        "problem": "Inadequate Infrastructure Service",
+        "affected_files": ["Technical concerns", "External integrations"],
+        "fix_prompt": "Implement infrastructure service pattern for technical concerns, add external system integration, create technical operation abstraction, and implement infrastructure coordination."
+      },
+      {
+        "id": 85,
+        "problem": "Missing Aggregate Pattern",
+        "affected_files": ["Consistency boundaries", "Domain modeling"],
+        "fix_prompt": "Implement aggregate pattern for consistency boundaries, add aggregate roots, create invariant enforcement, and implement transactional consistency within aggregates."
+      },
+      {
+        "id": 86,
+        "problem": "Lack of Value Object Pattern",
+        "affected_files": ["Immutable data", "Domain concepts"],
+        "fix_prompt": "Implement value object pattern for immutable domain concepts, add equality semantics, create validation logic, and implement side-effect-free operations."
+      },
+      {
+        "id": 87,
+        "problem": "Missing Entity Pattern",
+        "affected_files": ["Identity management", "Lifecycle tracking"],
+        "fix_prompt": "Implement entity pattern for objects with identity, add lifecycle management, create identity comparison, and implement state change tracking."
+      },
+      {
+        "id": 88,
+        "problem": "Inadequate Domain Event Pattern",
+        "affected_files": ["Domain notifications", "Event publishing"],
+        "fix_prompt": "Implement domain event pattern for domain notifications, add event publishing mechanisms, create event handlers, and implement eventual consistency through events."
+      },
+      {
+        "id": 89,
+        "problem": "Missing Application Event Pattern",
+        "affected_files": ["Application notifications", "Cross-cutting concerns"],
+        "fix_prompt": "Implement application event pattern for application-level notifications, add event coordination, create application event handlers, and implement cross-cutting concern integration."
+      },
+      {
+        "id": 90,
+        "problem": "Lack of Integration Event Pattern",
+        "affected_files": ["System integration", "External notifications"],
+        "fix_prompt": "Implement integration event pattern for system integration, add external event publishing, create integration event handling, and implement system boundary event management."
+      },
+      {
+        "id": 91,
+        "problem": "Missing Bounded Context Pattern",
+        "affected_files": ["Domain boundaries", "Model isolation"],
+        "fix_prompt": "Implement bounded context pattern for domain boundaries, add context mapping, create model isolation, and implement context integration strategies."
+      },
+      {
+        "id": 92,
+        "problem": "Inadequate Context Map Pattern",
+        "affected_files": ["Context relationships", "Integration patterns"],
+        "fix_prompt": "Implement context map pattern for context relationships, add integration pattern documentation, create relationship management, and implement context evolution strategies."
+      },
+      {
+        "id": 93,
+        "problem": "Missing Ubiquitous Language",
+        "affected_files": ["Domain terminology", "Communication consistency"],
+        "fix_prompt": "Implement ubiquitous language for consistent domain terminology, add glossary management, create language evolution processes, and implement terminology validation."
+      },
+      {
+        "id": 94,
+        "problem": "Lack of Layered Architecture",
+        "affected_files": ["Architectural layers", "Dependency direction"],
+        "fix_prompt": "Implement layered architecture with clear layer responsibilities, add dependency rules enforcement, create layer isolation, and implement architectural testing."
+      },
+      {
+        "id": 95,
+        "problem": "Missing Clean Architecture",
+        "affected_files": ["Dependency inversion", "Business logic isolation"],
+        "fix_prompt": "Implement clean architecture with dependency inversion, add business logic isolation, create framework independence, and implement testability through architecture."
+      },
+      {
+        "id": 96,
+        "problem": "Inadequate Onion Architecture",
+        "affected_files": ["Core isolation", "Dependency direction"],
+        "fix_prompt": "Implement onion architecture with core domain isolation, add dependency direction enforcement, create infrastructure abstraction, and implement architectural boundaries."
+      },
+      {
+        "id": 97,
+        "problem": "Missing Ports and Adapters",
+        "affected_files": ["External system isolation", "Interface adaptation"],
+        "fix_prompt": "Implement ports and adapters architecture for external system isolation, add port definitions, create adapter implementations, and implement interface adaptation strategies."
+      },
+      {
+        "id": 98,
+        "problem": "Lack of Screaming Architecture",
+        "affected_files": ["Architecture communication", "Intent clarity"],
+        "fix_prompt": "Implement screaming architecture that communicates intent clearly, add architectural documentation, create structure that reveals purpose, and implement self-documenting organization."
+      },
+      {
+        "id": 99,
+        "problem": "Missing Modular Monolith",
+        "affected_files": ["Module boundaries", "Internal organization"],
+        "fix_prompt": "Implement modular monolith with clear module boundaries, add module isolation, create internal APIs, and implement module dependency management."
+      },
+      {
+        "id": 100,
+        "problem": "Inadequate Micro-Frontend Architecture",
+        "affected_files": ["Frontend decomposition", "Team autonomy"],
+        "fix_prompt": "Implement micro-frontend architecture for frontend decomposition, add independent deployments, create integration strategies, and implement shared component management."
+      }
+    ]
+  }
+}
