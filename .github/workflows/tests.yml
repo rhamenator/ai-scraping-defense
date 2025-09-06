@@ -1,6 +1,6 @@
+name: Tests
 permissions:
   contents: read
-name: Tests
 
 # Controls when the workflow will run
 on:
