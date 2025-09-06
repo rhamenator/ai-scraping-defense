@@ -91,9 +91,13 @@ success = await alert_sender.send_alert({
 - Proper handling of nested alert data structures
 
 **Usage Example**:
+```bash
+# Set your Slack webhook URL in the environment (masked here)
+export ALERT_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/XXXXX/XXXXX/XXXXX"
+```
+
 ```python
 slack_sender = SlackAlertSender(
-    webhook_url="https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
     username="AI Defense Bot",
     icon_emoji=":shield:"
 )
@@ -196,7 +200,7 @@ import asyncio
 from shared.slack_alert import SlackAlertSender
 
 async def test():
-    sender = SlackAlertSender('https://hooks.slack.com/test')
+    sender = SlackAlertSender()
     result = await sender.send_test_slack_alert()
     print(f'Test result: {result}')
 
