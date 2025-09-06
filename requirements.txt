@@ -30,6 +30,7 @@ urllib3>=2.5.0,<3
 wikipedia~=1.4
 python-multipart~=0.0.9
 prometheus-client~=0.22
+PyJWT~=2.9
 
 # Kubernetes
 kubernetes~=33.1

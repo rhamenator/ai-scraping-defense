@@ -170,30 +170,10 @@ if ($ExportPath) {
     Write-Host "Credentials exported to: $ExportPath" -ForegroundColor Green
 }
 
-# Output credentials
-Write-Host "Successfully created Kubernetes secrets file at: $OutputFile" -ForegroundColor Green
-Write-Host "--- IMPORTANT: Save the following credentials in a secure place! ---" -ForegroundColor Yellow
-Write-Host "NGINX / Admin UI Credentials:" -ForegroundColor Cyan
-Write-Host "  Username: $adminUiUsername"
-Write-Host "  Password: $nginxPassword"
-Write-Host "Service Passwords & Keys:" -ForegroundColor Cyan
-Write-Host "  PostgreSQL Password: $postgresPassword"
-Write-Host "  Redis Password:      $redisPassword"
-Write-Host "  System Seed:         $systemSeed"
-Write-Host "LLM API Keys (placeholders, replace with real keys if needed):" -ForegroundColor Cyan
-Write-Host "  OpenAI API Key:    $openaiApiKey"
-Write-Host "  Anthropic API Key: $anthropicApiKey"
-Write-Host "  Google API Key:    $googleApiKey"
-Write-Host "  Cohere API Key:    $cohereApiKey"
-Write-Host "  Mistral API Key:   $mistralApiKey"
-Write-Host "  External API Key:  $externalApiKey"
-Write-Host "  IP Reputation API Key: $ipReputationApiKey"
-Write-Host "  Community Blocklist API Key: $communityBlocklistApiKey"
-Write-Host "--- End of credentials ---" -ForegroundColor Yellow
+# Do not print any secrets or secret values to stdout.
 Write-Host "Kubernetes secrets manifest file created at: $OutputFile" -ForegroundColor Green
-Write-Host "You can now apply the secrets to your Kubernetes cluster using:" -ForegroundColor Yellow
-Write-Host "  kubectl apply -f $OutputFile" -ForegroundColor Yellow
-Write-Host "To view the secrets in your cluster, use:" -ForegroundColor Green
-Write-Host "  kubectl get secrets -n ai-defense" -ForegroundColor Green
-Write-Host "To view the details of a specific secret, use:" -ForegroundColor Green
-Write-Host "  kubectl describe secret <secret-name> -n ai-defense" -ForegroundColor Green
+if ($ExportPath) {
+    Write-Host "Credentials were exported to a local file. Keep it secure: $ExportPath" -ForegroundColor Green
+}
+Write-Host "Apply secrets with: kubectl apply -f $OutputFile" -ForegroundColor Yellow
+Write-Host "List secrets: kubectl get secrets -n ai-defense" -ForegroundColor Green

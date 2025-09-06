@@ -153,33 +153,12 @@ EOF
   echo -e "${GREEN}Credentials exported to: ${export_path}${NC}"
 fi
 
-# Output credentials
-echo -e "\nSuccessfully created Kubernetes secrets file at: ${GREEN}${OUTPUT_FILE}${NC}"
-echo -e "${YELLOW}--- IMPORTANT: Save the following credentials in a secure place! ---${NC}"
-echo -e "${CYAN}NGINX / Admin UI Credentials:${NC}"
-echo "  Username: $ADMIN_UI_USERNAME"
-echo "  Password: $NGINX_PASSWORD"
-echo -e "${CYAN}Service Passwords & Keys:${NC}"
-echo "  PostgreSQL Password: $POSTGRES_PASSWORD"
-echo "  Redis Password:      $REDIS_PASSWORD"
-echo "  System Seed:         $SYSTEM_SEED"
-echo -e "${CYAN}LLM API Keys (placeholders, replace with real keys if needed):${NC}"
-echo "  OpenAI API Key:    $OPENAI_API_KEY"
-echo "  Anthropic API Key: $ANTHROPIC_API_KEY"
-echo "  Google API Key:    $GOOGLE_API_KEY"
-echo "  Cohere API Key:    $COHERE_API_KEY"
-echo "  Mistral API Key:   $MISTRAL_API_KEY"
-echo -e "${CYAN}IP Reputation API Key: ${NC}"
-echo "  $IP_REPUTATION_API_KEY"
-echo -e "${CYAN}Community Blocklist API Key: ${NC}"
-echo "  $COMMUNITY_BLOCKLIST_API_KEY"
-echo -e "${CYAN}External API Key: ${NC}"
-echo "  $EXTERNAL_API_KEY"
-echo -e "${NC}"
-echo -e "${YELLOW}--- End of credentials ---${NC}"
-echo -e "${GREEN}Kubernetes secrets manifest file created at: ${OUTPUT_FILE}${NC}"
-echo -e "${YELLOW}You can now apply the secrets to your Kubernetes cluster using:${NC}"
-echo -e "  kubectl apply -f ${OUTPUT_FILE}${NC}"
+# Do not print secrets to stdout. Provide only non-sensitive status.
+echo -e "\n${GREEN}Kubernetes secrets manifest file created at: ${OUTPUT_FILE}${NC}"
+if [ -n "$export_path" ]; then
+  echo -e "${GREEN}Non-sensitive notice: Credentials were exported to a local file. Keep it secure: ${export_path}${NC}"
+fi
+echo -e "${YELLOW}Apply secrets with:${NC} kubectl apply -f ${OUTPUT_FILE}"
 # Optionally update .env with generated values
 if [ "$update_env" = true ]; then
   ENV_FILE="$ROOT_DIR/.env"
