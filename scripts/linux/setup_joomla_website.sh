@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This script adds Joomla and its database service to the docker-compose.yaml file.
 
 # Check if docker-compose.yaml exists
@@ -47,4 +47,4 @@ EOT
 
 echo "Joomla services added."
 echo "Please create a file 'nginx/sites-enabled/joomla.conf' and configure it to proxy to 'http://joomla_app:80'."
-echo "Then, run 'docker-compose up -d --build' to start your new Joomla site."
+echo "Then, run 'docker compose up -d --build' to start your new Joomla site."

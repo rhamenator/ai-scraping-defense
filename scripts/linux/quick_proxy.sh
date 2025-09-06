@@ -1,9 +1,19 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Quick setup for Apache or Nginx reverse proxy deployment
-set -e
+set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
+
+# OS guard: Linux only
+if [ "$(uname -s)" != "Linux" ]; then
+  echo "Unsupported OS: $(uname -s). This entrypoint supports Linux only." >&2
+  echo "Use scripts/macos/*.zsh on macOS or scripts/windows/*.ps1 on Windows." >&2
+  exit 1
+fi
+
+# Helpers
+source "$SCRIPT_DIR/lib.sh"
 
 echo "=== AI Scraping Defense: Proxy Quick Start ==="
 
@@ -17,11 +27,11 @@ PROXY=${1:-nginx}
 case "$PROXY" in
   apache)
     echo "Launching stack with Apache reverse proxy..."
-    docker compose up -d apache_proxy
+    $(compose) up -d apache_proxy
     ;;
   nginx)
     echo "Launching stack with Nginx reverse proxy..."
-    docker compose up -d nginx_proxy
+    $(compose) up -d nginx_proxy
     ;;
   *)
     echo "Usage: $0 [apache|nginx]"

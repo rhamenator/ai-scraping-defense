@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # security_scan.sh - Advanced security testing helper
 #
 
@@ -9,7 +9,7 @@
 # - code_dir: optional path to source code for Bandit static analysis
 # - sqlmap_url: optional parameterized URL for automated SQLMap testing
 
-set -e
+set -euo pipefail
 
 TARGET="$1"
 WEB_URL="${2:-http://$1}"

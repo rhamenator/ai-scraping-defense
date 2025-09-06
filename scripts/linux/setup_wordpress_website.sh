@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # =============================================================================
 #  setup_wordpress_website.sh - launch a WordPress site for testing
 #
@@ -9,7 +9,7 @@
 #  DISCLAIMER: This script is intended for local testing only. Do not expose
 #  the stack to production traffic without a security review.
 # =============================================================================
-set -e
+set -euo pipefail
 
 # Ensure .env exists
 if [ ! -f .env ]; then
@@ -25,10 +25,12 @@ else
 fi
 
 # Start the AI Scraping Defense stack
-docker-compose up --build -d
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib.sh"
+$(compose) up --build -d
 
 # Determine the Docker network created by docker-compose
-NETWORK_NAME=$(docker network ls --filter name=defense_network -q | head -n 1)
+NETWORK_NAME=$(defense_network || echo "")
 if [ -z "$NETWORK_NAME" ]; then
   echo "Could not locate the defense_network. Is the stack running?"
   exit 1
@@ -49,6 +51,8 @@ fi
 
 # Launch the WordPress container
 if [ ! "$(docker ps -q -f name=wordpress)" ]; then
+  echo "Waiting for MariaDB to be ready..."
+  wait_for_mariadb wordpress_db 120 || true
   docker run -d --name wordpress \
     --network $NETWORK_NAME \
     -p 8082:80 \

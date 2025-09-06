@@ -1,0 +1,750 @@
+name: Reusable Autofix and Guard
+
+on:
+  workflow_dispatch:
+    inputs:
+      category:
+        description: Category to target (security|code-quality|architecture|performance|operations|compliance)
+        required: false
+        default: code-quality
+      pr_title:
+        description: Title for the pull request
+        required: false
+        default: Automated fixes
+      automerge:
+        description: Enable automerge when checks pass (true|false)
+        required: false
+        default: "true"
+      run_tests:
+        description: Run tests before/after fixes (true|false)
+        required: false
+        default: "true"
+      create_issue_on_failure:
+        description: Create an issue if no fixes or regressions detected (true|false)
+        required: false
+        default: "true"
+      base_branch:
+        description: Base branch for the PR
+        required: false
+        default: main
+  workflow_call:
+    inputs:
+      category:
+        type: string
+        required: false
+        default: code-quality
+      pr_title:
+        type: string
+        required: false
+        default: Automated fixes
+      automerge:
+        type: string
+        required: false
+        default: "true"
+      run_tests:
+        type: string
+        required: false
+        default: "true"
+      create_issue_on_failure:
+        type: string
+        required: false
+        default: "true"
+      base_branch:
+        type: string
+        required: false
+        default: main
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.category || 'default' }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  autofix:
+    name: Autofix and Guardrail
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CATEGORY: ${{ inputs.category || 'code-quality' }}
+      PR_TITLE: ${{ inputs.pr_title || 'Automated fixes' }}
+      RUN_TESTS: ${{ inputs.run_tests || 'true' }}
+      CREATE_ISSUE_ON_FAILURE: ${{ inputs.create_issue_on_failure || 'true' }}
+      BASE_BRANCH: ${{ inputs.base_branch || 'main' }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Tooling
+        run: |
+          set -eux
+          python -m pip install --upgrade pip
+          pipx install black isort ruff bandit flake8 docformatter ansible-lint yamllint || python -m pip install --user black isort ruff bandit flake8 docformatter ansible-lint yamllint
+          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt || true; fi
+          # pre-commit if configured
+          if [ -f .pre-commit-config.yaml ]; then pipx install pre-commit || python -m pip install --user pre-commit; fi
+          # JS tooling (global formatters always; eslint only if repo uses node)
+          npm i -g prettier markdownlint-cli || true
+          if [ -f package.json ]; then npm i -g eslint || true; fi
+          # Shell / Docker / K8s helpers
+          sudo apt-get update && sudo apt-get install -y shfmt shellcheck jq clang-format unzip ripgrep || true
+          curl -sSfL https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 -o hadolint && sudo install hadolint /usr/local/bin/hadolint || true
+          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tar.gz || true
+          (sudo tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin || true)
+          # actionlint (GH Actions linter)
+          curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash -o /tmp/dl-actionlint.bash || true
+          bash /tmp/dl-actionlint.bash -b /usr/local/bin || true
+          # Terraform linters
+          curl -sL https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh -o /tmp/tflint_install.sh && bash /tmp/tflint_install.sh -b /usr/local/bin || true
+          curl -sSfL https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install.sh | sudo bash -s -- -b /usr/local/bin || true
+          # Go tools (if Go files present)
+          if command -v go >/dev/null 2>&1 && rg --files -g "*.go" >/dev/null 2>&1; then
+            go install golang.org/x/tools/cmd/goimports@latest || true
+            go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest || true
+          fi
+          # Rust toolchain for formatting (if any Cargo project present)
+          if [ -f Cargo.toml ] || rg --files -g "**/Cargo.toml" >/dev/null 2>&1; then
+            rustup toolchain install stable -y || true
+            rustup component add rustfmt clippy || true
+          fi
+          # .NET presence check (formatting runs only if projects detected)
+          dotnet --info >/dev/null 2>&1 || true
+          # Lua formatter (stylua)
+          curl -sSL https://github.com/JohnnyMorganz/StyLua/releases/latest/download/stylua-linux-x86_64.zip -o /tmp/stylua.zip && sudo unzip -o /tmp/stylua.zip -d /usr/local/bin || true
+          # Taplo for TOML (best-effort via cargo)
+          if command -v cargo >/dev/null 2>&1; then cargo install taplo-cli --locked || true; fi
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Pre-pull server images (cache within job)
+        if: ${{ hashFiles('nginx/**') != '' || hashFiles('apache/**') != '' }}
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            if [ -d nginx ]; then docker pull nginx:stable-alpine || true; fi
+            if [ -f apache/httpd.conf ]; then docker pull httpd:2.4 || true; fi
+          fi
+
+      - name: Baseline checks (lint/security/tests)
+        id: baseline
+        run: |
+          set +e
+          mkdir -p .autofix
+          # Python lint baseline
+          flake8 . > .autofix/flake8_before.txt 2>&1 || true
+          echo "flake8_before=$(wc -l < .autofix/flake8_before.txt)" >> $GITHUB_OUTPUT
+          # Bandit baseline
+          bandit -q -r . -f json -o .autofix/bandit_before.json || true
+          python - << 'PY'
+import json, sys
+try:
+    d=json.load(open('.autofix/bandit_before.json'))
+    print(f"bandit_before={len(d.get('results', []))}")
+except Exception:
+    print("bandit_before=0")
+PY
+          # ESLint baseline
+          if [ -f package.json ]; then
+            npx --yes eslint . --ext .js,.jsx,.ts,.tsx -f json > .autofix/eslint_before.json 2>/dev/null || true
+            ESL_BEFORE=$(jq '[ .[] | (.errorCount + .warningCount) ] | add // 0' .autofix/eslint_before.json 2>/dev/null || echo 0)
+          else
+            ESL_BEFORE=0
+          fi
+          echo "eslint_before=${ESL_BEFORE}" >> $GITHUB_OUTPUT
+          # actionlint baseline (GitHub Actions workflows)
+          if [ -d .github/workflows ] && command -v actionlint >/dev/null 2>&1; then
+            actionlint -color never > .autofix/actionlint_before.txt 2>&1 || true
+            echo "actionlint_before=$(wc -l < .autofix/actionlint_before.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "actionlint_before=0" >> $GITHUB_OUTPUT
+          fi
+          # Yamllint baseline
+          if rg --files -g "**/*.y?(a)ml" >/dev/null 2>&1; then
+            yamllint -f parsable . > .autofix/yamllint_before.txt 2>/dev/null || true
+            echo "yamllint_before=$(wc -l < .autofix/yamllint_before.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "yamllint_before=0" >> $GITHUB_OUTPUT
+          fi
+          # Nginx config syntax check via container (primary config)
+          if [ -d nginx ] && command -v docker >/dev/null 2>&1; then
+            docker run --rm -v "$PWD/nginx":/etc/nginx:ro nginx:stable-alpine nginx -t > .autofix/nginx_before.txt 2>&1 || true
+            # Additionally validate standalone server snippets in nginx/*.conf (excluding nginx.conf)
+            if ls nginx/*.conf >/dev/null 2>&1; then
+              for f in nginx/*.conf; do
+                base=$(basename "$f")
+                if [ "$base" != "nginx.conf" ]; then
+                  docker run --rm -v "$PWD/nginx":/work nginx:stable-alpine sh -lc "printf 'events{}\nhttp{ include /work/$base; }' > /tmp/test.conf && nginx -t -c /tmp/test.conf" >> .autofix/nginx_before.txt 2>&1 || true
+                  # Try stream wrapper as well for TCP/UDP listeners
+                  docker run --rm -v "$PWD/nginx":/work nginx:stable-alpine sh -lc "printf 'events{}\nstream{ include /work/$base; }' > /tmp/test_stream.conf && nginx -t -c /tmp/test_stream.conf" >> .autofix/nginx_before.txt 2>&1 || true
+                fi
+              done
+            fi
+            # Validate conf.d and sites-enabled leaves if present
+            if ls nginx/conf.d/*.conf >/dev/null 2>&1; then
+              for f in nginx/conf.d/*.conf; do
+                base=$(basename "$f")
+                docker run --rm -v "$PWD/nginx":/work nginx:stable-alpine sh -lc "printf 'events{}\nhttp{ include /work/conf.d/$base; }' > /tmp/test.conf && nginx -t -c /tmp/test.conf" >> .autofix/nginx_before.txt 2>&1 || true
+                docker run --rm -v "$PWD/nginx":/work nginx:stable-alpine sh -lc "printf 'events{}\nstream{ include /work/conf.d/$base; }' > /tmp/test_stream.conf && nginx -t -c /tmp/test_stream.conf" >> .autofix/nginx_before.txt 2>&1 || true
+              done
+            fi
+            if ls nginx/sites-enabled/*.conf >/dev/null 2>&1; then
+              for f in nginx/sites-enabled/*.conf; do
+                base=$(basename "$f")
+                docker run --rm -v "$PWD/nginx":/work nginx:stable-alpine sh -lc "printf 'events{}\nhttp{ include /work/sites-enabled/$base; }' > /tmp/test.conf && nginx -t -c /tmp/test.conf" >> .autofix/nginx_before.txt 2>&1 || true
+                docker run --rm -v "$PWD/nginx":/work nginx:stable-alpine sh -lc "printf 'events{}\nstream{ include /work/sites-enabled/$base; }' > /tmp/test_stream.conf && nginx -t -c /tmp/test_stream.conf" >> .autofix/nginx_before.txt 2>&1 || true
+              done
+            fi
+            NGINX_BEFORE=$(grep -Ei 'emerg|error|fail|not found' .autofix/nginx_before.txt | wc -l)
+          else
+            NGINX_BEFORE=0
+          fi
+          echo "nginx_before=${NGINX_BEFORE}" >> $GITHUB_OUTPUT
+          # Apache httpd config syntax check via container
+          if [ -f apache/httpd.conf ] && command -v docker >/dev/null 2>&1; then
+            docker run --rm -v "$PWD/apache/httpd.conf":/usr/local/apache2/conf/httpd.conf:ro httpd:2.4 httpd -t > .autofix/apache_before.txt 2>&1 || true
+            APACHE_BEFORE=$(grep -vi 'syntax ok' .autofix/apache_before.txt | wc -l)
+          else
+            APACHE_BEFORE=0
+          fi
+          echo "apache_before=${APACHE_BEFORE}" >> $GITHUB_OUTPUT
+          # Scripts Bash syntax baseline
+          if [ -d scripts ]; then
+            find scripts -type f -name "*.sh" -print0 | xargs -0 -r -n1 bash -n > .autofix/scripts_bash_before.txt 2>&1 || true
+            echo "scripts_bash_before=$(grep -ci 'syntax error' .autofix/scripts_bash_before.txt || echo 0)" >> $GITHUB_OUTPUT
+          else
+            echo "scripts_bash_before=0" >> $GITHUB_OUTPUT
+          fi
+          # Shellcheck baseline
+          if compgen -G "**/*.sh" > /dev/null; then
+            find . -type f -name "*.sh" -print0 | xargs -0 -r shellcheck -f gcc > .autofix/shellcheck_before.txt 2>/dev/null || true
+            echo "shellcheck_before=$(wc -l < .autofix/shellcheck_before.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "shellcheck_before=0" >> $GITHUB_OUTPUT
+          fi
+          # Hadolint baseline
+          if compgen -G "Dockerfile*" > /dev/null; then
+            hadolint Dockerfile* > .autofix/hadolint_before.txt 2>/dev/null || true
+            echo "hadolint_before=$(wc -l < .autofix/hadolint_before.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "hadolint_before=0" >> $GITHUB_OUTPUT
+          fi
+          # Markdownlint baseline
+          if rg --files -g "**/*.md" >/dev/null 2>&1; then
+            markdownlint "**/*.md" > .autofix/markdown_before.txt 2>/dev/null || true
+            echo "markdownlint_before=$(wc -l < .autofix/markdown_before.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "markdownlint_before=0" >> $GITHUB_OUTPUT
+          fi
+          # GolangCI-Lint baseline
+          if command -v golangci-lint >/dev/null 2>&1 && rg --files -g "*.go" >/dev/null 2>&1; then
+            golangci-lint run --out-format json > .autofix/golangci_before.json 2>/dev/null || true
+            GOLANGCI_BEFORE=$(jq '.Issues | length' .autofix/golangci_before.json 2>/dev/null || echo 0)
+          else
+            GOLANGCI_BEFORE=0
+          fi
+          echo "golangci_before=${GOLANGCI_BEFORE}" >> $GITHUB_OUTPUT
+          # Terraform linters baseline
+          if rg --files -g "**/*.tf" >/dev/null 2>&1 && command -v tflint >/dev/null 2>&1; then
+            tflint --format=json > .autofix/tflint_before.json 2>/dev/null || true
+            TFLINT_BEFORE=$(jq '.issues | length' .autofix/tflint_before.json 2>/dev/null || echo 0)
+          else
+            TFLINT_BEFORE=0
+          fi
+          echo "tflint_before=${TFLINT_BEFORE}" >> $GITHUB_OUTPUT
+          if rg --files -g "**/*.tf" >/dev/null 2>&1 && command -v tfsec >/dev/null 2>&1; then
+            tfsec --no-color --format json --soft-fail > .autofix/tfsec_before.json 2>/dev/null || true
+            TFSEC_BEFORE=$(jq '.results | length' .autofix/tfsec_before.json 2>/dev/null || echo 0)
+          else
+            TFSEC_BEFORE=0
+          fi
+          echo "tfsec_before=${TFSEC_BEFORE}" >> $GITHUB_OUTPUT
+          # PowerShell analyzer baseline (best-effort)
+          if compgen -G "**/*.ps1" > /dev/null && command -v pwsh >/dev/null 2>&1; then
+            PSSA_BEFORE=$(pwsh -NoLogo -NoProfile -Command "try { Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -ErrorAction SilentlyContinue; ($r = Invoke-ScriptAnalyzer -Path . -Recurse -ErrorAction SilentlyContinue).Count } catch { 0 }")
+          else
+            PSSA_BEFORE=0
+          fi
+          echo "pssa_before=${PSSA_BEFORE}" >> $GITHUB_OUTPUT
+          # Tests baseline
+          TESTS_BEFORE=0
+          if [ "${RUN_TESTS}" = "true" ] && [ -d test ]; then
+            python -m pytest -q || TESTS_BEFORE=$?
+          fi
+          echo "tests_before=${TESTS_BEFORE}" >> $GITHUB_OUTPUT
+
+      - name: Create working branch
+        id: br
+        run: |
+          SHORT_SHA=${GITHUB_SHA::7}
+          BR="autofix/${CATEGORY}/${SHORT_SHA}"
+          git checkout -B "$BR"
+          echo "branch=$BR" >> $GITHUB_OUTPUT
+
+      - name: Run autofixers
+        run: |
+          set -eux
+          # Common Python formatters
+          if compgen -G "**/*.py" > /dev/null; then
+            black . || true
+            isort . || true
+            ruff --fix . || true
+            docformatter -r -i . || true
+          fi
+          # Pre-commit hooks
+          if [ -f .pre-commit-config.yaml ]; then pre-commit run --all-files || true; fi
+          # JavaScript/TypeScript
+          if [ -f package.json ]; then
+            npx --yes prettier -w . || true
+            npx --yes eslint . --ext .js,.jsx,.ts,.tsx --fix || true
+            npx --yes markdownlint-cli "**/*.md" --fix || true
+          fi
+          # Shell formatting
+          if compgen -G "**/*.sh" > /dev/null; then shfmt -w . || true; fi
+          # Go formatting
+          if rg --files -g "*.go" >/dev/null 2>&1; then
+            gofmt -s -w . || true
+            if command -v goimports >/dev/null 2>&1; then goimports -w . || true; fi
+          fi
+          # Rust formatting
+          if [ -f Cargo.toml ] || rg --files -g "**/Cargo.toml" >/dev/null 2>&1; then
+            cargo fmt --all || true
+          fi
+          # .NET/C# formatting
+          if (rg --files -g "*.sln" -g "*.csproj" >/dev/null 2>&1) && command -v dotnet >/dev/null 2>&1; then
+            dotnet format || true
+          fi
+          # Terraform formatting
+          if rg --files -g "*.tf" >/dev/null 2>&1; then
+            terraform fmt -recursive || true
+          fi
+          # Dockerfile lint (no autofix but validates)
+          if rg --files -g "Dockerfile*" >/dev/null 2>&1 && command -v hadolint >/dev/null 2>&1; then
+            hadolint Dockerfile* || true
+          fi
+          # Kubernetes manifests validation (no autofix)
+          if rg --files -g "kubernetes/**/*.yml" -g "kubernetes/**/*.yaml" >/dev/null 2>&1 && command -v kubeconform >/dev/null 2>&1; then
+            kubeconform -summary -strict kubernetes || true
+          fi
+          # Lua formatting
+          if rg --files -g "*.lua" >/dev/null 2>&1 && command -v stylua >/dev/null 2>&1; then
+            stylua . || true
+          fi
+          # C/C++ formatting
+          if rg --files -g "*.c" -g "*.h" -g "*.cpp" >/dev/null 2>&1 && command -v clang-format >/dev/null 2>&1; then
+            find . -type f \( -name "*.c" -o -name "*.h" -o -name "*.cpp" \) -print0 | xargs -0 -r clang-format -i || true
+          fi
+          # TOML formatting
+          if rg --files -g "*.toml" >/dev/null 2>&1; then
+            if command -v taplo >/dev/null 2>&1; then taplo fmt || true; fi
+          fi
+          # Prettier for common text formats (JSON/YAML/MD/JS/TS/HTML/CSS)
+          if command -v prettier >/dev/null 2>&1; then
+            if find . -type f \( -name '*.json' -o -name '*.yml' -o -name '*.yaml' -o -name '*.md' -o -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' -o -name '*.html' -o -name '*.css' \) | head -n1 | grep -q .; then
+              prettier -w . || true
+            fi
+          fi
+          # PowerShell fix (best-effort)
+          if compgen -G "**/*.ps1" > /dev/null && command -v pwsh >/dev/null 2>&1; then
+            pwsh -NoLogo -NoProfile -Command "Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -ErrorAction SilentlyContinue; Invoke-ScriptAnalyzer -Path . -Recurse -Fix -EnableExit -ErrorAction SilentlyContinue" || true
+          fi
+
+      - name: Commit changes if any
+        id: commit
+        run: |
+          set -eux
+          git add -A
+          if git diff --cached --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          git -c user.name="repo-bot" -c user.email="bot@users.noreply.github.com" commit -m "chore(${CATEGORY}): automated fixes"
+          echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Post-fix checks (lint/security/tests)
+        id: after
+        run: |
+          set +e
+          mkdir -p .autofix
+          flake8 . > .autofix/flake8_after.txt 2>&1 || true
+          echo "flake8_after=$(wc -l < .autofix/flake8_after.txt)" >> $GITHUB_OUTPUT
+          bandit -q -r . -f json -o .autofix/bandit_after.json || true
+          python - << 'PY'
+import json, sys
+try:
+    d=json.load(open('.autofix/bandit_after.json'))
+    print(f"bandit_after={len(d.get('results', []))}")
+except Exception:
+    print("bandit_after=0")
+PY
+          if [ -f package.json ]; then
+            npx --yes eslint . --ext .js,.jsx,.ts,.tsx -f json > .autofix/eslint_after.json 2>/dev/null || true
+            ESL_AFTER=$(jq '[ .[] | (.errorCount + .warningCount) ] | add // 0' .autofix/eslint_after.json 2>/dev/null || echo 0)
+          else
+            ESL_AFTER=0
+          fi
+          echo "eslint_after=${ESL_AFTER}" >> $GITHUB_OUTPUT
+          # actionlint after
+          if [ -d .github/workflows ] && command -v actionlint >/dev/null 2>&1; then
+            actionlint -color never > .autofix/actionlint_after.txt 2>&1 || true
+            echo "actionlint_after=$(wc -l < .autofix/actionlint_after.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "actionlint_after=0" >> $GITHUB_OUTPUT
+          fi
+          # Yamllint after
+          if rg --files -g "**/*.y?(a)ml" >/dev/null 2>&1; then
+            yamllint -f parsable . > .autofix/yamllint_after.txt 2>/dev/null || true
+            echo "yamllint_after=$(wc -l < .autofix/yamllint_after.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "yamllint_after=0" >> $GITHUB_OUTPUT
+          fi
+          # Nginx after
+          if [ -d nginx ] && command -v docker >/dev/null 2>&1; then
+            docker run --rm -v "$PWD/nginx":/etc/nginx:ro nginx:stable-alpine nginx -t > .autofix/nginx_after.txt 2>&1 || true
+            if ls nginx/*.conf >/dev/null 2>&1; then
+              for f in nginx/*.conf; do
+                base=$(basename "$f")
+                if [ "$base" != "nginx.conf" ]; then
+                  docker run --rm -v "$PWD/nginx":/work nginx:stable-alpine sh -lc "printf 'events{}\nhttp{ include /work/$base; }' > /tmp/test.conf && nginx -t -c /tmp/test.conf" >> .autofix/nginx_after.txt 2>&1 || true
+                  docker run --rm -v "$PWD/nginx":/work nginx:stable-alpine sh -lc "printf 'events{}\nstream{ include /work/$base; }' > /tmp/test_stream.conf && nginx -t -c /tmp/test_stream.conf" >> .autofix/nginx_after.txt 2>&1 || true
+                fi
+              done
+            fi
+            if ls nginx/conf.d/*.conf >/dev/null 2>&1; then
+              for f in nginx/conf.d/*.conf; do
+                base=$(basename "$f")
+                docker run --rm -v "$PWD/nginx":/work nginx:stable-alpine sh -lc "printf 'events{}\nhttp{ include /work/conf.d/$base; }' > /tmp/test.conf && nginx -t -c /tmp/test.conf" >> .autofix/nginx_after.txt 2>&1 || true
+                docker run --rm -v "$PWD/nginx":/work nginx:stable-alpine sh -lc "printf 'events{}\nstream{ include /work/conf.d/$base; }' > /tmp/test_stream.conf && nginx -t -c /tmp/test_stream.conf" >> .autofix/nginx_after.txt 2>&1 || true
+              done
+            fi
+            if ls nginx/sites-enabled/*.conf >/dev/null 2>&1; then
+              for f in nginx/sites-enabled/*.conf; do
+                base=$(basename "$f")
+                docker run --rm -v "$PWD/nginx":/work nginx:stable-alpine sh -lc "printf 'events{}\nhttp{ include /work/sites-enabled/$base; }' > /tmp/test.conf && nginx -t -c /tmp/test.conf" >> .autofix/nginx_after.txt 2>&1 || true
+                docker run --rm -v "$PWD/nginx":/work nginx:stable-alpine sh -lc "printf 'events{}\nstream{ include /work/sites-enabled/$base; }' > /tmp/test_stream.conf && nginx -t -c /tmp/test_stream.conf" >> .autofix/nginx_after.txt 2>&1 || true
+              done
+            fi
+            NGINX_AFTER=$(grep -Ei 'emerg|error|fail|not found' .autofix/nginx_after.txt | wc -l)
+          else
+            NGINX_AFTER=0
+          fi
+          echo "nginx_after=${NGINX_AFTER}" >> $GITHUB_OUTPUT
+          # Apache after
+          if [ -f apache/httpd.conf ] && command -v docker >/dev/null 2>&1; then
+            docker run --rm -v "$PWD/apache/httpd.conf":/usr/local/apache2/conf/httpd.conf:ro httpd:2.4 httpd -t > .autofix/apache_after.txt 2>&1 || true
+            APACHE_AFTER=$(grep -vi 'syntax ok' .autofix/apache_after.txt | wc -l)
+          else
+            APACHE_AFTER=0
+          fi
+          echo "apache_after=${APACHE_AFTER}" >> $GITHUB_OUTPUT
+          # Scripts Bash syntax after
+          if [ -d scripts ]; then
+            find scripts -type f -name "*.sh" -print0 | xargs -0 -r -n1 bash -n > .autofix/scripts_bash_after.txt 2>&1 || true
+            echo "scripts_bash_after=$(grep -ci 'syntax error' .autofix/scripts_bash_after.txt || echo 0)" >> $GITHUB_OUTPUT
+          else
+            echo "scripts_bash_after=0" >> $GITHUB_OUTPUT
+          fi
+          # Shellcheck after
+          if compgen -G "**/*.sh" > /dev/null; then
+            find . -type f -name "*.sh" -print0 | xargs -0 -r shellcheck -f gcc > .autofix/shellcheck_after.txt 2>/dev/null || true
+            echo "shellcheck_after=$(wc -l < .autofix/shellcheck_after.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "shellcheck_after=0" >> $GITHUB_OUTPUT
+          fi
+          # Hadolint after
+          if compgen -G "Dockerfile*" > /dev/null; then
+            hadolint Dockerfile* > .autofix/hadolint_after.txt 2>/dev/null || true
+            echo "hadolint_after=$(wc -l < .autofix/hadolint_after.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "hadolint_after=0" >> $GITHUB_OUTPUT
+          fi
+          # Markdownlint after
+          if rg --files -g "**/*.md" >/dev/null 2>&1; then
+            markdownlint "**/*.md" > .autofix/markdown_after.txt 2>/dev/null || true
+            echo "markdownlint_after=$(wc -l < .autofix/markdown_after.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "markdownlint_after=0" >> $GITHUB_OUTPUT
+          fi
+          # GolangCI-Lint after
+          if command -v golangci-lint >/dev/null 2>&1 && rg --files -g "*.go" >/dev/null 2>&1; then
+            golangci-lint run --out-format json > .autofix/golangci_after.json 2>/dev/null || true
+            GOLANGCI_AFTER=$(jq '.Issues | length' .autofix/golangci_after.json 2>/dev/null || echo 0)
+          else
+            GOLANGCI_AFTER=0
+          fi
+          echo "golangci_after=${GOLANGCI_AFTER}" >> $GITHUB_OUTPUT
+          # Terraform linters after
+          if rg --files -g "**/*.tf" >/dev/null 2>&1 && command -v tflint >/dev/null 2>&1; then
+            tflint --format=json > .autofix/tflint_after.json 2>/dev/null || true
+            TFLINT_AFTER=$(jq '.issues | length' .autofix/tflint_after.json 2>/dev/null || echo 0)
+          else
+            TFLINT_AFTER=0
+          fi
+          echo "tflint_after=${TFLINT_AFTER}" >> $GITHUB_OUTPUT
+          if rg --files -g "**/*.tf" >/dev/null 2>&1 && command -v tfsec >/dev/null 2>&1; then
+            tfsec --no-color --format json --soft-fail > .autofix/tfsec_after.json 2>/dev/null || true
+            TFSEC_AFTER=$(jq '.results | length' .autofix/tfsec_after.json 2>/dev/null || echo 0)
+          else
+            TFSEC_AFTER=0
+          fi
+          echo "tfsec_after=${TFSEC_AFTER}" >> $GITHUB_OUTPUT
+          # PowerShell analyzer after (best-effort)
+          if compgen -G "**/*.ps1" > /dev/null && command -v pwsh >/dev/null 2>&1; then
+            PSSA_AFTER=$(pwsh -NoLogo -NoProfile -Command "try { ($r = Invoke-ScriptAnalyzer -Path . -Recurse -ErrorAction SilentlyContinue).Count } catch { 0 }")
+          else
+            PSSA_AFTER=0
+          fi
+          echo "pssa_after=${PSSA_AFTER}" >> $GITHUB_OUTPUT
+          TESTS_AFTER=0
+          if [ "${RUN_TESTS}" = "true" ] && [ -d test ]; then
+            python -m pytest -q || TESTS_AFTER=$?
+          fi
+          echo "tests_after=${TESTS_AFTER}" >> $GITHUB_OUTPUT
+
+      - name: Build summary and regression report
+        id: report
+        run: |
+          set -e
+          mkdir -p .autofix
+          cat > .autofix/REPORT.md << 'MD'
+## Autofix Report
+
+This report summarizes automated fixes and guardrail checks.
+
+- Category: ${CATEGORY}
+- Branch: ${{ steps.br.outputs.branch }}
+
+### Lint (flake8)
+- Before: ${{ steps.baseline.outputs.flake8_before }}
+- After:  ${{ steps.after.outputs.flake8_after }}
+
+### Security (bandit)
+- Before: ${{ steps.baseline.outputs.bandit_before }}
+- After:  ${{ steps.after.outputs.bandit_after }}
+
+### JS/TS (eslint)
+- Before: ${{ steps.baseline.outputs.eslint_before }}
+- After:  ${{ steps.after.outputs.eslint_after }}
+
+### YAML (yamllint)
+- Before: ${{ steps.baseline.outputs.yamllint_before }}
+- After:  ${{ steps.after.outputs.yamllint_after }}
+
+### Shell (shellcheck)
+- Before: ${{ steps.baseline.outputs.shellcheck_before }}
+- After:  ${{ steps.after.outputs.shellcheck_after }}
+
+### Dockerfiles (hadolint)
+- Before: ${{ steps.baseline.outputs.hadolint_before }}
+- After:  ${{ steps.after.outputs.hadolint_after }}
+
+### Markdown (markdownlint)
+- Before: ${{ steps.baseline.outputs.markdownlint_before }}
+- After:  ${{ steps.after.outputs.markdownlint_after }}
+
+### Go (golangci-lint)
+- Before: ${{ steps.baseline.outputs.golangci_before }}
+- After:  ${{ steps.after.outputs.golangci_after }}
+
+### Terraform (tflint / tfsec)
+- TFLint Before: ${{ steps.baseline.outputs.tflint_before }} | After: ${{ steps.after.outputs.tflint_after }}
+- tfsec Before: ${{ steps.baseline.outputs.tfsec_before }} | After: ${{ steps.after.outputs.tfsec_after }}
+
+### GitHub Workflows (actionlint)
+- Before: ${{ steps.baseline.outputs.actionlint_before }}
+- After:  ${{ steps.after.outputs.actionlint_after }}
+
+### Nginx Config
+- Before (error lines): ${{ steps.baseline.outputs.nginx_before }}
+- After (error lines):  ${{ steps.after.outputs.nginx_after }}
+
+### Apache httpd Config
+- Before (non-OK lines): ${{ steps.baseline.outputs.apache_before }}
+- After (non-OK lines):  ${{ steps.after.outputs.apache_after }}
+
+### PowerShell (PSScriptAnalyzer)
+- Before: ${{ steps.baseline.outputs.pssa_before }}
+- After:  ${{ steps.after.outputs.pssa_after }}
+
+### Tests (pytest exit code)
+- Before: ${{ steps.baseline.outputs.tests_before }}
+- After:  ${{ steps.after.outputs.tests_after }}
+
+MD
+          echo "report=.autofix/REPORT.md" >> $GITHUB_OUTPUT
+          # Export metrics for PR summary builder
+          echo "FL_BEFORE=${{ steps.baseline.outputs.flake8_before }}" >> $GITHUB_ENV
+          echo "FL_AFTER=${{ steps.after.outputs.flake8_after }}" >> $GITHUB_ENV
+          echo "BD_BEFORE=${{ steps.baseline.outputs.bandit_before }}" >> $GITHUB_ENV
+          echo "BD_AFTER=${{ steps.after.outputs.bandit_after }}" >> $GITHUB_ENV
+          echo "ESL_BEFORE=${{ steps.baseline.outputs.eslint_before }}" >> $GITHUB_ENV
+          echo "ESL_AFTER=${{ steps.after.outputs.eslint_after }}" >> $GITHUB_ENV
+          echo "AL_BEFORE=${{ steps.baseline.outputs.actionlint_before || 0 }}" >> $GITHUB_ENV
+          echo "AL_AFTER=${{ steps.after.outputs.actionlint_after || 0 }}" >> $GITHUB_ENV
+          echo "YL_BEFORE=${{ steps.baseline.outputs.yamllint_before || 0 }}" >> $GITHUB_ENV
+          echo "YL_AFTER=${{ steps.after.outputs.yamllint_after || 0 }}" >> $GITHUB_ENV
+          echo "SC_BEFORE=${{ steps.baseline.outputs.shellcheck_before || 0 }}" >> $GITHUB_ENV
+          echo "SC_AFTER=${{ steps.after.outputs.shellcheck_after || 0 }}" >> $GITHUB_ENV
+          echo "HD_BEFORE=${{ steps.baseline.outputs.hadolint_before || 0 }}" >> $GITHUB_ENV
+          echo "HD_AFTER=${{ steps.after.outputs.hadolint_after || 0 }}" >> $GITHUB_ENV
+          echo "MD_BEFORE=${{ steps.baseline.outputs.markdownlint_before || 0 }}" >> $GITHUB_ENV
+          echo "MD_AFTER=${{ steps.after.outputs.markdownlint_after || 0 }}" >> $GITHUB_ENV
+          echo "GO_BEFORE=${{ steps.baseline.outputs.golangci_before || 0 }}" >> $GITHUB_ENV
+          echo "GO_AFTER=${{ steps.after.outputs.golangci_after || 0 }}" >> $GITHUB_ENV
+          echo "TF_BEFORE=${{ steps.baseline.outputs.tflint_before || 0 }}" >> $GITHUB_ENV
+          echo "TF_AFTER=${{ steps.after.outputs.tflint_after || 0 }}" >> $GITHUB_ENV
+          echo "TS_BEFORE=${{ steps.baseline.outputs.tfsec_before || 0 }}" >> $GITHUB_ENV
+          echo "TS_AFTER=${{ steps.after.outputs.tfsec_after || 0 }}" >> $GITHUB_ENV
+          echo "NG_BEFORE=${{ steps.baseline.outputs.nginx_before || 0 }}" >> $GITHUB_ENV
+          echo "NG_AFTER=${{ steps.after.outputs.nginx_after || 0 }}" >> $GITHUB_ENV
+          echo "AP_BEFORE=${{ steps.baseline.outputs.apache_before || 0 }}" >> $GITHUB_ENV
+          echo "AP_AFTER=${{ steps.after.outputs.apache_after || 0 }}" >> $GITHUB_ENV
+          echo "PS_BEFORE=${{ steps.baseline.outputs.pssa_before || 0 }}" >> $GITHUB_ENV
+          echo "PS_AFTER=${{ steps.after.outputs.pssa_after || 0 }}" >> $GITHUB_ENV
+          # Build concise PR body
+          python - << 'PY'
+import os
+
+def emoji(before, after):
+    try:
+        b, a = int(before), int(after)
+        if a < b:
+            return '✅'
+        elif a == b:
+            return '➖'
+        else:
+            return '❌'
+    except:
+        return '➖'
+
+metrics = [
+    ('flake8', os.getenv('FL_BEFORE','0'), os.getenv('FL_AFTER','0')),
+    ('bandit', os.getenv('BD_BEFORE','0'), os.getenv('BD_AFTER','0')),
+    ('eslint', os.getenv('ESL_BEFORE','0'), os.getenv('ESL_AFTER','0')),
+    ('actionlint', os.getenv('AL_BEFORE','0'), os.getenv('AL_AFTER','0')),
+    ('yamllint', os.getenv('YL_BEFORE','0'), os.getenv('YL_AFTER','0')),
+    ('shellcheck', os.getenv('SC_BEFORE','0'), os.getenv('SC_AFTER','0')),
+    ('hadolint', os.getenv('HD_BEFORE','0'), os.getenv('HD_AFTER','0')),
+    ('markdownlint', os.getenv('MD_BEFORE','0'), os.getenv('MD_AFTER','0')),
+    ('golangci', os.getenv('GO_BEFORE','0'), os.getenv('GO_AFTER','0')),
+    ('tflint', os.getenv('TF_BEFORE','0'), os.getenv('TF_AFTER','0')),
+    ('tfsec', os.getenv('TS_BEFORE','0'), os.getenv('TS_AFTER','0')),
+    ('nginx(err)', os.getenv('NG_BEFORE','0'), os.getenv('NG_AFTER','0')),
+    ('apache(err)', os.getenv('AP_BEFORE','0'), os.getenv('AP_AFTER','0')),
+    ('pssa', os.getenv('PS_BEFORE','0'), os.getenv('PS_AFTER','0')),
+]
+
+lines = []
+lines.append(f"Automated {os.getenv('CATEGORY','code-quality')} fixes.\n")
+lines.append('Summary of key checks:')
+lines.append('')
+lines.append('| Check | Before | After | Trend |')
+lines.append('|------:|-------:|------:|:-----:|')
+for name, before, after in metrics:
+    lines.append(f"| {name} | {before} | {after} | {emoji(before, after)} |")
+lines.append('')
+lines.append(f"See artifact 'autofix-report-{os.getenv('CATEGORY','code-quality')}' for details.")
+
+open('.autofix/PR_BODY.md','w').write('\n'.join(lines))
+PY
+          # Determine regression conditions
+          REGRESS=0
+          if [ ${{ steps.after.outputs.flake8_after }} -gt ${{ steps.baseline.outputs.flake8_before || 0 }} ]; then REGRESS=1; fi
+          if [ ${{ steps.after.outputs.bandit_after }} -gt ${{ steps.baseline.outputs.bandit_before || 0 }} ]; then REGRESS=1; fi
+          if [ ${{ steps.after.outputs.eslint_after }} -gt ${{ steps.baseline.outputs.eslint_before || 0 }} ]; then REGRESS=1; fi
+          if [ ${{ steps.after.outputs.yamllint_after }} -gt ${{ steps.baseline.outputs.yamllint_before || 0 }} ]; then REGRESS=1; fi
+          if [ ${{ steps.after.outputs.shellcheck_after }} -gt ${{ steps.baseline.outputs.shellcheck_before || 0 }} ]; then REGRESS=1; fi
+          if [ ${{ steps.after.outputs.hadolint_after }} -gt ${{ steps.baseline.outputs.hadolint_before || 0 }} ]; then REGRESS=1; fi
+          if [ ${{ steps.after.outputs.markdownlint_after }} -gt ${{ steps.baseline.outputs.markdownlint_before || 0 }} ]; then REGRESS=1; fi
+          if [ ${{ steps.after.outputs.golangci_after }} -gt ${{ steps.baseline.outputs.golangci_before || 0 }} ]; then REGRESS=1; fi
+          if [ ${{ steps.after.outputs.tflint_after }} -gt ${{ steps.baseline.outputs.tflint_before || 0 }} ]; then REGRESS=1; fi
+          if [ ${{ steps.after.outputs.tfsec_after }} -gt ${{ steps.baseline.outputs.tfsec_before || 0 }} ]; then REGRESS=1; fi
+          if [ ${{ steps.after.outputs.actionlint_after }} -gt ${{ steps.baseline.outputs.actionlint_before || 0 }} ]; then REGRESS=1; fi
+          if [ ${{ steps.after.outputs.nginx_after }} -gt ${{ steps.baseline.outputs.nginx_before || 0 }} ]; then REGRESS=1; fi
+          if [ ${{ steps.after.outputs.apache_after }} -gt ${{ steps.baseline.outputs.apache_before || 0 }} ]; then REGRESS=1; fi
+          if [ "${RUN_TESTS}" = "true" ] && [ ${{ steps.baseline.outputs.tests_before || 0 }} -eq 0 ] && [ ${{ steps.after.outputs.tests_after || 0 }} -ne 0 ]; then REGRESS=1; fi
+          if [ ${{ steps.after.outputs.pssa_after }} -gt ${{ steps.baseline.outputs.pssa_before || 0 }} ]; then REGRESS=1; fi
+          echo "regression=${REGRESS}" >> $GITHUB_OUTPUT
+
+      - name: Create pull request (if changes)
+        if: steps.commit.outputs.changed == 'true'
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: ${{ steps.br.outputs.branch }}
+          title: ${{ env.PR_TITLE }}
+          body-path: .autofix/PR_BODY.md
+          labels: autofix, ${{ env.CATEGORY }}
+          base: ${{ env.BASE_BRANCH }}
+          draft: false
+          add-paths: |
+            **/*
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Comment summary on PR
+        if: steps.commit.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = '.autofix/PR_BODY.md';
+            let body = '';
+            try { body = fs.readFileSync(path, 'utf8'); } catch (e) { body = 'Autofix summary not available.' }
+            const issue_number = parseInt(process.env.PR_NUMBER, 10);
+            if (issue_number) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                body
+              });
+            }
+
+      - name: Upload Autofix Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-report-${{ env.CATEGORY }}
+          path: .autofix
+          retention-days: 14
+
+      - name: Enable automerge (if clean)
+        if: steps.commit.outputs.changed == 'true' && steps.report.outputs.regression == '0' && inputs.automerge == 'true'
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
+          merge-method: SQUASH
+
+      - name: Create issue for regression
+        if: steps.commit.outputs.changed == 'true' && steps.report.outputs.regression == '1' && inputs.create_issue_on_failure == 'true'
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "Autofix regression detected (${{ env.CATEGORY }})"
+          content-filepath: .autofix/REPORT.md
+          labels: autofix, regression, ${{ env.CATEGORY }}
+
+      - name: Create issue when no changes
+        if: steps.commit.outputs.changed != 'true' && inputs.create_issue_on_failure == 'true'
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "No automated fixes available (${{ env.CATEGORY }})"
+          content-filepath: .autofix/REPORT.md
+          labels: autofix, no-fix, ${{ env.CATEGORY }}

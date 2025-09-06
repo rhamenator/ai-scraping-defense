@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # =============================================================================
 #  setup_load_test_suite.sh - install basic load testing tools
 #
@@ -6,7 +6,7 @@
 #  AI Scraping Defense stack. Use only against infrastructure you own
 #  or are authorized to test.
 # =============================================================================
-set -e
+set -euo pipefail
 
 echo "=== Installing load testing tools ==="
 

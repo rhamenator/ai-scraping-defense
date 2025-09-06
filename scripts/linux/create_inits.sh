@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 #
 # SYNOPSIS
 #   Recursively creates an empty __init__.py file in directories that contain Python scripts.

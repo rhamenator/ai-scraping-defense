@@ -1,0 +1,46 @@
+name: Run Autofix (Generic)
+
+on:
+  workflow_dispatch:
+    inputs:
+      category:
+        description: Category to target (security|code-quality|architecture|performance|operations|compliance)
+        required: false
+        default: code-quality
+      pr_title:
+        description: Title for the pull request
+        required: false
+        default: Automated fixes
+      automerge:
+        description: Enable automerge when checks pass (true|false)
+        required: false
+        default: "true"
+      run_tests:
+        description: Run tests before/after fixes (true|false)
+        required: false
+        default: "true"
+      create_issue_on_failure:
+        description: Create an issue if no fixes or regressions detected (true|false)
+        required: false
+        default: "true"
+      base_branch:
+        description: Base branch for the PR
+        required: false
+        default: main
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run-autofix:
+    uses: ./.github/workflows/autofix-and-guard.yml
+    with:
+      category: ${{ inputs.category }}
+      pr_title: ${{ inputs.pr_title }}
+      automerge: ${{ inputs.automerge }}
+      run_tests: ${{ inputs.run_tests }}
+      create_issue_on_failure: ${{ inputs.create_issue_on_failure }}
+      base_branch: ${{ inputs.base_branch }}
+

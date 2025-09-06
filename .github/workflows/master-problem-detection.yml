@@ -14,6 +14,28 @@ on:
         description: "Generate consolidated report (true|false)"
         required: false
         default: "true"
+      autofix:
+        description: "Run autofix and open PRs (true|false)"
+        required: false
+        default: "true"
+  workflow_call:
+    inputs:
+      categories:
+        type: string
+        required: false
+        default: all
+      priority_filter:
+        type: string
+        required: false
+        default: all
+      generate_consolidated_report:
+        type: string
+        required: false
+        default: "true"
+      autofix:
+        type: string
+        required: false
+        default: "true"
 
 permissions:
   contents: read
@@ -28,6 +50,7 @@ jobs:
     with:
       severity_filter: ${{ github.event.inputs.priority_filter }}
       output_format: "json"
+      autofix: ${{ github.event.inputs.autofix }}
 
   # Architecture Analysis  
   architecture-analysis:
@@ -36,6 +59,7 @@ jobs:
     with:
       analysis_depth: "detailed"
       focus_area: "all"
+      autofix: ${{ github.event.inputs.autofix }}
 
   # Performance Analysis
   performance-analysis:
@@ -44,6 +68,7 @@ jobs:
     with:
       benchmark_duration: "60"
       memory_analysis: "true"
+      autofix: ${{ github.event.inputs.autofix }}
 
   # Operations Analysis
   operations-analysis:
@@ -52,6 +77,7 @@ jobs:
     with:
       environment: "all"
       check_external_deps: "true"
+      autofix: ${{ github.event.inputs.autofix }}
 
   # Code Quality Analysis
   code-quality-analysis:
@@ -60,6 +86,7 @@ jobs:
     with:
       quality_threshold: "moderate"
       include_metrics: "true"
+      autofix: ${{ github.event.inputs.autofix }}
 
   # Compliance Analysis
   compliance-analysis:
@@ -68,6 +95,7 @@ jobs:
     with:
       compliance_framework: "all"
       audit_depth: "detailed"
+      autofix: ${{ github.event.inputs.autofix }}
 
   # Consolidated Report Generation
   generate-consolidated-report:

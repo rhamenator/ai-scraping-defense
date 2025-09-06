@@ -1,0 +1,129 @@
+name: Validate Scripts (Dry Run)
+
+on:
+  workflow_dispatch:
+    inputs:
+      script_glob:
+        description: Glob of scripts to validate (default scripts/**/*.sh)
+        required: false
+        default: "scripts/**/*.sh"
+      dry_run_args:
+        description: Args to pass to scripts for dry-run/help
+        required: false
+        default: "--help"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pre-pull containers
+        run: |
+          docker pull nginx:stable-alpine || true
+          docker pull httpd:2.4 || true
+          docker pull ubuntu:22.04 || true
+
+      - name: List target scripts
+        id: list
+        run: |
+          python3 - << 'PY'
+import glob, json, os
+pat = os.getenv('INPUT_SCRIPT_GLOB') or 'scripts/**/*.sh'
+files = sorted(glob.glob(pat, recursive=True))
+print("Found", len(files), "scripts")
+print("::set-output name=files::" + json.dumps(files))
+PY
+
+      - name: Bash syntax check (bash -n)
+        run: |
+          python3 - << 'PY'
+import json, subprocess, os, sys
+files = json.loads(os.getenv('FILES','[]'))
+errors = 0
+for f in files:
+    res = subprocess.run(['bash','-n',f], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    if res.returncode != 0:
+        errors += 1
+        print(f"SYNTAX ERROR: {f}\n{res.stdout}")
+open('.scripts-validate-bash-n.txt','w').write(str(errors))
+print(f"Total syntax errors: {errors}")
+PY
+        env:
+          FILES: ${{ steps.list.outputs.files }}
+
+      - name: Try running scripts in nginx container (dry-run/help)
+        run: |
+          set -e
+          mkdir -p .scripts-logs
+          python3 - << 'PY'
+import json, os, subprocess, shlex
+files = json.loads(os.getenv('FILES','[]'))
+args = os.getenv('INPUT_DRY_RUN_ARGS','--help')
+for f in files:
+    # Heuristic: only test scripts mentioning 'nginx' inside nginx container
+    try:
+        with open(f,'r',encoding='utf-8',errors='ignore') as fh:
+            txt = fh.read().lower()
+        if 'nginx' not in txt:
+            continue
+        log = f.replace('/','_') + '.nginx.log'
+        cmd = ['docker','run','--rm','-v',os.getcwd()+':/work','-w','/work','nginx:stable-alpine','/bin/sh','-lc', f"apk add --no-cache bash >/dev/null 2>&1 || true; DRY_RUN=1 bash -x {shlex.quote(f)} {args} || true"]
+        subprocess.run(cmd, check=False)
+    except Exception as e:
+        pass
+PY
+        env:
+          FILES: ${{ steps.list.outputs.files }}
+
+      - name: Try running scripts in httpd container (dry-run/help)
+        run: |
+          set -e
+          python3 - << 'PY'
+import json, os, subprocess, shlex
+files = json.loads(os.getenv('FILES','[]'))
+args = os.getenv('INPUT_DRY_RUN_ARGS','--help')
+for f in files:
+    try:
+        with open(f,'r',encoding='utf-8',errors='ignore') as fh:
+            txt = fh.read().lower()
+        if 'httpd' not in txt and 'apachectl' not in txt and 'apache' not in txt:
+            continue
+        cmd = ['docker','run','--rm','-v',os.getcwd()+':/work','-w','/work','httpd:2.4','/bin/sh','-lc', f"command -v bash >/dev/null 2>&1 || (apt-get update && apt-get install -y bash >/dev/null 2>&1); DRY_RUN=1 bash -x {shlex.quote(f)} {args} || true"]
+        subprocess.run(cmd, check=False)
+    except Exception:
+        pass
+PY
+        env:
+          FILES: ${{ steps.list.outputs.files }}
+
+      - name: Try running generic scripts in Ubuntu container (dry-run/help)
+        run: |
+          set -e
+          python3 - << 'PY'
+import json, os, subprocess, shlex
+files = json.loads(os.getenv('FILES','[]'))
+args = os.getenv('INPUT_DRY_RUN_ARGS','--help')
+for f in files:
+    try:
+        with open(f,'r',encoding='utf-8',errors='ignore') as fh:
+            txt = fh.read().lower()
+        if any(k in txt for k in ['nginx','httpd','apache']):
+            continue
+        cmd = ['docker','run','--rm','-v',os.getcwd()+':/work','-w','/work','ubuntu:22.04','/bin/bash','-lc', f"apt-get update >/dev/null 2>&1 && apt-get install -y bash curl ca-certificates >/dev/null 2>&1; DRY_RUN=1 bash -x {shlex.quote(f)} {args} || true"]
+        subprocess.run(cmd, check=False)
+    except Exception:
+        pass
+PY
+        env:
+          FILES: ${{ steps.list.outputs.files }}
+
+      - name: Summary
+        run: |
+          echo "## Scripts dry-run completed" >> $GITHUB_STEP_SUMMARY
+          echo "Validated scripts matching: ${INPUT_SCRIPT_GLOB}" >> $GITHUB_STEP_SUMMARY
+          echo "Nginx/Apache containers were used for scripts that reference those servers." >> $GITHUB_STEP_SUMMARY

@@ -10,9 +10,29 @@ on:
         description: "Check external dependencies (true|false)"
         required: false
         default: "true"
+      autofix:
+        description: "Run autofix and open PR (true|false)"
+        required: false
+        default: "true"
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: false
+        default: all
+      check_external_deps:
+        type: string
+        required: false
+        default: "true"
+      autofix:
+        type: string
+        required: false
+        default: "true"
 
 permissions:
   contents: read
+  pull-requests: write
+  issues: write
 
 jobs:
   comprehensive-operations-audit:
@@ -332,3 +352,12 @@ jobs:
         run: |
           echo "## 🔧 Operations Analysis Results" >> $GITHUB_STEP_SUMMARY
           cat reports/operations/OPERATIONS_SUMMARY.md >> $GITHUB_STEP_SUMMARY
+
+  autofix:
+    if: ${{ inputs.autofix == 'true' }}
+    needs: comprehensive-operations-audit
+    uses: ./.github/workflows/autofix-and-guard.yml
+    with:
+      category: operations
+      pr_title: Automated operational fixes
+      automerge: "true"

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # SYNOPSIS
 #   Completely resets the Python virtual environment.
@@ -14,7 +14,7 @@
 #
 
 # Use -e to exit immediately if a command fails
-set -e
+set -euo pipefail
 
 echo "--- Step 1: Installing required system dependencies ---"
 # The lxml package requires these development libraries to build correctly.

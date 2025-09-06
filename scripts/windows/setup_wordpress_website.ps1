@@ -22,9 +22,10 @@ if ($content -match '^REAL_BACKEND_HOST=') {
 }
 
 # Start the stack
-docker-compose up --build -d
+. "$PSScriptRoot/Lib.ps1"
+Invoke-Compose @('up','--build','-d')
 
-$networkName = (docker network ls --filter name=defense_network -q | Select-Object -First 1)
+$networkName = Get-DefenseNetwork
 if (-not $networkName) {
     Write-Error 'Could not locate the defense_network. Is the stack running?'
     exit 1
@@ -45,6 +46,8 @@ if (-not (docker ps -q -f name=wordpress_db)) {
 
 # Launch WordPress
 if (-not (docker ps -q -f name=wordpress)) {
+    Write-Host 'Waiting for MariaDB readiness...'
+    Wait-MariaDB -Container 'wordpress_db' -TimeoutSeconds 120
     docker run -d --name wordpress `
         --network $networkName `
         -p 8082:80 `

@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Quick setup for IIS deployment on Windows using WSL or Git Bash
-set -e
+set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"

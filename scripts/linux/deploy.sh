@@ -9,6 +9,13 @@
 # Use -e to exit immediately if a command fails
 set -e
 
+# OS guard: Linux only
+if [ "$(uname -s)" != "Linux" ]; then
+  echo "Unsupported OS: $(uname -s). This entrypoint supports Linux only." >&2
+  echo "Use scripts/macos/*.zsh on macOS or scripts/windows/*.ps1 on Windows." >&2
+  exit 1
+fi
+
 # Define the namespace for easy reference
 NAMESPACE="ai-defense"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

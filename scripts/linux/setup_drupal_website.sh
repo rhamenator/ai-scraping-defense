@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This script adds Drupal and its database service to the docker-compose.yaml file.
 
 # Check if docker-compose.yaml exists
@@ -50,4 +50,4 @@ EOT
 
 echo "Drupal services added."
 echo "Please create a file 'nginx/sites-enabled/drupal.conf' and configure it to proxy to 'http://drupal_app:80'."
-echo "Then, run 'docker-compose up -d --build' to start your new Drupal site."
+echo "Then, run 'docker compose up -d --build' to start your new Drupal site."

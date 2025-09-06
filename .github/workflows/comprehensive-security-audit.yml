@@ -10,9 +10,29 @@ on:
         description: "Output format (json|sarif|text)"
         required: false
         default: "json"
+      autofix:
+        description: "Run autofix and open PR (true|false)"
+        required: false
+        default: "true"
+  workflow_call:
+    inputs:
+      severity_filter:
+        type: string
+        required: false
+        default: all
+      output_format:
+        type: string
+        required: false
+        default: json
+      autofix:
+        type: string
+        required: false
+        default: "true"
 
 permissions:
   contents: read
+  pull-requests: write
+  issues: write
   security-events: write
   actions: read
 
@@ -289,3 +309,12 @@ jobs:
         run: |
           echo "## 🔒 Security Audit Results" >> $GITHUB_STEP_SUMMARY
           cat reports/security/SECURITY_SUMMARY.md >> $GITHUB_STEP_SUMMARY
+
+  autofix:
+    if: ${{ inputs.autofix == 'true' }}
+    needs: comprehensive-security-audit
+    uses: ./.github/workflows/autofix-and-guard.yml
+    with:
+      category: security
+      pr_title: Automated security fixes
+      automerge: "true"

@@ -16,7 +16,7 @@ if ($content -match '^REAL_BACKEND_HOST=') {
     Add-Content '.env' 'REAL_BACKEND_HOST=http://wordpress:80'
 }
 
-$networkName = (docker network ls --filter name=defense_network -q | Select-Object -First 1)
+$networkName = Get-DefenseNetwork
 if (-not $networkName) {
     Write-Error 'Could not locate the defense_network. Did quick_takeover run?'
     exit 1
@@ -37,6 +37,9 @@ if (-not (docker ps -q -f name=wordpress_db)) {
 
 # Launch WordPress
 if (-not (docker ps -q -f name=wordpress)) {
+    Write-Host 'Waiting for MariaDB readiness...'
+    . "$PSScriptRoot/Lib.ps1"
+    Wait-MariaDB -Container 'wordpress_db' -TimeoutSeconds 120
     docker run -d --name wordpress `
         --network $networkName `
         -p 8082:80 `

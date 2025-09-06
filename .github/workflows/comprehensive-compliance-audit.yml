@@ -10,9 +10,29 @@ on:
         description: "Audit depth (basic|detailed|comprehensive)"
         required: false
         default: "detailed"
+      autofix:
+        description: "Run autofix and open PR (true|false)"
+        required: false
+        default: "true"
+  workflow_call:
+    inputs:
+      compliance_framework:
+        type: string
+        required: false
+        default: all
+      audit_depth:
+        type: string
+        required: false
+        default: detailed
+      autofix:
+        type: string
+        required: false
+        default: "true"
 
 permissions:
   contents: read
+  pull-requests: write
+  issues: write
 
 jobs:
   comprehensive-compliance-audit:
@@ -342,3 +362,12 @@ jobs:
         run: |
           echo "## ⚖️ Compliance Analysis Results" >> $GITHUB_STEP_SUMMARY
           cat reports/compliance/COMPLIANCE_SUMMARY.md >> $GITHUB_STEP_SUMMARY
+
+  autofix:
+    if: ${{ inputs.autofix == 'true' }}
+    needs: comprehensive-compliance-audit
+    uses: ./.github/workflows/autofix-and-guard.yml
+    with:
+      category: compliance
+      pr_title: Automated compliance-related fixes
+      automerge: "true"

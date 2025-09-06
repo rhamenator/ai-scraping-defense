@@ -10,9 +10,29 @@ on:
         description: "Include detailed metrics (true|false)"
         required: false
         default: "true"
+      autofix:
+        description: "Run autofix and open PR (true|false)"
+        required: false
+        default: "true"
+  workflow_call:
+    inputs:
+      quality_threshold:
+        type: string
+        required: false
+        default: moderate
+      include_metrics:
+        type: string
+        required: false
+        default: "true"
+      autofix:
+        type: string
+        required: false
+        default: "true"
 
 permissions:
   contents: read
+  pull-requests: write
+  issues: write
 
 jobs:
   comprehensive-code-quality-audit:
@@ -328,3 +348,12 @@ jobs:
         run: |
           echo "## 📊 Code Quality Analysis Results" >> $GITHUB_STEP_SUMMARY
           cat reports/code-quality/CODE_QUALITY_SUMMARY.md >> $GITHUB_STEP_SUMMARY
+
+  autofix:
+    if: ${{ inputs.autofix == 'true' }}
+    needs: comprehensive-code-quality-audit
+    uses: ./.github/workflows/autofix-and-guard.yml
+    with:
+      category: code-quality
+      pr_title: Automated code-quality fixes
+      automerge: "true"

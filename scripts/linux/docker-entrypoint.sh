@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This script acts as the entrypoint for multiple services.
 # It ensures dependencies are ready and performs one-time initialization tasks
 # before launching the main application process.
 
-set -e
+set -euo pipefail
 
 # Define the expected path for the bot detection model.
 # The MODEL_PATH env var should be set in docker-compose.yaml.

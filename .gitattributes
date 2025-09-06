@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+scripts/linux/*.sh text eol=lf
+scripts/macos/*.zsh text eol=lf
+scripts/windows/*.ps1 text eol=crlf
