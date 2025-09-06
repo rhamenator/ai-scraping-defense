@@ -25,7 +25,8 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: github/codeql-action/init@v3
-        with: { languages: javascript, typescript, python, go, ruby, java, cpp }
+        with:
+          languages: "javascript, typescript, python, go, ruby, java, cpp"
       - uses: github/codeql-action/autobuild@v3
       - uses: github/codeql-action/analyze@v3
         with: { category: "/language:auto" }
@@ -102,12 +103,12 @@ jobs:
           python3 .github/tools/aggregate_security_counts.py | tee reports/summary.json
           echo "## Security Findings (remaining to fix)" >> $GITHUB_STEP_SUMMARY
           python3 - <<'PY'
-import json
-d=json.load(open("reports/summary.json"))
-print("| Severity | Count |\n|---|---|")
-for k in ["critical","high","medium","low","info"]:
-    print(f"| {k.capitalize()} | {d.get(k,0)} |")
-print(f"| **Total** | **{d.get('total',0)}** |")
-PY
+          import json
+          d=json.load(open("reports/summary.json"))
+          print("| Severity | Count |\n|---|---|")
+          for k in ["critical","high","medium","low","info"]:
+              print(f"| {k.capitalize()} | {d.get(k,0)} |")
+          print(f"| **Total** | **{d.get('total',0)}** |")
+          PY
       - uses: actions/upload-artifact@v4
         with: { name: security-reports, path: reports/ }

@@ -13,7 +13,8 @@ permissions:
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
   cancel-in-progress: true
-env: { REGISTRY: ghcr.io }
+env:
+  REGISTRY: ghcr.io
 jobs:
   promote:
     permissions:
@@ -22,7 +23,9 @@ jobs:
       deployments: write
       id-token: write
     runs-on: ubuntu-latest
-    environment: { name: production, url: ${{ secrets.PROD_BASE_URL }} }
+    environment:
+      name: production
+      url: ${{ secrets.PROD_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
       - name: Login GHCR

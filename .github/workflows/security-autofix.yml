@@ -30,3 +30,4 @@ jobs:
       category: security
       pr_title: Automated security/style fixes
       automerge: "true"
+      

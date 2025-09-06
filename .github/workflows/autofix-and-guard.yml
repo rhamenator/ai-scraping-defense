@@ -154,13 +154,13 @@ jobs:
           # Bandit baseline
           bandit -q -r . -f json -o .autofix/bandit_before.json || true
           python - << 'PY' >> $GITHUB_OUTPUT
-import json, sys
-try:
-    d=json.load(open('.autofix/bandit_before.json'))
-    print(f"bandit_before={len(d.get('results', []))}")
-except Exception:
-    print("bandit_before=0")
-PY
+          import json, sys
+          try:
+              d=json.load(open('.autofix/bandit_before.json'))
+              print(f"bandit_before={len(d.get('results', []))}")
+          except Exception:
+              print("bandit_before=0")
+          PY
           # ESLint baseline
           if [ -f package.json ]; then
             npx --yes eslint . --ext .js,.jsx,.ts,.tsx -f json > .autofix/eslint_before.json 2>/dev/null || true
@@ -387,13 +387,13 @@ PY
           echo "flake8_after=$(wc -l < .autofix/flake8_after.txt)" >> $GITHUB_OUTPUT
           bandit -q -r . -f json -o .autofix/bandit_after.json || true
           python - << 'PY' >> $GITHUB_OUTPUT
-import json, sys
-try:
-    d=json.load(open('.autofix/bandit_after.json'))
-    print(f"bandit_after={len(d.get('results', []))}")
-except Exception:
-    print("bandit_after=0")
-PY
+          import json, sys
+          try:
+              d=json.load(open('.autofix/bandit_after.json'))
+              print(f"bandit_after={len(d.get('results', []))}")
+          except Exception:
+              print("bandit_after=0")
+          PY
           if [ -f package.json ]; then
             npx --yes eslint . --ext .js,.jsx,.ts,.tsx -f json > .autofix/eslint_after.json 2>/dev/null || true
             ESL_AFTER=$(jq '[ .[] | (.errorCount + .warningCount) ] | add // 0' .autofix/eslint_after.json 2>/dev/null || echo 0)
@@ -524,70 +524,70 @@ PY
           set -e
           mkdir -p .autofix
           cat > .autofix/REPORT.md << 'MD'
-## Autofix Report
+          ## Autofix Report
 
-This report summarizes automated fixes and guardrail checks.
+          This report summarizes automated fixes and guardrail checks.
 
-- Category: ${CATEGORY}
-- Branch: ${{ steps.br.outputs.branch }}
+          - Category: ${CATEGORY}
+          - Branch: ${{ steps.br.outputs.branch }}
 
-### Lint (flake8)
-- Before: ${{ steps.baseline.outputs.flake8_before }}
-- After:  ${{ steps.after.outputs.flake8_after }}
+          ### Lint (flake8)
+          - Before: ${{ steps.baseline.outputs.flake8_before }}
+          - After:  ${{ steps.after.outputs.flake8_after }}
 
-### Security (bandit)
-- Before: ${{ steps.baseline.outputs.bandit_before }}
-- After:  ${{ steps.after.outputs.bandit_after }}
+          ### Security (bandit)
+          - Before: ${{ steps.baseline.outputs.bandit_before }}
+          - After:  ${{ steps.after.outputs.bandit_after }}
 
-### JS/TS (eslint)
-- Before: ${{ steps.baseline.outputs.eslint_before }}
-- After:  ${{ steps.after.outputs.eslint_after }}
+          ### JS/TS (eslint)
+          - Before: ${{ steps.baseline.outputs.eslint_before }}
+          - After:  ${{ steps.after.outputs.eslint_after }}
 
-### YAML (yamllint)
-- Before: ${{ steps.baseline.outputs.yamllint_before }}
-- After:  ${{ steps.after.outputs.yamllint_after }}
+          ### YAML (yamllint)
+          - Before: ${{ steps.baseline.outputs.yamllint_before }}
+          - After:  ${{ steps.after.outputs.yamllint_after }}
 
-### Shell (shellcheck)
-- Before: ${{ steps.baseline.outputs.shellcheck_before }}
-- After:  ${{ steps.after.outputs.shellcheck_after }}
+          ### Shell (shellcheck)
+          - Before: ${{ steps.baseline.outputs.shellcheck_before }}
+          - After:  ${{ steps.after.outputs.shellcheck_after }}
 
-### Dockerfiles (hadolint)
-- Before: ${{ steps.baseline.outputs.hadolint_before }}
-- After:  ${{ steps.after.outputs.hadolint_after }}
+          ### Dockerfiles (hadolint)
+          - Before: ${{ steps.baseline.outputs.hadolint_before }}
+          - After:  ${{ steps.after.outputs.hadolint_after }}
 
-### Markdown (markdownlint)
-- Before: ${{ steps.baseline.outputs.markdownlint_before }}
-- After:  ${{ steps.after.outputs.markdownlint_after }}
+          ### Markdown (markdownlint)
+          - Before: ${{ steps.baseline.outputs.markdownlint_before }}
+          - After:  ${{ steps.after.outputs.markdownlint_after }}
 
-### Go (golangci-lint)
-- Before: ${{ steps.baseline.outputs.golangci_before }}
-- After:  ${{ steps.after.outputs.golangci_after }}
+          ### Go (golangci-lint)
+          - Before: ${{ steps.baseline.outputs.golangci_before }}
+          - After:  ${{ steps.after.outputs.golangci_after }}
 
-### Terraform (tflint / tfsec)
-- TFLint Before: ${{ steps.baseline.outputs.tflint_before }} | After: ${{ steps.after.outputs.tflint_after }}
-- tfsec Before: ${{ steps.baseline.outputs.tfsec_before }} | After: ${{ steps.after.outputs.tfsec_after }}
+          ### Terraform (tflint / tfsec)
+          - TFLint Before: ${{ steps.baseline.outputs.tflint_before }} | After: ${{ steps.after.outputs.tflint_after }}
+          - tfsec Before: ${{ steps.baseline.outputs.tfsec_before }} | After: ${{ steps.after.outputs.tfsec_after }}
 
-### GitHub Workflows (actionlint)
-- Before: ${{ steps.baseline.outputs.actionlint_before }}
-- After:  ${{ steps.after.outputs.actionlint_after }}
+          ### GitHub Workflows (actionlint)
+          - Before: ${{ steps.baseline.outputs.actionlint_before }}
+          - After:  ${{ steps.after.outputs.actionlint_after }}
 
-### Nginx Config
-- Before (error lines): ${{ steps.baseline.outputs.nginx_before }}
-- After (error lines):  ${{ steps.after.outputs.nginx_after }}
+          ### Nginx Config
+          - Before (error lines): ${{ steps.baseline.outputs.nginx_before }}
+          - After (error lines):  ${{ steps.after.outputs.nginx_after }}
 
-### Apache httpd Config
-- Before (non-OK lines): ${{ steps.baseline.outputs.apache_before }}
-- After (non-OK lines):  ${{ steps.after.outputs.apache_after }}
+          ### Apache httpd Config
+          - Before (non-OK lines): ${{ steps.baseline.outputs.apache_before }}
+          - After (non-OK lines):  ${{ steps.after.outputs.apache_after }}
 
-### PowerShell (PSScriptAnalyzer)
-- Before: ${{ steps.baseline.outputs.pssa_before }}
-- After:  ${{ steps.after.outputs.pssa_after }}
+          ### PowerShell (PSScriptAnalyzer)
+          - Before: ${{ steps.baseline.outputs.pssa_before }}
+          - After:  ${{ steps.after.outputs.pssa_after }}
 
-### Tests (pytest exit code)
-- Before: ${{ steps.baseline.outputs.tests_before }}
-- After:  ${{ steps.after.outputs.tests_after }}
+          ### Tests (pytest exit code)
+          - Before: ${{ steps.baseline.outputs.tests_before }}
+          - After:  ${{ steps.after.outputs.tests_after }}
 
-MD
+          MD
           echo "report=.autofix/REPORT.md" >> $GITHUB_OUTPUT
           # Export metrics for PR summary builder
           echo "FL_BEFORE=${{ steps.baseline.outputs.flake8_before }}" >> $GITHUB_ENV
@@ -620,50 +620,50 @@ MD
           echo "PS_AFTER=${{ steps.after.outputs.pssa_after || 0 }}" >> $GITHUB_ENV
           # Build concise PR body
           python - << 'PY'
-import os
+          import os
 
-def emoji(before, after):
-    try:
-        b, a = int(before), int(after)
-        if a < b:
-            return '✅'
-        elif a == b:
-            return '➖'
-        else:
-            return '❌'
-    except:
-        return '➖'
+          def emoji(before, after):
+              try:
+                  b, a = int(before), int(after)
+                  if a < b:
+                      return '✅'
+                  elif a == b:
+                      return '➖'
+                  else:
+                      return '❌'
+              except:
+                  return '➖'
 
-metrics = [
-    ('flake8', os.getenv('FL_BEFORE','0'), os.getenv('FL_AFTER','0')),
-    ('bandit', os.getenv('BD_BEFORE','0'), os.getenv('BD_AFTER','0')),
-    ('eslint', os.getenv('ESL_BEFORE','0'), os.getenv('ESL_AFTER','0')),
-    ('actionlint', os.getenv('AL_BEFORE','0'), os.getenv('AL_AFTER','0')),
-    ('yamllint', os.getenv('YL_BEFORE','0'), os.getenv('YL_AFTER','0')),
-    ('shellcheck', os.getenv('SC_BEFORE','0'), os.getenv('SC_AFTER','0')),
-    ('hadolint', os.getenv('HD_BEFORE','0'), os.getenv('HD_AFTER','0')),
-    ('markdownlint', os.getenv('MD_BEFORE','0'), os.getenv('MD_AFTER','0')),
-    ('golangci', os.getenv('GO_BEFORE','0'), os.getenv('GO_AFTER','0')),
-    ('tflint', os.getenv('TF_BEFORE','0'), os.getenv('TF_AFTER','0')),
-    ('tfsec', os.getenv('TS_BEFORE','0'), os.getenv('TS_AFTER','0')),
-    ('nginx(err)', os.getenv('NG_BEFORE','0'), os.getenv('NG_AFTER','0')),
-    ('apache(err)', os.getenv('AP_BEFORE','0'), os.getenv('AP_AFTER','0')),
-    ('pssa', os.getenv('PS_BEFORE','0'), os.getenv('PS_AFTER','0')),
-]
+          metrics = [
+              ('flake8', os.getenv('FL_BEFORE','0'), os.getenv('FL_AFTER','0')),
+              ('bandit', os.getenv('BD_BEFORE','0'), os.getenv('BD_AFTER','0')),
+              ('eslint', os.getenv('ESL_BEFORE','0'), os.getenv('ESL_AFTER','0')),
+              ('actionlint', os.getenv('AL_BEFORE','0'), os.getenv('AL_AFTER','0')),
+              ('yamllint', os.getenv('YL_BEFORE','0'), os.getenv('YL_AFTER','0')),
+              ('shellcheck', os.getenv('SC_BEFORE','0'), os.getenv('SC_AFTER','0')),
+              ('hadolint', os.getenv('HD_BEFORE','0'), os.getenv('HD_AFTER','0')),
+              ('markdownlint', os.getenv('MD_BEFORE','0'), os.getenv('MD_AFTER','0')),
+              ('golangci', os.getenv('GO_BEFORE','0'), os.getenv('GO_AFTER','0')),
+              ('tflint', os.getenv('TF_BEFORE','0'), os.getenv('TF_AFTER','0')),
+              ('tfsec', os.getenv('TS_BEFORE','0'), os.getenv('TS_AFTER','0')),
+              ('nginx(err)', os.getenv('NG_BEFORE','0'), os.getenv('NG_AFTER','0')),
+              ('apache(err)', os.getenv('AP_BEFORE','0'), os.getenv('AP_AFTER','0')),
+              ('pssa', os.getenv('PS_BEFORE','0'), os.getenv('PS_AFTER','0')),
+          ]
 
-lines = []
-lines.append(f"Automated {os.getenv('CATEGORY','code-quality')} fixes.\n")
-lines.append('Summary of key checks:')
-lines.append('')
-lines.append('| Check | Before | After | Trend |')
-lines.append('|------:|-------:|------:|:-----:|')
-for name, before, after in metrics:
-    lines.append(f"| {name} | {before} | {after} | {emoji(before, after)} |")
-lines.append('')
-lines.append(f"See artifact 'autofix-report-{os.getenv('CATEGORY','code-quality')}' for details.")
+          lines = []
+          lines.append(f"Automated {os.getenv('CATEGORY','code-quality')} fixes.\n")
+          lines.append('Summary of key checks:')
+          lines.append('')
+          lines.append('| Check | Before | After | Trend |')
+          lines.append('|------:|-------:|------:|:-----:|')
+          for name, before, after in metrics:
+              lines.append(f"| {name} | {before} | {after} | {emoji(before, after)} |")
+          lines.append('')
+          lines.append(f"See artifact 'autofix-report-{os.getenv('CATEGORY','code-quality')}' for details.")
 
-open('.autofix/PR_BODY.md','w').write('\n'.join(lines))
-PY
+          open('.autofix/PR_BODY.md','w').write('\n'.join(lines))
+          PY
           # Determine regression conditions
           REGRESS=0
           if [ ${{ steps.after.outputs.flake8_after }} -gt ${{ steps.baseline.outputs.flake8_before || 0 }} ]; then REGRESS=1; fi
