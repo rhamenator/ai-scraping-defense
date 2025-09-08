@@ -686,7 +686,7 @@ jobs:
       - name: Create pull request (if changes)
         if: steps.commit.outputs.changed == 'true'
         id: cpr
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           branch: ${{ steps.br.outputs.branch }}
           title: ${{ env.PR_TITLE }}
