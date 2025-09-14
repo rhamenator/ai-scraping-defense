@@ -27,9 +27,7 @@ jobs:
       deployments: write
       id-token: write
     runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: ${{ secrets.PROD_BASE_URL }}
+    environment: production
     steps:
       - uses: actions/checkout@v4
       - name: Login GHCR
@@ -47,14 +45,21 @@ jobs:
           done; cat images.txt
       - id: auth
         uses: google-github-actions/auth@v2
+        env:
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
       - uses: google-github-actions/get-gke-credentials@v2
+        env:
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+          GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
+          GCP_REGION: ${{ secrets.GCP_REGION }}
         with:
-          project_id: ${{ secrets.GCP_PROJECT }}
-          cluster_name: ${{ secrets.GKE_CLUSTER }}
-          location: ${{ secrets.GCP_REGION }}
+          project_id: ${{ env.GCP_PROJECT }}
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GCP_REGION }}
       - uses: azure/setup-helm@v4
       - name: Helm upgrade/install (production)
         run: |
