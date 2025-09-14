@@ -77,17 +77,17 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c
         with:
           python-version: '3.11'
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 
@@ -131,7 +131,7 @@ jobs:
           if command -v cargo >/dev/null 2>&1; then cargo install taplo-cli --locked || true; fi
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
         with:
           terraform_version: 1.6.6
 
@@ -720,7 +720,7 @@ jobs:
             }
 
       - name: Upload Autofix Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: autofix-report-${{ env.CATEGORY }}
           path: .autofix
@@ -728,7 +728,7 @@ jobs:
 
       - name: Enable automerge (if clean)
         if: steps.commit.outputs.changed == 'true' && steps.report.outputs.regression == '0' && inputs.automerge == 'true'
-        uses: peter-evans/enable-pull-request-automerge@v3
+        uses: peter-evans/enable-pull-request-automerge@a660677d5469627102a1c1e11409dd063606628d
         with:
           pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
           merge-method: SQUASH

@@ -18,7 +18,7 @@ jobs:
       checks: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -40,7 +40,7 @@ jobs:
       - name: Run test suite
         run: python test/run_all_tests.py
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238
         with:
           files: coverage.xml
           fail_ci_if_error: true

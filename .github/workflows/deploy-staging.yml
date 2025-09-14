@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
       - name: Login GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u ${{ github.actor }} --password-stdin
       - name: Build & push images (only where Dockerfile exists)
@@ -57,7 +57,7 @@ jobs:
           project_id: ${{ env.GCP_PROJECT }}
           cluster_name: ${{ env.GKE_CLUSTER }}
           location: ${{ env.GCP_REGION }}
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a
       - name: Helm upgrade/install
         run: |
           set -eux

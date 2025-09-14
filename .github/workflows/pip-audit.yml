@@ -12,7 +12,7 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -26,6 +26,6 @@ jobs:
         run: |
           pip-audit -r requirements.txt -f sarif -o pip-audit.sarif
       - name: Upload results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@528ca598d956c91826bd742262cdfc5d02b77710
         with:
           sarif_file: pip-audit.sarif
