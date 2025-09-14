@@ -27,7 +27,7 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
       - name: Login GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u ${{ github.actor }} --password-stdin
       - name: Build & push images for PR
@@ -51,7 +51,7 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT }}
           cluster_name: ${{ secrets.GKE_CLUSTER }}
           location: ${{ secrets.GCP_REGION }}
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a
       - name: Derive preview host
         id: host
         run: |
