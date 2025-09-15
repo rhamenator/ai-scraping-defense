@@ -24,7 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
       - name: Install jq & gh
-        run: sudo apt-get update && sudo apt-get install -y jq
+        run: sudo apt-get update && sudo apt-get install -y jq gh
+      - name: Install PyYAML
+        run: pip install pyyaml
       - name: Dismiss allowlisted Code Scanning alerts
         run: |
           set -e
