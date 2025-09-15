@@ -64,4 +64,4 @@ jobs:
           while IFS='=' read -r svc img; do echo "  $svc: \"$img\"" >> "$OV"; done < images.txt
           helm upgrade --install ai-scraping-defense "$CHART" -n production --create-namespace -f helm/values-production.yaml -f "$OV"
       - name: Wait for rollout
-        run: kubectl -n production rollout status deploy --timeout=600s || true
+        run: kubectl -n production rollout status deployment --all --timeout=600s || true
