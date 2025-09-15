@@ -27,44 +27,44 @@ jobs:
         if: hashFiles('**/*.py') != ''
         run: |
           python -m pip install --upgrade pip
-          [ -f requirements.txt ] && pip install -r requirements.txt || true
-          [ -f pyproject.toml ] && pip install . || true
-          [ -f setup.py ] && pip install -e . || true
-          pip install pytest pytest-cov || true
-          pytest -q . || true
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f pyproject.toml ]; then pip install .; fi
+          if [ -f setup.py ]; then pip install -e .; fi
+          pip install pytest pytest-cov
+          pytest -q .
       - name: Rust tests
         if: hashFiles('**/Cargo.toml') != ''
         run: |
-          sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev || true
-          cargo test --all --locked || cargo test --all || true
-          cargo clippy --all-targets --all-features -D warnings || true
-          cargo fmt --all -- --check || true
+          sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
+          cargo test --all --locked || cargo test --all
+          cargo clippy --all-targets --all-features -D warnings
+          cargo fmt --all -- --check
       - name: Node tests
         if: hashFiles('**/package.json') != ''
         run: |
           if [ -f package-lock.json ]; then npm ci --ignore-scripts || npm i; else npm i; fi
-          if npm run | grep -q " test"; then npm test --silent || true; else echo "No npm test script"; fi
+          if npm run | grep -q " test"; then npm test --silent; else echo "No npm test script"; fi
       - name: Lint Shell
         if: hashFiles('**/*.sh') != ''
         run: |
           sudo apt-get update && sudo apt-get install -y shellcheck
-          (shopt -s globstar nullglob; for f in **/*.sh; do shellcheck "$f" || true; done)
+          (shopt -s globstar nullglob; for f in **/*.sh; do shellcheck "$f"; done)
       - name: Lint Lua
         if: hashFiles('**/*.lua') != ''
         run: |
-          sudo apt-get update && sudo apt-get install -y luarocks lua5.4 || true
-          sudo luarocks install luacheck || true
-          luacheck . || true
+          sudo apt-get update && sudo apt-get install -y luarocks lua5.4
+          sudo luarocks install luacheck
+          luacheck .
       - name: Validate NGINX configs (syntax only)
         if: hashFiles('nginx/*.conf') != '' || hashFiles('nginx/**/*.conf') != ''
-        run: docker run --rm -v "$PWD/nginx:/etc/nginx:ro" nginx:stable nginx -t -c /etc/nginx/nginx.conf || true
+        run: docker run --rm -v "$PWD/nginx:/etc/nginx:ro" nginx:stable nginx -t -c /etc/nginx/nginx.conf
       - name: Helm/K8s lint
         run: |
           curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tar.gz
-          sudo tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin || true
+          sudo tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin
           if [ -d helm/ai-scraping-defense-v9 ]; then
-            helm lint helm/ai-scraping-defense-v9 || true
-            helm template helm/ai-scraping-defense-v9 | kubeconform -ignore-missing-schemas -strict || true
+            helm lint helm/ai-scraping-defense-v9
+            helm template helm/ai-scraping-defense-v9 | kubeconform -ignore-missing-schemas -strict
           fi
   tests-windows:
     permissions:
@@ -83,7 +83,7 @@ jobs:
           if (Test-Path pyproject.toml) { pip install . }
           if (Test-Path setup.py) { pip install -e . }
           pip install pytest pytest-cov
-          pytest -q . || echo "pytest fallback allowed"
+          pytest -q .
       - name: Node tests (Windows)
         shell: pwsh
         run: |
@@ -93,7 +93,7 @@ jobs:
         shell: pwsh
         run: |
           Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
-          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Recurse -Severity Warning -OutVariable issues } ; $issues | Format-Table || $true
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Recurse -Severity Warning -OutVariable issues } ; $issues | Format-Table
   tests-macos:
     permissions:
       contents: read
@@ -106,15 +106,15 @@ jobs:
       - name: Python tests (macOS)
         run: |
           python3 -m pip install --upgrade pip
-          [ -f requirements.txt ] && pip3 install -r requirements.txt || true
-          [ -f pyproject.toml ] && pip3 install . || true
-          [ -f setup.py ] && pip3 install -e . || true
-          pip3 install pytest pytest-cov || true
-          pytest -q . || true
+          if [ -f requirements.txt ]; then pip3 install -r requirements.txt; fi
+          if [ -f pyproject.toml ]; then pip3 install .; fi
+          if [ -f setup.py ]; then pip3 install -e .; fi
+          pip3 install pytest pytest-cov
+          pytest -q .
       - name: Node tests (macOS)
         run: |
           if [ -f package-lock.json ]; then npm ci --ignore-scripts || npm i; else npm i; fi
-          if npm run | grep -q " test"; then npm test --silent || true; else echo "No npm test script"; fi
+          if npm run | grep -q " test"; then npm test --silent; else echo "No npm test script"; fi
       - name: Run macOS helper scripts (best-effort)
         shell: zsh
         run: |
