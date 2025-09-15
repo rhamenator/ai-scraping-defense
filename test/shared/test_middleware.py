@@ -47,7 +47,7 @@ def get_rate_limiter(app: FastAPI) -> RateLimitMiddleware:
 def test_content_length_exceeds_limit() -> None:
     app = create_app(max_body_size=10)
     client = TestClient(app, raise_server_exceptions=False)
-    resp = client.post("/echo", data="x" * 11)
+    resp = client.post("/echo", content="x" * 11)
     assert resp.status_code == 413
 
 
@@ -59,14 +59,14 @@ def test_streaming_body_exceeds_limit() -> None:
         for _ in range(3):
             yield b"a" * 5
 
-    resp = client.post("/echo", data=gen())
+    resp = client.post("/echo", content=gen())
     assert resp.status_code == 413
 
 
 def test_body_under_limit_and_readable() -> None:
     app = create_app(max_body_size=10)
     client = TestClient(app, raise_server_exceptions=False)
-    resp = client.post("/echo", data="hello")
+    resp = client.post("/echo", content="hello")
     assert resp.status_code == 200
     assert resp.json() == {"len": 5}
 
