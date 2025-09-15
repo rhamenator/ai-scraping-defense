@@ -41,9 +41,17 @@ def _roles_from_claims(claims: dict) -> set[str]:
 
 
 def verify_jwt_from_request(
-    request: Request, required_roles: Optional[Iterable[str]] = None
+    request: Request,
+    required_roles: Optional[Iterable[str]] = None,
+    *,
+    raise_on_missing: bool = True,
 ) -> dict:
     if jwt is None or not JWT_SECRET:
+        if raise_on_missing:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="JWT auth not configured",
+            )
         return {}
     token = _extract_bearer_token(request)
     if not token:
@@ -73,8 +81,12 @@ def verify_jwt_from_request(
     return claims
 
 
-def require_jwt(required_roles: Optional[Iterable[str]] = None):
+def require_jwt(
+    required_roles: Optional[Iterable[str]] = None, *, optional: bool = False
+):
     async def _dep(request: Request):
-        return verify_jwt_from_request(request, required_roles)
+        return verify_jwt_from_request(
+            request, required_roles, raise_on_missing=not optional
+        )
 
     return _dep
