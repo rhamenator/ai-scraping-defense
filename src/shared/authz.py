@@ -1,17 +1,21 @@
 import os
 from typing import Iterable, Optional
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import HTTPException, Request, status
 
 try:
     import jwt
     from jwt import InvalidTokenError
-except Exception as exc:  # pragma: no cover - dependency missing in some envs
+except Exception:  # pragma: no cover - dependency missing in some envs
     jwt = None  # type: ignore
     InvalidTokenError = Exception  # type: ignore
 
 
-ALGORITHMS_DEFAULT = [alg.strip() for alg in os.getenv("AUTH_JWT_ALGORITHMS", "HS256").split(",") if alg.strip()]
+ALGORITHMS_DEFAULT = [
+    alg.strip()
+    for alg in os.getenv("AUTH_JWT_ALGORITHMS", "HS256").split(",")
+    if alg.strip()
+]
 JWT_SECRET = os.getenv("AUTH_JWT_SECRET")
 JWT_ISSUER = os.getenv("AUTH_JWT_ISSUER")
 JWT_AUDIENCE = os.getenv("AUTH_JWT_AUDIENCE")
@@ -37,13 +41,18 @@ def _roles_from_claims(claims: dict) -> set[str]:
 
 
 def verify_jwt_from_request(
-    request: Request, required_roles: Optional[Iterable[str]] = None
+    request: Request,
+    required_roles: Optional[Iterable[str]] = None,
+    *,
+    raise_on_missing: bool = True,
 ) -> dict:
     if jwt is None or not JWT_SECRET:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="JWT auth not configured",
-        )
+        if raise_on_missing:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="JWT auth not configured",
+            )
+        return {}
     token = _extract_bearer_token(request)
     if not token:
         raise HTTPException(
@@ -72,9 +81,12 @@ def verify_jwt_from_request(
     return claims
 
 
-def require_jwt(required_roles: Optional[Iterable[str]] = None):
+def require_jwt(
+    required_roles: Optional[Iterable[str]] = None, *, optional: bool = False
+):
     async def _dep(request: Request):
-        return verify_jwt_from_request(request, required_roles)
+        return verify_jwt_from_request(
+            request, required_roles, raise_on_missing=not optional
+        )
 
     return _dep
-
