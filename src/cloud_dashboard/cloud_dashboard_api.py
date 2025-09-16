@@ -3,10 +3,11 @@
 import asyncio
 import json
 import os
+from contextlib import asynccontextmanager
 from json import JSONDecodeError
 from typing import Any, Dict, List
 
-from fastapi import Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from redis.exceptions import RedisError
 from starlette.websockets import WebSocketState
@@ -14,10 +15,6 @@ from starlette.websockets import WebSocketState
 from src.shared.config import tenant_key
 from src.shared.middleware import create_app
 from src.shared.redis_client import get_redis_connection
-
-app = create_app()
-
-API_KEY = os.getenv("CLOUD_DASHBOARD_API_KEY")
 
 # Redis-backed storage of metrics per installation with TTLs
 METRICS_TTL = 60
@@ -44,20 +41,24 @@ async def _cleanup_stale_watchers() -> None:
                     WATCHERS.pop(inst_id, None)
 
 
-@app.on_event("startup")
-async def _start_watchers_cleanup() -> None:  # pragma: no cover - background task
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # pragma: no cover - startup/shutdown hook
     app.state.watchers_cleanup_task = asyncio.create_task(_cleanup_stale_watchers())
+    try:
+        yield
+    finally:
+        task = getattr(app.state, "watchers_cleanup_task", None)
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
-@app.on_event("shutdown")
-async def _stop_watchers_cleanup() -> None:  # pragma: no cover - background task
-    task = getattr(app.state, "watchers_cleanup_task", None)
-    if task is not None:
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
+app = create_app(lifespan=lifespan)
+
+API_KEY = os.getenv("CLOUD_DASHBOARD_API_KEY")
 
 
 @app.post("/register")

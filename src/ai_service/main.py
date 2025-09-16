@@ -5,13 +5,11 @@ import ipaddress
 import logging
 import os
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from pydantic import IPvAnyAddress
-from typing import Optional, Literal
 from redis.exceptions import RedisError
 
 from src.shared.audit import log_event as audit_log_event
@@ -47,8 +45,8 @@ class WebhookEvent(BaseModel):
 
 
 class WebhookAction(BaseModel):
-    action: Literal["block_ip", "allow_ip", "flag_ip", "unflag_ip"]
-    ip: Optional[IPvAnyAddress] = None
+    action: str
+    ip: Optional[str] = None
     reason: Optional[str] = Field(None, max_length=256)
 
 

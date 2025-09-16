@@ -1,13 +1,13 @@
 name: "Auto Label Pull Requests"
 
 permissions:
+  contents: read
   pull-requests: write
 
 on:
   workflow_dispatch: # Allows manual triggering of the workflow from the GitHub UI
-  # Uncomment the lines below to enable automatic runs on push or pull request events
-  # pull_request:
-  #   types: [opened, synchronize, reopened]
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 jobs:
   label:
