@@ -13,7 +13,7 @@ name = "jszip_rs"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-pyo3 = { version = "0.25.1", features = ["abi3-py37", "extension-module", "auto-initialize"] }
+pyo3 = { version = "0.26.0", features = ["abi3-py37", "extension-module", "auto-initialize"] }
 zip = "4.3"
 rand = "0.9"
 chrono = "0.4"
