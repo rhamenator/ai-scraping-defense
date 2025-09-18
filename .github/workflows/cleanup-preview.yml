@@ -1,0 +1,29 @@
+name: Cleanup Preview Environment
+
+on:
+  pull_request:
+    types:
+      - closed
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  cleanup-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/get-gke-credentials@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          cluster_name: ${{ secrets.GKE_CLUSTER }}
+          location: ${{ secrets.GCP_REGION }}
+      - name: Delete preview namespace
+        run: |
+          PR=${{ github.event.pull_request.number }}
+          kubectl delete ns "pr-${PR}" --wait=false || true
