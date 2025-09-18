@@ -68,7 +68,7 @@ jobs:
           helm upgrade --install "$REL" "$CHART" -n "$NS" -f helm/values-staging.yaml -f "$OV" \
             --set ingress.enabled=true --set ingress.hosts[0].host="${{ steps.host.outputs.host }}"
       - name: Comment preview URL
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           GH_TOKEN: ${{ github.token }}
         with:
