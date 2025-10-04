@@ -700,7 +700,7 @@ jobs:
 
       - name: Comment summary on PR
         if: steps.commit.outputs.changed == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
         with:
