@@ -14,7 +14,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 pyo3 = { version = "0.26.0", features = ["abi3-py37", "extension-module", "auto-initialize"] }
-zip = "4.3"
+zip = "5.1"
 rand = "0.9"
 chrono = "0.4"
 tempfile = "3"
