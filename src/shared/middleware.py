@@ -105,6 +105,25 @@ def add_security_middleware(app: FastAPI) -> None:
         max_requests=RATE_LIMIT_REQUESTS,
         window_seconds=RATE_LIMIT_WINDOW,
     )
+    # Add standard security headers to all responses
+    @app.middleware("http")
+    async def _security_headers(request, call_next):
+        response = await call_next(request)
+        # Clickjacking and MIME sniffing protections
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        # Legacy XSS header (modern browsers rely on CSP); included per security baseline
+        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+        # Provide a conservative default CSP if not already set upstream
+        response.headers.setdefault("Content-Security-Policy", "default-src 'self'")
+        # Enable HSTS when HTTPS is enabled. Header is ignored over plain HTTP.
+        if os.getenv("ENABLE_HTTPS", "false").lower() == "true":
+            response.headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains; preload",
+            )
+        return response
 
 
 def create_app(**kwargs) -> FastAPI:

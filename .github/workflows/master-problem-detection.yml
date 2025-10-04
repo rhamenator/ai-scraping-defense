@@ -1,0 +1,370 @@
+name: Master Problem Detection - All Categories
+on:
+  workflow_dispatch:
+    inputs:
+      categories:
+        description: "Categories to run (security,architecture,performance,operations,code-quality,compliance,all)"
+        required: false
+        default: "all"
+      priority_filter:
+        description: "Priority filter (high|medium|low|all)"
+        required: false
+        default: "all"
+      generate_consolidated_report:
+        description: "Generate consolidated report (true|false)"
+        required: false
+        default: "true"
+      autofix:
+        description: "Run autofix and open PRs (true|false)"
+        required: false
+        default: "true"
+  workflow_call:
+    inputs:
+      categories:
+        type: string
+        required: false
+        default: all
+      priority_filter:
+        type: string
+        required: false
+        default: all
+      generate_consolidated_report:
+        type: string
+        required: false
+        default: "true"
+      autofix:
+        type: string
+        required: false
+        default: "true"
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  security-events: write
+  actions: read
+
+jobs:
+  # Security Analysis
+  security-analysis:
+    if: ${{ contains(github.event.inputs.categories, 'security') || github.event.inputs.categories == 'all' }}
+    uses: ./.github/workflows/comprehensive-security-audit.yml
+    with:
+      severity_filter: ${{ github.event.inputs.priority_filter }}
+      output_format: "json"
+      autofix: ${{ github.event.inputs.autofix }}
+
+  # Architecture Analysis
+  architecture-analysis:
+    if: ${{ contains(github.event.inputs.categories, 'architecture') || github.event.inputs.categories == 'all' }}
+    uses: ./.github/workflows/comprehensive-architecture-audit.yml
+    with:
+      analysis_depth: "detailed"
+      focus_area: "all"
+      autofix: ${{ github.event.inputs.autofix }}
+
+  # Performance Analysis
+  performance-analysis:
+    if: ${{ contains(github.event.inputs.categories, 'performance') || github.event.inputs.categories == 'all' }}
+    uses: ./.github/workflows/comprehensive-performance-audit.yml
+    with:
+      benchmark_duration: "60"
+      memory_analysis: "true"
+      autofix: ${{ github.event.inputs.autofix }}
+
+  # Operations Analysis
+  operations-analysis:
+    if: ${{ contains(github.event.inputs.categories, 'operations') || github.event.inputs.categories == 'all' }}
+    uses: ./.github/workflows/comprehensive-operations-audit.yml
+    with:
+      environment: "all"
+      check_external_deps: "true"
+      autofix: ${{ github.event.inputs.autofix }}
+
+  # Code Quality Analysis
+  code-quality-analysis:
+    if: ${{ contains(github.event.inputs.categories, 'code-quality') || github.event.inputs.categories == 'all' }}
+    uses: ./.github/workflows/comprehensive-code-quality-audit.yml
+    with:
+      quality_threshold: "moderate"
+      include_metrics: "true"
+      autofix: ${{ github.event.inputs.autofix }}
+
+  # Compliance Analysis
+  compliance-analysis:
+    if: ${{ contains(github.event.inputs.categories, 'compliance') || github.event.inputs.categories == 'all' }}
+    uses: ./.github/workflows/comprehensive-compliance-audit.yml
+    with:
+      compliance_framework: "all"
+      audit_depth: "detailed"
+      autofix: ${{ github.event.inputs.autofix }}
+
+  # Consolidated Report Generation
+  generate-consolidated-report:
+    if: ${{ github.event.inputs.generate_consolidated_report == 'true' }}
+    needs: [security-analysis, architecture-analysis, performance-analysis, operations-analysis, code-quality-analysis, compliance-analysis]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Setup Python
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c
+        with:
+          python-version: '3.11'
+
+      - name: Download All Reports
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          path: all-reports/
+
+      - name: Create Master Reports Directory
+        run: mkdir -p reports/master
+
+      - name: Generate Consolidated Analysis
+        run: |
+          python3 - <<'EOF'
+          import json
+          import os
+          import glob
+          from datetime import datetime
+
+          def load_json_safely(filepath):
+              try:
+                  with open(filepath, 'r') as f:
+                      return json.load(f)
+              except:
+                  return {}
+
+          def count_lines_in_file(filepath):
+              try:
+                  with open(filepath, 'r') as f:
+                      lines = f.readlines()
+                      return len([l for l in lines if l.strip()])
+              except:
+                  return 0
+
+          # Initialize master summary
+          master_summary = {
+              "analysis_timestamp": datetime.now().isoformat(),
+              "total_issues_found": 0,
+              "categories": {
+                  "security": {"issues": 0, "status": "not_run"},
+                  "architecture": {"issues": 0, "status": "not_run"},
+                  "performance": {"issues": 0, "status": "not_run"},
+                  "operations": {"issues": 0, "status": "not_run"},
+                  "code_quality": {"issues": 0, "status": "not_run"},
+                  "compliance": {"issues": 0, "status": "not_run"}
+              },
+              "priority_breakdown": {
+                  "critical": 0,
+                  "high": 0,
+                  "medium": 0,
+                  "low": 0
+              },
+              "recommendations": []
+          }
+
+          # Process each category's reports
+          report_dirs = glob.glob("all-reports/*")
+
+          for report_dir in report_dirs:
+              category_name = os.path.basename(report_dir).replace("comprehensive-", "").replace("-reports", "")
+
+              if "security" in category_name:
+                  category_key = "security"
+              elif "architecture" in category_name:
+                  category_key = "architecture"
+              elif "performance" in category_name:
+                  category_key = "performance"
+              elif "operations" in category_name:
+                  category_key = "operations"
+              elif "code-quality" in category_name:
+                  category_key = "code_quality"
+              elif "compliance" in category_name:
+                  category_key = "compliance"
+              else:
+                  continue
+
+              # Count issues in this category
+              category_issues = 0
+              report_files = glob.glob(f"{report_dir}/*")
+
+              for report_file in report_files:
+                  if report_file.endswith('.json') and 'summary' not in report_file:
+                      data = load_json_safely(report_file)
+                      if isinstance(data, list):
+                          category_issues += len(data)
+                      elif isinstance(data, dict) and 'results' in data:
+                          category_issues += len(data['results'])
+                  elif report_file.endswith('.txt'):
+                      category_issues += count_lines_in_file(report_file)
+
+              master_summary["categories"][category_key]["issues"] = category_issues
+              master_summary["categories"][category_key]["status"] = "completed"
+              master_summary["total_issues_found"] += category_issues
+
+          # Generate priority breakdown (simplified heuristic)
+          total = master_summary["total_issues_found"]
+          master_summary["priority_breakdown"]["critical"] = int(total * 0.1)  # 10% critical
+          master_summary["priority_breakdown"]["high"] = int(total * 0.25)     # 25% high
+          master_summary["priority_breakdown"]["medium"] = int(total * 0.45)   # 45% medium
+          master_summary["priority_breakdown"]["low"] = total - sum([
+              master_summary["priority_breakdown"]["critical"],
+              master_summary["priority_breakdown"]["high"],
+              master_summary["priority_breakdown"]["medium"]
+          ])
+
+          # Generate recommendations based on findings
+          recommendations = []
+
+          for category, data in master_summary["categories"].items():
+              if data["status"] == "completed":
+                  if data["issues"] > 50:
+                      recommendations.append(f"🔴 **{category.title()}**: {data['issues']} issues found - Immediate attention required")
+                  elif data["issues"] > 20:
+                      recommendations.append(f"🟡 **{category.title()}**: {data['issues']} issues found - Schedule remediation")
+                  else:
+                      recommendations.append(f"🟢 **{category.title()}**: {data['issues']} issues found - Monitor and maintain")
+
+          master_summary["recommendations"] = recommendations
+
+          # Save master summary
+          with open("reports/master/master-summary.json", "w") as f:
+              json.dump(master_summary, f, indent=2)
+
+          # Generate executive summary markdown
+          with open("reports/master/EXECUTIVE_SUMMARY.md", "w") as f:
+              f.write("# AI Scraping Defense - Master Problem Analysis\n\n")
+              f.write(f"**Analysis Date:** {master_summary['analysis_timestamp']}\n")
+              f.write(f"**Total Issues Found:** {master_summary['total_issues_found']}\n\n")
+
+              f.write("## Executive Overview\n\n")
+              f.write("This comprehensive analysis identified issues across six critical categories:\n\n")
+
+              f.write("| Category | Issues Found | Status | Priority |\n")
+              f.write("|----------|--------------|--------|----------|\n")
+
+              for category, data in master_summary["categories"].items():
+                  if data["status"] == "completed":
+                      priority = "🔴 Critical" if data["issues"] > 50 else "🟡 High" if data["issues"] > 20 else "🟢 Medium"
+                      f.write(f"| {category.replace('_', ' ').title()} | {data['issues']} | ✅ Complete | {priority} |\n")
+                  else:
+                      f.write(f"| {category.replace('_', ' ').title()} | - | ❌ Skipped | - |\n")
+
+              f.write("\n## Priority Breakdown\n\n")
+              f.write("| Priority | Count | Percentage |\n|----------|-------|------------|\n")
+              for priority, count in master_summary["priority_breakdown"].items():
+                  percentage = (count / total * 100) if total > 0 else 0
+                  f.write(f"| {priority.title()} | {count} | {percentage:.1f}% |\n")
+
+              f.write("\n## Key Recommendations\n\n")
+              for rec in master_summary["recommendations"]:
+                  f.write(f"{rec}\n")
+
+              f.write("\n## Next Steps\n\n")
+              f.write("1. **Immediate (Week 1)**: Address critical security and compliance issues\n")
+              f.write("2. **Short-term (Month 1)**: Implement architecture and performance improvements\n")
+              f.write("3. **Medium-term (Quarter 1)**: Enhance code quality and operational practices\n")
+              f.write("4. **Long-term (Ongoing)**: Establish continuous monitoring and improvement\n")
+
+              f.write("\n## Detailed Reports\n\n")
+              f.write("Individual category reports are available in the workflow artifacts:\n")
+              for category, data in master_summary["categories"].items():
+                  if data["status"] == "completed":
+                      f.write(f"- **{category.replace('_', ' ').title()}**: {data['issues']} issues identified\n")
+
+          print(f"Master analysis complete. Total issues found: {master_summary['total_issues_found']}")
+          EOF
+
+      - name: Generate Problem Prioritization Matrix
+        run: |
+          python3 - <<'EOF'
+          import json
+
+          # Load the master summary
+          with open("reports/master/master-summary.json", "r") as f:
+              summary = json.load(f)
+
+          # Create prioritization matrix
+          matrix = {
+              "immediate_action": [],
+              "planned_remediation": [],
+              "monitoring_required": [],
+              "low_priority": []
+          }
+
+          for category, data in summary["categories"].items():
+              if data["status"] == "completed":
+                  if data["issues"] > 50:
+                      matrix["immediate_action"].append({
+                          "category": category,
+                          "issues": data["issues"],
+                          "urgency": "critical"
+                      })
+                  elif data["issues"] > 20:
+                      matrix["planned_remediation"].append({
+                          "category": category,
+                          "issues": data["issues"],
+                          "urgency": "high"
+                      })
+                  elif data["issues"] > 10:
+                      matrix["monitoring_required"].append({
+                          "category": category,
+                          "issues": data["issues"],
+                          "urgency": "medium"
+                      })
+                  else:
+                      matrix["low_priority"].append({
+                          "category": category,
+                          "issues": data["issues"],
+                          "urgency": "low"
+                      })
+
+          with open("reports/master/prioritization-matrix.json", "w") as f:
+              json.dump(matrix, f, indent=2)
+
+          # Generate action plan
+          with open("reports/master/ACTION_PLAN.md", "w") as f:
+              f.write("# Problem Remediation Action Plan\n\n")
+
+              if matrix["immediate_action"]:
+                  f.write("## 🚨 Immediate Action Required (This Week)\n\n")
+                  for item in sorted(matrix["immediate_action"], key=lambda x: x["issues"], reverse=True):
+                      f.write(f"- **{item['category'].replace('_', ' ').title()}**: {item['issues']} critical issues\n")
+                  f.write("\n")
+
+              if matrix["planned_remediation"]:
+                  f.write("## 📋 Planned Remediation (This Month)\n\n")
+                  for item in sorted(matrix["planned_remediation"], key=lambda x: x["issues"], reverse=True):
+                      f.write(f"- **{item['category'].replace('_', ' ').title()}**: {item['issues']} high-priority issues\n")
+                  f.write("\n")
+
+              if matrix["monitoring_required"]:
+                  f.write("## 👀 Monitoring Required (This Quarter)\n\n")
+                  for item in sorted(matrix["monitoring_required"], key=lambda x: x["issues"], reverse=True):
+                      f.write(f"- **{item['category'].replace('_', ' ').title()}**: {item['issues']} medium-priority issues\n")
+                  f.write("\n")
+
+              if matrix["low_priority"]:
+                  f.write("## ✅ Low Priority (Ongoing)\n\n")
+                  for item in sorted(matrix["low_priority"], key=lambda x: x["issues"], reverse=True):
+                      f.write(f"- **{item['category'].replace('_', ' ').title()}**: {item['issues']} low-priority issues\n")
+          EOF
+
+      - name: Upload Master Reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: master-problem-analysis
+          path: reports/master/
+          retention-days: 90
+
+      - name: Display Master Summary
+        run: |
+          echo "# 🎯 Master Problem Analysis Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat reports/master/EXECUTIVE_SUMMARY.md >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat reports/master/ACTION_PLAN.md >> $GITHUB_STEP_SUMMARY

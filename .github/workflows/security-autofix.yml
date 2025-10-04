@@ -8,53 +8,26 @@ on:
       ref:
         description: "Git ref to run against"
         required: false
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: false
+      ref:
+        type: string
+        required: false
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+  issues: write
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.environment }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   autofix:
-    permissions:
-      contents: write
-      pull-requests: write
-    runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - name: Toolchain
-        run: |
-          set -eux
-          pipx install ruff black isort semgrep || python3 -m pip install --user ruff black isort semgrep
-          npm i -g prettier eslint @eslint/js || true
-          sudo apt-get update && sudo apt-get install -y shfmt shellcheck
-          sudo apt-get install -y luarocks lua5.4 || true
-          sudo luarocks install luacheck || true
-          curl -sSfL https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 -o hadolint && sudo install hadolint /usr/local/bin/hadolint
-          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tar.gz
-          sudo tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin || true
-      - name: Create branch
-        id: br
-        run: |
-          TS=$(date +%Y%m%d-%H%M%S); BR="autofix/${TS}"
-          git checkout -B "$BR"; echo "branch=$BR" >> $GITHUB_OUTPUT
-      - name: Run autofixers
-        run: bash .github/tools/autofix.sh
-      - name: Commit changes (if any)
-        run: |
-          git add -A
-          if git diff --cached --quiet; then echo "No changes to commit."; exit 0; fi
-          git -c user.name="repo-bot" -c user.email="bot@users.noreply.github.com" commit -m "chore(security): automated lint/format/semgrep fixes"
-      - name: Push & PR
-        uses: peter-evans/create-pull-request@v6
-        with:
-          branch: ${{ steps.br.outputs.branch }}
-          title: "Automated security/style fixes"
-          body: "Autofix run (ruff/black/isort, eslint/prettier, luacheck, shfmt, hadolint, kubeconform)."
-          labels: autofix, automerge
-          draft: false
-      - name: Enable automerge
-        uses: peter-evans/enable-pull-request-automerge@v3
-        with: { merge-method: SQUASH }
+    uses: ./.github/workflows/autofix-and-guard.yml
+    with:
+      category: security
+      pr_title: Automated security/style fixes
+      automerge: "true"
+      

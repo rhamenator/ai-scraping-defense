@@ -1,0 +1,359 @@
+name: Comprehensive Code Quality Problem Detection
+on:
+  workflow_dispatch:
+    inputs:
+      quality_threshold:
+        description: "Quality threshold (strict|moderate|lenient)"
+        required: false
+        default: "moderate"
+      include_metrics:
+        description: "Include detailed metrics (true|false)"
+        required: false
+        default: "true"
+      autofix:
+        description: "Run autofix and open PR (true|false)"
+        required: false
+        default: "true"
+  workflow_call:
+    inputs:
+      quality_threshold:
+        type: string
+        required: false
+        default: moderate
+      include_metrics:
+        type: string
+        required: false
+        default: "true"
+      autofix:
+        type: string
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  comprehensive-code-quality-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with: { fetch-depth: 0 }
+
+      - name: Setup Code Quality Analysis Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip nodejs npm golang-go
+          pip3 install --user flake8 pylint black isort mypy bandit radon vulture
+          npm install -g eslint prettier jshint jscpd
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+
+          # Additional quality tools
+          pip3 install --user prospector complexity-report
+          npm install -g complexity-report plato
+
+      - name: Create Reports Directory
+        run: mkdir -p reports/code-quality
+
+      # Documentation Analysis
+      - name: Analyze Documentation Quality
+        run: |
+          echo "Analyzing documentation and docstrings..."
+
+          # Python docstring analysis
+          find . -name "*.py" -exec grep -L '"""' {} \; > reports/code-quality/missing-docstrings.txt || true
+
+          # README and documentation files
+          find . -name "README*" -o -name "*.md" > reports/code-quality/documentation-files.txt || true
+
+          # API documentation
+          grep -r "@api\|swagger\|openapi" --include="*.py" --include="*.js" . > reports/code-quality/api-docs.txt || true
+
+          # Code comments analysis
+          grep -r "#.*TODO\|#.*FIXME\|#.*HACK" --include="*.py" --include="*.js" --include="*.go" . > reports/code-quality/code-todos.txt || true
+
+      # Test Coverage Analysis
+      - name: Analyze Test Coverage
+        run: |
+          echo "Analyzing test coverage..."
+
+          # Test files discovery
+          find . -name "*test*" -o -name "*spec*" | grep -E "\.(py|js|go)$" > reports/code-quality/test-files.txt || true
+
+          # Python test patterns
+          grep -r "def test_\|class Test" --include="*.py" . > reports/code-quality/python-tests.txt || true
+
+          # JavaScript test patterns
+          grep -r "describe\|it\|test\|expect" --include="*.js" . > reports/code-quality/js-tests.txt || true
+
+          # Go test patterns
+          grep -r "func Test\|func Benchmark" --include="*.go" . > reports/code-quality/go-tests.txt || true
+
+          # Mock and fixture usage
+          grep -r "mock\|Mock\|fixture\|stub" --include="*.py" --include="*.js" . > reports/code-quality/test-mocks.txt || true
+
+      # Error Handling Analysis
+      - name: Analyze Error Handling
+        run: |
+          echo "Analyzing error handling patterns..."
+
+          # Python error handling
+          grep -r "try:\|except\|raise\|finally:" --include="*.py" . > reports/code-quality/python-error-handling.txt || true
+
+          # JavaScript error handling
+          grep -r "try\|catch\|throw\|finally" --include="*.js" . > reports/code-quality/js-error-handling.txt || true
+
+          # Go error handling
+          grep -r "if err != nil\|return.*err\|errors\." --include="*.go" . > reports/code-quality/go-error-handling.txt || true
+
+          # Generic error patterns
+          grep -r "TODO.*error\|FIXME.*error\|panic\|fatal" --include="*.py" --include="*.js" --include="*.go" . > reports/code-quality/error-todos.txt || true
+
+      # Code Style and Formatting Analysis
+      - name: Analyze Code Style
+        run: |
+          echo "Analyzing code style and formatting..."
+
+          # Python style analysis
+          find . -name "*.py" -exec flake8 {} \; > reports/code-quality/python-style-issues.txt 2>&1 || true
+          find . -name "*.py" -exec pylint {} \; > reports/code-quality/python-lint-issues.txt 2>&1 || true
+
+          # JavaScript style analysis
+          if [ -f package.json ]; then
+            npx eslint . --ext .js --format json > reports/code-quality/js-lint-issues.json 2>/dev/null || true
+          fi
+
+          # Go style analysis
+          if [ -f go.mod ]; then
+            ~/go/bin/staticcheck ./... > reports/code-quality/go-static-analysis.txt 2>&1 || true
+            go vet ./... > reports/code-quality/go-vet-issues.txt 2>&1 || true
+          fi
+
+      # Code Complexity Analysis
+      - name: Analyze Code Complexity
+        run: |
+          echo "Analyzing code complexity..."
+
+          # Python complexity
+          find . -name "*.py" -exec radon cc {} -s \; > reports/code-quality/python-complexity.txt || true
+          find . -name "*.py" -exec radon mi {} -s \; > reports/code-quality/python-maintainability.txt || true
+
+          # JavaScript complexity
+          if [ -f package.json ]; then
+            complexity-report -o reports/code-quality/js-complexity.json -f json . || true
+          fi
+
+          # Overall complexity analysis
+          find . -name "*.py" -o -name "*.js" -o -name "*.go" | wc -l > reports/code-quality/total-source-files.txt
+
+      # Code Duplication Analysis
+      - name: Analyze Code Duplication
+        run: |
+          echo "Analyzing code duplication..."
+
+          # JavaScript duplication
+          if [ -f package.json ]; then
+            jscpd . --reporters json --output reports/code-quality/ || true
+          fi
+
+          # Simple duplication check for Python
+          find . -name "*.py" -exec wc -l {} \; | sort -nr | head -20 > reports/code-quality/largest-python-files.txt || true
+
+      # Dependency Analysis
+      - name: Analyze Dependencies
+        run: |
+          echo "Analyzing dependency management..."
+
+          # Python dependencies
+          if [ -f requirements.txt ]; then
+            wc -l requirements.txt > reports/code-quality/python-dep-count.txt || true
+            grep -E "==" requirements.txt > reports/code-quality/pinned-python-deps.txt || true
+          fi
+
+          # Node.js dependencies
+          if [ -f package.json ]; then
+            jq '.dependencies | length' package.json > reports/code-quality/js-dep-count.txt || true
+            jq '.devDependencies | length' package.json > reports/code-quality/js-dev-dep-count.txt || true
+          fi
+
+          # Go dependencies
+          if [ -f go.mod ]; then
+            go list -m all | wc -l > reports/code-quality/go-dep-count.txt || true
+          fi
+
+      # Security Code Analysis
+      - name: Analyze Code Security
+        run: |
+          echo "Analyzing code security patterns..."
+
+          # Python security issues
+          bandit -r . -f json -o reports/code-quality/python-security.json || true
+
+          # Hardcoded secrets
+          grep -r "password\s*=\|api_key\s*=\|secret\s*=" --include="*.py" --include="*.js" . > reports/code-quality/hardcoded-secrets.txt || true
+
+          # SQL injection patterns
+          grep -r "execute.*%\|query.*%" --include="*.py" . > reports/code-quality/sql-injection-risk.txt || true
+
+          # XSS patterns
+          grep -r "innerHTML\|document\.write" --include="*.js" . > reports/code-quality/xss-risk.txt || true
+
+      # Performance Code Analysis
+      - name: Analyze Performance Patterns
+        run: |
+          echo "Analyzing performance-related code patterns..."
+
+          # Inefficient loops
+          grep -r "for.*in.*range\|for.*in.*len" --include="*.py" . > reports/code-quality/inefficient-loops.txt || true
+
+          # Database queries in loops
+          grep -r "for.*query\|while.*select" --include="*.py" --include="*.js" . > reports/code-quality/n-plus-one-queries.txt || true
+
+          # Memory usage patterns
+          grep -r "global\|globals\|large.*list\|big.*dict" --include="*.py" . > reports/code-quality/memory-concerns.txt || true
+
+      # Code Organization Analysis
+      - name: Analyze Code Organization
+        run: |
+          echo "Analyzing code organization..."
+
+          # File and directory structure
+          find . -type f -name "*.py" | head -50 > reports/code-quality/python-file-structure.txt || true
+          find . -type f -name "*.js" | head -50 > reports/code-quality/js-file-structure.txt || true
+
+          # Import analysis
+          grep -r "^import\|^from.*import" --include="*.py" . | head -100 > reports/code-quality/python-imports.txt || true
+          grep -r "require\|import.*from" --include="*.js" . | head -100 > reports/code-quality/js-imports.txt || true
+
+          # Large files
+          find . -name "*.py" -o -name "*.js" -o -name "*.go" | xargs wc -l | sort -nr | head -20 > reports/code-quality/largest-files.txt || true
+
+      # Type Safety Analysis
+      - name: Analyze Type Safety
+        run: |
+          echo "Analyzing type safety..."
+
+          # Python type hints
+          grep -r ": *[A-Z]\|-> *[A-Z]" --include="*.py" . > reports/code-quality/python-type-hints.txt || true
+
+          # TypeScript usage
+          find . -name "*.ts" -o -name "*.tsx" > reports/code-quality/typescript-files.txt || true
+
+          # Type checking
+          if command -v mypy &> /dev/null; then
+            mypy . > reports/code-quality/mypy-results.txt 2>&1 || true
+          fi
+
+      # Generate Code Quality Summary
+      - name: Generate Code Quality Summary
+        run: |
+          python3 - <<'EOF'
+          import json
+          import os
+          import glob
+
+          def count_lines_in_file(filepath):
+              try:
+                  with open(filepath, 'r') as f:
+                      lines = f.readlines()
+                      return len([l for l in lines if l.strip()])
+              except:
+                  return 0
+
+          def analyze_json_file(filepath):
+              try:
+                  with open(filepath, 'r') as f:
+                      data = json.load(f)
+                      if isinstance(data, list):
+                          return len(data)
+                      elif isinstance(data, dict):
+                          if 'results' in data:
+                              return len(data['results'])
+                          return len(data.keys())
+                      return 1 if data else 0
+              except:
+                  return 0
+
+          summary = {
+              "total_quality_issues": 0,
+              "categories": {},
+              "quality_metrics": {},
+              "files_analyzed": 0
+          }
+
+          report_files = glob.glob("reports/code-quality/*")
+          for report_file in report_files:
+              category = os.path.basename(report_file).replace('.json', '').replace('.txt', '')
+
+              if report_file.endswith('.json'):
+                  issue_count = analyze_json_file(report_file)
+              else:
+                  issue_count = count_lines_in_file(report_file)
+
+              summary["categories"][category] = issue_count
+              summary["total_quality_issues"] += issue_count
+              summary["files_analyzed"] += 1
+
+          # Calculate quality score
+          test_coverage = summary["categories"].get("test-files", 0)
+          documentation = summary["categories"].get("documentation-files", 0)
+          style_issues = summary["categories"].get("python-style-issues", 0)
+
+          quality_score = max(0, 100 - (style_issues * 2) + (test_coverage * 5) + (documentation * 3))
+          summary["quality_metrics"]["overall_score"] = min(100, quality_score)
+
+          with open("reports/code-quality/summary.json", "w") as f:
+              json.dump(summary, f, indent=2)
+
+          print(f"Code quality analysis complete. Found {summary['total_quality_issues']} quality indicators across {summary['files_analyzed']} categories.")
+
+          # Generate markdown summary
+          with open("reports/code-quality/CODE_QUALITY_SUMMARY.md", "w") as f:
+              f.write("# Code Quality Analysis Summary\n\n")
+              f.write(f"**Overall Quality Score:** {summary['quality_metrics']['overall_score']}/100\n")
+              f.write(f"**Total Quality Indicators:** {summary['total_quality_issues']}\n\n")
+
+              f.write("## Quality Categories\n\n")
+              f.write("| Category | Count | Impact |\n|----------|-------|--------|\n")
+
+              high_impact = ["style-issues", "security", "complexity", "error-handling"]
+              for category, count in sorted(summary["categories"].items(), key=lambda x: x[1], reverse=True):
+                  impact = "🔴 High" if any(h in category for h in high_impact) and count > 10 else "🟡 Medium" if count > 5 else "🟢 Low"
+                  f.write(f"| {category.replace('-', ' ').title()} | {count} | {impact} |\n")
+
+              f.write("\n## Quality Recommendations\n\n")
+              f.write("### High Priority\n")
+              high_priority = [(k, v) for k, v in summary["categories"].items() if v > 20 and any(h in k for h in high_impact)]
+              for category, count in sorted(high_priority, key=lambda x: x[1], reverse=True):
+                  f.write(f"- **{category.replace('-', ' ').title()}**: {count} issues - Immediate attention required\n")
+
+              f.write("\n### Improvement Areas\n")
+              f.write("- Increase test coverage if test files are low\n")
+              f.write("- Add documentation for undocumented code\n")
+              f.write("- Fix style and linting issues\n")
+              f.write("- Improve error handling patterns\n")
+              f.write("- Reduce code complexity where possible\n")
+          EOF
+
+      - name: Upload Code Quality Reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: comprehensive-code-quality-reports
+          path: reports/code-quality/
+          retention-days: 30
+
+      - name: Display Summary
+        run: |
+          echo "## 📊 Code Quality Analysis Results" >> $GITHUB_STEP_SUMMARY
+          cat reports/code-quality/CODE_QUALITY_SUMMARY.md >> $GITHUB_STEP_SUMMARY
+
+  autofix:
+    if: ${{ inputs.autofix == 'true' }}
+    needs: comprehensive-code-quality-audit
+    uses: ./.github/workflows/autofix-and-guard.yml
+    with:
+      category: code-quality
+      pr_title: Automated code-quality fixes
+      automerge: "true"

@@ -16,7 +16,9 @@ permissions:
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
   cancel-in-progress: true
-env: { REGISTRY: ghcr.io, IMAGE_OWNER: ${{ github.repository_owner }} }
+env:
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: ${{ github.repository_owner }}
 jobs:
   build-and-deploy:
     permissions:
@@ -25,9 +27,9 @@ jobs:
       deployments: write
       id-token: write
     runs-on: ubuntu-latest
-    environment: { name: production, url: ${{ secrets.PROD_BASE_URL }} }
+    environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
       - name: Login GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u ${{ github.actor }} --password-stdin
       - name: Build & push images
@@ -43,15 +45,22 @@ jobs:
           done; cat images.txt
       - id: auth
         uses: google-github-actions/auth@v2
+        env:
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
       - uses: google-github-actions/get-gke-credentials@v2
+        env:
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+          GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
+          GCP_REGION: ${{ secrets.GCP_REGION }}
         with:
-          project_id: ${{ secrets.GCP_PROJECT }}
-          cluster_name: ${{ secrets.GKE_CLUSTER }}
-          location: ${{ secrets.GCP_REGION }}
-      - uses: azure/setup-helm@v4
+          project_id: ${{ env.GCP_PROJECT }}
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GCP_REGION }}
+      - uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a
       - name: Helm upgrade/install (production)
         run: |
           set -eux

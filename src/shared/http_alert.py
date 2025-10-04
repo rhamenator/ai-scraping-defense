@@ -1,4 +1,5 @@
-"""Generic HTTP-based alert sender for webhook and API-based alerts.
+"""
+Generic HTTP-based alert sender for webhook and API-based alerts.
 
 This module provides a generic abstraction for sending alerts via HTTP webhooks
 and APIs. It handles alert formatting, error handling, retry logic, and logging

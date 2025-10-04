@@ -1,0 +1,211 @@
+[][{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-prod.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 8,
+	"message": "Value 'production' is not valid",
+	"startLineNumber": 31,
+	"startColumn": 13,
+	"endLineNumber": 31,
+	"endColumn": 23,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-prod.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 8,
+	"message": "Unrecognized named-value: 'secrets'",
+	"startLineNumber": 32,
+	"startColumn": 12,
+	"endLineNumber": 32,
+	"endColumn": 40,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-prod.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_WORKLOAD_IDENTITY_PROVIDER",
+	"startLineNumber": 51,
+	"startColumn": 39,
+	"endLineNumber": 51,
+	"endColumn": 84,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-prod.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_SERVICE_ACCOUNT",
+	"startLineNumber": 52,
+	"startColumn": 28,
+	"endLineNumber": 52,
+	"endColumn": 62,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-prod.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_PROJECT",
+	"startLineNumber": 55,
+	"startColumn": 23,
+	"endLineNumber": 55,
+	"endColumn": 49,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-prod.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GKE_CLUSTER",
+	"startLineNumber": 56,
+	"startColumn": 25,
+	"endLineNumber": 56,
+	"endColumn": 51,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-prod.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_REGION",
+	"startLineNumber": 57,
+	"startColumn": 21,
+	"endLineNumber": 57,
+	"endColumn": 46,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-staging.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 8,
+	"message": "Value 'staging' is not valid",
+	"startLineNumber": 28,
+	"startColumn": 13,
+	"endLineNumber": 28,
+	"endColumn": 20,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-staging.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 8,
+	"message": "Unrecognized named-value: 'secrets'",
+	"startLineNumber": 29,
+	"startColumn": 12,
+	"endLineNumber": 29,
+	"endColumn": 43,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-staging.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_WORKLOAD_IDENTITY_PROVIDER",
+	"startLineNumber": 48,
+	"startColumn": 39,
+	"endLineNumber": 48,
+	"endColumn": 84,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-staging.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_SERVICE_ACCOUNT",
+	"startLineNumber": 49,
+	"startColumn": 28,
+	"endLineNumber": 49,
+	"endColumn": 62,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-staging.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_PROJECT",
+	"startLineNumber": 52,
+	"startColumn": 23,
+	"endLineNumber": 52,
+	"endColumn": 49,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-staging.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GKE_CLUSTER",
+	"startLineNumber": 53,
+	"startColumn": 25,
+	"endLineNumber": 53,
+	"endColumn": 51,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-staging.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_REGION",
+	"startLineNumber": 54,
+	"startColumn": 21,
+	"endLineNumber": 54,
+	"endColumn": 46,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/promote-on-green.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 8,
+	"message": "Value 'production' is not valid",
+	"startLineNumber": 27,
+	"startColumn": 13,
+	"endLineNumber": 27,
+	"endColumn": 23,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/promote-on-green.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 8,
+	"message": "Unrecognized named-value: 'secrets'",
+	"startLineNumber": 28,
+	"startColumn": 12,
+	"endLineNumber": 28,
+	"endColumn": 40,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/promote-on-green.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_WORKLOAD_IDENTITY_PROVIDER",
+	"startLineNumber": 47,
+	"startColumn": 39,
+	"endLineNumber": 47,
+	"endColumn": 84,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/promote-on-green.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_SERVICE_ACCOUNT",
+	"startLineNumber": 48,
+	"startColumn": 28,
+	"endLineNumber": 48,
+	"endColumn": 62,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/promote-on-green.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_PROJECT",
+	"startLineNumber": 51,
+	"startColumn": 23,
+	"endLineNumber": 51,
+	"endColumn": 49,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/promote-on-green.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GKE_CLUSTER",
+	"startLineNumber": 52,
+	"startColumn": 25,
+	"endLineNumber": 52,
+	"endColumn": 51,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/promote-on-green.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_REGION",
+	"startLineNumber": 53,
+	"startColumn": 21,
+	"endLineNumber": 53,
+	"endColumn": 46,
+	"origin": "extHost2"
+}]

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # =============================================================================
 #  post_takeover_wordpress.sh - attach WordPress after quick_takeover
 #
@@ -6,7 +6,7 @@
 #  on the defense_network. This script updates REAL_BACKEND_HOST and starts
 #  WordPress and MariaDB containers on that network.
 # =============================================================================
-set -e
+set -euo pipefail
 
 # Update REAL_BACKEND_HOST to point at the WordPress container
 if grep -q '^REAL_BACKEND_HOST=' .env; then
@@ -16,7 +16,9 @@ else
 fi
 
 # Determine the Docker network created by quick_takeover
-NETWORK_NAME=$(docker network ls --filter name=defense_network -q | head -n 1)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib.sh"
+NETWORK_NAME=$(defense_network || echo "")
 if [ -z "$NETWORK_NAME" ]; then
   echo "Could not locate the defense_network. Did quick_takeover run?"
   exit 1
@@ -37,6 +39,8 @@ fi
 
 # Launch the WordPress container
 if [ ! "$(docker ps -q -f name=wordpress)" ]; then
+  echo "Waiting for MariaDB to be ready..."
+  wait_for_mariadb wordpress_db 120 || true
   docker run -d --name wordpress \
     --network "$NETWORK_NAME" \
     -p 8082:80 \

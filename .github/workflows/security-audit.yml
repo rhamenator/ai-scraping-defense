@@ -22,12 +22,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with: { fetch-depth: 0 }
-      - uses: github/codeql-action/init@v3
-        with: { languages: javascript, typescript, python, go, ruby, java, cpp }
-      - uses: github/codeql-action/autobuild@v3
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/init@528ca598d956c91826bd742262cdfc5d02b77710
+        with:
+          languages: "javascript, typescript, python, go, ruby, java, cpp"
+      - uses: github/codeql-action/autobuild@528ca598d956c91826bd742262cdfc5d02b77710
+      - uses: github/codeql-action/analyze@528ca598d956c91826bd742262cdfc5d02b77710
         with: { category: "/language:auto" }
       - name: Install scanners & deps
         run: |
@@ -102,12 +103,12 @@ jobs:
           python3 .github/tools/aggregate_security_counts.py | tee reports/summary.json
           echo "## Security Findings (remaining to fix)" >> $GITHUB_STEP_SUMMARY
           python3 - <<'PY'
-import json
-d=json.load(open("reports/summary.json"))
-print("| Severity | Count |\n|---|---|")
-for k in ["critical","high","medium","low","info"]:
-    print(f"| {k.capitalize()} | {d.get(k,0)} |")
-print(f"| **Total** | **{d.get('total',0)}** |")
-PY
-      - uses: actions/upload-artifact@v4
+          import json
+          d=json.load(open("reports/summary.json"))
+          print("| Severity | Count |\n|---|---|")
+          for k in ["critical","high","medium","low","info"]:
+              print(f"| {k.capitalize()} | {d.get(k,0)} |")
+          print(f"| **Total** | **{d.get('total',0)}** |")
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with: { name: security-reports, path: reports/ }

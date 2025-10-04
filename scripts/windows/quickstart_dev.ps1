@@ -8,6 +8,12 @@ if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administr
 }
 $ErrorActionPreference = 'Stop'
 $RootDir = Split-Path -Parent $PSScriptRoot
+. "$PSScriptRoot/Lib.ps1"
+
+if (-not $IsWindows) {
+    Write-Error "Unsupported OS. This entrypoint supports Windows only. Use scripts/linux/*.sh on Linux or scripts/macos/*.zsh on macOS."
+    exit 1
+}
 Set-Location -Path $RootDir
 Write-Host '=== AI Scraping Defense: Development Quickstart ===' -ForegroundColor Cyan
 
@@ -39,6 +45,7 @@ if (Test-Path (Join-Path $PSScriptRoot "setup_local_dirs.ps1")) {
 & "$RootDir/.venv/Scripts/python.exe" test/run_all_tests.py
 
 # Launch with Docker Compose
-docker-compose up --build -d
+. "$PSScriptRoot/Lib.ps1"
+Invoke-Compose @('up','--build','-d')
 
 Write-Host 'Development environment is up and running!' -ForegroundColor Green

@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 echo "Creating necessary local directories for AI Scraping Defense Stack..."
 

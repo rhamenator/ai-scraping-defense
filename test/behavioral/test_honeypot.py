@@ -1,4 +1,6 @@
+import datetime
 import unittest
+from unittest.mock import patch
 
 from src.behavioral import SessionTracker, train_behavior_model
 
@@ -6,6 +8,7 @@ from src.behavioral import SessionTracker, train_behavior_model
 class DummyRedis:
     def __init__(self) -> None:
         self.store = {}
+        self.expirations = {}
 
     def rpush(self, key: str, value: str) -> None:
         # Mimic Redis by storing the pre-formatted entry as bytes
@@ -13,6 +16,9 @@ class DummyRedis:
 
     def lrange(self, key: str, start: int, end: int):
         return self.store.get(key, [])[start : end + 1 if end != -1 else None]
+
+    def expire(self, key: str, ttl: int) -> None:
+        self.expirations[key] = ttl
 
 
 class TestBehavioralHoneypot(unittest.TestCase):
@@ -35,6 +41,15 @@ class TestBehavioralHoneypot(unittest.TestCase):
         seq = tracker.get_sequence("1.1.1.1")
         self.assertEqual(seq, ["/a", "/b"])
 
+    def test_redis_expire(self):
+        tracker = SessionTracker(redis_db=99, session_ttl=10)
+        tracker.redis = DummyRedis()
+        tracker.log_request("1.1.1.1", "/a")
+        self.assertEqual(
+            tracker.redis.expirations["session:1.1.1.1"],
+            10,
+        )
+
     def test_fallback_eviction(self):
         tracker = SessionTracker(
             redis_db=99, max_fallback_entries=2, cleanup_interval=0
@@ -49,6 +64,19 @@ class TestBehavioralHoneypot(unittest.TestCase):
         self.assertNotIn("3.3.3.3", tracker.fallback)
         self.assertIn("2.2.2.2", tracker.fallback)
         self.assertIn("4.4.4.4", tracker.fallback)
+
+    def test_fallback_expiry(self):
+        tracker = SessionTracker(redis_db=99, session_ttl=1, cleanup_interval=0)
+        tracker._cleanup_every = 1
+        real_datetime = datetime.datetime
+        base_time = tracker._last_cleanup + datetime.timedelta(seconds=1)
+        with patch("src.behavioral.honeypot.datetime.datetime") as mock_dt:
+            mock_dt.now.return_value = base_time
+            mock_dt.side_effect = lambda *a, **kw: real_datetime(*a, **kw)
+            tracker.log_request("1.1.1.1", "/a")
+            mock_dt.now.return_value = base_time + datetime.timedelta(seconds=2)
+            tracker.log_request("2.2.2.2", "/b")
+        self.assertNotIn("1.1.1.1", tracker.fallback)
 
     def test_batched_cleanup(self):
         tracker = SessionTracker(redis_db=99, cleanup_interval=0)

@@ -1,6 +1,13 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Deploy the AI Scraping Defense stack to Google Kubernetes Engine
 set -euo pipefail
+
+# OS guard: Linux only
+if [ "$(uname -s)" != "Linux" ]; then
+  echo "Unsupported OS: $(uname -s). This entrypoint supports Linux only." >&2
+  echo "Use scripts/macos/*.zsh on macOS or scripts/windows/*.ps1 on Windows." >&2
+  exit 1
+fi
 
 PROJECT_ID="${PROJECT_ID:-${GOOGLE_PROJECT_ID:-your-gcp-project}}"
 CLUSTER_NAME="${CLUSTER_NAME:-ai-defense-cluster}"

@@ -1,8 +1,8 @@
 # test/shared/decision_db.test.py
-import unittest
+import importlib
 import os
 import sqlite3
-import importlib
+import unittest
 from unittest.mock import patch
 
 from src.shared import decision_db
@@ -100,6 +100,27 @@ class TestRecordDecision(unittest.TestCase):
             conn.close()
 
         self.assertEqual(tid, "tenantX")
+
+    def test_directory_creation_failure(self):
+        error = OSError("Permission denied")
+        with patch("os.makedirs", side_effect=error) as mock_makedirs, patch(
+            "logging.error"
+        ) as mock_log_error, patch.dict(
+            os.environ, {"DECISIONS_DB_PATH": self.temp_db}
+        ):
+            with self.assertRaises(RuntimeError) as cm:
+                importlib.reload(decision_db)
+
+        mock_makedirs.assert_called_once_with(
+            os.path.dirname(self.temp_db), exist_ok=True
+        )
+        mock_log_error.assert_called_once_with(
+            "Failed to create directory for decision DB: %s", error
+        )
+        self.assertEqual(
+            str(cm.exception),
+            f"Failed to create directory for decision DB: {error}",
+        )
 
 
 if __name__ == "__main__":

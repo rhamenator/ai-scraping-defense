@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 
 import httpx
 import numpy as np
-from fastapi import HTTPException, Request, Response
+from fastapi import Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, ValidationError
 
 from src.shared.config import tenant_key
@@ -29,6 +29,7 @@ except Exception:
     geoip2 = None
     GEOIP_AVAILABLE = False
 
+from src.shared.authz import require_jwt, verify_jwt_from_request
 from src.shared.config import CONFIG
 from src.shared.decision_db import record_decision
 
@@ -160,6 +161,11 @@ except ImportError:
 ESCALATION_THRESHOLD = CONFIG.ESCALATION_THRESHOLD
 LOG_LEVEL = CONFIG.LOG_LEVEL
 ESCALATION_API_KEY = CONFIG.ESCALATION_API_KEY
+
+
+def _current_api_key() -> str | None:
+    return ESCALATION_API_KEY or os.getenv("ESCALATION_API_KEY")
+
 
 try:
     from user_agents import parse as ua_parse
@@ -939,11 +945,30 @@ async def trigger_captcha_challenge(metadata: RequestMetadata) -> bool:
 
 # --- API Endpoint (/escalate) (Preserved) ---
 @app.post("/escalate")
-async def handle_escalation(metadata_req: RequestMetadata, request: Request):
+async def handle_escalation(
+    metadata_req: RequestMetadata,
+    request: Request,
+    _jwt=Depends(
+        require_jwt(required_roles=["escalate:write", "engine:invoke"], optional=True)
+    ),
+):
     client_ip = request.client.host if request.client else "unknown"
-    if ESCALATION_API_KEY and request.headers.get("X-API-Key") != ESCALATION_API_KEY:
-        logger.warning(f"Unauthorized escalation attempt from {client_ip}")
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    # Allow legacy API key if configured and provided (dual auth path)
+    api_key = request.headers.get("X-API-Key")
+    configured_key = _current_api_key()
+    if configured_key:
+        if api_key == configured_key:
+            pass  # Authorized via API key
+        else:
+            # If API key missing/invalid, JWT dependency above must be valid
+            # The dependency will have already rejected unauthorized requests.
+            if not _jwt:
+                logger.warning(f"Unauthorized escalation attempt from {client_ip}")
+                raise HTTPException(status_code=401, detail="Unauthorized")
+    else:
+        if not _jwt:
+            logger.warning(f"Unauthorized escalation attempt from {client_ip}")
+            raise HTTPException(status_code=401, detail="Unauthorized")
     increment_counter_metric(ESCALATION_REQUESTS_RECEIVED)
     ip_under_test = metadata_req.ip
     try:
@@ -1198,9 +1223,15 @@ async def health_check():
 
 
 @app.post("/admin/reload_plugins")
-async def admin_reload_plugins(request: Request):
-    if ESCALATION_API_KEY and request.headers.get("X-API-Key") != ESCALATION_API_KEY:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+async def admin_reload_plugins(
+    request: Request,
+    _jwt=Depends(require_jwt(required_roles=["admin", "engine:admin"])),
+):
+    configured_key = _current_api_key()
+    if configured_key and request.headers.get("X-API-Key") != configured_key:
+        # Accept legacy API key; otherwise, JWT dependency covers authz
+        if not _jwt:
+            raise HTTPException(status_code=401, detail="Unauthorized")
     data = await read_json_body(request)
     allowed = data.get("allowed_plugins")
     if not isinstance(allowed, list):

@@ -15,7 +15,7 @@ if ($content -match '^REAL_BACKEND_HOST=') {
     Add-Content '.env' 'REAL_BACKEND_HOST=http://fake_website:80'
 }
 
-$networkName = (docker network ls --filter name=defense_network -q | Select-Object -First 1)
+$networkName = . "$PSScriptRoot/Lib.ps1"; Get-DefenseNetwork
 if (-not $networkName) {
     Write-Error 'Could not locate the defense_network. Did quick_takeover run?'
     exit 1

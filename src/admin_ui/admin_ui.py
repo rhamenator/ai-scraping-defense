@@ -129,7 +129,7 @@ app.include_router(auth_routes.router)
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, user: str = Depends(require_auth)):
     """Serves the main dashboard HTML page."""
-    return templates.TemplateResponse("index.html", {"request": request, "user": user})
+    return templates.TemplateResponse(request, "index.html", {"user": user})
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -147,8 +147,9 @@ async def settings_page(
         "ESCALATION_ENDPOINT": _get_runtime_setting("ESCALATION_ENDPOINT"),
     }
     response = templates.TemplateResponse(
+        request,
         "settings.html",
-        {"request": request, "settings": current_settings, "csrf_token": csrf_token},
+        {"settings": current_settings, "csrf_token": csrf_token},
     )
     response.set_cookie(
         "csrf_token",
@@ -192,8 +193,9 @@ async def update_settings(
         "ESCALATION_ENDPOINT": _get_runtime_setting("ESCALATION_ENDPOINT"),
     }
     return templates.TemplateResponse(
+        request,
         "settings.html",
-        {"request": request, "settings": current_settings, "updated": True},
+        {"settings": current_settings, "updated": True},
     )
 
 
@@ -201,9 +203,7 @@ async def update_settings(
 async def view_logs(request: Request, user: str = Depends(require_auth)):
     """Display recent block events."""
     events = blocklist._load_recent_block_events_func(50)
-    return templates.TemplateResponse(
-        "logs.html", {"request": request, "events": events}
-    )
+    return templates.TemplateResponse(request, "logs.html", {"events": events})
 
 
 @app.get("/plugins", response_class=HTMLResponse)
@@ -213,8 +213,9 @@ async def plugins_page(request: Request, user: str = Depends(require_auth)):
     allowed_plugins = _get_runtime_setting("ALLOWED_PLUGINS")
     enabled = allowed_plugins.split(",") if allowed_plugins else []
     return templates.TemplateResponse(
+        request,
         "plugins.html",
-        {"request": request, "available": available, "enabled": enabled},
+        {"available": available, "enabled": enabled},
     )
 
 

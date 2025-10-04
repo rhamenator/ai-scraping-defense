@@ -42,7 +42,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         hdrs = {"X-Signature": sig, "Content-Type": "application/json"}
         if headers:
             hdrs.update(headers)
-        return self.client.post("/webhook", data=body, headers=hdrs)
+        return self.client.post("/webhook", content=body, headers=hdrs)
 
     def test_webhook_receiver_block_ip_success(self):
         """Test a successful 'block_ip' action."""
@@ -166,7 +166,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         body = json.dumps(payload).encode("utf-8")
         response = self.client.post(
             "/webhook",
-            data=body,
+            content=body,
             headers={"Content-Type": "application/json"},
         )
         self.assertEqual(response.status_code, 401)
@@ -179,7 +179,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         wrong_sig = hmac.new(b"wrong", body, hashlib.sha256).hexdigest()
         response = self.client.post(
             "/webhook",
-            data=body,
+            content=body,
             headers={
                 "X-Signature": wrong_sig,
                 "Content-Type": "application/json",

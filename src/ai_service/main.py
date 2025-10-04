@@ -5,7 +5,7 @@ import ipaddress
 import logging
 import os
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
@@ -42,6 +42,12 @@ class WebhookEvent(BaseModel):
     details: Dict[str, Any] = Field(
         ..., description="Detailed metadata about the request (IP, UA, headers, etc.)"
     )
+
+
+class WebhookAction(BaseModel):
+    action: str
+    ip: Optional[str] = None
+    reason: Optional[str] = Field(None, max_length=256)
 
 
 app = create_app()
@@ -94,6 +100,11 @@ async def webhook_receiver(
         raise HTTPException(status_code=500, detail="Shared secret not configured")
     client_ip = get_client_ip(request)
     payload = await read_json_body(request)
+    # Validate payload schema
+    try:
+        action_req = WebhookAction.model_validate(payload)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid payload schema")
     body_bytes = request.state.body_bytes
     signature = request.headers.get("X-Signature", "")
     expected = hmac.new(
@@ -134,8 +145,8 @@ async def webhook_receiver(
         audit_log_event(client_ip, "webhook_redis_unavailable", {"ip": client_ip})
         raise HTTPException(status_code=503, detail="Redis service unavailable")
 
-    action = payload.get("action")
-    ip = payload.get("ip")
+    action = action_req.action
+    ip = str(action_req.ip) if action_req.ip is not None else None
 
     actions_requiring_ip = {"block_ip", "allow_ip", "flag_ip", "unflag_ip"}
     if action in actions_requiring_ip:
@@ -162,7 +173,7 @@ async def webhook_receiver(
                 "message": f"IP {ip} removed from blocklist.",
             }
         elif action == "flag_ip":
-            reason = payload.get("reason", "")
+            reason = action_req.reason or ""
             redis_conn.set(tenant_key(f"ip_flag:{ip}"), reason)
             audit_log_event(client_ip, "webhook_flag_ip", {"ip": ip})
             return {"status": "success", "message": f"IP {ip} flagged."}

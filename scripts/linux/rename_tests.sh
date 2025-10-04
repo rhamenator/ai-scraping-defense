@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 #
 # SYNOPSIS
 #   Recursively finds and renames Python test files to the standard unittest format.

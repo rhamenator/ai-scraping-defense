@@ -1,0 +1,181 @@
+[{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-prod.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_WORKLOAD_IDENTITY_PROVIDER",
+	"startLineNumber": 31,
+	"startColumn": 39,
+	"endLineNumber": 31,
+	"endColumn": 84,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-prod.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_SERVICE_ACCOUNT",
+	"startLineNumber": 32,
+	"startColumn": 28,
+	"endLineNumber": 32,
+	"endColumn": 62,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-prod.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_PROJECT",
+	"startLineNumber": 33,
+	"startColumn": 20,
+	"endLineNumber": 33,
+	"endColumn": 46,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-prod.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GKE_CLUSTER",
+	"startLineNumber": 34,
+	"startColumn": 20,
+	"endLineNumber": 34,
+	"endColumn": 46,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-prod.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_REGION",
+	"startLineNumber": 35,
+	"startColumn": 19,
+	"endLineNumber": 35,
+	"endColumn": 44,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-prod.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: PROD_BASE_URL",
+	"startLineNumber": 36,
+	"startColumn": 17,
+	"endLineNumber": 36,
+	"endColumn": 45,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-staging.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_WORKLOAD_IDENTITY_PROVIDER",
+	"startLineNumber": 28,
+	"startColumn": 39,
+	"endLineNumber": 28,
+	"endColumn": 84,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-staging.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_SERVICE_ACCOUNT",
+	"startLineNumber": 29,
+	"startColumn": 28,
+	"endLineNumber": 29,
+	"endColumn": 62,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-staging.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_PROJECT",
+	"startLineNumber": 30,
+	"startColumn": 20,
+	"endLineNumber": 30,
+	"endColumn": 46,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-staging.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GKE_CLUSTER",
+	"startLineNumber": 31,
+	"startColumn": 20,
+	"endLineNumber": 31,
+	"endColumn": 46,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-staging.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_REGION",
+	"startLineNumber": 32,
+	"startColumn": 19,
+	"endLineNumber": 32,
+	"endColumn": 44,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/deploy-staging.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: STAGING_BASE_URL",
+	"startLineNumber": 33,
+	"startColumn": 17,
+	"endLineNumber": 33,
+	"endColumn": 48,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/promote-on-green.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_WORKLOAD_IDENTITY_PROVIDER",
+	"startLineNumber": 27,
+	"startColumn": 39,
+	"endLineNumber": 27,
+	"endColumn": 84,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/promote-on-green.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_SERVICE_ACCOUNT",
+	"startLineNumber": 28,
+	"startColumn": 28,
+	"endLineNumber": 28,
+	"endColumn": 62,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/promote-on-green.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_PROJECT",
+	"startLineNumber": 29,
+	"startColumn": 20,
+	"endLineNumber": 29,
+	"endColumn": 46,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/promote-on-green.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GKE_CLUSTER",
+	"startLineNumber": 30,
+	"startColumn": 20,
+	"endLineNumber": 30,
+	"endColumn": 46,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/promote-on-green.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: GCP_REGION",
+	"startLineNumber": 31,
+	"startColumn": 19,
+	"endLineNumber": 31,
+	"endColumn": 44,
+	"origin": "extHost2"
+},{
+	"resource": "/d:/ai-scraping-defense/.github/workflows/promote-on-green.yml",
+	"owner": "_generated_diagnostic_collection_name_#23",
+	"severity": 4,
+	"message": "Context access might be invalid: PROD_BASE_URL",
+	"startLineNumber": 32,
+	"startColumn": 17,
+	"endLineNumber": 32,
+	"endColumn": 45,
+	"origin": "extHost2"
+}]

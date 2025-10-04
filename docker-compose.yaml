@@ -31,6 +31,15 @@ services:
     image: openresty/openresty:1.21.4.1-alpine
     container_name: nginx_proxy
     user: nobody
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    tmpfs:
+      - /tmp
+      - /var/run
     ports:
       - "${NGINX_HTTP_PORT:-80}:80"
       - "${NGINX_HTTPS_PORT:-443}:443"
@@ -113,6 +122,13 @@ services:
     networks:
       - defense_network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${AI_SERVICE_PORT:-8000}/health"]
       interval: 30s
@@ -142,6 +158,13 @@ services:
     networks:
       - defense_network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${ESCALATION_ENGINE_PORT:-8003}/health"]
       interval: 30s
@@ -168,6 +191,13 @@ services:
     networks:
       - defense_network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${TARPIT_API_PORT:-8001}/health"]
       interval: 30s
@@ -196,6 +226,13 @@ services:
     networks:
       - defense_network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${ADMIN_UI_PORT:-5002}/"]
       interval: 30s
@@ -217,6 +254,13 @@ services:
     networks:
       - defense_network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8004/verify?token=test&ip=127.0.0.1" ]
       interval: 30s
@@ -242,6 +286,13 @@ services:
     networks:
       - defense_network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${CLOUD_DASHBOARD_PORT:-5006}/health" ]
       interval: 30s
@@ -311,6 +362,13 @@ services:
     networks:
       - defense_network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${PROMPT_ROUTER_PORT:-8009}/health" ]
       interval: 30s

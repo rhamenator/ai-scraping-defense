@@ -1,11 +1,12 @@
 # test/tarpit/ip_flagger.test.py
-import unittest
-from unittest.mock import patch, MagicMock
-from redis.exceptions import RedisError, ConnectionError
+import importlib
 import logging
+import unittest
+from unittest.mock import MagicMock, patch
+
+from redis.exceptions import ConnectionError, RedisError
 
 from src.tarpit import ip_flagger
-import importlib
 
 
 class TestIPFlaggerComprehensive(unittest.TestCase):
@@ -57,6 +58,14 @@ class TestIPFlaggerComprehensive(unittest.TestCase):
             self.assertFalse(result)
             self.assertIn("Failed to flag IP", cm.output[0])
 
+    def test_flag_suspicious_ip_invalid_ip(self):
+        """Test that an invalid IP is rejected before contacting Redis."""
+        with self.assertLogs("src.tarpit.ip_flagger", level="ERROR") as cm:
+            result = ip_flagger.flag_suspicious_ip("not-an-ip", "Test Reason")
+            self.assertFalse(result)
+            self.assertIn("Invalid IP address", cm.output[0])
+        self.mock_get_redis.assert_not_called()
+
     def test_is_ip_flagged_true(self):
         """Test checking a flagged IP returns True."""
         self.mock_redis_client.exists.return_value = 1
@@ -77,6 +86,14 @@ class TestIPFlaggerComprehensive(unittest.TestCase):
             result = ip_flagger.is_ip_flagged("9.9.9.9")
             self.assertFalse(result)
             self.assertIn("Redis unavailable", cm.output[0])
+
+    def test_is_ip_flagged_invalid_ip(self):
+        """Test that an invalid IP is rejected before contacting Redis."""
+        with self.assertLogs("src.tarpit.ip_flagger", level="ERROR") as cm:
+            result = ip_flagger.is_ip_flagged("bad_ip")
+            self.assertFalse(result)
+            self.assertIn("Invalid IP address", cm.output[0])
+        self.mock_get_redis.assert_not_called()
 
     def test_remove_ip_flag_success(self):
         """Test successfully removing an IP flag."""

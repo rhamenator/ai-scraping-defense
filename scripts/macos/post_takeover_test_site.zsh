@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env zsh
 # =============================================================================
 #  post_takeover_test_site.zsh - attach simple test site after quick_takeover
 #
@@ -7,6 +7,8 @@
 #  a minimal Nginx server on that network.
 # =============================================================================
 set -e
+set -u
+set -o pipefail
 
 # Update REAL_BACKEND_HOST to point at the fake_website container
 if grep -q '^REAL_BACKEND_HOST=' .env; then
@@ -16,7 +18,8 @@ else
 fi
 
 # Determine the Docker network created by quick_takeover
-NETWORK_NAME=$(docker network ls --filter name=defense_network -q | head -n 1)
+source "$SCRIPT_DIR/lib.zsh"
+NETWORK_NAME=$(defense_network)
 if [ -z "$NETWORK_NAME" ]; then
   echo "Could not locate the defense_network. Did quick_takeover run?"
   exit 1

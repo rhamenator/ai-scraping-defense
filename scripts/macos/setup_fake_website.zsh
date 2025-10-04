@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env zsh
 # =============================================================================
 #  setup_fake_website.zsh - launch a simple test web server
 #
@@ -14,6 +14,8 @@
 #    * 10+ GB of free disk space
 # =============================================================================
 set -e
+set -u
+set -o pipefail
 
 # Ensure .env exists
 if [ ! -f .env ]; then
@@ -46,11 +48,12 @@ cat > fake_site/index.html <<'HTML'
 HTML
 fi
 
+source "$SCRIPT_DIR/lib.zsh"
 # Start the AI Scraping Defense stack
-docker-compose up --build -d
+$(compose) up --build -d
 
 # Determine the Docker network created by docker-compose
-NETWORK_NAME=$(docker network ls --filter name=defense_network -q | head -n 1)
+NETWORK_NAME=$(defense_network)
 if [ -z "$NETWORK_NAME" ]; then
   echo "Could not locate the defense_network. Is the stack running?"
   exit 1

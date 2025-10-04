@@ -1,10 +1,20 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Quick script to stop host web server and run stack on port 80
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
+
+# OS guard: Linux only
+if [ "$(uname -s)" != "Linux" ]; then
+  echo "Unsupported OS: $(uname -s). This entrypoint supports Linux only." >&2
+  echo "Use scripts/macos/*.zsh on macOS or scripts/windows/*.ps1 on Windows." >&2
+  exit 1
+fi
+
+# Helpers
+source "$SCRIPT_DIR/lib.sh"
 
 echo "=== AI Scraping Defense: Server Takeover ==="
 
@@ -35,11 +45,11 @@ fi
 case "$PROXY" in
   apache)
     echo "Launching stack with Apache on port 80..."
-    APACHE_HTTP_PORT=80 docker compose up -d apache_proxy
+    APACHE_HTTP_PORT=80 $(compose) up -d apache_proxy
     ;;
   nginx)
     echo "Launching stack with Nginx on port 80..."
-    docker compose up -d nginx_proxy
+    $(compose) up -d nginx_proxy
     ;;
   *)
     echo "Usage: $0 [apache|nginx]"

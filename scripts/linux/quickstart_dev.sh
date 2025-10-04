@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Quick setup script for local development
-set -e
+set -euo pipefail
 
 # Warn if not running as root on Linux/macOS
 if [ "$(id -u)" -ne 0 ]; then
@@ -11,6 +11,16 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
+
+# OS guard: Linux only for this entrypoint
+if [ "$(uname -s)" != "Linux" ]; then
+  echo "Unsupported OS: $(uname -s). This entrypoint supports Linux only." >&2
+  echo "Use scripts/macos/*.zsh on macOS or scripts/windows/*.ps1 on Windows." >&2
+  exit 1
+fi
+
+# Helpers
+source "$SCRIPT_DIR/lib.sh"
 
 echo "=== AI Scraping Defense: Development Quickstart ==="
 
@@ -39,6 +49,6 @@ sudo bash "$SCRIPT_DIR/reset_venv.sh"
 ./.venv/bin/python test/run_all_tests.py
 
 # Launch the stack with Docker Compose
-docker-compose up --build -d
+$(compose) up --build -d
 
 echo "Development environment is up and running!"

@@ -32,6 +32,7 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
             "shared_get_redis_connection": patch(
                 "src.shared.redis_client.get_redis_connection"
             ),
+            "is_ip_flagged": patch("src.tarpit.tarpit_api.is_ip_flagged"),
             "trigger_ip_block": patch("src.tarpit.tarpit_api.trigger_ip_block"),
             "httpx.AsyncClient": patch("src.tarpit.tarpit_api.httpx.AsyncClient"),
             "ENABLE_TARPIT_CATCH_ALL": patch(
@@ -39,6 +40,7 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
             ),
         }
         self.mocks = {name: p.start() for name, p in self.patches.items()}
+        self.mocks["is_ip_flagged"].return_value = False
 
         # Configure mock Redis clients
         self.mock_redis_hops = MagicMock()
@@ -102,6 +104,7 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
         ]  # Hop count exceeds default of 250
 
         self.mock_redis_hops.exists.return_value = 1
+        self.mocks["is_ip_flagged"].return_value = True
         with patch("src.tarpit.tarpit_api.TAR_PIT_MAX_HOPS", 250), patch(
             "src.tarpit.tarpit_api.HOP_LIMIT_ENABLED", True
         ):

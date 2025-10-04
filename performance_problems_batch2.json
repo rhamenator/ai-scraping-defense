@@ -1,0 +1,309 @@
+{
+  "performance_problems_batch2": {
+    "category": "Performance",
+    "batch": 2,
+    "total_problems": 50,
+    "problems": [
+      {
+        "id": 51,
+        "problem": "Missing GPU Acceleration",
+        "affected_files": ["Computational workloads", "Machine learning operations"],
+        "fix_prompt": "Implement GPU acceleration for parallel computations using CUDA or OpenCL, add GPU memory management, create GPU workload optimization, and implement GPU performance monitoring."
+      },
+      {
+        "id": 52,
+        "problem": "Inadequate Thread Pool Management",
+        "affected_files": ["Concurrent operations", "Thread utilization"],
+        "fix_prompt": "Implement optimized thread pool management with dynamic sizing, add thread affinity optimization, create work-stealing algorithms, and implement thread pool monitoring."
+      },
+      {
+        "id": 53,
+        "problem": "Missing NUMA Optimization",
+        "affected_files": ["Memory access patterns", "Multi-socket systems"],
+        "fix_prompt": "Implement NUMA-aware memory allocation and thread scheduling, add NUMA topology detection, create memory locality optimization, and implement NUMA performance monitoring."
+      },
+      {
+        "id": 54,
+        "problem": "Inefficient Cache Line Usage",
+        "affected_files": ["Data structure layout", "Memory access patterns"],
+        "fix_prompt": "Optimize data structures for cache line efficiency, implement cache-friendly algorithms, add memory padding strategies, and create cache performance analysis."
+      },
+      {
+        "id": 55,
+        "problem": "Missing Branch Prediction Optimization",
+        "affected_files": ["Conditional logic", "Loop structures"],
+        "fix_prompt": "Optimize branch prediction with predictable branching patterns, implement branch-free algorithms where possible, add profile-guided optimization, and create branch prediction analysis."
+      },
+      {
+        "id": 56,
+        "problem": "Inadequate Memory Prefetching",
+        "affected_files": ["Memory access patterns", "Data processing loops"],
+        "fix_prompt": "Implement memory prefetching strategies with software prefetch instructions, add predictive prefetching, create prefetch optimization, and implement prefetch performance monitoring."
+      },
+      {
+        "id": 57,
+        "problem": "Missing Loop Optimization",
+        "affected_files": ["Iterative operations", "Data processing loops"],
+        "fix_prompt": "Implement loop optimization with unrolling, vectorization, and fusion, add loop invariant code motion, create loop performance analysis, and implement loop optimization frameworks."
+      },
+      {
+        "id": 58,
+        "problem": "Inefficient Function Call Overhead",
+        "affected_files": ["Function calls", "Method invocations"],
+        "fix_prompt": "Reduce function call overhead with inlining, implement tail call optimization, add function call caching, and create call overhead analysis."
+      },
+      {
+        "id": 59,
+        "problem": "Missing Compiler Optimizations",
+        "affected_files": ["Build configuration", "Compilation flags"],
+        "fix_prompt": "Enable aggressive compiler optimizations with -O3, implement link-time optimization (LTO), add profile-guided optimization (PGO), and create optimization benchmarking."
+      },
+      {
+        "id": 60,
+        "problem": "Inadequate Memory Layout Optimization",
+        "affected_files": ["Data structure design", "Memory organization"],
+        "fix_prompt": "Optimize memory layout with structure packing, implement array-of-structures vs structure-of-arrays optimization, add memory alignment optimization, and create layout performance analysis."
+      },
+      {
+        "id": 61,
+        "problem": "Missing Lock-Free Data Structures",
+        "affected_files": ["Concurrent data structures", "Shared state management"],
+        "fix_prompt": "Implement lock-free data structures using atomic operations, add compare-and-swap algorithms, create lock-free queues and stacks, and implement lock-free performance monitoring."
+      },
+      {
+        "id": 62,
+        "problem": "Inefficient Memory Barriers",
+        "affected_files": ["Memory synchronization", "Concurrent operations"],
+        "fix_prompt": "Optimize memory barrier usage with minimal synchronization, implement acquire-release semantics, add memory ordering optimization, and create barrier performance analysis."
+      },
+      {
+        "id": 63,
+        "problem": "Missing CPU Cache Optimization",
+        "affected_files": ["Data access patterns", "Algorithm design"],
+        "fix_prompt": "Implement CPU cache optimization with cache-aware algorithms, add cache blocking techniques, create temporal and spatial locality optimization, and implement cache performance profiling."
+      },
+      {
+        "id": 64,
+        "problem": "Inadequate SIMD Utilization",
+        "affected_files": ["Parallel computations", "Vector operations"],
+        "fix_prompt": "Implement SIMD instructions for parallel operations using SSE/AVX, add auto-vectorization optimization, create SIMD algorithm implementations, and implement SIMD performance monitoring."
+      },
+      {
+        "id": 65,
+        "problem": "Missing Memory Bandwidth Optimization",
+        "affected_files": ["Memory-intensive operations", "Data transfer"],
+        "fix_prompt": "Optimize memory bandwidth utilization with streaming algorithms, implement memory access coalescing, add bandwidth-aware scheduling, and create bandwidth monitoring."
+      },
+      {
+        "id": 66,
+        "problem": "Inefficient Context Switching",
+        "affected_files": ["Thread management", "Process scheduling"],
+        "fix_prompt": "Reduce context switching overhead with thread affinity, implement user-space threading, add context switch minimization, and create context switch monitoring."
+      },
+      {
+        "id": 67,
+        "problem": "Missing Instruction Pipeline Optimization",
+        "affected_files": ["CPU-intensive operations", "Algorithm implementation"],
+        "fix_prompt": "Optimize instruction pipeline utilization with instruction scheduling, implement pipeline-friendly algorithms, add instruction-level parallelism, and create pipeline performance analysis."
+      },
+      {
+        "id": 68,
+        "problem": "Inadequate Register Allocation",
+        "affected_files": ["Compiler optimization", "Performance-critical code"],
+        "fix_prompt": "Optimize register allocation with compiler hints, implement register-aware programming, add register pressure analysis, and create register utilization monitoring."
+      },
+      {
+        "id": 69,
+        "problem": "Missing Thermal Throttling Mitigation",
+        "affected_files": ["High-performance operations", "Sustained workloads"],
+        "fix_prompt": "Implement thermal throttling mitigation with workload distribution, add thermal monitoring, create dynamic performance scaling, and implement thermal-aware scheduling."
+      },
+      {
+        "id": 70,
+        "problem": "Inefficient Power Management",
+        "affected_files": ["Energy consumption", "Performance scaling"],
+        "fix_prompt": "Implement power-aware performance optimization with dynamic voltage/frequency scaling, add power profiling, create energy-efficient algorithms, and implement power monitoring."
+      },
+      {
+        "id": 71,
+        "problem": "Missing Heterogeneous Computing",
+        "affected_files": ["Multi-processor systems", "Specialized hardware"],
+        "fix_prompt": "Implement heterogeneous computing with CPU/GPU/FPGA coordination, add workload distribution optimization, create heterogeneous scheduling, and implement multi-device monitoring."
+      },
+      {
+        "id": 72,
+        "problem": "Inadequate Memory Compression",
+        "affected_files": ["Memory usage", "Data storage"],
+        "fix_prompt": "Implement memory compression with real-time compression algorithms, add compressed data structures, create compression ratio optimization, and implement compression performance monitoring."
+      },
+      {
+        "id": 73,
+        "problem": "Missing Data Locality Optimization",
+        "affected_files": ["Data access patterns", "Memory hierarchy"],
+        "fix_prompt": "Optimize data locality with cache-conscious data structures, implement data layout transformation, add locality-aware algorithms, and create locality performance analysis."
+      },
+      {
+        "id": 74,
+        "problem": "Inefficient Interrupt Handling",
+        "affected_files": ["System interrupts", "Real-time processing"],
+        "fix_prompt": "Optimize interrupt handling with interrupt coalescing, implement polling vs interrupt optimization, add interrupt affinity optimization, and create interrupt performance monitoring."
+      },
+      {
+        "id": 75,
+        "problem": "Missing Zero-Copy Operations",
+        "affected_files": ["Data transfer", "Network operations"],
+        "fix_prompt": "Implement zero-copy operations for data transfer, add memory mapping optimization, create direct memory access, and implement zero-copy performance monitoring."
+      },
+      {
+        "id": 76,
+        "problem": "Inadequate Disk I/O Optimization",
+        "affected_files": ["File operations", "Storage access"],
+        "fix_prompt": "Optimize disk I/O with sequential access patterns, implement I/O scheduling optimization, add disk cache utilization, and create storage performance monitoring."
+      },
+      {
+        "id": 77,
+        "problem": "Missing SSD Optimization",
+        "affected_files": ["Storage operations", "File system usage"],
+        "fix_prompt": "Implement SSD-specific optimizations with TRIM support, add wear leveling awareness, create SSD-optimized algorithms, and implement SSD performance monitoring."
+      },
+      {
+        "id": 78,
+        "problem": "Inefficient Network Protocol Usage",
+        "affected_files": ["Network communications", "Protocol implementation"],
+        "fix_prompt": "Optimize network protocol usage with protocol selection, implement protocol-specific optimizations, add network stack tuning, and create network performance monitoring."
+      },
+      {
+        "id": 79,
+        "problem": "Missing Kernel Bypass Techniques",
+        "affected_files": ["High-performance networking", "Low-latency operations"],
+        "fix_prompt": "Implement kernel bypass with DPDK or similar technologies, add user-space networking, create zero-kernel-copy operations, and implement bypass performance monitoring."
+      },
+      {
+        "id": 80,
+        "problem": "Inadequate Real-Time Optimization",
+        "affected_files": ["Time-critical operations", "Latency-sensitive code"],
+        "fix_prompt": "Implement real-time optimization with deterministic algorithms, add real-time scheduling, create latency minimization, and implement real-time performance monitoring."
+      },
+      {
+        "id": 81,
+        "problem": "Missing Performance Counter Utilization",
+        "affected_files": ["Performance measurement", "Hardware monitoring"],
+        "fix_prompt": "Implement hardware performance counter utilization for detailed profiling, add PMU-based monitoring, create performance counter analysis, and implement counter-driven optimization."
+      },
+      {
+        "id": 82,
+        "problem": "Inefficient Dynamic Memory Allocation",
+        "affected_files": ["Memory allocation patterns", "Heap management"],
+        "fix_prompt": "Optimize dynamic memory allocation with custom allocators, implement memory pool strategies, add allocation pattern optimization, and create allocation performance monitoring."
+      },
+      {
+        "id": 83,
+        "problem": "Missing Memory-Mapped File Optimization",
+        "affected_files": ["File access", "Large file processing"],
+        "fix_prompt": "Implement memory-mapped file optimization for large file access, add mmap strategies, create virtual memory optimization, and implement memory mapping performance monitoring."
+      },
+      {
+        "id": 84,
+        "problem": "Inadequate Compression Algorithm Selection",
+        "affected_files": ["Data compression", "Storage optimization"],
+        "fix_prompt": "Optimize compression algorithm selection based on data characteristics, implement adaptive compression, add compression benchmarking, and create compression performance analysis."
+      },
+      {
+        "id": 85,
+        "problem": "Missing Predictive Caching",
+        "affected_files": ["Cache management", "Data prefetching"],
+        "fix_prompt": "Implement predictive caching with machine learning algorithms, add access pattern prediction, create intelligent prefetching, and implement predictive cache monitoring."
+      },
+      {
+        "id": 86,
+        "problem": "Inefficient Serialization Protocols",
+        "affected_files": ["Data serialization", "Network protocols"],
+        "fix_prompt": "Optimize serialization protocols with binary formats, implement schema evolution, add serialization caching, and create serialization performance benchmarking."
+      },
+      {
+        "id": 87,
+        "problem": "Missing Hardware Acceleration Integration",
+        "affected_files": ["Specialized hardware", "Acceleration frameworks"],
+        "fix_prompt": "Integrate hardware acceleration with FPGAs, ASICs, or specialized processors, add acceleration framework integration, create hardware-software co-design, and implement acceleration monitoring."
+      },
+      {
+        "id": 88,
+        "problem": "Inadequate Workload Balancing",
+        "affected_files": ["Load distribution", "Resource utilization"],
+        "fix_prompt": "Implement intelligent workload balancing with dynamic load distribution, add workload characterization, create adaptive balancing algorithms, and implement balancing performance monitoring."
+      },
+      {
+        "id": 89,
+        "problem": "Missing Performance Modeling",
+        "affected_files": ["Performance prediction", "Capacity planning"],
+        "fix_prompt": "Implement performance modeling with analytical models, add simulation-based modeling, create performance prediction algorithms, and implement model validation and monitoring."
+      },
+      {
+        "id": 90,
+        "problem": "Inefficient Resource Scheduling",
+        "affected_files": ["Resource allocation", "Task scheduling"],
+        "fix_prompt": "Optimize resource scheduling with advanced scheduling algorithms, implement priority-based scheduling, add resource-aware scheduling, and create scheduling performance monitoring."
+      },
+      {
+        "id": 91,
+        "problem": "Missing Performance Isolation",
+        "affected_files": ["Multi-tenant systems", "Resource isolation"],
+        "fix_prompt": "Implement performance isolation with resource containers, add QoS guarantees, create isolation mechanisms, and implement isolation performance monitoring."
+      },
+      {
+        "id": 92,
+        "problem": "Inadequate Latency Optimization",
+        "affected_files": ["Response times", "Processing delays"],
+        "fix_prompt": "Implement comprehensive latency optimization with tail latency reduction, add latency budgeting, create low-latency algorithms, and implement latency monitoring and analysis."
+      },
+      {
+        "id": 93,
+        "problem": "Missing Throughput Optimization",
+        "affected_files": ["Processing capacity", "Data throughput"],
+        "fix_prompt": "Implement throughput optimization with pipeline parallelism, add batch processing optimization, create throughput maximization algorithms, and implement throughput monitoring."
+      },
+      {
+        "id": 94,
+        "problem": "Inefficient Memory Hierarchy Utilization",
+        "affected_files": ["Cache utilization", "Memory access patterns"],
+        "fix_prompt": "Optimize memory hierarchy utilization with cache-aware programming, implement memory hierarchy-conscious algorithms, add memory level optimization, and create hierarchy performance analysis."
+      },
+      {
+        "id": 95,
+        "problem": "Missing Performance Regression Prevention",
+        "affected_files": ["Performance testing", "Continuous integration"],
+        "fix_prompt": "Implement performance regression prevention with automated performance testing, add performance gates in CI/CD, create regression detection algorithms, and implement prevention monitoring."
+      },
+      {
+        "id": 96,
+        "problem": "Inadequate Performance Debugging",
+        "affected_files": ["Performance issues", "Debugging tools"],
+        "fix_prompt": "Implement comprehensive performance debugging with advanced profiling tools, add performance debugging methodologies, create debugging automation, and implement debugging performance analysis."
+      },
+      {
+        "id": 97,
+        "problem": "Missing Performance Optimization Automation",
+        "affected_files": ["Optimization processes", "Automated tuning"],
+        "fix_prompt": "Implement performance optimization automation with auto-tuning systems, add machine learning-based optimization, create optimization automation frameworks, and implement automated optimization monitoring."
+      },
+      {
+        "id": 98,
+        "problem": "Inefficient Performance Testing Strategies",
+        "affected_files": ["Testing methodologies", "Performance validation"],
+        "fix_prompt": "Implement comprehensive performance testing strategies with realistic workloads, add performance test automation, create testing optimization, and implement testing performance analysis."
+      },
+      {
+        "id": 99,
+        "problem": "Missing Performance Culture Integration",
+        "affected_files": ["Development practices", "Performance awareness"],
+        "fix_prompt": "Integrate performance culture into development practices with performance-first thinking, add performance education, create performance advocacy, and implement culture performance monitoring."
+      },
+      {
+        "id": 100,
+        "problem": "Inadequate Performance Innovation",
+        "affected_files": ["Emerging technologies", "Performance research"],
+        "fix_prompt": "Implement performance innovation with emerging technology adoption, add performance research integration, create innovation frameworks, and implement innovation performance tracking."
+      }
+    ]
+  }
+}

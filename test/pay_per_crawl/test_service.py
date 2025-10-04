@@ -10,19 +10,28 @@ class TestPayPerCrawlDB(unittest.TestCase):
         self.tmpdir = tempfile.TemporaryDirectory()
         self.db_path = os.path.join(self.tmpdir.name, "crawler.db")
         os.environ["CRAWLER_DB_PATH"] = self.db_path
-        db.init_db(self.db_path)
 
     def tearDown(self):
+        try:
+            conn = db._get_conn()
+        except RuntimeError:
+            conn = None
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                db._CONNECTION = None
         self.tmpdir.cleanup()
         os.environ.pop("CRAWLER_DB_PATH", None)
 
     def test_register_and_charge(self):
-        db.register_crawler("bot", "token", "training", self.db_path)
-        db.add_credit("token", 1.0, self.db_path)
-        info = db.get_crawler("token", self.db_path)
+        db.init_db(self.db_path)
+        db.register_crawler("bot", "token", "training")
+        db.add_credit("token", 1.0)
+        info = db.get_crawler("token")
         self.assertAlmostEqual(info["balance"], 1.0)
-        self.assertTrue(db.charge("token", 0.5, self.db_path))
-        info = db.get_crawler("token", self.db_path)
+        self.assertTrue(db.charge("token", 0.5))
+        info = db.get_crawler("token")
         self.assertAlmostEqual(info["balance"], 0.5)
 
 

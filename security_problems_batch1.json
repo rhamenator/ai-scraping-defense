@@ -1,0 +1,308 @@
+{
+  "security_problems": {
+    "category": "Security",
+    "total_problems": 50,
+    "problems": [
+      {
+        "id": 1,
+        "problem": "Hardcoded Default Credentials",
+        "affected_files": ["sample.env:45-67", "scripts/linux/generate_secrets.sh:67-131", "scripts/windows/Generate-Secrets.ps1:83-147"],
+        "fix_prompt": "Replace all default passwords and API keys with securely generated values. Implement proper secret management with HashiCorp Vault or cloud-native secret managers. Add secret rotation policies and never commit secrets to version control."
+      },
+      {
+        "id": 2,
+        "problem": "Insecure Docker Configuration",
+        "affected_files": ["Dockerfile:43-68", "docker-compose.yaml:320-343"],
+        "fix_prompt": "Configure containers to run as non-root users, implement read-only filesystems, drop unnecessary capabilities, and add security scanning to CI/CD pipeline. Use distroless base images and implement proper resource limits."
+      },
+      {
+        "id": 3,
+        "problem": "Missing Input Validation",
+        "affected_files": ["src/escalation/escalation_engine.py", "src/ai_service/main.py", "src/tarpit/tarpit_api.py", "API endpoints throughout"],
+        "fix_prompt": "Implement comprehensive input validation using Pydantic models, add request schema validation, sanitize all user inputs, and implement proper error handling for validation failures."
+      },
+      {
+        "id": 4,
+        "problem": "Weak Secret Management",
+        "affected_files": ["scripts/linux/generate_secrets.sh:156-178", "scripts/windows/Generate-Secrets.ps1:174-191"],
+        "fix_prompt": "Implement secure secret generation that never outputs secrets to console or logs. Use proper secret management tools and implement proper key rotation mechanisms with encryption at rest."
+      },
+      {
+        "id": 5,
+        "problem": "SQL Injection Vulnerabilities",
+        "affected_files": ["db/init_markov.sql", "src/tarpit/markov_generator.py", "Database queries throughout codebase"],
+        "fix_prompt": "Replace all string concatenation in SQL queries with parameterized queries. Implement ORM usage with automatic escaping and add SQL injection testing to security pipeline."
+      },
+      {
+        "id": 6,
+        "problem": "Insufficient Access Controls",
+        "affected_files": ["src/admin_ui/admin_ui.py", "src/ai_service/main.py", "API endpoints throughout"],
+        "fix_prompt": "Implement role-based access control (RBAC) with proper authorization checks on all endpoints. Add JWT token validation and implement proper session management."
+      },
+      {
+        "id": 7,
+        "problem": "Missing HTTPS Enforcement",
+        "affected_files": ["nginx/nginx.conf", "docker-compose.yaml", "sample.env:26-27"],
+        "fix_prompt": "Enforce HTTPS for all communications, implement HSTS headers, add certificate management, and redirect all HTTP traffic to HTTPS with proper SSL/TLS configuration."
+      },
+      {
+        "id": 8,
+        "problem": "Insecure CORS Policies",
+        "affected_files": ["src/admin_ui/admin_ui.py:36", "FastAPI CORS middleware throughout"],
+        "fix_prompt": "Implement restrictive CORS policies with explicit origin whitelisting, remove wildcard origins in production, and add proper preflight request handling."
+      },
+      {
+        "id": 9,
+        "problem": "Vulnerable Session Management",
+        "affected_files": ["src/admin_ui/auth.py", "Authentication systems throughout"],
+        "fix_prompt": "Implement secure session tokens with proper expiration, add session invalidation on logout, implement concurrent session limits, and use secure cookie attributes."
+      },
+      {
+        "id": 10,
+        "problem": "Missing Security Headers",
+        "affected_files": ["nginx/nginx.conf", "src/admin_ui/admin_ui.py", "HTTP responses throughout"],
+        "fix_prompt": "Implement comprehensive security headers including X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, CSP, and HSTS with proper configuration."
+      },
+      {
+        "id": 11,
+        "problem": "Insecure File Upload Handling",
+        "affected_files": ["File upload functionality", "src/admin_ui/", "File validation throughout"],
+        "fix_prompt": "Implement file type validation, add virus scanning, create upload size limits, and implement secure file storage with access controls."
+      },
+      {
+        "id": 12,
+        "problem": "Directory Traversal Vulnerability",
+        "affected_files": ["File access operations", "Path handling throughout codebase"],
+        "fix_prompt": "Implement path validation and canonicalization, add chroot jail for file operations, create whitelist-based file access, and implement path traversal protection."
+      },
+      {
+        "id": 13,
+        "problem": "XML External Entity (XXE) Vulnerability",
+        "affected_files": ["XML processing operations", "Configuration parsing"],
+        "fix_prompt": "Implement secure XML parsing configuration, disable external entity processing, add XML schema validation, and implement XML input sanitization."
+      },
+      {
+        "id": 14,
+        "problem": "Server-Side Request Forgery (SSRF)",
+        "affected_files": ["src/shared/http_client.py", "HTTP client operations with user input"],
+        "fix_prompt": "Implement URL validation and whitelisting, add network segmentation, create request filtering, and implement SSRF protection middleware."
+      },
+      {
+        "id": 15,
+        "problem": "Insecure Deserialization",
+        "affected_files": ["Data deserialization operations", "Pickle usage throughout"],
+        "fix_prompt": "Implement secure deserialization practices, add input validation before deserialization, create object whitelisting, and implement deserialization monitoring."
+      },
+      {
+        "id": 16,
+        "problem": "Missing Rate Limiting on APIs",
+        "affected_files": ["src/ai_service/main.py:29", "API endpoints without rate limiting"],
+        "fix_prompt": "Implement per-endpoint rate limiting, add user-based quotas, create rate limiting bypass for trusted sources, and implement rate limiting analytics."
+      },
+      {
+        "id": 17,
+        "problem": "Inadequate Input Validation",
+        "affected_files": ["Input processing throughout application", "Form validation"],
+        "fix_prompt": "Implement comprehensive input validation schemas, add input sanitization, create validation error handling, and implement input fuzzing protection."
+      },
+      {
+        "id": 18,
+        "problem": "Missing Output Encoding",
+        "affected_files": ["Data rendering in responses", "Template rendering"],
+        "fix_prompt": "Implement context-aware output encoding, add automatic escaping, create encoding validation, and implement output sanitization."
+      },
+      {
+        "id": 19,
+        "problem": "Weak Cryptographic Implementation",
+        "affected_files": ["Cryptographic operations throughout codebase", "Key generation"],
+        "fix_prompt": "Implement industry-standard cryptographic libraries, add proper key management, create cryptographic validation, and implement crypto-agility."
+      },
+      {
+        "id": 20,
+        "problem": "Insecure Random Number Generation",
+        "affected_files": ["Random number usage in security contexts", "Token generation"],
+        "fix_prompt": "Implement cryptographically secure random number generation, add entropy validation, create random number testing, and implement secure seeding."
+      },
+      {
+        "id": 21,
+        "problem": "Missing Certificate Validation",
+        "affected_files": ["HTTPS client connections", "Certificate handling"],
+        "fix_prompt": "Implement proper certificate validation, add certificate pinning, create certificate monitoring, and implement certificate rotation."
+      },
+      {
+        "id": 22,
+        "problem": "Inadequate Database Security",
+        "affected_files": ["Database connections throughout", "db/init_markov.sql"],
+        "fix_prompt": "Implement database connection encryption, add database user privilege separation, create database access monitoring, and implement database security hardening."
+      },
+      {
+        "id": 23,
+        "problem": "Missing API Authentication",
+        "affected_files": ["API endpoints with weak authentication", "src/ai_service/main.py"],
+        "fix_prompt": "Implement OAuth 2.0 or JWT authentication, add API key management, create authentication middleware, and implement authentication monitoring."
+      },
+      {
+        "id": 24,
+        "problem": "Inadequate Authorization",
+        "affected_files": ["Resource access without proper authorization", "src/admin_ui/"],
+        "fix_prompt": "Implement role-based access control, add attribute-based access control, create authorization policies, and implement authorization testing."
+      },
+      {
+        "id": 25,
+        "problem": "Missing Data Loss Prevention",
+        "affected_files": ["Data handling without loss prevention", "Sensitive data processing"],
+        "fix_prompt": "Implement data classification, add data loss prevention rules, create data monitoring, and implement data exfiltration protection."
+      },
+      {
+        "id": 26,
+        "problem": "Inadequate Backup Security",
+        "affected_files": ["Backup operations without security", "Data backup procedures"],
+        "fix_prompt": "Implement backup encryption, add backup access controls, create backup integrity verification, and implement secure backup storage."
+      },
+      {
+        "id": 27,
+        "problem": "Missing Incident Response",
+        "affected_files": ["Security events without automated response", "Incident handling"],
+        "fix_prompt": "Implement incident response automation, add security orchestration, create incident classification, and implement response playbooks."
+      },
+      {
+        "id": 28,
+        "problem": "Inadequate Vulnerability Management",
+        "affected_files": ["System without vulnerability scanning", "Dependency management"],
+        "fix_prompt": "Implement automated vulnerability scanning, add vulnerability prioritization, create patch management, and implement vulnerability reporting."
+      },
+      {
+        "id": 29,
+        "problem": "Missing Threat Intelligence",
+        "affected_files": ["Security without threat awareness", "Threat detection"],
+        "fix_prompt": "Implement threat intelligence feeds, add indicator of compromise detection, create threat hunting, and implement threat intelligence analysis."
+      },
+      {
+        "id": 30,
+        "problem": "Inadequate Security Monitoring",
+        "affected_files": ["Security events without comprehensive monitoring", "SIEM integration"],
+        "fix_prompt": "Implement Security Information and Event Management (SIEM), add security analytics, create anomaly detection, and implement security dashboards."
+      },
+      {
+        "id": 31,
+        "problem": "Missing Penetration Testing",
+        "affected_files": ["Security without validation testing", "Security testing framework"],
+        "fix_prompt": "Implement automated penetration testing, add security testing in CI/CD, create penetration test reporting, and implement remediation tracking."
+      },
+      {
+        "id": 32,
+        "problem": "Inadequate Security Training",
+        "affected_files": ["Development without security education", "Security awareness"],
+        "fix_prompt": "Implement security training programs, add secure coding training, create security awareness campaigns, and implement security knowledge testing."
+      },
+      {
+        "id": 33,
+        "problem": "Missing Security Architecture",
+        "affected_files": ["System design without security framework", "Security requirements"],
+        "fix_prompt": "Implement security architecture framework, add security design patterns, create security requirements, and implement security architecture review."
+      },
+      {
+        "id": 34,
+        "problem": "Inadequate Privacy Controls",
+        "affected_files": ["Personal data processing without privacy controls", "Data privacy"],
+        "fix_prompt": "Implement privacy by design, add consent management, create data minimization, and implement privacy impact assessments."
+      },
+      {
+        "id": 35,
+        "problem": "Missing Multi-Factor Authentication",
+        "affected_files": ["src/admin_ui/auth.py", "Authentication system without MFA"],
+        "fix_prompt": "Implement TOTP-based MFA, add backup codes, create MFA recovery procedures, and implement adaptive authentication based on risk assessment."
+      },
+      {
+        "id": 36,
+        "problem": "Inadequate Account Lockout",
+        "affected_files": ["Authentication without brute force protection", "Login systems"],
+        "fix_prompt": "Implement progressive account lockout, add CAPTCHA after failures, create account unlock procedures, and implement IP-based blocking."
+      },
+      {
+        "id": 37,
+        "problem": "Missing Audit Logging",
+        "affected_files": ["Security-sensitive operations without logging", "src/shared/audit.py"],
+        "fix_prompt": "Implement comprehensive audit logging, add log integrity protection, create audit log analysis, and implement compliance reporting."
+      },
+      {
+        "id": 38,
+        "problem": "Insecure Communication Protocols",
+        "affected_files": ["Inter-service communication", "Network protocols"],
+        "fix_prompt": "Implement TLS for all communications, add mutual TLS authentication, create secure communication channels, and implement protocol security monitoring."
+      },
+      {
+        "id": 39,
+        "problem": "Missing Security Code Review",
+        "affected_files": ["Code review process", "Security validation"],
+        "fix_prompt": "Implement security-focused code review processes, add automated security scanning, create security checklists, and implement security gate reviews."
+      },
+      {
+        "id": 40,
+        "problem": "Inadequate Secrets Rotation",
+        "affected_files": ["Static secrets throughout system", "Secret management"],
+        "fix_prompt": "Implement automatic secret rotation, add secret versioning, create rotation policies, and implement zero-downtime secret updates."
+      },
+      {
+        "id": 41,
+        "problem": "Missing Container Security Scanning",
+        "affected_files": ["Dockerfile", "Container builds without security scanning"],
+        "fix_prompt": "Implement container vulnerability scanning in CI/CD pipeline, add base image security validation, create container security policies, and implement runtime container monitoring."
+      },
+      {
+        "id": 42,
+        "problem": "Inadequate Kubernetes Security",
+        "affected_files": ["kubernetes/*.yaml", "Kubernetes cluster configuration"],
+        "fix_prompt": "Implement Kubernetes security hardening according to CIS benchmarks, add Pod Security Standards, create network policies, and implement RBAC with least privilege."
+      },
+      {
+        "id": 43,
+        "problem": "Missing Network Segmentation",
+        "affected_files": ["Network configuration", "docker-compose.yaml network settings"],
+        "fix_prompt": "Implement network segmentation with VLANs or subnets, add firewall rules, create network access controls, and implement network monitoring."
+      },
+      {
+        "id": 44,
+        "problem": "Inadequate Endpoint Security",
+        "affected_files": ["Endpoint protection", "Client-side security"],
+        "fix_prompt": "Implement endpoint detection and response (EDR), add endpoint encryption, create device management policies, and implement endpoint monitoring."
+      },
+      {
+        "id": 45,
+        "problem": "Missing Zero Trust Architecture",
+        "affected_files": ["Network-based security model", "Trust boundaries"],
+        "fix_prompt": "Implement zero-trust architecture with identity-based access control, add continuous verification, create least privilege access, and implement behavioral analytics."
+      },
+      {
+        "id": 46,
+        "problem": "Inadequate Supply Chain Security",
+        "affected_files": ["requirements.txt", "Cargo.toml files", "Dependencies"],
+        "fix_prompt": "Implement supply chain security with dependency verification, add SBOM generation, create provenance tracking, and implement dependency signing."
+      },
+      {
+        "id": 47,
+        "problem": "Missing Security Orchestration",
+        "affected_files": ["Security operations", "Incident response automation"],
+        "fix_prompt": "Implement Security Orchestration, Automation and Response (SOAR), add automated threat response, create security playbooks, and implement response coordination."
+      },
+      {
+        "id": 48,
+        "problem": "Inadequate Data Encryption",
+        "affected_files": ["Data storage", "Data transmission"],
+        "fix_prompt": "Implement encryption at rest and in transit, add key management systems, create encryption policies, and implement encryption monitoring."
+      },
+      {
+        "id": 49,
+        "problem": "Missing Security Metrics",
+        "affected_files": ["Security measurement", "Security KPIs"],
+        "fix_prompt": "Implement security metrics collection, add security KPI dashboards, create security scorecards, and implement security performance monitoring."
+      },
+      {
+        "id": 50,
+        "problem": "Inadequate Third-Party Security",
+        "affected_files": ["Third-party integrations", "Vendor security assessment"],
+        "fix_prompt": "Implement third-party security assessment, add vendor security requirements, create security questionnaires, and implement ongoing vendor monitoring."
+      }
+    ]
+  }
+}

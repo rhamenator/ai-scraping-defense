@@ -1,0 +1,373 @@
+name: Comprehensive Compliance Problem Detection
+on:
+  workflow_dispatch:
+    inputs:
+      compliance_framework:
+        description: "Focus framework (gdpr|ccpa|hipaa|sox|all)"
+        required: false
+        default: "all"
+      audit_depth:
+        description: "Audit depth (basic|detailed|comprehensive)"
+        required: false
+        default: "detailed"
+      autofix:
+        description: "Run autofix and open PR (true|false)"
+        required: false
+        default: "true"
+  workflow_call:
+    inputs:
+      compliance_framework:
+        type: string
+        required: false
+        default: all
+      audit_depth:
+        type: string
+        required: false
+        default: detailed
+      autofix:
+        type: string
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  comprehensive-compliance-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with: { fetch-depth: 0 }
+
+      - name: Setup Compliance Analysis Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip nodejs npm
+          pip3 install --user policyengine compliance-checker
+
+          # Privacy and compliance tools
+          npm install -g gdpr-checker privacy-analyzer
+
+      - name: Create Reports Directory
+        run: mkdir -p reports/compliance
+
+      # GDPR Compliance Analysis
+      - name: Analyze GDPR Compliance
+        run: |
+          echo "Analyzing GDPR compliance requirements..."
+
+          # Data processing patterns
+          grep -r "personal.*data\|user.*data\|customer.*data" --include="*.py" --include="*.js" . > reports/compliance/personal-data-processing.txt || true
+
+          # Consent management
+          grep -r "consent\|permission\|agree\|opt.*in" --include="*.py" --include="*.js" --include="*.html" . > reports/compliance/consent-patterns.txt || true
+
+          # Right to be forgotten
+          grep -r "delete.*user\|remove.*data\|forget\|erasure" --include="*.py" --include="*.js" . > reports/compliance/data-erasure.txt || true
+
+          # Data minimization
+          grep -r "collect.*data\|store.*data\|retain.*data" --include="*.py" --include="*.js" . > reports/compliance/data-collection.txt || true
+
+          # Privacy policy references
+          grep -r "privacy.*policy\|data.*protection\|gdpr" --include="*.py" --include="*.js" --include="*.html" . > reports/compliance/privacy-policy.txt || true
+
+      # CCPA Compliance Analysis
+      - name: Analyze CCPA Compliance
+        run: |
+          echo "Analyzing CCPA compliance requirements..."
+
+          # California consumer rights
+          grep -r "california\|ccpa\|consumer.*right" --include="*.py" --include="*.js" --include="*.html" . > reports/compliance/ccpa-references.txt || true
+
+          # Data disclosure
+          grep -r "disclose\|share.*data\|sell.*data" --include="*.py" --include="*.js" . > reports/compliance/data-disclosure.txt || true
+
+          # Opt-out mechanisms
+          grep -r "opt.*out\|do.*not.*sell\|unsubscribe" --include="*.py" --include="*.js" --include="*.html" . > reports/compliance/opt-out-mechanisms.txt || true
+
+      # Audit Logging Analysis
+      - name: Analyze Audit Logging
+        run: |
+          echo "Analyzing audit logging compliance..."
+
+          # Audit trail patterns
+          grep -r "audit\|log.*access\|log.*change" --include="*.py" --include="*.js" . > reports/compliance/audit-logging.txt || true
+
+          # User activity logging
+          grep -r "user.*activity\|access.*log\|login.*log" --include="*.py" --include="*.js" . > reports/compliance/user-activity-logs.txt || true
+
+          # Data access logging
+          grep -r "data.*access\|record.*access\|view.*log" --include="*.py" --include="*.js" . > reports/compliance/data-access-logs.txt || true
+
+          # System change logging
+          grep -r "system.*change\|config.*change\|admin.*action" --include="*.py" --include="*.js" . > reports/compliance/system-change-logs.txt || true
+
+      # Data Retention Analysis
+      - name: Analyze Data Retention
+        run: |
+          echo "Analyzing data retention policies..."
+
+          # Retention policy patterns
+          grep -r "retention\|expire\|purge\|cleanup" --include="*.py" --include="*.js" --include="*.sql" . > reports/compliance/retention-policies.txt || true
+
+          # Data lifecycle management
+          grep -r "lifecycle\|archive\|backup.*schedule" --include="*.py" --include="*.js" --include="*.yaml" . > reports/compliance/data-lifecycle.txt || true
+
+          # Automated deletion
+          grep -r "auto.*delete\|scheduled.*cleanup\|cron.*purge" --include="*.py" --include="*.sh" . > reports/compliance/automated-deletion.txt || true
+
+      # Privacy Controls Analysis
+      - name: Analyze Privacy Controls
+        run: |
+          echo "Analyzing privacy controls..."
+
+          # Data anonymization
+          grep -r "anonymize\|pseudonymize\|mask.*data" --include="*.py" --include="*.js" . > reports/compliance/data-anonymization.txt || true
+
+          # Encryption patterns
+          grep -r "encrypt\|decrypt\|cipher\|hash" --include="*.py" --include="*.js" --include="*.go" . > reports/compliance/encryption-usage.txt || true
+
+          # Access controls
+          grep -r "access.*control\|permission\|authorize\|rbac" --include="*.py" --include="*.js" . > reports/compliance/access-controls.txt || true
+
+          # Data classification
+          grep -r "classify\|sensitive\|confidential\|public" --include="*.py" --include="*.js" . > reports/compliance/data-classification.txt || true
+
+      # Regulatory Monitoring Analysis
+      - name: Analyze Regulatory Monitoring
+        run: |
+          echo "Analyzing regulatory monitoring..."
+
+          # Compliance monitoring
+          grep -r "compliance.*check\|regulatory.*check\|violation" --include="*.py" --include="*.js" . > reports/compliance/compliance-monitoring.txt || true
+
+          # Regulatory reporting
+          grep -r "regulatory.*report\|compliance.*report\|audit.*report" --include="*.py" --include="*.js" . > reports/compliance/regulatory-reporting.txt || true
+
+          # Policy enforcement
+          grep -r "policy.*enforce\|rule.*enforce\|validate.*policy" --include="*.py" --include="*.js" . > reports/compliance/policy-enforcement.txt || true
+
+      # Data Governance Analysis
+      - name: Analyze Data Governance
+        run: |
+          echo "Analyzing data governance framework..."
+
+          # Data stewardship
+          grep -r "data.*steward\|data.*owner\|data.*custodian" --include="*.py" --include="*.js" --include="*.md" . > reports/compliance/data-stewardship.txt || true
+
+          # Data quality
+          grep -r "data.*quality\|validate.*data\|clean.*data" --include="*.py" --include="*.js" . > reports/compliance/data-quality.txt || true
+
+          # Data lineage
+          grep -r "data.*lineage\|data.*flow\|data.*pipeline" --include="*.py" --include="*.js" . > reports/compliance/data-lineage.txt || true
+
+          # Governance policies
+          find . -name "*policy*" -o -name "*governance*" > reports/compliance/governance-files.txt || true
+
+      # SOX Compliance Analysis
+      - name: Analyze SOX Compliance
+        run: |
+          echo "Analyzing SOX compliance requirements..."
+
+          # Financial controls
+          grep -r "financial\|accounting\|revenue\|transaction" --include="*.py" --include="*.js" . > reports/compliance/financial-controls.txt || true
+
+          # Internal controls
+          grep -r "internal.*control\|control.*test\|sox" --include="*.py" --include="*.js" . > reports/compliance/internal-controls.txt || true
+
+          # Change management
+          grep -r "change.*control\|approval.*process\|review.*process" --include="*.py" --include="*.js" . > reports/compliance/change-management.txt || true
+
+      # HIPAA Compliance Analysis
+      - name: Analyze HIPAA Compliance
+        run: |
+          echo "Analyzing HIPAA compliance requirements..."
+
+          # PHI handling
+          grep -r "phi\|health.*information\|medical.*data" --include="*.py" --include="*.js" . > reports/compliance/phi-handling.txt || true
+
+          # Healthcare security
+          grep -r "hipaa\|healthcare.*security\|medical.*privacy" --include="*.py" --include="*.js" . > reports/compliance/healthcare-security.txt || true
+
+          # Breach notification
+          grep -r "breach.*notification\|security.*incident\|phi.*breach" --include="*.py" --include="*.js" . > reports/compliance/breach-notification.txt || true
+
+      # ISO 27001 Analysis
+      - name: Analyze ISO 27001 Compliance
+        run: |
+          echo "Analyzing ISO 27001 compliance..."
+
+          # Information security management
+          grep -r "isms\|iso.*27001\|security.*management" --include="*.py" --include="*.js" --include="*.md" . > reports/compliance/iso27001-patterns.txt || true
+
+          # Risk management
+          grep -r "risk.*assessment\|risk.*management\|threat.*analysis" --include="*.py" --include="*.js" . > reports/compliance/risk-management.txt || true
+
+          # Security controls
+          grep -r "security.*control\|control.*implementation" --include="*.py" --include="*.js" . > reports/compliance/security-controls.txt || true
+
+      # Consent Management Analysis
+      - name: Analyze Consent Management
+        run: |
+          echo "Analyzing consent management systems..."
+
+          # Consent collection
+          grep -r "collect.*consent\|gather.*consent\|consent.*form" --include="*.py" --include="*.js" --include="*.html" . > reports/compliance/consent-collection.txt || true
+
+          # Consent tracking
+          grep -r "track.*consent\|consent.*database\|consent.*record" --include="*.py" --include="*.js" . > reports/compliance/consent-tracking.txt || true
+
+          # Consent withdrawal
+          grep -r "withdraw.*consent\|revoke.*consent\|consent.*withdrawal" --include="*.py" --include="*.js" . > reports/compliance/consent-withdrawal.txt || true
+
+      # Data Subject Rights Analysis
+      - name: Analyze Data Subject Rights
+        run: |
+          echo "Analyzing data subject rights implementation..."
+
+          # Access requests
+          grep -r "data.*access\|subject.*access\|access.*request" --include="*.py" --include="*.js" . > reports/compliance/data-access-requests.txt || true
+
+          # Data portability
+          grep -r "data.*portability\|export.*data\|download.*data" --include="*.py" --include="*.js" . > reports/compliance/data-portability.txt || true
+
+          # Rectification rights
+          grep -r "rectify\|correct.*data\|update.*data" --include="*.py" --include="*.js" . > reports/compliance/data-rectification.txt || true
+
+      # Vendor Compliance Analysis
+      - name: Analyze Vendor Compliance
+        run: |
+          echo "Analyzing vendor compliance management..."
+
+          # Third-party assessments
+          grep -r "vendor.*assessment\|third.*party.*risk\|supplier.*evaluation" --include="*.py" --include="*.js" --include="*.md" . > reports/compliance/vendor-assessments.txt || true
+
+          # Contract compliance
+          grep -r "contract.*compliance\|sla\|service.*agreement" --include="*.py" --include="*.js" --include="*.md" . > reports/compliance/contract-compliance.txt || true
+
+          # Vendor monitoring
+          grep -r "vendor.*monitoring\|supplier.*monitoring\|third.*party.*monitoring" --include="*.py" --include="*.js" . > reports/compliance/vendor-monitoring.txt || true
+
+      # Compliance Training Analysis
+      - name: Analyze Compliance Training
+        run: |
+          echo "Analyzing compliance training programs..."
+
+          # Training materials
+          find . -name "*training*" -o -name "*education*" -o -name "*awareness*" > reports/compliance/training-materials.txt || true
+
+          # Compliance documentation
+          find . -name "*compliance*" -o -name "*policy*" -o -name "*procedure*" > reports/compliance/compliance-docs.txt || true
+
+          # Training tracking
+          grep -r "training.*record\|certification\|compliance.*training" --include="*.py" --include="*.js" . > reports/compliance/training-tracking.txt || true
+
+      # Generate Compliance Summary
+      - name: Generate Compliance Summary
+        run: |
+          python3 - <<'EOF'
+          import json
+          import os
+          import glob
+
+          def count_lines_in_file(filepath):
+              try:
+                  with open(filepath, 'r') as f:
+                      lines = f.readlines()
+                      return len([l for l in lines if l.strip()])
+              except:
+                  return 0
+
+          summary = {
+              "total_compliance_elements": 0,
+              "categories": {},
+              "compliance_frameworks": {},
+              "files_analyzed": 0
+          }
+
+          # Framework mapping
+          framework_keywords = {
+              "gdpr": ["gdpr", "personal-data", "consent", "privacy-policy", "data-erasure"],
+              "ccpa": ["ccpa", "california", "opt-out", "data-disclosure"],
+              "hipaa": ["hipaa", "phi", "healthcare", "breach-notification"],
+              "sox": ["sox", "financial", "internal-controls", "change-management"],
+              "iso27001": ["iso27001", "risk-management", "security-controls"]
+          }
+
+          report_files = glob.glob("reports/compliance/*")
+          for report_file in report_files:
+              category = os.path.basename(report_file).replace('.txt', '')
+              issue_count = count_lines_in_file(report_file)
+              summary["categories"][category] = issue_count
+              summary["total_compliance_elements"] += issue_count
+              summary["files_analyzed"] += 1
+
+              # Map to frameworks
+              for framework, keywords in framework_keywords.items():
+                  if any(keyword in category for keyword in keywords):
+                      if framework not in summary["compliance_frameworks"]:
+                          summary["compliance_frameworks"][framework] = 0
+                      summary["compliance_frameworks"][framework] += issue_count
+
+          with open("reports/compliance/summary.json", "w") as f:
+              json.dump(summary, f, indent=2)
+
+          print(f"Compliance analysis complete. Found {summary['total_compliance_elements']} compliance elements across {summary['files_analyzed']} categories.")
+
+          # Generate markdown summary
+          with open("reports/compliance/COMPLIANCE_SUMMARY.md", "w") as f:
+              f.write("# Compliance Analysis Summary\n\n")
+              f.write(f"**Total Compliance Elements:** {summary['total_compliance_elements']}\n\n")
+
+              f.write("## Compliance Framework Coverage\n\n")
+              f.write("| Framework | Elements Found | Status |\n|-----------|----------------|--------|\n")
+              for framework, count in sorted(summary["compliance_frameworks"].items()):
+                  status = "🟢 Good" if count > 10 else "🟡 Partial" if count > 5 else "🔴 Limited"
+                  f.write(f"| {framework.upper()} | {count} | {status} |\n")
+
+              f.write("\n## Elements by Category\n\n")
+              f.write("| Category | Count | Priority |\n|----------|-------|----------|\n")
+
+              high_priority = ["audit-logging", "data-access", "consent", "encryption", "access-controls"]
+              for category, count in sorted(summary["categories"].items(), key=lambda x: x[1], reverse=True):
+                  priority = "🔴 High" if any(h in category for h in high_priority) else "🟡 Medium" if count > 5 else "🟢 Low"
+                  f.write(f"| {category.replace('-', ' ').title()} | {count} | {priority} |\n")
+
+              f.write("\n## Compliance Recommendations\n\n")
+              f.write("### Immediate Actions\n")
+              low_frameworks = [(k, v) for k, v in summary["compliance_frameworks"].items() if v < 5]
+              for framework, count in sorted(low_frameworks):
+                  f.write(f"- **{framework.upper()} Compliance**: Only {count} elements found - requires immediate attention\n")
+
+              f.write("\n### Implementation Priorities\n")
+              f.write("1. Implement comprehensive audit logging\n")
+              f.write("2. Establish data retention and deletion policies\n")
+              f.write("3. Create consent management system\n")
+              f.write("4. Implement data subject rights handling\n")
+              f.write("5. Establish vendor compliance monitoring\n")
+              f.write("6. Create compliance training programs\n")
+          EOF
+
+      - name: Upload Compliance Reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: comprehensive-compliance-reports
+          path: reports/compliance/
+          retention-days: 30
+
+      - name: Display Summary
+        run: |
+          echo "## ⚖️ Compliance Analysis Results" >> $GITHUB_STEP_SUMMARY
+          cat reports/compliance/COMPLIANCE_SUMMARY.md >> $GITHUB_STEP_SUMMARY
+
+  autofix:
+    if: ${{ inputs.autofix == 'true' }}
+    needs: comprehensive-compliance-audit
+    uses: ./.github/workflows/autofix-and-guard.yml
+    with:
+      category: compliance
+      pr_title: Automated compliance-related fixes
+      automerge: "true"

@@ -44,7 +44,7 @@ if (-not (Test-Path $index)) {
 # Start the stack
 docker-compose up --build -d
 
-$networkName = (docker network ls --filter name=defense_network -q | Select-Object -First 1)
+$networkName = . "$PSScriptRoot/Lib.ps1"; Get-DefenseNetwork
 if (-not $networkName) {
     Write-Error 'Could not locate the defense_network. Is the stack running?'
     exit 1

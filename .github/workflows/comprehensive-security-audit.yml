@@ -1,0 +1,320 @@
+name: Comprehensive Security Problem Detection
+on:
+  workflow_dispatch:
+    inputs:
+      severity_filter:
+        description: "Filter by severity (critical|high|medium|low|all)"
+        required: false
+        default: "all"
+      output_format:
+        description: "Output format (json|sarif|text)"
+        required: false
+        default: "json"
+      autofix:
+        description: "Run autofix and open PR (true|false)"
+        required: false
+        default: "true"
+  workflow_call:
+    inputs:
+      severity_filter:
+        type: string
+        required: false
+        default: all
+      output_format:
+        type: string
+        required: false
+        default: json
+      autofix:
+        type: string
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  security-events: write
+  actions: read
+
+jobs:
+  comprehensive-security-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with: { fetch-depth: 0 }
+
+      - name: Setup Python
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c
+        with:
+          python-version: '3.11'
+
+      - name: Install Security Tools
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y jq curl unzip golang cargo nodejs npm
+
+          # Core security scanners
+          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/install.sh | sudo bash -s -- -b /usr/local/bin
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
+          pipx install semgrep bandit pip-audit safety
+
+          # Advanced security tools
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          cargo install cargo-audit cargo-deny
+          npm install -g retire @microsoft/eslint-plugin-sdl
+
+          # Container security
+          curl -sSfL https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 -o hadolint
+          sudo install hadolint /usr/local/bin/hadolint
+
+          # Infrastructure security
+          curl -L https://github.com/tenable/terrascan/releases/latest/download/terrascan_Linux_x86_64.tar.gz -o terrascan.tar.gz
+          tar -xf terrascan.tar.gz && sudo install terrascan /usr/local/bin/
+
+          # Secret scanning
+          go install github.com/trufflesecurity/trufflehog/v3@latest
+
+      - name: Create Reports Directory
+        run: mkdir -p reports/security
+
+      # Authentication & Authorization Problems
+      - name: Scan Authentication Issues
+        run: |
+          echo "Scanning for authentication and authorization problems..."
+
+          # Check for hardcoded credentials
+          trufflehog filesystem . --json --no-update > reports/security/secrets.json || true
+
+          # Check for weak authentication patterns
+          semgrep --config=p/owasp-top-ten --config=p/security-audit --json --output=reports/security/auth-patterns.json . || true
+
+          # Custom authentication checks
+          grep -r "password.*=" --include="*.py" --include="*.js" --include="*.go" . > reports/security/hardcoded-passwords.txt || true
+          grep -r "api_key.*=" --include="*.py" --include="*.js" --include="*.go" . > reports/security/hardcoded-keys.txt || true
+
+      # Input Validation & Injection Problems
+      - name: Scan Input Validation Issues
+        run: |
+          echo "Scanning for input validation and injection vulnerabilities..."
+
+          # SQL injection patterns
+          semgrep --config=p/sql-injection --json --output=reports/security/sql-injection.json . || true
+
+          # XSS patterns
+          semgrep --config=p/xss --json --output=reports/security/xss.json . || true
+
+          # Command injection
+          semgrep --config=p/command-injection --json --output=reports/security/command-injection.json . || true
+
+          # Path traversal
+          grep -r "\.\./\|\.\.\\\\|path.*join" --include="*.py" --include="*.js" --include="*.go" . > reports/security/path-traversal.txt || true
+
+      # Encryption & Cryptography Problems
+      - name: Scan Cryptography Issues
+        run: |
+          echo "Scanning for cryptography and encryption problems..."
+
+          # Weak crypto patterns
+          semgrep --config=p/crypto --json --output=reports/security/crypto-issues.json . || true
+
+          # Check for weak algorithms
+          grep -r "MD5\|SHA1\|DES\|RC4" --include="*.py" --include="*.js" --include="*.go" . > reports/security/weak-crypto.txt || true
+
+          # SSL/TLS issues
+          grep -r "ssl.*verify.*false\|verify_mode.*none" --include="*.py" --include="*.js" . > reports/security/ssl-issues.txt || true
+
+      # Container Security Problems
+      - name: Scan Container Security
+        run: |
+          echo "Scanning container security issues..."
+
+          # Dockerfile security
+          find . -name "Dockerfile*" -exec hadolint {} \; > reports/security/dockerfile-issues.txt || true
+
+          # Container image vulnerabilities
+          trivy fs --format json --output reports/security/container-vulns.json . || true
+
+          # Docker compose security
+          find . -name "docker-compose*.yml" -exec trivy config {} \; > reports/security/compose-issues.txt || true
+
+      # Network Security Problems
+      - name: Scan Network Security
+        run: |
+          echo "Scanning network security configurations..."
+
+          # Check for insecure network configs
+          grep -r "0\.0\.0\.0\|bind.*all" --include="*.conf" --include="*.yaml" --include="*.yml" . > reports/security/network-exposure.txt || true
+
+          # CORS issues
+          grep -r "Access-Control-Allow-Origin.*\*" --include="*.py" --include="*.js" . > reports/security/cors-issues.txt || true
+
+          # Insecure protocols
+          grep -r "http://\|ftp://\|telnet://" --include="*.py" --include="*.js" --include="*.go" --include="*.conf" . > reports/security/insecure-protocols.txt || true
+
+      # Dependency Security Problems
+      - name: Scan Dependencies
+        run: |
+          echo "Scanning dependency vulnerabilities..."
+
+          # Python dependencies
+          if [ -f requirements.txt ]; then
+            pip-audit -r requirements.txt --format=json --output=reports/security/python-deps.json || true
+            safety check -r requirements.txt --json > reports/security/python-safety.json || true
+          fi
+
+          # Node.js dependencies
+          if [ -f package.json ]; then
+            npm audit --json > reports/security/npm-audit.json || true
+            retire --js --outputformat json --outputpath reports/security/retire.json . || true
+          fi
+
+          # Go dependencies
+          if [ -f go.mod ]; then
+            ~/go/bin/govulncheck -json ./... > reports/security/go-vulns.json || true
+          fi
+
+          # Rust dependencies
+          if [ -f Cargo.toml ]; then
+            cargo audit --json > reports/security/rust-audit.json || true
+            cargo deny check --format json > reports/security/rust-deny.json || true
+          fi
+
+      # Infrastructure Security Problems
+      - name: Scan Infrastructure Security
+        run: |
+          echo "Scanning infrastructure security..."
+
+          # Terraform/IaC security
+          if [ -d terraform ] || [ -d infrastructure ]; then
+            terrascan scan -t all -f json -o reports/security/iac-security.json . || true
+          fi
+
+          # Kubernetes security
+          if [ -d kubernetes ] || [ -d k8s ]; then
+            trivy config --format json --output reports/security/k8s-security.json kubernetes/ || true
+          fi
+
+          # Cloud configuration
+          semgrep --config=p/terraform --config=p/kubernetes --json --output=reports/security/cloud-config.json . || true
+
+      # Access Control Problems
+      - name: Scan Access Control Issues
+        run: |
+          echo "Scanning access control problems..."
+
+          # File permissions
+          find . -type f -perm /o+w -not -path "./.git/*" > reports/security/world-writable.txt || true
+
+          # Privilege escalation patterns
+          grep -r "sudo\|setuid\|setgid" --include="*.sh" --include="*.py" . > reports/security/privilege-escalation.txt || true
+
+          # Unsafe file operations
+          grep -r "chmod.*777\|umask.*000" --include="*.sh" --include="*.py" . > reports/security/unsafe-permissions.txt || true
+
+      # Data Protection Problems
+      - name: Scan Data Protection Issues
+        run: |
+          echo "Scanning data protection problems..."
+
+          # PII detection patterns
+          grep -r "ssn\|social.*security\|credit.*card\|passport" --include="*.py" --include="*.js" . > reports/security/pii-exposure.txt || true
+
+          # Database security
+          grep -r "password.*=.*['\"].*['\"]" --include="*.py" --include="*.js" --include="*.conf" . > reports/security/db-credentials.txt || true
+
+          # Logging sensitive data
+          grep -r "log.*password\|print.*password\|console.*password" --include="*.py" --include="*.js" . > reports/security/sensitive-logging.txt || true
+
+      # Security Headers & Configuration
+      - name: Scan Security Configuration
+        run: |
+          echo "Scanning security configuration issues..."
+
+          # Missing security headers
+          grep -r "X-Frame-Options\|X-Content-Type-Options\|Strict-Transport-Security" --include="*.py" --include="*.js" --include="*.conf" . > reports/security/security-headers.txt || true
+
+          # Debug mode in production
+          grep -r "debug.*=.*true\|DEBUG.*=.*True" --include="*.py" --include="*.js" --include="*.conf" . > reports/security/debug-enabled.txt || true
+
+      # Generate Comprehensive Report
+      - name: Generate Security Summary
+        run: |
+          python3 - <<'EOF'
+          import json
+          import os
+          import glob
+
+          def count_issues_in_file(filepath):
+              try:
+                  if filepath.endswith('.json'):
+                      with open(filepath, 'r') as f:
+                          data = json.load(f)
+                          if isinstance(data, list):
+                              return len(data)
+                          elif isinstance(data, dict):
+                              if 'results' in data:
+                                  return len(data['results'])
+                              elif 'vulnerabilities' in data:
+                                  return len(data['vulnerabilities'])
+                              elif 'findings' in data:
+                                  return len(data['findings'])
+                              return 1 if data else 0
+                  else:
+                      with open(filepath, 'r') as f:
+                          lines = f.readlines()
+                          return len([l for l in lines if l.strip()])
+              except:
+                  return 0
+
+          summary = {
+              "total_security_issues": 0,
+              "categories": {},
+              "files_scanned": 0
+          }
+
+          report_files = glob.glob("reports/security/*")
+          for report_file in report_files:
+              category = os.path.basename(report_file).replace('.json', '').replace('.txt', '')
+              issue_count = count_issues_in_file(report_file)
+              summary["categories"][category] = issue_count
+              summary["total_security_issues"] += issue_count
+              summary["files_scanned"] += 1
+
+          with open("reports/security/summary.json", "w") as f:
+              json.dump(summary, f, indent=2)
+
+          print(f"Security scan complete. Found {summary['total_security_issues']} potential issues across {summary['files_scanned']} categories.")
+
+          # Generate markdown summary
+          with open("reports/security/SECURITY_SUMMARY.md", "w") as f:
+              f.write("# Security Audit Summary\n\n")
+              f.write(f"**Total Issues Found:** {summary['total_security_issues']}\n\n")
+              f.write("## Issues by Category\n\n")
+              f.write("| Category | Count |\n|----------|-------|\n")
+              for category, count in sorted(summary["categories"].items()):
+                  f.write(f"| {category.replace('-', ' ').title()} | {count} |\n")
+          EOF
+
+      - name: Upload Security Reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: comprehensive-security-reports
+          path: reports/security/
+          retention-days: 30
+
+      - name: Display Summary
+        run: |
+          echo "## 🔒 Security Audit Results" >> $GITHUB_STEP_SUMMARY
+          cat reports/security/SECURITY_SUMMARY.md >> $GITHUB_STEP_SUMMARY
+
+  autofix:
+    if: ${{ inputs.autofix == 'true' }}
+    needs: comprehensive-security-audit
+    uses: ./.github/workflows/autofix-and-guard.yml
+    with:
+      category: security
+      pr_title: Automated security fixes
+      automerge: "true"
