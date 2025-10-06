@@ -735,7 +735,7 @@ jobs:
 
       - name: Create issue for regression
         if: steps.commit.outputs.changed == 'true' && steps.report.outputs.regression == '1' && inputs.create_issue_on_failure == 'true'
-        uses: peter-evans/create-issue-from-file@v5
+        uses: peter-evans/create-issue-from-file@v6
         with:
           title: "Autofix regression detected (${{ env.CATEGORY }})"
           content-filepath: .autofix/REPORT.md
@@ -743,7 +743,7 @@ jobs:
 
       - name: Create issue when no changes
         if: steps.commit.outputs.changed != 'true' && inputs.create_issue_on_failure == 'true'
-        uses: peter-evans/create-issue-from-file@v5
+        uses: peter-evans/create-issue-from-file@v6
         with:
           title: "No automated fixes available (${{ env.CATEGORY }})"
           content-filepath: .autofix/REPORT.md
