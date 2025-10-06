@@ -11,7 +11,7 @@ jobs:
     environment: linux
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
 
       - name: Free up disk space
         run: |
@@ -42,7 +42,7 @@ jobs:
           sudo chown $(id -u):$(id -g) /app /app/logs /app/data
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6.0.0
         with:
           python-version: '3.10'
 
