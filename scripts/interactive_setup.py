@@ -131,7 +131,7 @@ def main() -> None:
         default = env.get(key, "")
         prompt = f"{key} [{default}]: " if default else f"{key}: "
         val = input(prompt).strip()
-        updates[key] = val if val else default
+        updates[key] = val if val else (default or "")
 
     print("\nConfigure optional features:")
     for feature, info in OPTIONAL_FEATURES.items():
@@ -151,15 +151,17 @@ def main() -> None:
 
     print("Generating secrets...")
     if is_windows:
+        secrets_script = root / "scripts" / "windows" / "Generate-Secrets.ps1"
         subprocess.run(
-            ["powershell", "./scripts/windows/Generate-Secrets.ps1"],
-            cwd=root,
+            ["powershell", "-File", str(secrets_script)],
+            cwd=str(root),
             check=True,
         )
     else:
+        secrets_script = root / "scripts" / "linux" / "generate_secrets.sh"
         subprocess.run(
-            ["bash", "scripts/linux/generate_secrets.sh", "--update-env"],
-            cwd=root,
+            ["bash", str(secrets_script), "--update-env"],
+            cwd=str(root),
             check=True,
         )
     print("Setup complete. Updated .env and generated secrets.")
@@ -167,14 +169,16 @@ def main() -> None:
     resp = input("Launch the local Docker Compose stack now? [y/N]: ").strip().lower()
     if resp == "y":
         if is_windows:
+            quickstart_script = root / "scripts" / "windows" / "quickstart_dev.ps1"
             subprocess.run(
-                ["powershell", "./scripts/windows/quickstart_dev.ps1"],
-                cwd=root,
+                ["powershell", "-File", str(quickstart_script)],
+                cwd=str(root),
                 check=True,
             )
         else:
+            quickstart_script = root / "scripts" / "linux" / "quickstart_dev.sh"
             subprocess.run(
-                ["bash", "scripts/linux/quickstart_dev.sh"], cwd=root, check=True
+                ["bash", str(quickstart_script)], cwd=str(root), check=True
             )
 
     resp = (
@@ -182,14 +186,16 @@ def main() -> None:
     )
     if resp == "y":
         if is_windows:
+            deploy_script = root / "scripts" / "windows" / "quick_deploy.ps1"
             subprocess.run(
-                ["powershell", "./scripts/windows/quick_deploy.ps1"],
-                cwd=root,
+                ["powershell", "-File", str(deploy_script)],
+                cwd=str(root),
                 check=True,
             )
         else:
+            deploy_script = root / "scripts" / "linux" / "quick_deploy.sh"
             subprocess.run(
-                ["bash", "scripts/linux/quick_deploy.sh"], cwd=root, check=True
+                ["bash", str(deploy_script)], cwd=str(root), check=True
             )
 
 

@@ -70,24 +70,87 @@ def _discover_plugins() -> list[str]:
     return sorted(names)
 
 
+DEFAULT_ALLOWED_ORIGINS = ["http://localhost"]
+
 def _get_allowed_origins() -> list[str]:
     """Return a validated list of CORS origins for the Admin UI."""
-    raw = os.getenv("ADMIN_UI_CORS_ORIGINS", "http://localhost")
+    raw = os.getenv("ADMIN_UI_CORS_ORIGINS", ",".join(DEFAULT_ALLOWED_ORIGINS))
     origins = [o.strip() for o in raw.split(",") if o.strip()]
+    if not origins:
+        origins = DEFAULT_ALLOWED_ORIGINS.copy()
     if "*" in origins:
         raise ValueError(
             "ADMIN_UI_CORS_ORIGINS cannot include '*' when allow_credentials is True"
         )
     return origins
 
+DEFAULT_ALLOWED_METHODS = ["GET", "POST", "OPTIONS"]
+DEFAULT_ALLOWED_HEADERS = [
+    "Authorization",
+    "Content-Type",
+    "X-Requested-With",
+    "X-CSRF-Token",
+]
+
+
+def _parse_allowed_list(
+    env_var: str,
+    default: list[str],
+    *,
+    normalizer=lambda value: value,
+) -> list[str]:
+    """Parse comma-separated values from env vars with validation."""
+    raw = os.getenv(env_var, "")
+    values: list[str] = []
+    for chunk in raw.split(','):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        normalised = normalizer(chunk)
+        values.append(normalised)
+    if not values:
+        return default
+    if any(value == '*' for value in values):
+        raise ValueError(
+            f"{env_var} cannot include '*' when allow_credentials is True"
+        )
+    unique_values: list[str] = []
+    for value in values:
+        if value not in unique_values:
+            unique_values.append(value)
+    return unique_values
+
+
+def _get_allowed_methods() -> list[str]:
+    """Return validated HTTP methods for CORS preflight handling."""
+    return _parse_allowed_list(
+        'ADMIN_UI_CORS_METHODS',
+        DEFAULT_ALLOWED_METHODS,
+        normalizer=lambda value: value.upper(),
+    )
+
+
+def _get_allowed_headers() -> list[str]:
+    """Return validated headers permitted in CORS requests."""
+    return _parse_allowed_list('ADMIN_UI_CORS_HEADERS', DEFAULT_ALLOWED_HEADERS)
+
 
 app = create_app()
+_ALLOWED_ORIGINS = _get_allowed_origins()
+_ALLOWED_METHODS = _get_allowed_methods()
+_ALLOWED_HEADERS = _get_allowed_headers()
+logger.debug(
+    "Configured Admin UI CORS: origins=%s methods=%s headers=%s",
+    _ALLOWED_ORIGINS,
+    _ALLOWED_METHODS,
+    _ALLOWED_HEADERS,
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_get_allowed_origins(),
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=_ALLOWED_METHODS,
+    allow_headers=_ALLOWED_HEADERS,
 )
 
 DEFAULT_CSP = "default-src 'self'"

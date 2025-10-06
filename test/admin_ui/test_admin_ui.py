@@ -42,6 +42,38 @@ class TestAdminUIComprehensive(unittest.TestCase):
             with self.assertRaises(ValueError):
                 admin_ui._get_allowed_origins()
 
+
+    def test_cors_methods_validate_override(self):
+        """List-based method configuration should parse allowed verbs."""
+        with patch.dict(os.environ, {"ADMIN_UI_CORS_METHODS": "GET, POST"}):
+            self.assertEqual(
+                admin_ui._get_allowed_methods(),
+                ["GET", "POST"],
+            )
+
+    def test_cors_methods_reject_wildcard(self):
+        """Wildcard methods should be rejected."""
+        with patch.dict(os.environ, {"ADMIN_UI_CORS_METHODS": "*"}):
+            with self.assertRaises(ValueError):
+                admin_ui._get_allowed_methods()
+
+    def test_cors_headers_validate_override(self):
+        """Custom header list should be preserved in order."""
+        with patch.dict(
+            os.environ,
+            {"ADMIN_UI_CORS_HEADERS": "X-Test, Content-Type"},
+        ):
+            self.assertEqual(
+                admin_ui._get_allowed_headers(),
+                ["X-Test", "Content-Type"],
+            )
+
+    def test_cors_headers_reject_wildcard(self):
+        """Wildcard headers should be rejected."""
+        with patch.dict(os.environ, {"ADMIN_UI_CORS_HEADERS": "*"}):
+            with self.assertRaises(ValueError):
+                admin_ui._get_allowed_headers()
+
     def test_index_route_success(self):
         """Test the main dashboard page serves HTML correctly and contains key elements."""
         response = self.client.get("/", auth=self.auth, headers=self._totp_headers())

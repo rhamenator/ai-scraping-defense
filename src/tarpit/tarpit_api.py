@@ -6,14 +6,83 @@ import logging
 import os
 import random
 import re
-from typing import Dict
+from typing import Dict, Optional
 
 import httpx
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Path as FastAPIPath
 from fastapi.responses import HTMLResponse, StreamingResponse
+from pydantic import BaseModel, Field, validator
 
 # The direct 'redis' import is no longer needed as the client handles it.
 from redis.exceptions import RedisError
+
+# --- Pydantic Models for Input Validation ---
+class TarpitPathValidator(BaseModel):
+    """Validates tarpit path parameters."""
+    path: str = Field(default="", max_length=2048, description="Request path")
+    
+    @validator("path")
+    def sanitize_path(cls, v):
+        """Sanitize path to prevent injection attacks."""
+        if not v:
+            return ""
+        # Remove null bytes and control characters
+        v = re.sub(r"[\x00-\x1f\x7f]", "", v)
+        # Prevent path traversal attempts
+        v = v.replace("..", "")
+        # Ensure path doesn't exceed reasonable length
+        if len(v) > 2048:
+            raise ValueError("Path too long")
+        return v
+
+
+class EscalationMetadata(BaseModel):
+    """Validates metadata sent to escalation engine."""
+    timestamp: str = Field(..., description="ISO timestamp")
+    ip: str = Field(..., max_length=45, description="Client IP address")
+    user_agent: str = Field(default="unknown", max_length=500)
+    referer: str = Field(default="-", max_length=2048)
+    method: str = Field(..., max_length=10)
+    path: str = Field(..., max_length=2048)
+    headers: Dict[str, str] = Field(default_factory=dict)
+    source: str = Field(default="tarpit_api", max_length=50)
+    
+    @validator("ip")
+    def validate_ip(cls, v):
+        """Basic IP validation."""
+        if v == "unknown":
+            return v
+        # Remove any non-IP characters
+        v = re.sub(r"[^\d\.:a-fA-F]", "", v)
+        if len(v) > 45:  # Max length for IPv6
+            raise ValueError("Invalid IP format")
+        return v
+    
+    @validator("method")
+    def validate_method(cls, v):
+        """Validate HTTP method."""
+        allowed_methods = {"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
+        v = v.upper()
+        if v not in allowed_methods:
+            return "GET"  # Default to GET for invalid methods
+        return v
+    
+    @validator("headers")
+    def sanitize_headers(cls, v):
+        """Sanitize header values."""
+        sanitized = {}
+        sensitive = {"authorization", "cookie", "set-cookie"}
+        for k, val in v.items():
+            if k.lower() in sensitive:
+                continue
+            # Remove control characters
+            cleaned = re.sub(r"[\x00-\x1f\x7f]", "", str(val))
+            # Limit header value length
+            if len(cleaned) > 1024:
+                cleaned = cleaned[:1024]
+            sanitized[k] = cleaned
+        return sanitized
+
 
 # --- Setup Logging ---
 # Preserved from your original file.
@@ -197,12 +266,20 @@ def sanitize_headers(headers: Dict[str, str]) -> Dict[str, str]:
 # --- API Endpoints (Preserved from your original file) ---
 @app.get("/tarpit/{path:path}", response_class=StreamingResponse, status_code=200)
 async def tarpit_handler(request: Request, path: str = ""):
+    # Validate and sanitize the path input
+    try:
+        path_validator = TarpitPathValidator(path=path)
+        path = path_validator.path
+    except Exception as e:
+        logger.warning(f"Invalid path parameter: {e}")
+        raise HTTPException(status_code=400, detail="Invalid path")
+    
     if not ENABLE_TARPIT_CATCH_ALL and path:
         raise HTTPException(status_code=404)
     client_ip = request.client.host if request.client else "unknown"
-    user_agent = request.headers.get("user-agent", "unknown")
-    referer = request.headers.get("referer", "-")
-    requested_path = str(request.url.path)
+    user_agent = request.headers.get("user-agent", "unknown")[:500]  # Limit length
+    referer = request.headers.get("referer", "-")[:2048]  # Limit length
+    requested_path = str(request.url.path)[:2048]  # Limit length
     http_method = request.method
 
     if HOP_LIMIT_ENABLED and client_ip != "unknown" and redis_hops:
@@ -264,20 +341,38 @@ async def tarpit_handler(request: Request, path: str = ""):
     timestamp_iso = (
         datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     )
-    metadata = {
-        "timestamp": timestamp_iso,
-        "ip": client_ip,
-        "user_agent": user_agent,
-        "referer": referer,
-        "method": http_method,
-        "path": requested_path,
-        "headers": sanitize_headers(dict(request.headers)),
-        "source": "tarpit_api",
-    }
+    
+    # Validate metadata before sending to escalation engine
+    try:
+        metadata = EscalationMetadata(
+            timestamp=timestamp_iso,
+            ip=client_ip,
+            user_agent=user_agent,
+            referer=referer,
+            method=http_method,
+            path=requested_path,
+            headers=dict(request.headers),
+            source="tarpit_api"
+        )
+        metadata_dict = metadata.dict()
+    except Exception as e:
+        logger.error(f"Error creating metadata for IP {client_ip}: {e}")
+        # Use a sanitized fallback
+        metadata_dict = {
+            "timestamp": timestamp_iso,
+            "ip": "unknown",
+            "user_agent": "unknown",
+            "referer": "-",
+            "method": "GET",
+            "path": "/",
+            "headers": {},
+            "source": "tarpit_api",
+        }
+    
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                ESCALATION_ENDPOINT, json=metadata, timeout=5.0
+                ESCALATION_ENDPOINT, json=metadata_dict, timeout=5.0
             )
             if response.status_code >= 400:
                 logger.warning(
