@@ -57,7 +57,7 @@ jobs:
           project_id: ${{ env.GCP_PROJECT }}
           cluster_name: ${{ env.GKE_CLUSTER }}
           location: ${{ env.GCP_REGION }}
-      - uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4
       - name: Helm upgrade/install
         run: |
           set -eux
