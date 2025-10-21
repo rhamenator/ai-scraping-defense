@@ -4,7 +4,7 @@
 
 The fingerprinting code only records user agent details locally and does **not** transmit data to any external server. It helps classify automated bots and is part of the tarpit component.
 
-## Verify File Integrity
+## **Verify File Integrity**
 
 1. Compute a checksum and compare it to the repository version:
    ```bash
