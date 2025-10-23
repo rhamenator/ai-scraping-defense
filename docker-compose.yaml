@@ -310,7 +310,7 @@ services:
     ports:
       - "8010:8010"
     volumes:
-      - ./src:/app/src
+      - ./src:/app/src:ro
       - ./secrets:/run/secrets:ro
     depends_on:
       redis:
@@ -318,6 +318,13 @@ services:
     networks:
       - defense_network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8010/recommendations" ]
       interval: 30s
@@ -335,11 +342,18 @@ services:
     ports:
       - "${CLOUD_PROXY_PORT:-8008}:8008"
     volumes:
-      - ./cloud-proxy:/app
+      - ./cloud-proxy:/app:ro
       - ./secrets:/run/secrets:ro
     networks:
       - defense_network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8008/health" ]
       interval: 30s
