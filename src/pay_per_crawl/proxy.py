@@ -9,6 +9,11 @@ from fastapi import HTTPException, Request, Response
 from pydantic import BaseModel
 
 from src.shared.middleware import create_app
+from src.shared.observability import (
+    HealthCheckResult,
+    register_health_check,
+    trace_span,
+)
 
 from .db import add_credit, charge, get_crawler, init_db, register_crawler
 from .pricing import PricingEngine, load_pricing
@@ -22,6 +27,20 @@ pricing_engine = PricingEngine(load_pricing(PRICING_PATH), DEFAULT_PRICE)
 init_db()
 
 app = create_app()
+
+
+@register_health_check(app, "pay_per_crawl", critical=True)
+async def _service_health() -> HealthCheckResult:
+    try:
+        conn = init_db()
+        conn.execute("SELECT 1")
+    except Exception as exc:  # pragma: no cover - database IO
+        return HealthCheckResult.unhealthy({"error": str(exc)})
+    rule_count = len(pricing_engine.mapping)
+    detail = {"pricing_rules": rule_count, "default_price": DEFAULT_PRICE}
+    if rule_count == 0:
+        return HealthCheckResult.degraded(detail)
+    return HealthCheckResult.healthy(detail)
 
 
 class RegisterPayload(BaseModel):
@@ -89,23 +108,31 @@ async def proxy(full_path: str, request: Request):
 
     async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
         try:
-            resp = await client.request(
-                request.method,
-                upstream,
-                params=request.query_params,
-                content=stream_with_buffer(),
-                headers=headers,
-                timeout=HTTPX_TIMEOUT,
-            )
+            with trace_span(
+                "pay_per_crawl.forward_request",
+                attributes={"upstream": upstream, "price": price},
+            ):
+                resp = await client.request(
+                    request.method,
+                    upstream,
+                    params=request.query_params,
+                    content=stream_with_buffer(),
+                    headers=headers,
+                    timeout=HTTPX_TIMEOUT,
+                )
         except httpx.RequestError:
-            resp = await client.request(
-                request.method,
-                upstream,
-                params=request.query_params,
-                content=b"".join(body_chunks),
-                headers=headers,
-                timeout=HTTPX_TIMEOUT,
-            )
+            with trace_span(
+                "pay_per_crawl.retry_forward",
+                attributes={"upstream": upstream, "price": price},
+            ):
+                resp = await client.request(
+                    request.method,
+                    upstream,
+                    params=request.query_params,
+                    content=b"".join(body_chunks),
+                    headers=headers,
+                    timeout=HTTPX_TIMEOUT,
+                )
     return Response(
         content=resp.content, status_code=resp.status_code, headers=resp.headers
     )

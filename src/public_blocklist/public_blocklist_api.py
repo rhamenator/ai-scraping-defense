@@ -8,6 +8,10 @@ from fastapi import Header, HTTPException
 from pydantic import BaseModel, IPvAnyAddress
 
 from src.shared.middleware import create_app
+from src.shared.observability import (
+    HealthCheckResult,
+    register_health_check,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +21,17 @@ PUBLIC_BLOCKLIST_FILE = os.getenv(
 PUBLIC_BLOCKLIST_API_KEY = os.getenv("PUBLIC_BLOCKLIST_API_KEY")
 
 app = create_app()
+
+
+@register_health_check(app, "blocklist_store", critical=True)
+async def _blocklist_health() -> HealthCheckResult:
+    if not os.path.exists(PUBLIC_BLOCKLIST_FILE):
+        return HealthCheckResult.degraded({"missing_file": PUBLIC_BLOCKLIST_FILE})
+    try:
+        ips = _load_blocklist()
+    except Exception as exc:  # pragma: no cover - file IO
+        return HealthCheckResult.unhealthy({"error": str(exc)})
+    return HealthCheckResult.healthy({"entries": len(ips)})
 
 
 def _load_blocklist() -> List[str]:
@@ -85,9 +100,3 @@ def report_ip(report: IPReport, x_api_key: Optional[str] = Header(None)) -> dict
     BLOCKLIST_IPS.add(str(report.ip))
     _save_blocklist(sorted(BLOCKLIST_IPS))
     return {"status": "added", "ip": str(report.ip)}
-
-
-@app.get("/health")
-def health() -> dict:
-    """Simple health check."""
-    return {"status": "ok", "count": len(BLOCKLIST_IPS)}

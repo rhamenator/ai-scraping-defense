@@ -234,7 +234,7 @@ services:
     tmpfs:
       - /tmp
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${ADMIN_UI_PORT:-5002}/"]
+      test: ["CMD", "curl", "-f", "http://localhost:${ADMIN_UI_PORT:-5002}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -262,7 +262,7 @@ services:
     tmpfs:
       - /tmp
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/verify?token=test&ip=127.0.0.1" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -326,7 +326,7 @@ services:
     tmpfs:
       - /tmp
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8010/recommendations" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health" ]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -52,13 +52,13 @@ spec:
             name: redis-credentials
         readinessProbe:
           httpGet:
-            path: /metrics
+            path: /health
             port: 5002
           initialDelaySeconds: 5
           periodSeconds: 10
         livenessProbe:
           httpGet:
-            path: /metrics
+            path: /health
             port: 5002
           initialDelaySeconds: 10
           periodSeconds: 10

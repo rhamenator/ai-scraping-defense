@@ -15,6 +15,11 @@ from redis.exceptions import RedisError
 from src.shared.audit import log_event as audit_log_event
 from src.shared.config import CONFIG, Config, tenant_key
 from src.shared.middleware import create_app
+from src.shared.observability import (
+    HealthCheckResult,
+    register_health_check,
+    trace_span,
+)
 from src.shared.redis_client import get_redis_connection
 from src.shared.request_utils import read_json_body
 
@@ -51,6 +56,19 @@ class WebhookAction(BaseModel):
 
 
 app = create_app()
+
+
+@register_health_check(app, "redis", critical=True)
+async def _redis_health() -> HealthCheckResult:
+    redis_conn = get_redis_connection(db_number=CONFIG.REDIS_DB_BLOCKLIST)
+    if not redis_conn:
+        return HealthCheckResult.degraded({"reason": "redis connection unavailable"})
+    try:
+        if hasattr(redis_conn, "ping"):
+            redis_conn.ping()
+    except RedisError as exc:  # pragma: no cover - network interaction
+        return HealthCheckResult.unhealthy({"error": str(exc)})
+    return HealthCheckResult.healthy()
 
 
 def get_config() -> Config:
@@ -99,7 +117,8 @@ async def webhook_receiver(
     if not config.WEBHOOK_SHARED_SECRET:
         raise HTTPException(status_code=500, detail="Shared secret not configured")
     client_ip = get_client_ip(request)
-    payload = await read_json_body(request)
+    with trace_span("ai_service.read_payload"):
+        payload = await read_json_body(request)
     # Validate payload schema
     try:
         action_req = WebhookAction.model_validate(payload)
@@ -161,28 +180,29 @@ async def webhook_receiver(
             raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip}")
 
     try:
-        if action == "block_ip":
-            redis_conn.sadd(tenant_key("blocklist"), ip)
-            audit_log_event(client_ip, "webhook_block_ip", {"ip": ip})
-            return {"status": "success", "message": f"IP {ip} added to blocklist."}
-        elif action == "allow_ip":
-            redis_conn.srem(tenant_key("blocklist"), ip)
-            audit_log_event(client_ip, "webhook_allow_ip", {"ip": ip})
-            return {
-                "status": "success",
-                "message": f"IP {ip} removed from blocklist.",
-            }
-        elif action == "flag_ip":
-            reason = action_req.reason or ""
-            redis_conn.set(tenant_key(f"ip_flag:{ip}"), reason)
-            audit_log_event(client_ip, "webhook_flag_ip", {"ip": ip})
-            return {"status": "success", "message": f"IP {ip} flagged."}
-        elif action == "unflag_ip":
-            redis_conn.delete(tenant_key(f"ip_flag:{ip}"))
-            audit_log_event(client_ip, "webhook_unflag_ip", {"ip": ip})
-            return {"status": "success", "message": f"IP {ip} unflagged."}
-        else:
-            raise HTTPException(status_code=400, detail=f"Invalid action: {action}")
+        with trace_span("ai_service.execute_action", attributes={"action": action, "ip": ip}):
+            if action == "block_ip":
+                redis_conn.sadd(tenant_key("blocklist"), ip)
+                audit_log_event(client_ip, "webhook_block_ip", {"ip": ip})
+                return {"status": "success", "message": f"IP {ip} added to blocklist."}
+            elif action == "allow_ip":
+                redis_conn.srem(tenant_key("blocklist"), ip)
+                audit_log_event(client_ip, "webhook_allow_ip", {"ip": ip})
+                return {
+                    "status": "success",
+                    "message": f"IP {ip} removed from blocklist.",
+                }
+            elif action == "flag_ip":
+                reason = action_req.reason or ""
+                redis_conn.set(tenant_key(f"ip_flag:{ip}"), reason)
+                audit_log_event(client_ip, "webhook_flag_ip", {"ip": ip})
+                return {"status": "success", "message": f"IP {ip} flagged."}
+            elif action == "unflag_ip":
+                redis_conn.delete(tenant_key(f"ip_flag:{ip}"))
+                audit_log_event(client_ip, "webhook_unflag_ip", {"ip": ip})
+                return {"status": "success", "message": f"IP {ip} unflagged."}
+            else:
+                raise HTTPException(status_code=400, detail=f"Invalid action: {action}")
     except HTTPException:
         raise
     except RedisError as e:
@@ -191,26 +211,6 @@ async def webhook_receiver(
     except Exception as e:
         logger.error("Failed to execute action: %s", e)
         raise HTTPException(status_code=500, detail="Failed to execute action")
-
-
-@app.get("/health")
-async def health_check(
-    config: Config = Depends(get_config),
-    redis_conn=Depends(get_redis_blocklist),
-):
-    if not redis_conn:
-        return JSONResponse(
-            {"status": "error", "redis_connected": False}, status_code=503
-        )
-    try:
-        redis_ok = bool(redis_conn.ping())
-    except Exception:
-        redis_ok = False
-    status_code = 200 if redis_ok else 503
-    return JSONResponse(
-        {"status": "ok" if redis_ok else "error", "redis_connected": redis_ok},
-        status_code=status_code,
-    )
 
 
 if __name__ == "__main__":  # pragma: no cover - manual run

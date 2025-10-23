@@ -19,6 +19,11 @@ from pydantic import BaseModel, Field, ValidationError
 
 from src.shared.config import tenant_key
 from src.shared.middleware import create_app
+from src.shared.observability import (
+    HealthCheckResult,
+    register_health_check,
+    trace_span,
+)
 
 # GeoIP
 try:
@@ -640,6 +645,24 @@ app = create_app(
 )
 
 
+@register_health_check(app, "redis_frequency", critical=False)
+async def _frequency_health() -> HealthCheckResult:
+    if not redis_client_freq:
+        return HealthCheckResult.degraded({"reason": "frequency redis disabled"})
+    try:
+        redis_client_freq.ping()
+    except Exception as exc:  # pragma: no cover - external dependency
+        return HealthCheckResult.unhealthy({"error": str(exc)})
+    return HealthCheckResult.healthy()
+
+
+@register_health_check(app, "model_adapter", critical=True)
+async def _model_health() -> HealthCheckResult:
+    if not MODEL_LOADED:
+        return HealthCheckResult.degraded({"model_loaded": False})
+    return HealthCheckResult.healthy({"model_loaded": True})
+
+
 # --- Analysis & Classification Functions ---
 def run_heuristic_and_model_analysis(
     metadata: RequestMetadata, ip_rep_result: Optional[Dict[str, Any]] = None
@@ -649,7 +672,8 @@ def run_heuristic_and_model_analysis(
     model_score = 0.5
     model_used = False
     final_score = 0.5
-    frequency_features = get_realtime_frequency_features(metadata.ip)
+    with trace_span("escalation.frequency_lookup", attributes={"ip": metadata.ip}):
+        frequency_features = get_realtime_frequency_features(metadata.ip)
     increment_counter_metric(FREQUENCY_ANALYSES_PERFORMED)
 
     log_entry_dict = metadata.model_dump()
@@ -860,13 +884,14 @@ async def forward_to_webhook(payload: Dict[str, Any], reason: str):
     increment_counter_metric(ESCALATION_WEBHOOKS_SENT)
     headers = {"Content-Type": "application/json"}
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                WEBHOOK_URL, headers=headers, json=payload, timeout=10.0
-            )
-            resp.raise_for_status()
-            ip_log = payload.get("details", {}).get("ip", payload.get("ip"))
-            logger.info(f"Webhook forwarded successfully for IP {ip_log}")
+        with trace_span("escalation.forward_webhook", attributes={"reason": reason}):
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    WEBHOOK_URL, headers=headers, json=payload, timeout=10.0
+                )
+                resp.raise_for_status()
+                ip_log = payload.get("details", {}).get("ip", payload.get("ip"))
+                logger.info(f"Webhook forwarded successfully for IP {ip_log}")
     except httpx.RequestError as exc:
         logger.error(
             f"Error forwarding to webhook {WEBHOOK_URL} for IP {payload.get('ip')}: {exc}"
@@ -1204,22 +1229,6 @@ async def get_metrics_endpoint_escalation():
             media_type="text/plain; version=0.0.4",
             status_code=500,
         )
-
-
-# --- Health Check Endpoint (Preserved) ---
-@app.get("/health")
-async def health_check():
-    redis_ok = False
-    if redis_client_freq:
-        try:
-            redis_ok = redis_client_freq.ping()
-        except Exception:
-            redis_ok = False
-    return {
-        "status": "ok",
-        "redis_frequency_connected": redis_ok,
-        "model_loaded": MODEL_LOADED,
-    }
 
 
 @app.post("/admin/reload_plugins")

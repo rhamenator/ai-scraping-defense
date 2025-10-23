@@ -19,6 +19,13 @@ from jinja2 import pass_context
 from src.shared.audit import log_event
 from src.shared.config import CONFIG, tenant_key
 from src.shared.middleware import create_app
+from redis.exceptions import RedisError
+
+from src.shared.observability import (
+    HealthCheckResult,
+    register_health_check,
+    trace_span,
+)
 from src.shared.redis_client import get_redis_connection
 
 from . import auth as auth_routes
@@ -44,29 +51,32 @@ def _get_runtime_setting(name: str) -> str:
     redis_conn = get_redis_connection()
     if not redis_conn:
         raise RuntimeError("Redis unavailable")
-    value = redis_conn.hget(RUNTIME_SETTINGS_KEY, name)
-    if value is None:
-        default = DEFAULT_RUNTIME_SETTINGS[name]
-        redis_conn.hset(RUNTIME_SETTINGS_KEY, name, default)
-        return default
-    return value
+    with trace_span("admin_ui.runtime_setting", attributes={"setting": name}):
+        value = redis_conn.hget(RUNTIME_SETTINGS_KEY, name)
+        if value is None:
+            default = DEFAULT_RUNTIME_SETTINGS[name]
+            redis_conn.hset(RUNTIME_SETTINGS_KEY, name, default)
+            return default
+        return value
 
 
 def _set_runtime_setting(name: str, value: str) -> None:
     redis_conn = get_redis_connection()
     if not redis_conn:
         raise RuntimeError("Redis unavailable")
-    redis_conn.hset(RUNTIME_SETTINGS_KEY, name, value)
+    with trace_span("admin_ui.set_runtime_setting", attributes={"setting": name}):
+        redis_conn.hset(RUNTIME_SETTINGS_KEY, name, value)
 
 
 def _discover_plugins() -> list[str]:
     """Return a list of available plugin module names."""
     plugin_dir = os.getenv("PLUGIN_DIR", "/app/plugins")
     names: list[str] = []
-    if os.path.isdir(plugin_dir):
-        for fn in os.listdir(plugin_dir):
-            if fn.endswith(".py") and not fn.startswith("_"):
-                names.append(fn[:-3])
+    with trace_span("admin_ui.discover_plugins", attributes={"plugin_dir": plugin_dir}):
+        if os.path.isdir(plugin_dir):
+            for fn in os.listdir(plugin_dir):
+                if fn.endswith(".py") and not fn.startswith("_"):
+                    names.append(fn[:-3])
     return sorted(names)
 
 
@@ -145,6 +155,22 @@ logger.debug(
     _ALLOWED_METHODS,
     _ALLOWED_HEADERS,
 )
+
+
+@register_health_check(app, "redis", critical=True)
+async def _redis_health() -> HealthCheckResult:
+    redis_conn = get_redis_connection()
+    if not redis_conn:
+        return HealthCheckResult.degraded({"reason": "redis connection unavailable"})
+    try:
+        cache_keys = None
+        if hasattr(redis_conn, "ping"):
+            redis_conn.ping()
+        if hasattr(redis_conn, "dbsize"):
+            cache_keys = redis_conn.dbsize()
+    except RedisError as exc:  # pragma: no cover - network interaction
+        return HealthCheckResult.unhealthy({"error": str(exc)})
+    return HealthCheckResult.healthy({"cache_keys": cache_keys})
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
