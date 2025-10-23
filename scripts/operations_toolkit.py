@@ -161,6 +161,8 @@ def disaster_recovery_drill(args: argparse.Namespace) -> None:
             source=args.drill_backup_dir,
             postgres_url=args.postgres_url,
             redis_url=args.redis_url,
+            redis_data_dir=args.redis_data_dir,
+            redis_host=args.redis_host,
             execute=args.execute,
         )
     )
@@ -169,6 +171,7 @@ def disaster_recovery_drill(args: argparse.Namespace) -> None:
 
 def deploy(args: argparse.Namespace) -> None:
     LOG.info("Deploying environment %s", args.environment)
+    kustomize_dir = args.kustomize_dir.format(environment=args.environment)
     run_command(
         ["terraform", "-chdir", args.terraform_dir, "apply", "-auto-approve"],
         execute=args.execute,
@@ -183,7 +186,7 @@ def deploy(args: argparse.Namespace) -> None:
         execute=args.execute,
     )
     run_command(
-        ["kubectl", "--context", args.kube_context, "apply", "-k", args.kustomize_dir],
+        ["kubectl", "--context", args.kube_context, "apply", "-k", kustomize_dir],
         execute=args.execute,
     )
     LOG.info("Deployment pipeline finished")
@@ -236,9 +239,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     drill_parser = sub.add_parser("drill", help="Execute an end-to-end DR drill")
     drill_parser.add_argument("--environment", default="staging")
     drill_parser.add_argument("--drill-backup-dir", default="./drills/latest")
-    drill_parser.add_argument("--postgres-url", default=os.getenv("POSTGRES_URL", "postgres://postgres@localhost:5432/postgres"))
+    drill_parser.add_argument(
+        "--postgres-url",
+        default=os.getenv("POSTGRES_URL", "postgres://postgres@localhost:5432/postgres"),
+    )
     drill_parser.add_argument("--redis-url", default=os.getenv("REDIS_URL", "redis://localhost:6379/0"))
     drill_parser.add_argument("--kube-context", default=os.getenv("KUBE_CONTEXT", "kind-ai-defense"))
+    drill_parser.add_argument("--redis-data-dir", default="/var/lib/redis")
+    drill_parser.add_argument("--redis-host", default="localhost")
     drill_parser.set_defaults(func=disaster_recovery_drill)
 
     deploy_parser = sub.add_parser("deploy", help="Run Terraform/Ansible/Kubernetes deployment")
@@ -247,7 +255,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     deploy_parser.add_argument("--ansible-inventory", default="ansible/inventory.yaml")
     deploy_parser.add_argument("--ansible-playbook", default="ansible/site.yaml")
     deploy_parser.add_argument("--kube-context", default=os.getenv("KUBE_CONTEXT", "kind-ai-defense"))
-    deploy_parser.add_argument("--kustomize-dir", default="kubernetes/overlays/${ENVIRONMENT}")
+    deploy_parser.add_argument("--kustomize-dir", default="kubernetes/overlays/{environment}")
     deploy_parser.set_defaults(func=deploy)
 
     gitops_parser = sub.add_parser("gitops", help="Trigger GitOps reconciliation")

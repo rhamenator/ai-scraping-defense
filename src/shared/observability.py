@@ -248,7 +248,8 @@ def configure_logging(settings: ObservabilitySettings) -> None:
     else:
         for handler in root_logger.handlers:
             handler.addFilter(RequestContextFilter())
-            if isinstance(handler.formatter, logging.Formatter):
+            formatter = getattr(handler, "formatter", None)
+            if isinstance(formatter, JsonFormatter):
                 continue
             handler.setFormatter(JsonFormatter(service_name))
     root_logger.setLevel(level)

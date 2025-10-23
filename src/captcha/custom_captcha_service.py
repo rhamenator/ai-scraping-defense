@@ -18,6 +18,10 @@ from src.shared.observability import (
     trace_span,
 )
 
+CAPTCHA_SECRET = get_secret("CAPTCHA_SECRET_FILE") or os.getenv("CAPTCHA_SECRET")
+CAPTCHA_SUCCESS_LOG = os.getenv("CAPTCHA_SUCCESS_LOG", "/app/logs/captcha_success.log")
+TOKEN_EXPIRY = int(os.getenv("CAPTCHA_TOKEN_EXPIRY_SECONDS", 300))
+
 app = create_app()
 
 
@@ -26,10 +30,6 @@ async def _captcha_health() -> HealthCheckResult:
     if not CAPTCHA_SECRET:
         return HealthCheckResult.unhealthy({"reason": "captcha secret missing"})
     return HealthCheckResult.healthy({"token_expiry": TOKEN_EXPIRY})
-
-CAPTCHA_SECRET = get_secret("CAPTCHA_SECRET_FILE") or os.getenv("CAPTCHA_SECRET")
-CAPTCHA_SUCCESS_LOG = os.getenv("CAPTCHA_SUCCESS_LOG", "/app/logs/captcha_success.log")
-TOKEN_EXPIRY = int(os.getenv("CAPTCHA_TOKEN_EXPIRY_SECONDS", 300))
 
 logger = logging.getLogger(__name__)
 
