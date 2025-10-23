@@ -90,6 +90,7 @@ from src.shared.config import CONFIG, tenant_key
 from src.shared.middleware import create_app
 from src.shared.observability import (
     HealthCheckResult,
+    ObservabilitySettings,
     register_health_check,
     trace_span,
 )
@@ -217,8 +218,49 @@ if not redis_hops or not redis_blocklist:
 
 
 # --- FastAPI App ---
-app = create_app()
+app = create_app(
+    observability_settings=ObservabilitySettings(
+        metrics_path="/observability/metrics",
+        health_path="/observability/health",
+    )
+)
 BAD_API_ENDPOINTS = register_bad_endpoints(app)
+
+
+@app.get("/health", include_in_schema=False)
+def health_check() -> dict[str, object]:
+    """Expose tarpit health in the legacy shape expected by existing tooling."""
+    redis_hops_connected = False
+    redis_blocklist_connected = False
+
+    if redis_hops:
+        try:
+            if hasattr(redis_hops, "ping"):
+                redis_hops.ping()
+            redis_hops_connected = True
+        except Exception:  # pragma: no cover - defensive for redis failures
+            redis_hops_connected = False
+
+    if redis_blocklist:
+        try:
+            if hasattr(redis_blocklist, "ping"):
+                redis_blocklist.ping()
+            redis_blocklist_connected = True
+        except Exception:  # pragma: no cover - defensive for redis failures
+            redis_blocklist_connected = False
+
+    status = (
+        "ok"
+        if redis_hops_connected and redis_blocklist_connected and GENERATOR_AVAILABLE
+        else "error"
+    )
+
+    return {
+        "status": status,
+        "redis_hops_connected": redis_hops_connected,
+        "redis_blocklist_connected": redis_blocklist_connected,
+        "generator_available": GENERATOR_AVAILABLE,
+    }
 
 
 @register_health_check(app, "redis", critical=True)

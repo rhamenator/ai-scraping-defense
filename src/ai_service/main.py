@@ -17,6 +17,7 @@ from src.shared.config import CONFIG, Config, tenant_key
 from src.shared.middleware import create_app
 from src.shared.observability import (
     HealthCheckResult,
+    ObservabilitySettings,
     register_health_check,
     trace_span,
 )
@@ -55,7 +56,12 @@ class WebhookAction(BaseModel):
     reason: Optional[str] = Field(None, max_length=256)
 
 
-app = create_app()
+app = create_app(
+    observability_settings=ObservabilitySettings(
+        metrics_path="/observability/metrics",
+        health_path="/observability/health",
+    )
+)
 
 
 @register_health_check(app, "redis", critical=True)
@@ -77,6 +83,23 @@ def get_config() -> Config:
 
 def get_redis_blocklist(config: Config = Depends(get_config)):
     return get_redis_connection(db_number=config.REDIS_DB_BLOCKLIST)
+
+
+@app.get("/health", include_in_schema=False)
+async def service_health(redis_conn=Depends(get_redis_blocklist)):
+    """Return the webhook service health in the legacy format expected by tests."""
+    if not redis_conn:
+        return JSONResponse(
+            {"status": "error", "redis_connected": False}, status_code=503
+        )
+    try:
+        if hasattr(redis_conn, "ping"):
+            redis_conn.ping()
+    except RedisError:
+        return JSONResponse(
+            {"status": "error", "redis_connected": False}, status_code=503
+        )
+    return {"status": "ok", "redis_connected": True}
 
 
 # ---------------------------------------------------------------------------

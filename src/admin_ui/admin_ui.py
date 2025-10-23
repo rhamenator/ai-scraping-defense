@@ -23,6 +23,7 @@ from redis.exceptions import RedisError
 
 from src.shared.observability import (
     HealthCheckResult,
+    ObservabilitySettings,
     register_health_check,
     trace_span,
 )
@@ -145,7 +146,12 @@ def _get_allowed_headers() -> list[str]:
     return _parse_allowed_list('ADMIN_UI_CORS_HEADERS', DEFAULT_ALLOWED_HEADERS)
 
 
-app = create_app()
+app = create_app(
+    observability_settings=ObservabilitySettings(
+        metrics_path="/observability/metrics",
+        health_path="/observability/health",
+    )
+)
 _ALLOWED_ORIGINS = _get_allowed_origins()
 _ALLOWED_METHODS = _get_allowed_methods()
 _ALLOWED_HEADERS = _get_allowed_headers()
