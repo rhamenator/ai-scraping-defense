@@ -7,8 +7,14 @@ on:
   schedule:
     - cron: "0 6 * * *"
 
+# Enforce least privilege for GITHUB_TOKEN across all jobs
+permissions:
+  contents: read
+
 jobs:
   python-security:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +38,8 @@ jobs:
           pip-audit
 
   container-scan:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +52,8 @@ jobs:
           skip-dirs: "./.git,./.venv"
 
   compose-config-scan:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
