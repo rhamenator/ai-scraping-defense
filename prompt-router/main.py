@@ -9,7 +9,8 @@ import time
 import httpx
 from fastapi import HTTPException, Request, Response
 
-from src.shared.middleware import create_app
+from src.shared.middleware import SecuritySettings, create_app
+from src.shared.observability import ObservabilitySettings
 from src.shared.request_utils import read_json_body
 
 LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "http://llama3:11434/api/generate")
@@ -36,7 +37,18 @@ def count_tokens(text: str) -> int:
     return len(TOKEN_PATTERN.findall(text))
 
 
-app = create_app()
+app = create_app(
+    security_settings=SecuritySettings(
+        rate_limit_requests=0,
+        rate_limit_window=RATE_LIMIT_WINDOW,
+        max_body_size=int(os.getenv("MAX_BODY_SIZE", 1 * 1024 * 1024)),
+        enable_https=os.getenv("ENABLE_HTTPS", "false").lower() == "true",
+    ),
+    observability_settings=ObservabilitySettings(
+        metrics_path="/observability/metrics",
+        health_path="/observability/health",
+    ),
+)
 
 
 @app.get("/health")

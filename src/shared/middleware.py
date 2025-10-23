@@ -15,6 +15,11 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
+from .observability import (
+    ObservabilitySettings,
+    configure_observability,
+)
+
 
 @dataclass(frozen=True)
 class SecuritySettings:
@@ -167,8 +172,12 @@ def add_security_middleware(
 
 
 def create_app(
-    *, security_settings: SecuritySettings | None = None, **kwargs: Any
+    *,
+    security_settings: SecuritySettings | None = None,
+    observability_settings: ObservabilitySettings | None = None,
+    **kwargs: Any,
 ) -> FastAPI:
     app = FastAPI(**kwargs)
     add_security_middleware(app, security_settings=security_settings)
+    configure_observability(app, settings=observability_settings)
     return app

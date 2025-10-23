@@ -17,6 +17,11 @@ from fastapi.responses import PlainTextResponse
 from redis.exceptions import RedisError
 
 from src.shared.middleware import create_app
+from src.shared.observability import (
+    HealthCheckResult,
+    register_health_check,
+    trace_span,
+)
 
 
 @dataclass
@@ -55,12 +60,22 @@ redis_client = redis.Redis(
 BLOCK_CACHE = TTLCache(maxsize=10000, ttl=60)
 
 
+@register_health_check(app, "iis_gateway_redis", critical=True)
+async def _redis_health() -> HealthCheckResult:
+    try:
+        redis_client.ping()
+    except RedisError as exc:  # pragma: no cover - external dependency
+        return HealthCheckResult.unhealthy({"error": str(exc)})
+    return HealthCheckResult.healthy()
+
+
 def ip_blocked(ip: str) -> bool:
     if ip in BLOCK_CACHE:
         return BLOCK_CACHE[ip]
     key = f"{settings.TENANT_ID}:blocklist:ip:{ip}"
     try:
-        blocked = bool(redis_client.exists(key))
+        with trace_span("iis_gateway.block_lookup", attributes={"ip": ip}):
+            blocked = bool(redis_client.exists(key))
     except RedisError:
         logger.exception("Redis blocklist lookup failed")
         raise
@@ -74,12 +89,13 @@ async def rate_limited(ip: str) -> bool:
         return False
     key = f"{settings.TENANT_ID}:ratelimit:{ip}"
     try:
-        count = redis_client.incr(key)
-        if count == 1:
-            redis_client.expire(key, 60)
-        if count > limit:
-            await escalate(ip, "RateLimit")
-            return True
+        with trace_span("iis_gateway.rate_limit", attributes={"ip": ip, "limit": limit}):
+            count = redis_client.incr(key)
+            if count == 1:
+                redis_client.expire(key, 60)
+            if count > limit:
+                await escalate(ip, "RateLimit")
+                return True
     except RedisError:
         logger.exception("Redis rate limit update failed")
         raise
@@ -91,10 +107,14 @@ async def escalate(ip: str, reason: str) -> None:
         return
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
-            await client.post(
-                settings.ESCALATION_ENDPOINT, json={"ip": ip, "reason": reason}
-            )
-            logger.info("Escalated %s for %s", ip, reason)
+            with trace_span(
+                "iis_gateway.escalate", attributes={"ip": ip, "reason": reason}
+            ):
+                await client.post(
+                    settings.ESCALATION_ENDPOINT,
+                    json={"ip": ip, "reason": reason},
+                )
+                logger.info("Escalated %s for %s", ip, reason)
         except httpx.TimeoutException:
             logger.exception("Escalation request timed out")
         except httpx.HTTPError:
@@ -134,13 +154,17 @@ async def proxy(path: str, request: Request) -> Response:
     url = f"{settings.BACKEND_URL.rstrip('/')}/{path}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
-            resp = await client.request(
-                request.method,
-                url,
-                headers=request.headers.raw,
-                content=request.stream(),
-                params=request.query_params,
-            )
+            with trace_span(
+                "iis_gateway.proxy_request",
+                attributes={"path": path, "method": request.method},
+            ):
+                resp = await client.request(
+                    request.method,
+                    url,
+                    headers=request.headers.raw,
+                    content=request.stream(),
+                    params=request.query_params,
+                )
         except httpx.TimeoutException:
             logger.exception("Backend request timed out")
             return PlainTextResponse("Gateway Timeout", status_code=504)

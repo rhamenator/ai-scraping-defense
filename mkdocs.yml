@@ -54,6 +54,10 @@ nav:
     - Tarpit Service: tarpit/README.md
     - Internal CAPTCHA Service: docs/internal_captcha.md
     # Add READMEs for other services (escalation, admin_ui) here if they exist
+  - Operations:
+    - Observability Framework: docs/observability.md
+    - Backup & Disaster Recovery: docs/disaster_recovery.md
+    - Operations Playbooks: docs/operations_playbooks.md
   - Contributing:
     - How to Contribute: CONTRIBUTING.md
     - Code of Conduct: docs/code_of_conduct.md

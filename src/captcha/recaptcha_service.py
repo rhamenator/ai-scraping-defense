@@ -7,6 +7,11 @@ from fastapi import HTTPException, Request
 
 from src.shared.config import get_secret
 from src.shared.middleware import create_app
+from src.shared.observability import (
+    HealthCheckResult,
+    register_health_check,
+    trace_span,
+)
 
 app = create_app()
 
@@ -17,6 +22,13 @@ CAPTCHA_SECRET = get_secret("CAPTCHA_SECRET_FILE") or os.getenv("CAPTCHA_SECRET"
 CAPTCHA_SUCCESS_LOG = os.getenv("CAPTCHA_SUCCESS_LOG", "/app/logs/captcha_success.log")
 
 logger = logging.getLogger(__name__)
+
+
+@register_health_check(app, "recaptcha", critical=True)
+async def _recaptcha_health() -> HealthCheckResult:
+    if not CAPTCHA_SECRET:
+        return HealthCheckResult.unhealthy({"reason": "captcha secret missing"})
+    return HealthCheckResult.healthy({"verification_url": CAPTCHA_VERIFICATION_URL})
 
 
 @app.post("/verify")
@@ -32,11 +44,14 @@ async def verify_captcha(token: str, request: Request):
         payload["remoteip"] = ip
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                CAPTCHA_VERIFICATION_URL, data=payload, timeout=10.0
-            )
-            resp.raise_for_status()
-            result = resp.json()
+            with trace_span(
+                "captcha.verify", attributes={"ip": ip, "provider": "recaptcha"}
+            ):
+                resp = await client.post(
+                    CAPTCHA_VERIFICATION_URL, data=payload, timeout=10.0
+                )
+                resp.raise_for_status()
+                result = resp.json()
     except Exception as e:
         logger.error(f"Error verifying CAPTCHA for IP {ip or 'unknown'}: {e}")
         raise HTTPException(status_code=502, detail="CAPTCHA verification failed")

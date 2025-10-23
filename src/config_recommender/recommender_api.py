@@ -6,10 +6,29 @@ from fastapi import Header, HTTPException
 
 from src.shared.config import CONFIG
 from src.shared.middleware import create_app
+from src.shared.observability import (
+    HealthCheckResult,
+    register_health_check,
+    trace_span,
+)
 
 from .metrics_config_recommender import get_metrics
 
 app = create_app()
+
+
+@register_health_check(app, "config_recommender_metrics", critical=True)
+async def _metrics_health() -> HealthCheckResult:
+    try:
+        raw = get_metrics()
+    except Exception as exc:  # pragma: no cover - metrics IO
+        return HealthCheckResult.unhealthy({"error": str(exc)})
+    if isinstance(raw, bytes):
+        raw = raw.decode()
+    metrics = _parse_prometheus_metrics(raw)
+    if not metrics:
+        return HealthCheckResult.degraded({"reason": "no metrics"})
+    return HealthCheckResult.healthy({"metrics": len(metrics)})
 
 
 def _parse_prometheus_metrics(text: str) -> Dict[str, float]:
@@ -62,7 +81,8 @@ async def recommendations(
     expected = os.getenv("RECOMMENDER_API_KEY")
     if expected and (not x_api_key or not secrets.compare_digest(x_api_key, expected)):
         raise HTTPException(status_code=401, detail="Invalid API key")
-    raw = get_metrics()
+    with trace_span("config_recommender.fetch_metrics"):
+        raw = get_metrics()
     if isinstance(raw, bytes):
         raw = raw.decode()
     metrics = _parse_prometheus_metrics(raw)
