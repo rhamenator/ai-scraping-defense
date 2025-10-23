@@ -15,11 +15,9 @@ import yaml
 
 from src.security_audit.inventory import generate_inventory_markdown
 
-
 def _fail(message: str) -> None:
     print(f"[security-check] {message}", file=sys.stderr)
     raise SystemExit(1)
-
 
 def ensure_inventory_is_current() -> None:
     json_path = PROJECT_ROOT / "security_problems_batch1.json"
@@ -28,7 +26,6 @@ def ensure_inventory_is_current() -> None:
     recorded = markdown_path.read_text()
     if expected != recorded:
         _fail("Security inventory markdown is stale. Re-run the generator.")
-
 
 def ensure_nginx_headers_and_limits() -> None:
     config = (PROJECT_ROOT / "nginx/nginx.conf").read_text()
@@ -41,7 +38,6 @@ def ensure_nginx_headers_and_limits() -> None:
     for token in required_tokens:
         if token not in config:
             _fail(f"nginx.conf missing required directive: {token}")
-
 
 def ensure_compose_security() -> None:
     compose = yaml.safe_load((PROJECT_ROOT / "docker-compose.yaml").read_text())
@@ -76,15 +72,16 @@ def ensure_compose_security() -> None:
                 if not volume.endswith(":ro"):
                     _fail("Secret volumes must be read-only")
 
-
 SECRET_PATTERN = re.compile(r"=(?:sk-|AIza|mistral-|coh-|key-for-)")
 
-
 def ensure_no_plaintext_secrets() -> None:
-    sample_env = (PROJECT_ROOT / "sample.env").read_text()
-    if SECRET_PATTERN.search(sample_env):
-        _fail("sample.env contains seeded secrets; replace with *_FILE references.")
-
+    sample_env_path = PROJECT_ROOT / "sample.env"
+    if not sample_env_path.exists():
+        _fail("sample.env does not exist; please provide the file for secret validation.")
+    sample_env = sample_env_path.read_text()
+    for line in sample_env.splitlines():
+        if SECRET_PATTERN.search(line):
+            _fail("Potential plaintext secret detected in sample.env")
 
 CHECKS: Iterable[Callable[[], None]] = (
     ensure_inventory_is_current,
@@ -93,12 +90,10 @@ CHECKS: Iterable[Callable[[], None]] = (
     ensure_no_plaintext_secrets,
 )
 
-
 def main() -> None:
     for check in CHECKS:
         check()
     print("All static security checks passed.")
-
 
 if __name__ == "__main__":
     main()
