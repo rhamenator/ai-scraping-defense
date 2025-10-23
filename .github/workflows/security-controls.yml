@@ -1,0 +1,66 @@
+name: security-controls
+
+on:
+  push:
+    branches: ["main", "develop", "security/*"]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * *"
+
+# Enforce least privilege for GITHUB_TOKEN across all jobs
+permissions:
+  contents: read
+
+jobs:
+  python-security:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -c constraints.txt
+          pip install bandit pip-audit
+      - name: Static security checks
+        run: |
+          scripts/security/run_static_security_checks.py
+          bandit -q -r src
+      - name: Targeted security tests
+        run: |
+          pytest test/test_security_baselines.py test/test_security_middleware.py test/test_security_inventory.py
+      - name: Dependency audit
+        run: |
+          pip-audit
+
+  container-scan:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy file system scan
+        uses: aquasecurity/trivy-action@v0.24.0
+        with:
+          scan-type: fs
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+          skip-dirs: "./.git,./.venv"
+
+  compose-config-scan:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy config scan
+        uses: aquasecurity/trivy-action@v0.24.0
+        with:
+          scan-type: config
+          severity: CRITICAL,HIGH
+          scan-ref: .
+          skip-dirs: "./.git,./.venv"

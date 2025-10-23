@@ -1,7 +1,13 @@
+"""Shared middleware for API services with secure defaults."""
+
+from __future__ import annotations
+
 import asyncio
 import os
 import time
 from collections import deque
+from dataclasses import dataclass
+from typing import Any
 
 from cachetools import TTLCache
 from fastapi import FastAPI
@@ -9,9 +15,37 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "100"))
-RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
-MAX_BODY_SIZE = int(os.getenv("MAX_BODY_SIZE", str(1 * 1024 * 1024)))
+
+@dataclass(frozen=True)
+class SecuritySettings:
+    """Runtime configuration for security middleware."""
+
+    rate_limit_requests: int
+    rate_limit_window: int
+    max_body_size: int
+    enable_https: bool
+
+
+def _parse_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        parsed = int(value)
+    except ValueError:
+        raise ValueError(f"Environment variable {name} must be a positive integer, got {value!r}")
+    if parsed <= 0:
+        raise ValueError(f"Environment variable {name} must be a positive integer, got {parsed!r}")
+    return parsed
+def _load_security_settings() -> SecuritySettings:
+    """Load security middleware settings from environment variables."""
+
+    return SecuritySettings(
+        rate_limit_requests=_parse_int("RATE_LIMIT_REQUESTS", 100),
+        rate_limit_window=_parse_int("RATE_LIMIT_WINDOW", 60),
+        max_body_size=_parse_int("MAX_BODY_SIZE", 1 * 1024 * 1024),
+        enable_https=os.getenv("ENABLE_HTTPS", "false").lower() == "true",
+    )
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -98,12 +132,16 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-def add_security_middleware(app: FastAPI) -> None:
-    app.add_middleware(BodySizeLimitMiddleware, max_body_size=MAX_BODY_SIZE)
+def add_security_middleware(
+    app: FastAPI, security_settings: SecuritySettings | None = None
+) -> SecuritySettings:
+    settings = security_settings or _load_security_settings()
+
+    app.add_middleware(BodySizeLimitMiddleware, max_body_size=settings.max_body_size)
     app.add_middleware(
         RateLimitMiddleware,
-        max_requests=RATE_LIMIT_REQUESTS,
-        window_seconds=RATE_LIMIT_WINDOW,
+        max_requests=settings.rate_limit_requests,
+        window_seconds=settings.rate_limit_window,
     )
     # Add standard security headers to all responses
     @app.middleware("http")
@@ -118,15 +156,19 @@ def add_security_middleware(app: FastAPI) -> None:
         # Provide a conservative default CSP if not already set upstream
         response.headers.setdefault("Content-Security-Policy", "default-src 'self'")
         # Enable HSTS when HTTPS is enabled. Header is ignored over plain HTTP.
-        if os.getenv("ENABLE_HTTPS", "false").lower() == "true":
+        if settings.enable_https:
             response.headers.setdefault(
                 "Strict-Transport-Security",
                 "max-age=31536000; includeSubDomains; preload",
             )
         return response
 
+    return settings
 
-def create_app(**kwargs) -> FastAPI:
+
+def create_app(
+    *, security_settings: SecuritySettings | None = None, **kwargs: Any
+) -> FastAPI:
     app = FastAPI(**kwargs)
-    add_security_middleware(app)
+    add_security_middleware(app, security_settings=security_settings)
     return app
