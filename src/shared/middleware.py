@@ -31,11 +31,12 @@ def _parse_int(name: str, default: int) -> int:
     if value is None:
         return default
     try:
-        return int(value)
+        parsed = int(value)
     except ValueError:
-        raise ValueError(f"Environment variable {name} must be an integer, got {value!r}")
-
-
+        raise ValueError(f"Environment variable {name} must be a positive integer, got {value!r}")
+    if parsed <= 0:
+        raise ValueError(f"Environment variable {name} must be a positive integer, got {parsed!r}")
+    return parsed
 def _load_security_settings() -> SecuritySettings:
     """Load security middleware settings from environment variables."""
 
