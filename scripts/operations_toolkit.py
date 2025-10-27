@@ -164,6 +164,8 @@ def disaster_recovery_drill(args: argparse.Namespace) -> None:
             redis_data_dir=args.redis_data_dir,
             redis_host=args.redis_host,
             execute=args.execute,
+            redis_data_dir=args.redis_data_dir,
+            redis_host=args.redis_host,
         )
     )
     LOG.info("Drill completed")
