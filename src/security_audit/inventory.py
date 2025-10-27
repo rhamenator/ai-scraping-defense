@@ -5,157 +5,92 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
-PRIORITY_RULES: Sequence[tuple[str, tuple[str, ...]]] = (
-    ("Critical (Secrets)", ("secret", "credential", "password", "api key", "token")),
-    (
-        "High (Transport Security)",
-        ("https", "tls", "transport", "ssl", "hsts", "certificate"),
-    ),
-    (
-        "High (Authentication/Authorization)",
-        ("auth", "jwt", "rbac", "session", "mfa", "authorization"),
-    ),
-)
-PRIORITY_ORDER = {label: index for index, (label, _) in enumerate(PRIORITY_RULES)}
-DEFAULT_PRIORITY = "Medium (General Hardening)"
-TARGET_PREFIXES = ("src/", "scripts/", "nginx/")
-TARGET_FILES = {"docker-compose.yaml"}
-
+SEVERITY_ORDER: Mapping[str, int] = {
+    "critical": 5,
+    "high": 4,
+    "medium": 3,
+    "low": 2,
+    "info": 1,
+}
 
 @dataclass
 class InventoryItem:
-    """Represents a single security finding from the batch file."""
+    id: Optional[str] = None
+    title: Optional[str] = None
+    severity: str = "info"
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
-    identifier: int
-    problem: str
-    fix_prompt: str
-    affected_files: list[str]
-    priority: str
+def _normalize_severity(raw: Any) -> str:
+    if raw is None:
+        return "info"
+    s = str(raw).strip().lower()
+    # normalize common variants
+    if s in ("crit", "critcal"):
+        return "critical"
+    if s == "":
+        return "info"
+    return s
 
-    @property
-    def area(self) -> str:
-        roots = sorted({_derive_area(path) for path in self.affected_files})
-        return ", ".join(roots) if roots else "n/a"
+def load_json(source: str | Path) -> Any:
+    """Load JSON from a file path or from a JSON string."""
+    text = str(source)
+    # Heuristic: if it looks like a filename, read file
+    if ("\n" not in text) and Path(text).exists():
+        with Path(text).open("r", encoding="utf-8") as fh:
+            return json.load(fh)
+    # Otherwise assume it's a JSON string
+    return json.loads(text)
 
+def _as_item(obj: Mapping[str, Any]) -> InventoryItem:
+    # Best-effort mapping of common keys
+    id_ = obj.get("id") or obj.get("key") or obj.get("name")
+    title = obj.get("title") or obj.get("name") or obj.get("summary")
+    severity = _normalize_severity(obj.get("severity") or obj.get("level") or obj.get("risk"))
+    metadata = dict(obj)
+    return InventoryItem(id=id_, title=title, severity=severity, metadata=metadata)
 
-def _derive_area(path: str) -> str:
-    if path == "docker-compose.yaml":
-        return "docker-compose"
-    return path.split("/", 1)[0]
+def extract_findings(parsed_json: Any, *, keys: Sequence[str] = ("findings", "vulnerabilities", "items")) -> List[InventoryItem]:
+    """Extract a list of InventoryItem from parsed JSON.
+    Looks for common container keys; if top-level list is provided it is used directly.
+    """
+    if parsed_json is None:
+        return []
 
+    if isinstance(parsed_json, list):
+        return [_as_item(x) for x in parsed_json if isinstance(x, Mapping)]
 
-def _normalize_path(raw: str) -> str:
-    return raw.split(":", 1)[0]
+    if isinstance(parsed_json, Mapping):
+        for k in keys:
+            val = parsed_json.get(k)
+            if isinstance(val, list):
+                return [_as_item(x) for x in val if isinstance(x, Mapping)]
+        # Fallback: find the first list of mappings in values
+        for val in parsed_json.values():
+            if isinstance(val, list) and val and isinstance(val[0], Mapping):
+                return [_as_item(x) for x in val if isinstance(x, Mapping)]
 
+    return []
 
-def _is_target_path(path: str) -> bool:
-    if path in TARGET_FILES:
-        return True
-    return any(path.startswith(prefix) for prefix in TARGET_PREFIXES)
-
-
-def _determine_priority(problem: str, fix_prompt: str) -> str:
-    haystack = f"{problem} {fix_prompt}".lower()
-    for label, keywords in PRIORITY_RULES:
-        if any(keyword in haystack for keyword in keywords):
-            return label
-    return DEFAULT_PRIORITY
-
-
-def _filter_items(raw_items: Iterable[dict]) -> list[InventoryItem]:
-    filtered: list[InventoryItem] = []
-    for entry in raw_items:
-        affected = [_normalize_path(path) for path in entry.get("affected_files", [])]
-        scoped = [path for path in affected if _is_target_path(path)]
-        if not scoped:
-            continue
-
-        try:
-            identifier = int(entry.get("id"))
-        except (TypeError, ValueError):
-            continue
-
-        filtered.append(
-            InventoryItem(
-                identifier=identifier,
-                problem=entry.get("problem", "Unknown problem"),
-                fix_prompt=entry.get("fix_prompt", ""),
-                affected_files=sorted(set(scoped)),
-                priority=_determine_priority(
-                    entry.get("problem", ""), entry.get("fix_prompt", "")
-                ),
-            )
-        )
-
-    return filtered
+def prioritize_findings(items: Iterable[InventoryItem]) -> List[InventoryItem]:
+    """Return items sorted by severity (highest first)."""
+    return sorted(items, key=lambda it: SEVERITY_ORDER.get(it.severity, 0), reverse=True)
 
 
-def _sort_items(items: Sequence[InventoryItem]) -> list[InventoryItem]:
-    def sort_key(item: InventoryItem) -> tuple[int, int]:
-        priority_rank = PRIORITY_ORDER.get(item.priority, len(PRIORITY_RULES))
-        return priority_rank, item.identifier
+def summarize_by_severity(items: Iterable[InventoryItem]) -> Dict[str, int]:
+    """Return a mapping of severity -> count."""
+    c: Counter[str] = Counter()
+    for it in items:
+        c[it.severity or "info"] += 1
+    return dict(c)
 
-    return sorted(items, key=sort_key)
-
-
-def generate_inventory_markdown(json_path: Path) -> str:
-    """Generate a markdown table with prioritized issues from the JSON file."""
-
-    data = json.loads(json_path.read_text())
-    problems = data.get("security_problems", {}).get("problems", [])
-    items = _filter_items(problems)
-    if not items:
-        return "# Security Inventory – Batch 1\n\nNo scoped issues were detected.\n"
-
-    items = _sort_items(items)
-
-    counts = Counter(item.priority for item in items)
-    summary_lines = ["## Prioritization Summary", ""]
-    for label, _ in PRIORITY_RULES:
-        if counts.get(label):
-            summary_lines.append(f"- **{label}:** {counts[label]} findings")
-    if counts.get(DEFAULT_PRIORITY):
-        summary_lines.append(
-            f"- **{DEFAULT_PRIORITY}:** {counts[DEFAULT_PRIORITY]} findings"
-        )
-
-    header = [
-        "# Security Inventory – Batch 1",
-        "",
-        "This report inventories findings from `security_problems_batch1.json`",
-        "with scope limited to `src/`, `scripts/`, `nginx/`, and `docker-compose.yaml`.",
-        "Findings are prioritized by exploitability, emphasizing secrets, transport",
-        "security, and authentication/authorization weaknesses.",
-        "",
-    ]
-
-    table_header = (
-        "| Priority | ID | Area | Problem | Key Files | Recommended Actions |",
-        "| --- | --- | --- | --- | --- | --- |",
-    )
-
-    rows: list[str] = []
-    for item in items:
-        key_files = "<br/>".join(item.affected_files)
-        fix_prompt = re.sub(r"\s+", " ", item.fix_prompt.strip())
-        rows.append(
-            f"| {item.priority} | {item.identifier} | {item.area} | {item.problem} | "
-            f"{key_files} | {fix_prompt} |"
-        )
-
-    body = ["## Detailed Findings", "", *table_header, *rows]
-
-    document = "\n".join(header + summary_lines + [""] + body)
-    return document + "\n"
-
-
-def write_inventory_markdown(json_path: Path, output_path: Path) -> None:
-    """Write the generated markdown inventory to disk."""
-
-    markdown = generate_inventory_markdown(json_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(markdown)
+__all__ = [
+    "InventoryItem",
+    "load_json",
+    "extract_findings",
+    "prioritize_findings",
+    "summarize_by_severity",
+]
