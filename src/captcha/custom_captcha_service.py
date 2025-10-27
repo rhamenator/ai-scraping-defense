@@ -12,12 +12,24 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from src.shared.config import get_secret
 from src.shared.middleware import create_app
-
-app = create_app()
+from src.shared.observability import (
+    HealthCheckResult,
+    register_health_check,
+    trace_span,
+)
 
 CAPTCHA_SECRET = get_secret("CAPTCHA_SECRET_FILE") or os.getenv("CAPTCHA_SECRET")
 CAPTCHA_SUCCESS_LOG = os.getenv("CAPTCHA_SUCCESS_LOG", "/app/logs/captcha_success.log")
 TOKEN_EXPIRY = int(os.getenv("CAPTCHA_TOKEN_EXPIRY_SECONDS", 300))
+
+app = create_app()
+
+
+@register_health_check(app, "custom_captcha", critical=True)
+async def _captcha_health() -> HealthCheckResult:
+    if not CAPTCHA_SECRET:
+        return HealthCheckResult.unhealthy({"reason": "captcha secret missing"})
+    return HealthCheckResult.healthy({"token_expiry": TOKEN_EXPIRY})
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +131,8 @@ async def solve(
     request: Request = None,
     fp_id: str | None = Cookie(None),
 ):
-    data = _unsign(token)
+    with trace_span("captcha.unsign_token"):
+        data = _unsign(token)
     if not data or data.get("exp", 0) < int(
         datetime.datetime.now(datetime.UTC).timestamp()
     ):
@@ -132,13 +145,17 @@ async def solve(
         return JSONResponse({"success": False})
     ip = request.client.host if request and request.client else "unknown"
     fingerprint = fp_id or data.get("fp") or ""
-    final_token = _sign(
-        {
-            "ip": ip,
-            "fp": fingerprint,
-            "ts": int(datetime.datetime.now(datetime.UTC).timestamp()),
-        }
-    )
+    with trace_span(
+        "captcha.issue_token",
+        attributes={"ip": ip, "fingerprint": fingerprint},
+    ):
+        final_token = _sign(
+            {
+                "ip": ip,
+                "fp": fingerprint,
+                "ts": int(datetime.datetime.now(datetime.UTC).timestamp()),
+            }
+        )
     ua = request.headers.get("user-agent", "") if request else ""
     try:
         os.makedirs(os.path.dirname(CAPTCHA_SUCCESS_LOG), exist_ok=True)

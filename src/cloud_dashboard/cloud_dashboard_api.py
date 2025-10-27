@@ -14,6 +14,11 @@ from starlette.websockets import WebSocketState
 
 from src.shared.config import tenant_key
 from src.shared.middleware import create_app
+from src.shared.observability import (
+    HealthCheckResult,
+    register_health_check,
+    trace_span,
+)
 from src.shared.redis_client import get_redis_connection
 
 # Redis-backed storage of metrics per installation with TTLs
@@ -58,6 +63,18 @@ async def lifespan(app: FastAPI):  # pragma: no cover - startup/shutdown hook
 
 app = create_app(lifespan=lifespan)
 
+
+@register_health_check(app, "cloud_dashboard_redis", critical=True)
+async def _redis_health() -> HealthCheckResult:
+    redis_conn = get_redis_connection()
+    if not redis_conn:
+        return HealthCheckResult.unhealthy({"reason": "redis unavailable"})
+    try:
+        redis_conn.ping()
+    except RedisError as exc:  # pragma: no cover - network IO
+        return HealthCheckResult.unhealthy({"error": str(exc)})
+    return HealthCheckResult.healthy()
+
 API_KEY = os.getenv("CLOUD_DASHBOARD_API_KEY")
 
 
@@ -76,9 +93,15 @@ async def register_installation(payload: Dict[str, Any], request: Request):
     # Mark the installation as registered with its own, longer-lived key
     registration_key = tenant_key(f"cloud:install:registered:{installation_id}")
     try:
-        redis_conn.set(
-            registration_key, json.dumps({"registered": True}), ex=REGISTRATION_TTL
-        )
+        with trace_span(
+            "cloud_dashboard.register_installation",
+            attributes={"installation_id": installation_id},
+        ):
+            redis_conn.set(
+                registration_key,
+                json.dumps({"registered": True}),
+                ex=REGISTRATION_TTL,
+            )
     except RedisError:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
     return {"status": "registered", "installation_id": installation_id}
@@ -99,7 +122,11 @@ async def push_metrics(payload: Dict[str, Any], request: Request):
         return JSONResponse({"error": "storage unavailable"}, status_code=500)
     key = tenant_key(f"cloud:install:{installation_id}")
     try:
-        redis_conn.set(key, json.dumps(metrics), ex=METRICS_TTL)
+        with trace_span(
+            "cloud_dashboard.push_metrics",
+            attributes={"installation_id": installation_id},
+        ):
+            redis_conn.set(key, json.dumps(metrics), ex=METRICS_TTL)
     except RedisError:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
     async with WATCHERS_LOCK:
@@ -120,7 +147,10 @@ async def get_metrics(installation_id: str):
         return JSONResponse({"error": "storage unavailable"}, status_code=500)
     key = tenant_key(f"cloud:install:{installation_id}")
     try:
-        raw = redis_conn.get(key)
+        with trace_span(
+            "cloud_dashboard.get_metrics", attributes={"installation_id": installation_id}
+        ):
+            raw = redis_conn.get(key)
     except RedisError:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
     if raw:

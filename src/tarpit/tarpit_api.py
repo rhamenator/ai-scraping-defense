@@ -88,6 +88,12 @@ class EscalationMetadata(BaseModel):
 # Preserved from your original file.
 from src.shared.config import CONFIG, tenant_key
 from src.shared.middleware import create_app
+from src.shared.observability import (
+    HealthCheckResult,
+    ObservabilitySettings,
+    register_health_check,
+    trace_span,
+)
 from src.shared.redis_client import get_redis_connection
 
 from .bad_api_generator import register_bad_endpoints
@@ -212,8 +218,69 @@ if not redis_hops or not redis_blocklist:
 
 
 # --- FastAPI App ---
-app = create_app()
+app = create_app(
+    observability_settings=ObservabilitySettings(
+        metrics_path="/observability/metrics",
+        health_path="/observability/health",
+    )
+)
 BAD_API_ENDPOINTS = register_bad_endpoints(app)
+
+
+@app.get("/health", include_in_schema=False)
+def health_check() -> dict[str, object]:
+    """Expose tarpit health in the legacy shape expected by existing tooling."""
+    redis_hops_connected = False
+    redis_blocklist_connected = False
+
+    if redis_hops:
+        try:
+            if hasattr(redis_hops, "ping"):
+                redis_hops.ping()
+            redis_hops_connected = True
+        except Exception:  # pragma: no cover - defensive for redis failures
+            redis_hops_connected = False
+
+    if redis_blocklist:
+        try:
+            if hasattr(redis_blocklist, "ping"):
+                redis_blocklist.ping()
+            redis_blocklist_connected = True
+        except Exception:  # pragma: no cover - defensive for redis failures
+            redis_blocklist_connected = False
+
+    status = (
+        "ok"
+        if redis_hops_connected and redis_blocklist_connected and GENERATOR_AVAILABLE
+        else "error"
+    )
+
+    return {
+        "status": status,
+        "redis_hops_connected": redis_hops_connected,
+        "redis_blocklist_connected": redis_blocklist_connected,
+        "generator_available": GENERATOR_AVAILABLE,
+    }
+
+
+@register_health_check(app, "redis", critical=True)
+async def _redis_health() -> HealthCheckResult:
+    missing = [
+        name
+        for name, client in {
+            "hops": redis_hops,
+            "blocklist": redis_blocklist,
+        }.items()
+        if not client
+    ]
+    if missing:
+        return HealthCheckResult.degraded({"missing_clients": missing})
+    try:
+        redis_hops.ping()
+        redis_blocklist.ping()
+    except RedisError as exc:  # pragma: no cover - network interaction
+        return HealthCheckResult.unhealthy({"error": str(exc)})
+    return HealthCheckResult.healthy()
 
 
 # --- Helper Functions (Preserved from your original file) ---
@@ -226,28 +293,31 @@ async def slow_stream_content(content: str):
 
 
 def trigger_ip_block(ip: str, reason: str):
-    if not redis_blocklist:
-        logger.error(f"Cannot block IP {ip}, Redis blocklist connection unavailable.")
-        return False
-    try:
-        key = tenant_key(f"blocklist:{ip}")
-        if redis_blocklist.exists(key):
-            logger.info(f"IP {ip} already in blocklist. TTL refreshed")
-        result = redis_blocklist.setex(key, BLOCKLIST_TTL_SECONDS, reason)
-        if result:
-            logger.warning(
-                f"BLOCKED IP {ip} for {BLOCKLIST_TTL_SECONDS}s. Reason: {reason}"
+    with trace_span("tarpit.trigger_block", attributes={"ip": ip}):
+        if not redis_blocklist:
+            logger.error(
+                f"Cannot block IP {ip}, Redis blocklist connection unavailable."
             )
-            return True
-        else:
-            logger.error(f"Failed to set blocklist key for IP {ip} in Redis.")
             return False
-    except RedisError as e:
-        logger.error(f"Redis error while trying to block IP {ip}: {e}")
-        return False
-    except Exception as e:
-        logger.error(f"Unexpected error while blocking IP {ip}: {e}")
-        return False
+        try:
+            key = tenant_key(f"blocklist:{ip}")
+            if redis_blocklist.exists(key):
+                logger.info(f"IP {ip} already in blocklist. TTL refreshed")
+            result = redis_blocklist.setex(key, BLOCKLIST_TTL_SECONDS, reason)
+            if result:
+                logger.warning(
+                    f"BLOCKED IP {ip} for {BLOCKLIST_TTL_SECONDS}s. Reason: {reason}"
+                )
+                return True
+            else:
+                logger.error(f"Failed to set blocklist key for IP {ip} in Redis.")
+                return False
+        except RedisError as e:
+            logger.error(f"Redis error while trying to block IP {ip}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error while blocking IP {ip}: {e}")
+            return False
 
 
 SENSITIVE_HEADERS = {"authorization", "cookie", "set-cookie"}
@@ -423,34 +493,6 @@ async def tarpit_handler(request: Request, path: str = ""):
 </body></html>"""
 
     return StreamingResponse(slow_stream_content(content), media_type="text/html")
-
-
-@app.get("/health")
-async def health_check():
-    db_ok = True if GENERATOR_AVAILABLE else False
-    redis_hops_ok = False
-    redis_blocklist_ok = False
-    try:
-        if redis_hops:
-            redis_hops_ok = redis_hops.ping()
-    except Exception:
-        redis_hops_ok = False
-    try:
-        if redis_blocklist:
-            redis_blocklist_ok = redis_blocklist.ping()
-    except Exception:
-        redis_blocklist_ok = False
-
-    status = "ok" if redis_hops_ok and redis_blocklist_ok else "error"
-    return {
-        "status": status,
-        "generator_available": GENERATOR_AVAILABLE,
-        "postgres_connected": db_ok,
-        "redis_hops_connected": redis_hops_ok,
-        "redis_blocklist_connected": redis_blocklist_ok,
-        "hop_limit_enabled": HOP_LIMIT_ENABLED,
-        "max_hops_config": TAR_PIT_MAX_HOPS if HOP_LIMIT_ENABLED else "disabled",
-    }
 
 
 @app.get("/")
