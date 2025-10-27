@@ -1,4 +1,4 @@
-"""Utilities to produce prioritized security inventories from JSON data."""
+"""""""Utilities to produce prioritized security inventories from JSON data."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ SEVERITY_ORDER: Mapping[str, int] = {
     "info": 1,
 }
 
-@dataclass
+dataclass
 class InventoryItem:
     id: Optional[str] = None
     title: Optional[str] = None
@@ -54,7 +54,8 @@ def _as_item(obj: Mapping[str, Any]) -> InventoryItem:
     return InventoryItem(id=id_, title=title, severity=severity, metadata=metadata)
 
 def extract_findings(parsed_json: Any, *, keys: Sequence[str] = ("findings", "vulnerabilities", "items")) -> List[InventoryItem]:
-    """Extract a list of InventoryItem from parsed JSON.
+    """
+    Extract a list of InventoryItem from parsed JSON.
     Looks for common container keys; if top-level list is provided it is used directly.
     """
     if parsed_json is None:
@@ -87,10 +88,64 @@ def summarize_by_severity(items: Iterable[InventoryItem]) -> Dict[str, int]:
         c[it.severity or "info"] += 1
     return dict(c)
 
+
+def generate_inventory_markdown(data: Any) -> str:
+    """
+    Generate a simple markdown report for an inventory.
+
+    Accepts either:
+      - an iterable of InventoryItem, or
+      - a parsed JSON object that extract_findings() can handle,
+      - or a JSON string / path that load_json() can handle.
+
+    Returns a markdown string summarizing counts by severity and a small table.
+    """
+    # Normalize input to InventoryItem list
+    items: List[InventoryItem] = []
+    try:
+        if isinstance(data, list) and data and isinstance(data[0], InventoryItem):
+            items = list(data)
+        else:
+            parsed = data
+            if not isinstance(parsed, (list, dict)):
+                # assume it's JSON string or a filepath
+                try:
+                    parsed = load_json(parsed)
+                except Exception:
+                    parsed = None
+            items = extract_findings(parsed)
+    except Exception:
+        # As a last resort, return an informative markdown
+        return "# Inventory\n\n_Error generating inventory report_\n"
+
+    if not items:
+        return "# Inventory\n\n_No findings_\n"
+
+    # Summary header
+    counts = summarize_by_severity(items)
+    header_lines = ["# Inventory", ""]
+    header_lines.append("## Summary by severity")
+    for sev, cnt in sorted(counts.items(), key=lambda kv: SEVERITY_ORDER.get(kv[0], 0), reverse=True):
+        header_lines.append(f"- **{sev}**: {cnt}")
+    header_lines.append("")
+
+    # Small table of top items (prioritized)
+    prioritized = prioritize_findings(items)
+    header_lines.append("## Top findings")
+    header_lines.append("| id | title | severity |")
+    header_lines.append("|---|---|---|")
+    for it in prioritized[:20]:
+        id_text = it.id or ""
+        title_text = (it.title or "").replace("|", "\\|")
+        header_lines.append(f"| {id_text} | {title_text} | {it.severity} |")
+
+    return "\n".join(header_lines) + "\n"
+
 __all__ = [
     "InventoryItem",
     "load_json",
     "extract_findings",
     "prioritize_findings",
     "summarize_by_severity",
+    "generate_inventory_markdown",
 ]
