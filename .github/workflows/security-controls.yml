@@ -44,12 +44,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Trivy file system scan
-        uses: aquasecurity/trivy-action@v0.24.0
-        with:
-          scan-type: fs
-          ignore-unfixed: true
-          severity: CRITICAL,HIGH
-          skip-dirs: "./.git,./.venv"
+        # Run Trivy container directly to avoid depending on action tag resolution.
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}":/project -w /project \
+            aquasecurity/trivy:latest fs \
+            --ignore-unfixed \
+            --severity CRITICAL,HIGH \
+            --skip-dirs "./.git,./.venv" /project
 
   compose-config-scan:
     permissions:
@@ -58,9 +60,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Trivy config scan
-        uses: aquasecurity/trivy-action@v0.24.0
-        with:
-          scan-type: config
-          severity: CRITICAL,HIGH
-          scan-ref: .
-          skip-dirs: "./.git,./.venv"
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}":/project -w /project \
+            aquasecurity/trivy:latest config \
+            --severity CRITICAL,HIGH \
+            --skip-dirs "./.git,./.venv" /project
