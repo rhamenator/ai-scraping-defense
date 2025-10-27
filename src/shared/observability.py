@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Optional
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from .metrics import REQUEST_LATENCY, get_metrics, record_request
@@ -324,7 +324,8 @@ def _add_health_route(app: FastAPI, settings: ObservabilitySettings) -> None:
                 for check, result in results
             },
         }
-        return JSONResponse(payload)
+        status_code = 200 if status == "ok" else 503
+        return JSONResponse(payload, status_code=status_code)
 
 
 def configure_observability(
@@ -372,6 +373,7 @@ def configure_observability(
         token_span = _current_span_ctx.set(span)
         token_state = _current_state_ctx.set(state)
         status_code = 500
+        response: Response | None = None
         try:
             response = await call_next(request)
             status_code = response.status_code
@@ -389,24 +391,25 @@ def configure_observability(
             state.record_span(span)
             record_request(request.method, endpoint, status_code)
             REQUEST_LATENCY.labels(method=request.method, endpoint=endpoint).observe(duration)
+            logger.info(
+                "Handled request",
+                extra={
+                    "extra_fields": {
+                        "method": request.method,
+                        "path": endpoint,
+                        "status_code": status_code,
+                        "duration_seconds": round(duration, 6),
+                        "client_ip": request.client.host if request.client else None,
+                    }
+                },
+            )
+            if response is not None:
+                response.headers.setdefault(settings.request_id_header, request_id)
+                response.headers.setdefault(settings.trace_id_header, trace_id)
+                response.headers.setdefault(settings.span_id_header, span_id)
             _current_span_ctx.reset(token_span)
             _request_id_ctx.reset(token_request)
             _current_state_ctx.reset(token_state)
-        response.headers.setdefault(settings.request_id_header, request_id)
-        response.headers.setdefault(settings.trace_id_header, trace_id)
-        response.headers.setdefault(settings.span_id_header, span_id)
-        logger.info(
-            "Handled request",
-            extra={
-                "extra_fields": {
-                    "method": request.method,
-                    "path": endpoint,
-                    "status_code": status_code,
-                    "duration_seconds": round(duration, 6),
-                    "client_ip": request.client.host if request.client else None,
-                }
-            },
-        )
         return response
 
     return settings
