@@ -35,7 +35,7 @@ PyJWT~=2.9
 PyYAML~=6.0
 
 # Kubernetes
-kubernetes~=33.1
+kubernetes~=34.1
 
 # LLM and AI Libraries
 openai>=1.17,<2.0
