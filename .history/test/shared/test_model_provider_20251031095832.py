@@ -1,6 +1,6 @@
-import os
 import unittest
 from unittest.mock import patch
+import os
 
 from src.shared import model_provider
 
@@ -8,7 +8,6 @@ from src.shared import model_provider
 class DummyAdapter:
     def __init__(self, uri):
         self.uri = uri
-
 
 class FlakyAdapter:
     attempts = 0

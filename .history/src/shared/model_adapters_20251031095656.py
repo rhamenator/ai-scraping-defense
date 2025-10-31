@@ -460,16 +460,10 @@ class MCPAdapter(BaseModelAdapter):
 
         self.tool_name = tool_name
         self.client = MCPClient(server_config)
-        argument_key_value = config_map.get("argument_key", "input")
-        if argument_key_value in (None, ""):
-            self.argument_key = ""
-        else:
-            self.argument_key = str(argument_key_value)
-        options_key_value = config_map.get("options_key", "options")
-        if options_key_value in (None, ""):
+        self.argument_key = str(config_map.get("argument_key", "input"))
+        self.options_key = config_map.get("options_key", "options")
+        if self.options_key is None:
             self.options_key = ""
-        else:
-            self.options_key = str(options_key_value)
         self.forward_full_payload = bool(config_map.get("forward_full_payload", False))
         self.model = self.client
 
@@ -503,5 +497,5 @@ class MCPAdapter(BaseModelAdapter):
 
         cleaned_extra = {k: v for k, v in extra.items() if v is not None}
         if cleaned_extra and self.options_key:
-            payload[self.options_key] = cleaned_extra
+            payload[str(self.options_key)] = cleaned_extra
         return payload

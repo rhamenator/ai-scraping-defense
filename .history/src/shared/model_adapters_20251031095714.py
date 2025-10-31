@@ -503,5 +503,5 @@ class MCPAdapter(BaseModelAdapter):
 
         cleaned_extra = {k: v for k, v in extra.items() if v is not None}
         if cleaned_extra and self.options_key:
-            payload[self.options_key] = cleaned_extra
+            payload[str(self.options_key)] = cleaned_extra
         return payload

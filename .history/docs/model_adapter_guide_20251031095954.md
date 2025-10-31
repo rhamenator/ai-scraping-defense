@@ -52,9 +52,6 @@ Set `MODEL_URI` to `mcp://<server_label>/<tool_name>` to use the `MCPAdapter`. C
 
 You can override individual settings per adapter instance by passing a config dictionary to `get_model_adapter` or by adding query parameters to the URI (for example, `mcp://risk-scorer/classify?timeout=45`).
 
-> **Tip**
-> Install the Python package with the appropriate extras for your transport, for example `pip install "model-context-protocol[websocket]"` when using WebSocket servers or `pip install "model-context-protocol[stdio]"` for process-based tools.
-
 ## Model Adapter Class Diagram
 
 This diagram shows the design of the adapter pattern. All adapters inherit from a common `BaseModelAdapter`, which guarantees they all have a `.predict()` method. The `model_provider` factory function is responsible for creating the correct adapter based on the `MODEL_URI`.
