@@ -31,7 +31,7 @@ wikipedia~=1.4
 python-multipart~=0.0.9
 cachetools~=5.3
 prometheus-client~=0.22
-PyJWT~=2.9
+PyJWT~=2.10
 PyYAML~=6.0
 
 # Kubernetes
