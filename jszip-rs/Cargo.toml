@@ -20,4 +20,4 @@ chrono = "0.4"
 tempfile = "3"
 
 [build-dependencies]
-pyo3-build-config = { version = "0.26.0", features = ["resolve-config"] }
+pyo3-build-config = { version = "0.27.1", features = ["resolve-config"] }
