@@ -117,8 +117,7 @@ class HTTPPaymentGateway(BaseGateway):
                 return None
         except Exception as exc:  # pragma: no cover - network issues
             logging.error(
-                "Payment request failed (%s): %s",
-                _redact(self.api_key),
+                "Payment request failed: %s",
                 exc,
             )
             return None
