@@ -14,6 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Label based on PR content
-        uses: actions/labeler@ac9175f8a1f3625fd0d4fb234536d26811351594
+        uses: actions/labeler@634933edcd8ababfe52f92936142cc22ac488b1b
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
