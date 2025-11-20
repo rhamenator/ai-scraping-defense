@@ -16,7 +16,7 @@ We encourage users to stay on the latest stable release for the most up-to-date 
 We appreciate responsible disclosure of security vulnerabilities. If you discover a potential security issue in this project:
 
 1. **Do NOT open a public GitHub issue.** Public disclosure could put users at risk before a fix is available.
-2. **Email us directly** at **[rhamenator@gmail.com]**.
+2. **Email us directly** at **[rhamenator@gmail.com]**. Make sure to encrypt your finding, if possible. Use our PGP key: `TODO: insert PGP key here`
 3. **Provide detailed information** in your report, including:
     * A clear description of the vulnerability.
     * Steps to reproduce the issue (code snippets, configurations, or sequences of requests are helpful).
@@ -29,9 +29,11 @@ We may recognize your contribution publicly once the vulnerability is addressed,
 
 ## Security Practices
 
-* We strive to follow secure coding practices.
-* Dependencies are periodically reviewed (consider adding automated checks like Dependabot).
-* Container images are built from trusted base images.
-* The Admin UI requires explicit CORS origins. Set `ADMIN_UI_CORS_ORIGINS` to allowed hosts (default `http://localhost`) and avoid using `*` when credentials are allowed.
+*   We strive to follow secure coding practices.
+*   Dependencies are periodically reviewed (consider adding automated checks like Dependabot).
+*   Container images are built from trusted base images.
+*   The Admin UI requires explicit CORS origins. Set `ADMIN_UI_CORS_ORIGINS` to allowed hosts (default `http://localhost`) and avoid using `*` when credentials are allowed.
+*   We use a configuration file (`config/security_hardening.yaml`) to manage security settings.
+*   Security compliance is regularly monitored using automated workflows.
 
 Thank you for helping keep the AI Scraping Defense Stack secure!

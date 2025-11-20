@@ -1,0 +1,24 @@
+# config/security_hardening.yaml
+# This file defines security hardening settings to be applied to the system.
+# It is intended to be used by the security setup scripts.
+
+# Example settings (adjust as needed):
+
+# SSH hardening
+ssh:
+  disable_password_authentication: true
+  permit_root_login: "no"
+  # Add more SSH settings here
+
+# System-wide settings
+system:
+  enable_firewall: true
+  # Add more system-wide settings here
+
+# Application-specific settings
+applications:
+  nginx:
+    # Example: disable server_tokens to avoid information leakage
+    disable_server_tokens: true
+    # Add more Nginx settings here
+  # Add settings for other applications here

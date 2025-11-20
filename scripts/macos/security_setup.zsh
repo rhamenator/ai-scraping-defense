@@ -56,3 +56,8 @@ rm "$TMP_DIR/$GRYPE_TAR" "$TMP_DIR/grype_checksums.txt"
 
 pip install bandit sslyze sublist3r pip-audit
 brew cleanup
+
+# Apply security hardening settings from config
+# TODO: Implement Zsh-based hardening configuration
+echo "Applying security hardening settings..."
+echo "(Currently a placeholder. Implement config loading and applying.)"
