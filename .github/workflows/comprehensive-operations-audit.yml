@@ -257,6 +257,20 @@ jobs:
           # Dependency health checks
           grep -r "dependency.*check\|upstream.*health" --include="*.py" --include="*.js" . > reports/operations/dependency-health.txt || true
 
+      # Standardization Analysis
+      - name: Analyze Standardization Practices
+        run: |
+          echo "Analyzing standardization practices..."
+
+          # Standard procedures
+          grep -r "standard.*procedure\|best.*practice\|guideline" --include="*.md" --include="*.txt" . > reports/operations/standard-procedures.txt || true
+
+          # Configuration consistency
+          grep -r "config.*consistency\|uniform.*config" --include="*.yaml" --include="*.yml" --include="*.conf" . > reports/operations/config-consistency.txt || true
+
+          # Automated enforcement
+          grep -r "automated.*check\|policy.*enforcement" --include="*.py" --include="*.js" --include="*.yaml" . > reports/operations/automated-enforcement.txt || true
+
       # Generate Operations Summary
       - name: Generate Operations Summary
         run: |
