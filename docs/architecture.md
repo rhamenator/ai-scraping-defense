@@ -36,7 +36,7 @@ The AI Scraping Defense system is designed as a distributed, microservice-based 
 
 This diagram illustrates the high-level relationships between the system's components. It's perfect for providing a visual overview in a presentation.
 
-```mermaid
+mermaid
 graph TD
     subgraph "User / Bot Traffic"
         direction LR
@@ -102,11 +102,11 @@ graph TD
     AdminUI -- "Manages" --> Redis
 
     TarpitAPI -- "Reads" --> Postgres
-```
+
 
 ## Real-time Request Processing Flow
 
-```mermaid
+mermaid
 graph TD
     User["👤 User"] -->|Legitimate Request| Nginx
     Bot["🤖 Bot"] -->|Suspicious Request| Nginx
@@ -133,11 +133,11 @@ graph TD
     AdminUI -->|Manages| Redis
 
     TarpitAPI["🕸️ Tarpit API"] -->|Reads| Postgres
-```
+
 
 ## Key Data Flows
 
-```mermaid
+mermaid
 graph TD
     subgraph "User / Bot Traffic"
         direction LR
@@ -203,7 +203,7 @@ graph TD
     AdminUI -->|Manages| Redis
 
     TarpitAPI -->|Reads| Postgres
-```
+
 
 ## Optional Cloud Integrations
 
@@ -216,6 +216,15 @@ The stack can integrate with external services for enhanced protection. Each int
 
 These features are optional so deployments remain lightweight when cloud services are unavailable.
 
+### Future Technology Integration
+
+To ensure the long-term viability and effectiveness of the system, the architecture is designed to accommodate emerging technologies. This can be achieved through:
+
+*   **Modular Design**: Implementing services as independent modules allows for easier integration of new components and technologies without disrupting the entire system.
+*   **API-First Approach**: Exposing services through well-defined APIs enables seamless communication and interoperability with external systems and emerging platforms.
+*   **Abstracted Interfaces**: Defining abstract interfaces for key components, such as the LLM classification and IP reputation services, makes it easier to switch between different providers or implementations as new technologies become available.
+*   **Containerization and Orchestration**: Using Docker and Kubernetes provides a flexible and scalable infrastructure that can easily adapt to new hardware architectures and deployment environments.
+
 ## Local IP Banning with Fail2ban
 
 Fail2ban monitors the shared Nginx logs and inserts firewall rules using
@@ -227,9 +236,9 @@ blocklist TTL.
 
 1. **Docker Compose** – Ensure the `fail2ban` service is enabled and start it
    alongside the other containers:
-   ```bash
+   bash
    docker compose up -d fail2ban
-   ```
+   
 2. **Kubernetes** – Apply `nginx-logs-pvc.yaml`, update the `nginx-deployment`
    to mount this volume, then deploy `fail2ban-deployment.yaml`.
 
@@ -250,8 +259,8 @@ which the manager forwards to the escalation engine for blocking.
 ### Activation Steps
 
 1. **Docker Compose** – Start the service alongside the stack:
-   ```bash
+   bash
    docker compose up -d suricata
-   ```
+   
 2. **Kubernetes** – Deploy `suricata-deployment.yaml` in the `ai-defense`
    namespace.

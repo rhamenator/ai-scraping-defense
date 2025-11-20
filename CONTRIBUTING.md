@@ -23,6 +23,15 @@ We welcome meaningful contributions, including but not limited to:
 - **Testing:** Adding unit tests, integration tests, or bot simulation tests.
 - **Security Hardening:** Identifying and patching potential vulnerabilities.
 
+## Future-Oriented Culture
+
+To ensure the project remains at the forefront of AI scraping defense, we encourage a culture of:
+
+*   **Innovation:** Continuously exploring new approaches, technologies, and techniques for detecting and mitigating AI scraping.
+*   **Adaptability:** Embracing change and being prepared to adapt the system in response to new threats and evolving technologies.
+*   **Collaboration:** Fostering open communication and collaboration within the community to share knowledge and insights.
+*   **Learning:** Staying informed about the latest developments in AI, cybersecurity, and related fields, and applying that knowledge to improve the project.
+
 ## How to Contribute
 
 1. **Find an Issue or Propose an Idea:** Look through existing issues or propose a new feature/improvement in the Issues tab or Discussions.
