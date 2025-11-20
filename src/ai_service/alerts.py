@@ -10,6 +10,8 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Optional
 
 import httpx
+import redis
+
 
 from src.shared.config import CONFIG
 from src.shared.utils import LOG_DIR, log_error, log_event
@@ -40,6 +42,31 @@ ALERT_SMTP_USE_TLS = CONFIG.ALERT_SMTP_USE_TLS
 ALERT_EMAIL_FROM = CONFIG.ALERT_EMAIL_FROM
 ALERT_EMAIL_TO = CONFIG.ALERT_EMAIL_TO
 ALERT_MIN_REASON_SEVERITY = CONFIG.ALERT_MIN_REASON_SEVERITY
+
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+REDIS_DB = int(os.environ.get("REDIS_DB", 0))
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
+ANOMALY_EVENT_CHANNEL = "anomaly_events"
+
+redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, password=REDIS_PASSWORD, decode_responses=True)
+
+async def subscribe_anomaly_events():
+    pubsub = redis_client.pubsub()
+    pubsub.subscribe(ANOMALY_EVENT_CHANNEL)
+    for message in pubsub.listen():
+        if message['type'] == 'message':
+            event_data = eval(message['data'].decode('utf-8'))  # Use eval cautiously; consider JSON parsing
+            await handle_anomaly_event(event_data)
+
+async def handle_anomaly_event(event_data):
+    logging.info(f"Received anomaly event: {event_data}")
+    # Process the anomaly event here. Example:
+    # You might decide to trigger alerts or take other actions based on the anomaly score and features.
+    # This is a placeholder; implement your logic here.
+    #Example of alerting
+    #event_data['reason'] = f"High Anomaly Score: {event_data['anomaly_score']:.2f}"
+    #await send_alert(event_data)
 
 
 # ---------------------------------------------------------------------------
@@ -351,3 +378,11 @@ async def send_alert(event_data: "WebhookEvent") -> None:
         await send_smtp_alert(event_data)
     elif ALERT_METHOD != "none":
         log_error(f"Alert method '{ALERT_METHOD}' invalid.")
+
+
+async def main():
+        # Start the Redis subscriber task as a background task
+    asyncio.create_task(subscribe_anomaly_events())
+
+if __name__ == "__main__":
+    asyncio.run(main())

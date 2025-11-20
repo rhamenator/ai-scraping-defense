@@ -1,5 +1,8 @@
 import logging
 from typing import Dict, Any, List
+import redis
+import os
+
 
 try:
     import joblib
@@ -8,14 +11,24 @@ except Exception:  # pragma: no cover
     joblib = None
     np = None
 
+ANOMALY_SCORE_THRESHOLD = float(os.getenv("ANOMALY_SCORE_THRESHOLD", "0.7"))
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+REDIS_DB = int(os.environ.get("REDIS_DB", 0))
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
+ANOMALY_EVENT_CHANNEL = "anomaly_events"
+
 
 class AnomalyDetector:
     """Simple wrapper around a scikit-learn anomaly detection model."""
 
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str): #, redis_client: redis.Redis):
         self.model_path = model_path
         self.model = None
         self._load_model()
+        self.redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, password=REDIS_PASSWORD, decode_responses=True)
+        #self.redis_client = redis_client
+
 
     def _load_model(self):
         if not joblib:
@@ -44,8 +57,12 @@ class AnomalyDetector:
                 pred = self.model.predict(arr)[0]
                 raw = 1.0 if pred == -1 else 0.0
             score = max(0.0, min(1.0, raw + 0.5))
+
+            if score > ANOMALY_SCORE_THRESHOLD:
+                event_data = {"anomaly_score": score, "features": features}
+                self.redis_client.publish(ANOMALY_EVENT_CHANNEL, str(event_data))
+
             return score
         except Exception as e:  # pragma: no cover - unexpected
             logging.error(f"Anomaly scoring failed: {e}")
             return 0.0
-
