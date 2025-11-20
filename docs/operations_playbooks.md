@@ -63,3 +63,17 @@ Run the capacity review weekly:
 * Expand synthetic monitoring to cover all public endpoints.
 * Track error budgets derived from the SLO table and integrate with the product
   roadmap.
+
+## Operational Virtual Reality
+
+To enhance operational readiness and team skills, consider implementing operational virtual reality (VR):
+
+*   **VR Training Programs:** Develop VR-based training modules for incident response, disaster recovery, and routine operations. These modules should simulate real-world scenarios to improve decision-making and coordination under pressure.
+*   **Virtual Operations Environments:** Create virtual replicas of production environments to test changes, practice deployments, and troubleshoot issues without impacting live systems. Use tools like Unity or Unreal Engine to build realistic simulations.
+*   **Immersive Simulation Workflows:** Integrate VR into existing simulation workflows. For example, use VR to visualize capacity management dashboards or walk through incident response procedures.
+*   **VR Metrics:** Define and track VR-specific metrics to measure the effectiveness of VR training programs. Examples include time to resolution, accuracy of decisions, and team coordination scores.
+*   **VR Culture Development:** Foster a culture that embraces VR as a valuable tool for operational improvement. Encourage experimentation, share best practices, and provide ongoing training to team members.
+
+**Example VR Training Scenario:**
+
+Simulate a DDoS attack in VR. On-call engineers can collaboratively diagnose the attack, apply mitigation strategies (e.g., adjusting rate limits, activating tarpits), and communicate with stakeholders—all within a realistic virtual environment. This will provide practical experience, reduce response times, and improve overall security posture.
