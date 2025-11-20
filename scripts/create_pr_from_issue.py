@@ -138,6 +138,20 @@ Your task is to:
 2. Fix the code in the provided file(s) OR create new files if needed.
 3. Provide your detailed explanation of changes.
 
+TONE AND STYLE INSTRUCTIONS:
+- Write in a style that is objective, clear, professional, and authoritative.
+- Avoid "marketing speak", over-enthusiasm, or awkward phrasing (e.g., no "This update seamlessly integrates...").
+- Be direct and factual about what was fixed and why.
+- Use simple, clear English.
+- Keep the explanation concise (under 200 words).
+
+CRITICAL FORMATTING RULES FOR MARKDOWN FILES:
+- ALL code blocks MUST use triple backticks with language identifier
+- Format: ```language followed by code, then closing ```
+- Example: ```python for Python code, ```bash for shell scripts, etc.
+- Never leave code blocks without proper fencing
+- This prevents markdown linting errors
+
 Problem: {title}
 Description: {description}
 Fix Instruction: {fix_prompt}
@@ -161,6 +175,9 @@ Please provide the response in strict JSON format as follows:
     }
 }
 Do not include markdown formatting (```json) in the response, just the raw JSON string.
+Ensure the JSON is valid and properly escaped.
+
+REMEMBER: If modifying .md files, ensure ALL code blocks use proper fencing with language identifiers!
 """
     return call_gemini(prompt)
 
@@ -171,7 +188,16 @@ def ensure_label(label, color="ededed"):
     except:
         pass
 
-def fetch_gh_issues(limit=1):
+def fetch_gh_issues(limit=1, issue_number=None):
+    if issue_number:
+        print(f"Fetching issue #{issue_number} from GitHub...")
+        cmd = ["gh", "issue", "view", str(issue_number), "--json", "number,title,body"]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"Failed to fetch issue #{issue_number}: {result.stderr}")
+            return []
+        return [json.loads(result.stdout)]
+    
     print(f"Fetching top {limit} open issues from GitHub...")
     cmd = ["gh", "issue", "list", "--state", "open", "--json", "number,title,body", "--limit", str(limit)]
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -210,62 +236,67 @@ def create_pr(issue, fix_data, metadata):
     
     print(f"Preparing PR for Issue #{issue_number}: {title}")
     
-    # Create Branch
-    subprocess.run(["git", "checkout", "-b", branch_name], check=True)
-    
-    # Apply Changes
-    files_changed = []
-    for path, new_content in fix_data["files"].items():
-        clean_path = path.replace(" (Proposed)", "").strip()
-        clean_path = clean_path.split(':')[0].strip()
-        if clean_path.startswith('/') and ':' in clean_path: clean_path = clean_path.lstrip('/')
-            
-        try:
-            # Ensure dir exists
-            if os.path.dirname(clean_path):
-                os.makedirs(os.path.dirname(clean_path), exist_ok=True)
-            with open(clean_path, 'w', encoding='utf-8') as f:
-                f.write(new_content)
-            subprocess.run(["git", "add", clean_path], check=True)
-            files_changed.append(clean_path)
-        except Exception as e:
-            print(f"Failed to write {clean_path}: {e}")
-            
-    if not files_changed:
-        print("No files changed. Skipping PR.")
-        subprocess.run(["git", "checkout", "-"], check=True)
-        subprocess.run(["git", "branch", "-D", branch_name], check=True)
-        return None
+    # Capture current branch
+    try:
+        original_branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True).strip()
+    except:
+        original_branch = "main" # Fallback
 
-    # Commit
-    subprocess.run(["git", "commit", "-m", f"Fix: {title} (Issue #{issue_number})"], check=True)
-    
-    # Push
-    subprocess.run(["git", "push", "origin", branch_name], check=True)
-    
-    # Create Labels
-    ensure_label(category, "1d76db")  # Blue for category
-    
-    # Severity labels with colors
-    severity_colors = {"High": "d73a4a", "Medium": "fbca04", "Low": "0e8a16"}
-    ensure_label(severity, severity_colors.get(severity, "ededed"))
-    
-    # Confidence labels
-    if confidence >= 0.75:
-        confidence_label = "High Confidence"
-        confidence_color = "0e8a16"  # Green
-    elif confidence >= 0.5:
-        confidence_label = "Medium Confidence"
-        confidence_color = "fbca04"  # Yellow
-    else:
-        confidence_label = "Low Confidence"
-        confidence_color = "d73a4a"  # Red
-    
-    ensure_label(confidence_label, confidence_color)
-    ensure_label("automated-pr", "ededed")
-    
-    # Create PR
-    body = f"""
+    try:
+        # Create Branch
+        subprocess.run(["git", "checkout", "-b", branch_name], check=True)
+        
+        # Apply Changes
+        files_changed = []
+        for path, new_content in fix_data["files"].items():
+            clean_path = path.replace(" (Proposed)", "").strip()
+            clean_path = clean_path.split(':')[0].strip()
+            if clean_path.startswith('/') and ':' in clean_path: clean_path = clean_path.lstrip('/')
+                
+            try:
+                # Ensure dir exists
+                if os.path.dirname(clean_path):
+                    os.makedirs(os.path.dirname(clean_path), exist_ok=True)
+                with open(clean_path, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+                subprocess.run(["git", "add", clean_path], check=True)
+                files_changed.append(clean_path)
+            except Exception as e:
+                print(f"Failed to write {clean_path}: {e}")
+                
+        if not files_changed:
+            print("No files changed. Skipping PR.")
+            return None
+
+        # Commit
+        subprocess.run(["git", "commit", "-m", f"Fix: {title} (Issue #{issue_number})"], check=True)
+        
+        # Push
+        subprocess.run(["git", "push", "origin", branch_name], check=True)
+        
+        # Create Labels
+        ensure_label(category, "1d76db")  # Blue for category
+        
+        # Severity labels with colors
+        severity_colors = {"High": "d73a4a", "Medium": "fbca04", "Low": "0e8a16"}
+        ensure_label(severity, severity_colors.get(severity, "ededed"))
+        
+        # Confidence labels
+        if confidence >= 0.75:
+            confidence_label = "High Confidence"
+            confidence_color = "0e8a16"  # Green
+        elif confidence >= 0.5:
+            confidence_label = "Medium Confidence"
+            confidence_color = "fbca04"  # Yellow
+        else:
+            confidence_label = "Low Confidence"
+            confidence_color = "d73a4a"  # Red
+        
+        ensure_label(confidence_label, confidence_color)
+        ensure_label("automated-pr", "ededed")
+        
+        # Create PR
+        body = f"""
 ## Automated Fix
 **Problem**: {title}
 **Category**: {category}
@@ -280,45 +311,54 @@ Auto-generated fix. Please review carefully.
 
 Fixes #{issue_number}
 """
-    
-    cmd = [
-        "gh", "pr", "create",
-        "--title", f"[{category}] [{severity}] {title}",
-        "--body", body,
-        "--label", f"{category},{severity},{confidence_label},automated-pr",
-        "--assignee", "@me",
-        "--base", "main"
-    ]
-    
-    try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        print(f"PR Created successfully for Issue #{issue_number}")
         
-        # Extract PR number from output
-        pr_url = result.stdout.strip()
-        pr_number = int(pr_url.split('/')[-1]) if pr_url else None
+        cmd = [
+            "gh", "pr", "create",
+            "--title", f"[{category}] [{severity}] {title}",
+            "--body", body,
+            "--label", f"{category},{severity},{confidence_label},automated-pr",
+            "--assignee", "@me",
+            "--base", "main"
+        ]
         
-        if pr_number:
-            update_pr_tracking(title, pr_number)
-        
-        return pr_number
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to create PR: {e}")
+        try:
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            print(f"PR Created successfully for Issue #{issue_number}")
+            
+            # Extract PR number from output
+            pr_url = result.stdout.strip()
+            pr_number = int(pr_url.split('/')[-1]) if pr_url else None
+            
+            if pr_number:
+                print(f"  Linked Issue #{issue_number} to new PR #{pr_number}")
+                update_pr_tracking(title, pr_number)
+            
+            return pr_number
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to create PR: {e}")
+            return None
+            
+    except Exception as e:
+        print(f"Error during PR creation process: {e}")
         return None
     finally:
-        # Cleanup
-        subprocess.run(["git", "checkout", "-"], check=True)
+        # Cleanup: Always go back to original branch
+        print(f"Returning to branch: {original_branch}")
+        subprocess.run(["git", "checkout", original_branch], check=False)
+        # Optional: delete the feature branch locally if we want to save space/clutter
+        # subprocess.run(["git", "branch", "-D", branch_name], check=False)
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--smoke-test", action="store_true", help="Run for 1 issue from GH")
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--issue-number", type=int, help="Target specific issue number")
     args = parser.parse_args()
     
-    limit = 1 if args.smoke_test else (args.limit if args.limit > 0 else 1000)
+    limit = 10 if args.smoke_test else (args.limit if args.limit > 0 else 1000)
     
     # Fetch issues
-    issues = fetch_gh_issues(limit)
+    issues = fetch_gh_issues(limit, args.issue_number)
     print(f"Fetched {len(issues)} issues to process.")
     
     for issue in issues:
@@ -361,6 +401,10 @@ def main():
             print("  Could not read any affected files. Skipping.")
             continue
             
+        if args.smoke_test and len(file_contents) > 3:
+            print(f"  Too many files ({len(file_contents)}) for smoke test. Skipping to find a simpler issue.")
+            continue
+
         print(f"  Processing {len(file_contents)} files...")
             
         # Generate Fix
@@ -376,8 +420,13 @@ def main():
                 print("  Failed to get fix from LLM.")
                 continue
                 
-            response = response.replace("```json", "").replace("```", "").strip()
-            fix_data = json.loads(response)
+            try:
+                response_clean = response.replace("```json", "").replace("```", "").strip()
+                fix_data = json.loads(response_clean)
+            except json.JSONDecodeError as e:
+                print(f"  JSON Decode Error: {e}")
+                print(f"  Raw Response (first 500 chars): {response[:500]}...")
+                continue
             
             # Create PR
             pr_number = create_pr(issue, fix_data, metadata)
