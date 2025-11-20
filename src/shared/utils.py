@@ -1,11 +1,11 @@
-"""Shared logging utilities for AI service modules."""
-
 import datetime
 import json
 import logging
 import os
 from logging.handlers import RotatingFileHandler
 from typing import Dict, Optional
+import random
+import time
 
 LOG_DIR = "/app/logs"
 ERROR_LOG_FILE = os.path.join(LOG_DIR, "aiservice_errors.log")
@@ -97,3 +97,11 @@ def log_event(log_file: str, event_type: str, data: dict) -> None:
         event_logger.info(json.dumps(log_entry))
     except Exception as e:  # pragma: no cover - logging failure
         log_error(f"Failed to write to log file {log_file}", e)
+
+
+def inject_failure(probability: float) -> None:
+    """Simulates a failure based on the given probability."""
+    if random.random() < probability:
+        log_error("Simulating failure for resilience testing.")
+        time.sleep(1)  # Simulate some work before failing
+        raise Exception("Injected failure for resilience testing")
