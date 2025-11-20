@@ -26,7 +26,7 @@ incident response.
 The shared middleware wires instrumentation when `create_app` is called.  Each
 service can register checks or spans via `src.shared.observability`:
 
-```python
+python
 from src.shared.observability import register_health_check, trace_span
 
 app = create_app(title="Example Service")
@@ -37,7 +37,7 @@ async def redis_health():
 
 with trace_span("example.operation", attributes={"foo": "bar"}):
     ...
-```
+
 
 ## Metrics and Traces
 
@@ -53,7 +53,7 @@ with trace_span("example.operation", attributes={"foo": "bar"}):
 
 The health endpoint returns:
 
-```json
+
 {
   "status": "ok",
   "service": "ai-service",
@@ -62,7 +62,7 @@ The health endpoint returns:
     "redis": {"status": "ok", "detail": {"cache_keys": 128}}
   }
 }
-```
+
 
 `status` becomes `degraded` when non-critical checks fail and `error` when any
 critical check fails.  Kubernetes probes and load balancers should consume
@@ -79,3 +79,10 @@ this endpoint.
 4. Use the `scripts/operations_toolkit.py` automation to schedule health
    drills that verify logs, metrics, and traces continue to flow during
    failover tests.
+
+## Operational Data Analytics
+
+To enable operational data analytics:
+
+1.  Import the Grafana dashboards in `monitoring/grafana` to visualize the new data pipeline metrics.
+2.  Set up alerts for data pipeline failures and performance degradation based on the new metrics.
