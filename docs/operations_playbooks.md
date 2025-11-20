@@ -13,6 +13,7 @@ platform.
 | Admin UI            | 99% availability                         | `/health` uptime                       |
 | Tarpit API          | Error rate < 0.5%                        | `http_requests_total` vs `errors_total`|
 | Cloud Dashboard     | Metrics fanout < 2s                      | `REQUEST_LATENCY` by endpoint          |
+| Device Management   | 99.9% device uptime                      | `device_uptime_seconds`                |
 
 SLO dashboards are provided in Grafana.  Alert thresholds are derived from SLOs
 with a 5-minute evaluation window.
@@ -56,6 +57,25 @@ Run the capacity review weekly:
 2. Forecast 30-day growth using Prometheus recording rules.
 3. Raise infrastructure tickets when utilisation exceeds 70% of allocated
    resources for more than 3 consecutive days.
+
+## Device Lifecycle Automation
+
+* Implement automated device provisioning and deprovisioning workflows.
+* Use configuration management tools (e.g., Ansible) to ensure consistent device
+  configuration.
+* Define and enforce device security policies.
+
+## IoT Monitoring and Optimization
+
+* Monitor key device metrics such as uptime, latency, and resource utilization.
+* Implement automated alerts for anomalous device behavior.
+* Use data analytics to identify opportunities for device optimization.
+
+## Edge Operations Workflows
+
+* Define workflows for deploying and managing applications on edge devices.
+* Implement remote device management capabilities.
+* Ensure secure communication between edge devices and the cloud.
 
 ## Continuous Improvement
 
