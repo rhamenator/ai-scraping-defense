@@ -66,3 +66,22 @@ jobs:
             aquasecurity/trivy:latest config \
             --severity CRITICAL,HIGH \
             --skip-dirs "./.git,./.venv" /project
+
+  security-drift-detection:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+      - name: Check security configuration drift
+        run: |
+          # Compare current security config with the expected config
+          # TODO: implement actual drift detection, e.g. using a hash
+          echo "Placeholder security drift detection"
+          if [ ! -f config/security_hardening.yaml ]; then
+              echo "Security config file is missing!" && exit 1
+          fi

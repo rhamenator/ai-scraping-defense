@@ -13,7 +13,7 @@ This guide explains how to deploy the AI Scraping Defense stack to **Google Kube
 
 1. **Build and Push the Docker Image**
 
-   ```bash
+   bash
    export PROJECT_ID="your-gcp-project"
    export IMAGE="gcr.io/$PROJECT_ID/ai-scraping-defense:latest"
 
@@ -21,26 +21,26 @@ This guide explains how to deploy the AI Scraping Defense stack to **Google Kube
    gcloud auth configure-docker
    docker build -t "$IMAGE" .
    docker push "$IMAGE"
-   ```
+   
 
 2. **Create or Reuse a GKE Cluster**
 
-   ```bash
+   bash
    export CLUSTER_NAME="ai-defense-cluster"
    export GKE_ZONE="us-central1-a"
 
    gcloud container clusters create "$CLUSTER_NAME" \
        --zone "$GKE_ZONE" --num-nodes 3
    gcloud container clusters get-credentials "$CLUSTER_NAME" --zone "$GKE_ZONE"
-   ```
+   
 
 3. **Generate Kubernetes Secrets**
 
    Run the provided script to create `kubernetes/secrets.yaml`:
 
-   ```bash
+   bash
    ./scripts/linux/generate_secrets.sh
-   ```
+   
 
    Replace the placeholder API keys in `kubernetes/secrets.yaml` with your actual base64‑encoded credentials before applying.
 
@@ -52,16 +52,16 @@ This guide explains how to deploy the AI Scraping Defense stack to **Google Kube
 
    Apply the Kubernetes resources using the helper script:
 
-   ```bash
+   bash
    ./deploy.sh
-   ```
+   
 
 6. **Verify the Deployment**
 
-   ```bash
+   bash
    kubectl get pods -n ai-defense
    kubectl get svc -n ai-defense
-   ```
+   
 
    Once the pods are running, access the service using the external IP of the `nginx-proxy` service.
 
@@ -74,12 +74,12 @@ For convenience, scripts are provided to automate these steps:
 
 The scripts build and push the image, create the cluster if it does not already exist, and then invoke `deploy.sh` / `deploy.ps1` to apply the manifests.
 
-```bash
+bash
 ./gke_deploy.sh
-```
 
-```powershell
+
+powershell
 ./gke_deploy.ps1
-```
+
 
 Customize environment variables such as `PROJECT_ID`, `CLUSTER_NAME`, and `GKE_ZONE` before running the scripts to suit your Google Cloud environment.

@@ -26,7 +26,7 @@ incident response.
 The shared middleware wires instrumentation when `create_app` is called.  Each
 service can register checks or spans via `src.shared.observability`:
 
-```python
+python
 from src.shared.observability import register_health_check, trace_span
 
 app = create_app(title="Example Service")
@@ -37,7 +37,7 @@ async def redis_health():
 
 with trace_span("example.operation", attributes={"foo": "bar"}):
     ...
-```
+
 
 ## Metrics and Traces
 
@@ -53,7 +53,7 @@ with trace_span("example.operation", attributes={"foo": "bar"}):
 
 The health endpoint returns:
 
-```json
+
 {
   "status": "ok",
   "service": "ai-service",
@@ -62,7 +62,7 @@ The health endpoint returns:
     "redis": {"status": "ok", "detail": {"cache_keys": 128}}
   }
 }
-```
+
 
 `status` becomes `degraded` when non-critical checks fail and `error` when any
 critical check fails.  Kubernetes probes and load balancers should consume
@@ -70,12 +70,22 @@ this endpoint.
 
 ## Operational Playbook
 
-1. Scrape `/metrics` for Prometheus and configure alerting on latency,
-   `http_requests_total`, and service-specific counters.
-2. Collect logs with a JSON-aware shipper (Filebeat, Fluent Bit, Vector) and
-   correlate using `trace_id`.
-3. Periodically export `/observability/traces` to verify span fidelity and
-   ensure end-to-end timing stays within SLO thresholds.
-4. Use the `scripts/operations_toolkit.py` automation to schedule health
-   drills that verify logs, metrics, and traces continue to flow during
-   failover tests.
+1.  Scrape `/metrics` for Prometheus and configure alerting on latency,
+    `http_requests_total`, and service-specific counters.
+2.  Collect logs with a JSON-aware shipper (Filebeat, Fluent Bit, Vector) and
+    correlate using `trace_id`.
+3.  Periodically export `/observability/traces` to verify span fidelity and
+    ensure end-to-end timing stays within SLO thresholds.
+4.  Use the `scripts/operations_toolkit.py` automation to schedule health
+    drills that verify logs, metrics, and traces continue to flow during
+    failover tests.
+
+## Next Steps
+
+To implement Observability as Code, consider using Terraform providers to automate the deployment and configuration of monitoring infrastructure. This includes:
+
+*   **Terraform Providers:** Explore providers for Prometheus, Grafana, Loki, and Tempo to manage their configurations.
+*   **Configuration Versioning:** Store Prometheus rules and Grafana dashboards in version control (e.g., Git) alongside Terraform code.
+*   **Dashboard Automation:** Use Terraform to define and deploy Grafana dashboards, ensuring consistency across environments.
+*   **Alert Rule Management:** Automate alert rule creation and updates via Terraform, maintaining a declarative approach to monitoring.
+*   **Observability Compliance:** Define and enforce observability standards using Terraform policies to ensure services are properly instrumented.

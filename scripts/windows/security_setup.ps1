@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
 Installs Python requirements and common security tools needed for security_scan.ps1.
-#>
+#> 
 
 python -m pip install --upgrade pip
 pip install -r requirements.txt
@@ -32,3 +32,8 @@ Expand-Archive grype.zip -DestinationPath $Env:ProgramFiles
 Remove-Item grype.zip
 
 pip install bandit sslyze sublist3r pip-audit
+
+# Apply security hardening settings from config
+# TODO: Implement PowerShell-based hardening configuration
+Write-Host "Applying security hardening settings..."
+Write-Host "(Currently a placeholder. Implement config loading and applying.)"
