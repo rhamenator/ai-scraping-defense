@@ -417,6 +417,24 @@ HUMANS_DETECTED_EXTERNAL_API = Counter(
     registry=REGISTRY,
 )
 
+# New Metrics for Data Pipeline Performance
+DATA_PIPELINE_TASKS_RECEIVED = Counter(
+    "data_pipeline_tasks_received_total",
+    "Total data pipeline tasks received.",
+    registry=REGISTRY,
+)
+DATA_PIPELINE_TASKS_COMPLETED = Counter(
+    "data_pipeline_tasks_completed_total",
+    "Total data pipeline tasks completed.",
+    registry=REGISTRY,
+)
+DATA_PIPELINE_ERRORS = Counter(
+    "data_pipeline_errors_total",
+    "Total data pipeline errors encountered.",
+    ["error_type"],
+    registry=REGISTRY,
+)
+
 
 # 2. Histograms (from previous versions)
 REQUEST_LATENCY = Histogram(
