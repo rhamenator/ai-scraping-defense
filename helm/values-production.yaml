@@ -1,7 +1,3 @@
-global:
-  registry: ghcr.io
-  pullPolicy: IfNotPresent
-
 images:
   core: ""
   proxy: ""
