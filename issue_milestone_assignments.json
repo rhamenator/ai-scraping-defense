@@ -1,0 +1,4172 @@
+[
+  {
+    "issue_id": "No GDPR Compliance Framework",
+    "milestone": "Local Stability",
+    "priority": "High",
+    "reason": "Affects local startup or environment stability. Severity High. Confidence 1.00."
+  },
+  {
+    "issue_id": "Missing Configuration Management",
+    "milestone": "Local Stability",
+    "priority": "High",
+    "reason": "Affects local startup or environment stability. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Secret Management Operations",
+    "milestone": "Local Stability",
+    "priority": "High",
+    "reason": "Affects local startup or environment stability. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Configuration Management",
+    "milestone": "Local Stability",
+    "priority": "High",
+    "reason": "Affects local startup or environment stability. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Multi-Environment Management",
+    "milestone": "Local Stability",
+    "priority": "High",
+    "reason": "Affects local startup or environment stability. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Disaster Recovery Plan",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.95."
+  },
+  {
+    "issue_id": "Missing Business Continuity Planning",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.95."
+  },
+  {
+    "issue_id": "Missing Client-Server Architecture",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Internal Audit Function",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "No Compliance Performance Management",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Compliance Stakeholder Management",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Compliance Resilience",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Compliance Digitalization",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "No Compliance Future-Readiness",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "No Capacity Planning Strategy",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Lack of Network Operations Center",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Scalability Planning",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Single Points of Failure",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Open Host Service",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Published Language",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Interpreter Architecture",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Pragmatic Architecture",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Operational Scalability",
+    "milestone": "Local Network Deployment",
+    "priority": "High",
+    "reason": "Network exposure or LAN configuration matter. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Ubiquitous Language",
+    "milestone": "Local Network Deployment",
+    "priority": "Medium",
+    "reason": "Network exposure or LAN configuration matter. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Query Optimization",
+    "milestone": "Local Network Deployment",
+    "priority": "Medium",
+    "reason": "Network exposure or LAN configuration matter. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Load Balancing",
+    "milestone": "Local Network Deployment",
+    "priority": "Medium",
+    "reason": "Network exposure or LAN configuration matter. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Compliance Sustainability",
+    "milestone": "Local Network Deployment",
+    "priority": "Medium",
+    "reason": "Network exposure or LAN configuration matter. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Operational Maturity Assessment",
+    "milestone": "Local Network Deployment",
+    "priority": "Medium",
+    "reason": "Network exposure or LAN configuration matter. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Operational Voice Integration",
+    "milestone": "Local Network Deployment",
+    "priority": "Medium",
+    "reason": "Network exposure or LAN configuration matter. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Capacity Planning",
+    "milestone": "Local Network Deployment",
+    "priority": "Medium",
+    "reason": "Network exposure or LAN configuration matter. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Heterogeneous Computing",
+    "milestone": "Local Network Deployment",
+    "priority": "Medium",
+    "reason": "Network exposure or LAN configuration matter. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Workload Balancing",
+    "milestone": "Local Network Deployment",
+    "priority": "Medium",
+    "reason": "Network exposure or LAN configuration matter. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Performance Modeling",
+    "milestone": "Local Network Deployment",
+    "priority": "Medium",
+    "reason": "Network exposure or LAN configuration matter. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "No PCI DSS Compliance",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 1.00."
+  },
+  {
+    "issue_id": "Missing Password Hashing",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.95."
+  },
+  {
+    "issue_id": "Lack of Hexagonal Architecture",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Event-Driven Architecture",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Dependency Management",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Input Validation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Null Safety",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Code Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate ISO 27001 Implementation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Document Management",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "No Compliance Risk Assessment",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Security Operations Center",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Patch Management",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Risk Management",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Hardcoded Default Credentials",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Weak Secret Management",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "SQL Injection Vulnerabilities",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insufficient Access Controls",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing HTTPS Enforcement",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure CORS Policies",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Vulnerable Session Management",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure File Upload Handling",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Directory Traversal Vulnerability",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Rate Limiting on APIs",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Random Number Generation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Certificate Validation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Database Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing API Authentication",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Data Loss Prevention",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Multi-Factor Authentication",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Communication Protocols",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Secrets Rotation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Data Encryption",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure JWT Implementation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing CSRF Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Direct Object References",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Cookie Configuration",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Input Length Validation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate File Type Validation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Memory Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Microservice Communication",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Quantum-Resistant Cryptography",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Homomorphic Encryption",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Edge Computing Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Supply Chain Attacks",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Federated Learning",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Ring Signatures",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Blind Signatures",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Oblivious Transfer",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Private Set Intersection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Quantum Key Distribution",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Quantum Digital Signatures",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Quantum Blockchain",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Secure Boot Chain Validation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Memory Encryption",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Stack Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Address Space Layout Randomization",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate SMEP/SMAP Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Branch Prediction Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Clock Glitch Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Microprobing Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Code Signing Infrastructure",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Falco Runtime Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing ArgoCD Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Envoy Proxy Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Traefik Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure HAProxy Configuration",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Ambassador Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Kubernetes Dashboard",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Rancher Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing runc Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure gVisor Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Kata Containers Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Cloud Hypervisor Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing KVM Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Hyper-V Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing OpenStack Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Nextcloud Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing ownCloud Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Pydio Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Rocket.Chat Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insecure Zulip Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing BigBlueButton Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Domain-Driven Design Implementation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Chain of Responsibility",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Service Layer Pattern",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Integration Event Pattern",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Aspect-Oriented Architecture",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Chaos Engineering Architecture",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Cognitive Architecture",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Security Code Review",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Change Management",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Security Operations Integration",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Operational Data Analytics",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Operational Security Hardening",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Resource Exhaustion Vulnerabilities",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Docker Configuration",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Security Headers",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "XML External Entity (XXE) Vulnerability",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Server-Side Request Forgery (SSRF)",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Deserialization",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Input Validation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Output Encoding",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Weak Cryptographic Implementation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Authorization",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Backup Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Incident Response",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Vulnerability Management",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Threat Intelligence",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Security Monitoring",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Penetration Testing",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Security Training",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Security Architecture",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Privacy Controls",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Account Lockout",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Audit Logging",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Container Security Scanning",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Kubernetes Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Network Segmentation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Endpoint Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Zero Trust Architecture",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Supply Chain Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Security Orchestration",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Third-Party Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Password Policy",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Security Testing",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Error Information Disclosure",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Security Configuration Management",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure API Design",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Content Security Policy",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Session Timeout",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Clickjacking Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Security Logging",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Redirect Handling",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Privilege Escalation Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate API Versioning Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Security Headers Validation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure WebSocket Implementation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Timing Attack Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Side-Channel Attack Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Blockchain Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate IoT Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Cloud Security Controls",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Mobile API Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Biometric Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing AI/ML Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Serverless Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing DevSecOps Integration",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure API Gateway Configuration",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Runtime Application Self-Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Container Runtime Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Security Chaos Engineering",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure GraphQL Implementation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Security Data Lake",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Insider Threat Detection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Security Automation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Security Metrics and KPIs",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Threat Modeling",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Security Culture",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Legacy System Integration",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Hardware Security Module Integration",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Secure Boot Implementation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Trusted Execution Environment",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Firmware Update Process",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Physical Security Controls",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Secure Element Usage",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Root of Trust",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Debug Interface",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Secure Communication Protocols",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Key Escrow Management",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Secure Multi-Party Computation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Differential Privacy",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Secure Aggregation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Zero-Knowledge Proofs",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Attribute-Based Encryption",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Proxy Re-Encryption",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Searchable Encryption",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Functional Encryption",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Identity-Based Encryption",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Broadcast Encryption",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Group Signatures",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Threshold Cryptography",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Verifiable Secret Sharing",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Commitment Schemes",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Secure Comparison",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Garbled Circuits",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Homomorphic Signatures",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Lattice-Based Cryptography",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Code-Based Cryptography",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Multivariate Cryptography",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Hash-Based Signatures",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Isogeny-Based Cryptography",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Quantum Random Number Generation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Quantum Secure Direct Communication",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Quantum Teleportation Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Quantum Error Correction",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Quantum Machine Learning",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Quantum Internet Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Quantum Cloud Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Quantum Sensing Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Quantum Simulation Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Quantum Supremacy Validation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Control Flow Integrity",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Data Execution Prevention",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Intel CET Support",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure ARM Pointer Authentication",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Intel MPX Support",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Kernel Guard Technology",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Hypervisor Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing VM Introspection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Container Escape Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Speculative Execution Mitigations",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Cache Timing Attack Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Power Analysis Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Electromagnetic Emission Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Acoustic Cryptanalysis Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Fault Injection Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Voltage Glitch Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Temperature Attack Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Laser Fault Injection Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate X-Ray Attack Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Focused Ion Beam Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Package Decapsulation Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Reverse Engineering Protection",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Binary Attestation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Software Bill of Materials",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Provenance Tracking",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing In-Toto Framework",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing TUF Implementation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Notary Implementation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Cosign Integration",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate SPIFFE/SPIRE Implementation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure OPA Policy Engine",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Gatekeeper Implementation",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Kustomize Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Flux Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Tekton Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Jenkins X Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Istio Service Mesh Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Linkerd Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Consul Connect",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate NGINX Ingress Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Kong Gateway Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Contour Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Cilium Network Policies",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Calico Network Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Weave Net Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Flannel Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate OpenShift Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Tanzu Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure EKS Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing GKE Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate AKS Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Docker Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Podman Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing CRI-O Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Containerd Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Firecracker Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure QEMU Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Xen Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing VMware Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Proxmox Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate oVirt Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure CloudStack Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Eucalyptus Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Seafile Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Mattermost Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Element Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Jitsi Security",
+    "milestone": "Security Testing",
+    "priority": "High",
+    "reason": "Security-focused issue routed to Security Testing. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Domain Service",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing SOC 2 Compliance",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Security Metrics",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insecure Reproducible Builds",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Template Method Pattern",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Code Readability",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Operational Quantum Readiness",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing CPU Optimization",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Data Structures",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Branch Prediction Optimization",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Function Call Overhead",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Instruction Pipeline Optimization",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Performance Innovation",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Security Innovation",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Software Watermarking",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Sigstore Integration",
+    "milestone": "Security Testing",
+    "priority": "Medium",
+    "reason": "Security-focused issue routed to Security Testing. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Lack of Mesh Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Lack of Distributed Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Cloud-Native Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "No Cross-Border Data Transfer Controls",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Health Check Implementation",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Lack of Dependency Management",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Edge Operations Management",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Service Discovery",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Auto-Scaling Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Microservices Boundaries",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Serverless Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Edge Computing Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Orchestration Pattern",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Proxy Pattern",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Infrastructure Service",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Micro-Frontend Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Space-Based Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Master-Slave Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Three-Tier Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing N-Tier Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Grid Computing Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Fog Computing Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Self-Healing Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Swarm Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Ecosystem Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Network Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Temporal Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Spatial Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Code Scalability",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Compliance Technology Integration",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Manual Deployment Processes",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Infrastructure as Code",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Chaos Engineering Implementation",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Container Operations",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Cloud Operations",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Digital Transformation",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Resilience Engineering",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing GitOps Implementation",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Observability as Code",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Progressive Delivery",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Multi-Cloud Operations",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Machine Learning Operations",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Container Registry Operations",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Capacity Optimization",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Scaling Strategies",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Kernel Bypass Techniques",
+    "milestone": "Deployment Readiness",
+    "priority": "High",
+    "reason": "Packaging or deployment configuration referenced. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Content Delivery Network",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Evolutionary Architecture",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inconsistent Documentation and Docstrings",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Cost Management",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Platform Engineering",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Serverless Operations",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Compression",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Content Optimization",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inefficient Cold Start Performance",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Performance Baseline Management",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.75."
+  },
+  {
+    "issue_id": "Missing DevOps Culture Integration",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Lack of Operational Space Computing",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing CDN Implementation",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Network Optimization",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Compiler Optimizations",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Zero-Copy Operations",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Network Protocol Usage",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Compression Algorithm Selection",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Predictive Caching",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Hardware Acceleration Integration",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Resource Scheduling",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Throughput Optimization",
+    "milestone": "Deployment Readiness",
+    "priority": "Medium",
+    "reason": "Packaging or deployment configuration referenced. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Lack of API Gateway",
+    "milestone": "Cloud Test",
+    "priority": "High",
+    "reason": "Cloud validation or AWS context detected. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing CCPA Compliance",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 1.00."
+  },
+  {
+    "issue_id": "Missing HIPAA Compliance",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 1.00."
+  },
+  {
+    "issue_id": "No Regulatory Compliance Monitoring",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.95."
+  },
+  {
+    "issue_id": "Inadequate SOX Compliance",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.95."
+  },
+  {
+    "issue_id": "Missing Consent Management",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.95."
+  },
+  {
+    "issue_id": "No Data Subject Rights Implementation",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.95."
+  },
+  {
+    "issue_id": "Missing Data Protection Officer Role",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.95."
+  },
+  {
+    "issue_id": "No Breach Notification System",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.95."
+  },
+  {
+    "issue_id": "No Compliance Incident Management",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.95."
+  },
+  {
+    "issue_id": "Missing Saga Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Multi-Tenancy Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Data Lake Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Event Streaming Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Peer-to-Peer Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Broker Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Lack of Quantum Computing Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing API Versioning Strategy",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Memory Leak Detection",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Concurrency Testing",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Database Testing",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Output Encoding",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Resource Management",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Type Safety",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Audit Logging",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Data Retention Policies",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Insufficient Privacy Controls",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Data Classification",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Privacy Impact Assessments",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Vendor Compliance Management",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Regulatory Change Management",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "No Compliance Training Program",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Compliance Metrics and KPIs",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Records Management",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Compliance Culture Development",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "No Industry-Specific Compliance",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Compliance Reporting",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Compliance Innovation",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Compliance Monitoring",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Compliance Integration",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Compliance Governance",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Compliance Quality Assurance",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Compliance improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Backup Strategy",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Inadequate Database Operations",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Missing Operational Resilience Testing",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.90."
+  },
+  {
+    "issue_id": "Tight Service Coupling",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Event-Driven Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Data Consistency Strategy",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing CQRS Implementation",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Bulkhead Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Strangler Fig Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Caching Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Database Per Service",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Asynchronous Processing",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Polyglot Persistence",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate API Versioning Strategy",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Distributed Caching",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Message Queue Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Stream Processing",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Event Sourcing",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Reactive Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Lambda Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Kappa Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Choreography Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Backend for Frontend",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Customer/Supplier Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Conformist Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Separate Ways Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Big Ball of Mud Refactoring",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Observer Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Command Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Visitor Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Iterator Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Model-View-Controller",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Model-View-ViewModel",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Repository Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Specification Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Row Data Gateway",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Application Service",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Aggregate Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Entity Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Domain Event Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Application Event Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Bounded Context Pattern",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Layered Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Clean Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Onion Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Ports and Adapters",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Modular Monolith",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Data Mesh Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Actor Model Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Pipeline Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Blackboard Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Rule-Based Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Component-Based Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Plugin Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Reflection Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Service-Oriented Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Resource-Oriented Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Data-Centric Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Process-Centric Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Neuromorphic Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Biological Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Self-Organizing Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Adaptive Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Holonic Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Organic Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Social Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Dimensional Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Semantic Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Architecture change supporting production readiness. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Emergent Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Limited Test Coverage",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inconsistent Error Handling Patterns",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Integration Testing",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Exception Handling",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Thread Safety",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Liskov Substitution Principle",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Code Testability",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Code Reliability",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Compliance Automation",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Monitoring and Observability",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Insufficient Logging Infrastructure",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Service Level Objectives",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Alerting Strategy",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Asset Management",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Site Reliability Engineering",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Capacity Testing",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Quality Assurance Operations",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Performance Engineering",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate API Operations Management",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Data Operations (DataOps)",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Microservices Operations",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Service Catalog Management",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Performance Operations",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Operational Quality",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Operational Digital Twin",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Operational Autonomous Systems",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Operational IoT Management",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Operational Biometric Integration",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Operations improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "No Connection Pooling for Redis",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Performance improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Database Connection Pooling",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Performance improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Blocking I/O in Async Contexts",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Performance improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Memory Management Issues",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Performance improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inefficient Performance Testing Strategies",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Performance improvements align with production hardening. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Fractal Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.70."
+  },
+  {
+    "issue_id": "Lack of Cultural Architecture",
+    "milestone": "Production Readiness",
+    "priority": "High",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity High. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Circuit Breaker Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Error Boundaries",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Retry Mechanisms",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Graceful Degradation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Idempotency",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Shared Kernel Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Strategy Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Facade Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of State Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Mediator Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Memento Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Composite Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Flyweight Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Model-View-Presenter",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Unit of Work Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Data Mapper Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Table Data Gateway",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Context Map Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Symbiotic Architecture",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Code Review Processes",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Static Code Analysis",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inconsistent Coding Standards",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Refactoring Practices",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Code Metrics Collection",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Code Generation Automation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Performance Profiling",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Logging Standards",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Code Modularity",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Code Maintainability",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Code Reusability",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Data Governance Framework",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Compliance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "No NIST Framework Implementation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Compliance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Compliance Communication",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Compliance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "No Compliance Maturity Assessment",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Compliance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "No Compliance Benchmarking",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Compliance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "No Compliance Value Demonstration",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Compliance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Compliance Excellence",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Compliance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Incident Response System",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Runbook Automation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Operational Metrics",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Documentation Management",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Training and Skill Development",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Vendor Management",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Innovation Management",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Communication Systems",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Customer Experience Operations",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Agility and Flexibility",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Knowledge Management",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Operational Intelligence",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Cross-Team Collaboration",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Customer-Centric Operations",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Lack of Operational Standardization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Operational Flexibility",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Operational Transparency",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Operational Predictability",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Operational Neuromorphic Computing",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Operational Future-Proofing",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inefficient Database Queries",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inefficient Garbage Collection",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Performance Monitoring",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Streaming Processing",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Performance Budgets",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Performance Analytics",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Performance Benchmarking",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing GPU Acceleration",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Performance Regression Prevention",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Performance Debugging",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Missing Performance Culture Integration",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Timeout Configuration",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Lack of Anti-Corruption Layer",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Factory Pattern Implementation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Decorator Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Lack of Adapter Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Lack of Bridge Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Lack of Active Record Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Lack of Value Object Pattern",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Lack of Screaming Architecture",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Architecture change supporting production readiness. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Design Pattern Usage",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Immutability Patterns",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Single Responsibility Principle",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing KISS Principle",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Code Performance",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Code Excellence Culture",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Resource Optimization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Operational Excellence",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Sustainability Operations",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Event-Driven Operations",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Workflow Orchestration",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Lack of Green Operations",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Operational Governance",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Operational Innovation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Operational Efficiency",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Operational Intelligence Integration",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Operational Ecosystem Management",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Operational Blockchain Integration",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Operational Augmented Reality",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Lack of Operational Virtual Reality",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Operational Robotics Integration",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Operations improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Caching Strategy",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Data Processing",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Serialization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Lazy Loading",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Indexing Strategy",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Pagination",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient String Operations",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Batch Processing",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Concurrency Control",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Asynchronous Processing",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Memory Allocation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate I/O Optimization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Profiling Implementation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Load Testing",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Cache Warming",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient API Design",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Resource Pooling",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Parallel Processing",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Error Handling",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing JIT Compilation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Memory Caching",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Vectorization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Lock Contention",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Performance Regression Detection",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Resource Utilization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Performance Optimization Framework",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Performance Documentation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Thread Pool Management",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing NUMA Optimization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Cache Line Usage",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Memory Prefetching",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Loop Optimization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Memory Layout Optimization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Lock-Free Data Structures",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Memory Barriers",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing CPU Cache Optimization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate SIMD Utilization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Memory Bandwidth Optimization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Context Switching",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Register Allocation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Thermal Throttling Mitigation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Power Management",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Memory Compression",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Data Locality Optimization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Interrupt Handling",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Disk I/O Optimization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing SSD Optimization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Real-Time Optimization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Performance Counter Utilization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Dynamic Memory Allocation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Memory-Mapped File Optimization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Serialization Protocols",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Performance Isolation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Latency Optimization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inefficient Memory Hierarchy Utilization",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Performance Optimization Automation",
+    "milestone": "Production Readiness",
+    "priority": "Medium",
+    "reason": "Performance improvements align with production hardening. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Code Innovation",
+    "milestone": "Production Readiness",
+    "priority": "Low",
+    "reason": "Scaling, monitoring, or production hardening keywords present. Severity Low. Confidence 0.70."
+  },
+  {
+    "issue_id": "Cross-Platform Compatibility Issues",
+    "milestone": "Feature Enhancements",
+    "priority": "High",
+    "reason": "Code quality or enhancement oriented work. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Build System Inconsistencies",
+    "milestone": "Feature Enhancements",
+    "priority": "High",
+    "reason": "Code quality or enhancement oriented work. Severity High. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate DRY Principle",
+    "milestone": "Feature Enhancements",
+    "priority": "Medium",
+    "reason": "Code quality or enhancement oriented work. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate YAGNI Principle",
+    "milestone": "Feature Enhancements",
+    "priority": "Medium",
+    "reason": "Code quality or enhancement oriented work. Severity Medium. Confidence 0.80."
+  },
+  {
+    "issue_id": "Inadequate Dependency Injection",
+    "milestone": "Feature Enhancements",
+    "priority": "Medium",
+    "reason": "Code quality or enhancement oriented work. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Interface Segregation",
+    "milestone": "Feature Enhancements",
+    "priority": "Medium",
+    "reason": "Code quality or enhancement oriented work. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Inadequate Open/Closed Principle",
+    "milestone": "Feature Enhancements",
+    "priority": "Medium",
+    "reason": "Code quality or enhancement oriented work. Severity Medium. Confidence 0.70."
+  },
+  {
+    "issue_id": "Missing Code Extensibility",
+    "milestone": "Feature Enhancements",
+    "priority": "Medium",
+    "reason": "Code quality or enhancement oriented work. Severity Medium. Confidence 0.70."
+  }
+]
