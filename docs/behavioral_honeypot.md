@@ -7,3 +7,7 @@ The collected sequences and labels can be fed back into the detection pipeline t
 ### API Sequence Anomaly Detection
 
 `SequenceAnomalyDetector` provides a lightweight Markov-model approach for detecting unusual API request patterns. Train a model with `train_markov_model` and compute anomaly scores on new sequences.
+
+### Enhanced Behavioral Features
+
+The `train_behavior_model` function now uses more comprehensive features derived from request sequences.  These include sequence length, unique paths, and the frequency of specific API calls to improve detection accuracy.
