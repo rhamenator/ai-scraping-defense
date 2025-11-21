@@ -1,0 +1,180 @@
+"""Tests for configuration validation and loading."""
+
+import os
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from src.shared.config_schema import AppConfig, Environment
+from src.shared.config_validator import ConfigLoader, ConfigValidationError
+
+
+class TestConfigLoader(unittest.TestCase):
+    """Test configuration loading from environment."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.minimal_env = {
+            "MODEL_URI": "sklearn:///app/models/bot_detection_rf_model.joblib",
+            "AI_SERVICE_PORT": "8000",
+            "ESCALATION_ENGINE_PORT": "8003",
+            "TARPIT_API_PORT": "8001",
+            "ADMIN_UI_PORT": "5002",
+        }
+
+    def test_load_minimal_config(self):
+        """Test loading minimal valid configuration."""
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(self.minimal_env)
+
+        self.assertIsInstance(config, AppConfig)
+        self.assertEqual(
+            config.model_uri, "sklearn:///app/models/bot_detection_rf_model.joblib"
+        )
+        self.assertEqual(config.ai_service.port, 8000)
+
+    def test_load_with_all_features(self):
+        """Test loading configuration with all features enabled."""
+        env = self.minimal_env.copy()
+        env.update(
+            {
+                "LOG_LEVEL": "DEBUG",
+                "DEBUG": "true",
+                "TENANT_ID": "test-tenant",
+                "APP_ENV": "development",
+                "REDIS_HOST": "localhost",
+                "REDIS_PORT": "6380",
+                "TAR_PIT_MIN_DELAY_SEC": "0.5",
+                "TAR_PIT_MAX_DELAY_SEC": "2.0",
+                "ESCALATION_THRESHOLD": "0.9",
+                "ENABLE_TARPIT_CATCH_ALL": "true",
+                "ENABLE_FINGERPRINTING": "true",
+            }
+        )
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        self.assertEqual(config.tenant_id, "test-tenant")
+        self.assertEqual(config.app_env, Environment.DEVELOPMENT)
+        self.assertTrue(config.debug)
+        self.assertEqual(config.redis.port, 6380)
+        self.assertEqual(config.tarpit.min_delay_sec, 0.5)
+        self.assertEqual(config.escalation.threshold, 0.9)
+
+    def test_load_with_secrets(self):
+        """Test loading configuration with secret files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create secret files
+            redis_secret = Path(tmpdir) / "redis_password"
+            redis_secret.write_text("redis_secret_123")
+
+            pg_secret = Path(tmpdir) / "pg_password"
+            pg_secret.write_text("postgres_secret_456")
+
+            env = self.minimal_env.copy()
+            env.update(
+                {
+                    "REDIS_PASSWORD_FILE": str(redis_secret),
+                    "PG_PASSWORD_FILE": str(pg_secret),
+                }
+            )
+
+            loader = ConfigLoader(strict=False)
+            config = loader.load_from_env(env)
+
+            # Passwords should be loaded but masked
+            self.assertEqual(config.redis.password, "***MASKED***")
+            self.assertEqual(config.postgres.password, "***MASKED***")
+
+    def test_strict_mode_with_invalid_config(self):
+        """Test strict mode raises error on invalid configuration."""
+        env = {"MODEL_URI": "invalid"}
+
+        loader = ConfigLoader(strict=True)
+        # Should raise error due to missing required ports
+        with self.assertRaises(ConfigValidationError):
+            loader.load_from_env(env)
+
+    def test_non_strict_mode_with_invalid_config(self):
+        """Test non-strict mode returns minimal config on error."""
+        env = {"INVALID_KEY": "value"}
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        # Should return minimal valid config
+        self.assertIsInstance(config, AppConfig)
+
+    def test_validate_production_config(self):
+        """Test production configuration validation."""
+        env = self.minimal_env.copy()
+        env.update(
+            {
+                "APP_ENV": "production",
+                "DEBUG": "true",  # Should be false in production
+            }
+        )
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        is_valid, errors = loader.validate_config(config)
+
+        self.assertFalse(is_valid)
+        self.assertTrue(
+            any("DEBUG mode should not be enabled in production" in e for e in errors)
+        )
+
+    def test_validate_model_provider_keys(self):
+        """Test validation of model provider API keys."""
+        env = self.minimal_env.copy()
+        env["MODEL_URI"] = "openai://gpt-4"
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        # Should require OPENAI_API_KEY
+        with patch.dict(os.environ, {}, clear=True):
+            is_valid, errors = loader.validate_config(config)
+            self.assertFalse(is_valid)
+            self.assertTrue(any("OPENAI_API_KEY" in e for e in errors))
+
+    def test_validate_captcha_config(self):
+        """Test CAPTCHA configuration validation."""
+        env = self.minimal_env.copy()
+        env["ENABLE_CAPTCHA_TRIGGER"] = "true"
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        is_valid, errors = loader.validate_config(config)
+
+        # Should require CAPTCHA_VERIFICATION_URL and CAPTCHA_SECRET
+        self.assertFalse(is_valid)
+        self.assertTrue(any("CAPTCHA_VERIFICATION_URL" in e for e in errors))
+        self.assertTrue(any("CAPTCHA_SECRET" in e for e in errors))
+
+    def test_compute_checksum(self):
+        """Test configuration checksum computation."""
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(self.minimal_env)
+
+        checksum1 = loader.compute_checksum(config)
+        checksum2 = loader.compute_checksum(config)
+
+        # Same config should produce same checksum
+        self.assertEqual(checksum1, checksum2)
+
+        # Different config should produce different checksum
+        env2 = self.minimal_env.copy()
+        env2["TENANT_ID"] = "different-tenant"
+        config2 = loader.load_from_env(env2)
+        checksum3 = loader.compute_checksum(config2)
+
+        self.assertNotEqual(checksum1, checksum3)
+
+
+if __name__ == "__main__":
+    unittest.main()

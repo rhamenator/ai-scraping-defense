@@ -43,15 +43,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Trivy file system scan
-        # Run Trivy container directly to avoid depending on action tag resolution.
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}":/project -w /project \
-            aquasecurity/trivy:latest fs \
-            --ignore-unfixed \
-            --severity CRITICAL,HIGH \
-            --skip-dirs "./.git,./.venv" /project
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: fs
+          scan-path: .
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: table
+          exit-code: '0'
 
   compose-config-scan:
     permissions:
@@ -60,9 +60,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Trivy config scan
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}":/project -w /project \
-            aquasecurity/trivy:latest config \
-            --severity CRITICAL,HIGH \
-            --skip-dirs "./.git,./.venv" /project
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: config
+          scan-path: .
+          severity: CRITICAL,HIGH
+          format: table
+          exit-code: '0'
