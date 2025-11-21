@@ -1,6 +1,7 @@
+---
 name: Reopen Issues Without Merged PRs
 
-on:
+'on':
   workflow_dispatch:
     inputs:
       dry_run:
@@ -42,10 +43,17 @@ jobs:
 
       - name: Install GitHub CLI
         run: |
-          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
-          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          type -p curl >/dev/null || \
+            (sudo apt update && sudo apt install curl -y)
+          curl -fsSL \
+            https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
+            sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r \
+            /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) \
+            signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] \
+            https://cli.github.com/packages stable main" | \
+            sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
           sudo apt update
           sudo apt install gh -y
 
@@ -56,29 +64,38 @@ jobs:
         run: |
           DRY_RUN_FLAG=""
           LIMIT_FLAG=""
-          
-          # Set dry-run flag based on input or default to true for scheduled runs
+
+          # Set dry-run flag based on input or default to true
+          # for scheduled runs
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            # For scheduled runs, default to dry-run unless explicitly disabled
+            # For scheduled runs, default to dry-run unless
+            # explicitly disabled
             DRY_RUN_FLAG="--dry-run"
           elif [ "${{ inputs.dry_run }}" = "true" ]; then
             DRY_RUN_FLAG="--dry-run"
           fi
-          
+
           # Set limit if provided
           if [ -n "${{ inputs.limit }}" ]; then
             LIMIT_FLAG="--limit ${{ inputs.limit }}"
           fi
-          
-          python scripts/reopen_unlinked_issues.py $DRY_RUN_FLAG $LIMIT_FLAG --log-level INFO
+
+          python scripts/reopen_unlinked_issues.py \
+            $DRY_RUN_FLAG $LIMIT_FLAG --log-level INFO
 
       - name: Create summary
         if: always()
         run: |
-          echo "## Reopen Unlinked Issues Workflow" >> $GITHUB_STEP_SUMMARY
+          echo "## Reopen Unlinked Issues Workflow" \
+            >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Dry Run**: ${{ inputs.dry_run || 'true (scheduled)' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Limit**: ${{ inputs.limit || '500' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" \
+            >> $GITHUB_STEP_SUMMARY
+          echo "- **Dry Run**: \
+            ${{ inputs.dry_run || 'true (scheduled)' }}" \
+            >> $GITHUB_STEP_SUMMARY
+          echo "- **Limit**: ${{ inputs.limit || '500' }}" \
+            >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Check the workflow logs for details on issues processed." >> $GITHUB_STEP_SUMMARY
+          echo "Check the workflow logs for details on \
+            issues processed." >> $GITHUB_STEP_SUMMARY
