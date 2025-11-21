@@ -67,3 +67,56 @@ jobs:
           severity: CRITICAL,HIGH
           format: table
           exit-code: '0'
+
+  container-image-scan:
+    permissions:
+      contents: read
+      security-events: write
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dockerfile:
+          - path: .
+            context: .
+            image: ai-scraping-defense-core
+          - path: proxy
+            context: proxy
+            image: ai-scraping-defense-proxy
+          - path: cloud-proxy
+            context: cloud-proxy
+            image: ai-scraping-defense-cloud-proxy
+          - path: prompt-router
+            context: prompt-router
+            image: ai-scraping-defense-prompt-router
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Docker image for scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.dockerfile.context }}
+          file: ${{ matrix.dockerfile.path }}/Dockerfile
+          tags: ${{ matrix.dockerfile.image }}:scan
+          push: false
+          load: true
+      - name: Run Trivy vulnerability scanner on image
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: ${{ matrix.dockerfile.image }}:scan
+          format: sarif
+          output: trivy-results-${{ matrix.dockerfile.image }}.sarif
+          severity: CRITICAL,HIGH
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results-${{ matrix.dockerfile.image }}.sarif
+          category: trivy-${{ matrix.dockerfile.image }}
+      - name: Run Trivy vulnerability scanner (table output)
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: ${{ matrix.dockerfile.image }}:scan
+          format: table
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: '0'

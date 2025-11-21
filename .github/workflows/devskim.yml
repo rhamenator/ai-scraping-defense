@@ -34,3 +34,25 @@ jobs:
         uses: github/codeql-action/upload-sarif@528ca598d956c91826bd742262cdfc5d02b77710
         with:
           sarif_file: devskim-results.sarif
+
+  dockerfile-lint:
+    name: Dockerfile Security Linting
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+
+      - name: Install hadolint
+        run: |
+          curl -sSfL https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 -o hadolint
+          sudo install hadolint /usr/local/bin/hadolint
+
+      - name: Run hadolint on all Dockerfiles
+        run: |
+          find . -type f -name "Dockerfile*" ! -path "./.history/*" | while read -r dockerfile; do
+            echo "Linting $dockerfile"
+            hadolint "$dockerfile" || true
+          done
