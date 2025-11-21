@@ -26,6 +26,6 @@ jobs:
         run: |
           pip-audit -r requirements.txt -f sarif -o pip-audit.sarif
       - name: Upload results
-        uses: github/codeql-action/upload-sarif@528ca598d956c91826bd742262cdfc5d02b77710
+        uses: github/codeql-action/upload-sarif@ce729e4d353d580e6cacd6a8cf2921b72e5e310a
         with:
           sarif_file: pip-audit.sarif
