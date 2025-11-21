@@ -390,6 +390,7 @@ def configure_observability(
         )
         token_span = _current_span_ctx.set(span)
         token_state = _current_state_ctx.set(state)
+        token_analytics = _performance_analytics_ctx.set(analytics)
         status_code = 500
         response: Response | None = None
         try:
@@ -428,6 +429,13 @@ def configure_observability(
             _current_span_ctx.reset(token_span)
             _request_id_ctx.reset(token_request)
             _current_state_ctx.reset(token_state)
+            _performance_analytics_ctx.reset(token_analytics)
+
+            # Record performance metrics
+            analytics.record_metric(
+                metric_name=f"request_latency_{endpoint}",
+                value=duration,
+            )
         return response
 
     return settings
@@ -733,4 +741,9 @@ __all__ = [
     "trace_span",
     "get_request_id",
     "get_current_span",
+    "PerformanceAnalytics",
+    "PerformanceMetrics",
+    "PerformanceInsight",
+    "PerformancePrediction",
+    "get_performance_analytics",
 ]
