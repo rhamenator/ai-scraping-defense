@@ -27,6 +27,12 @@ LOG = logging.getLogger("reopen_unlinked_issues")
 DEFAULT_LIMIT = 500
 RATE_LIMIT_SLEEP = 0.5
 
+# Regex pattern for extracting issue numbers from text
+# Matches # followed by digits, but only when:
+# - Not preceded by alphanumeric or underscore (avoids hex in commit SHAs)
+# - Followed by word boundary (avoids matching middle of longer numbers)
+ISSUE_REFERENCE_PATTERN = re.compile(r"(?<![a-zA-Z0-9_])#(\d+)\b")
+
 
 def run_gh_command(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
     """Run a GitHub CLI command and return the result."""
@@ -101,16 +107,10 @@ def extract_issue_numbers_from_text(text: str) -> set[int]:
     if not text:
         return set()
 
-    # Use a single comprehensive pattern with word boundaries
-    # This matches # followed by digits, but only when:
-    # - Not preceded by alphanumeric or underscore (avoids hex in commit SHAs)
-    # - Followed by word boundary (avoids matching middle of longer numbers)
-    pattern = r"(?<![a-zA-Z0-9_])#(\d+)\b"
-
     issue_numbers = set()
     text_lower = text.lower()
 
-    matches = re.finditer(pattern, text_lower)
+    matches = ISSUE_REFERENCE_PATTERN.finditer(text_lower)
     for match in matches:
         try:
             issue_numbers.add(int(match.group(1)))
