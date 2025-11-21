@@ -177,6 +177,46 @@ class TestVaultClient(unittest.TestCase):
             client = get_vault_client()
             self.assertIsNone(client)
 
+    @patch("src.shared.vault_client.hvac.Client")
+    def test_get_vault_client_authentication_failure(self, mock_hvac_client):
+        """Test that get_vault_client returns None when authentication fails."""
+        mock_instance = MagicMock()
+        mock_instance.is_authenticated.return_value = False
+        mock_hvac_client.return_value = mock_instance
+
+        with patch.dict(os.environ, {"VAULT_ADDR": "http://vault:8200"}, clear=True):
+            # Should return None when auth fails
+            client = get_vault_client()
+            self.assertIsNone(client)
+
+    @patch("src.shared.vault_client.hvac.Client")
+    def test_get_vault_client_connection_error(self, mock_hvac_client):
+        """Test that get_vault_client returns None when connection fails."""
+        mock_hvac_client.side_effect = Exception("Connection refused")
+
+        with patch.dict(
+            os.environ, {"VAULT_ADDR": "http://vault:8200", "VAULT_TOKEN": "test"}
+        ):
+            # Should return None and log error
+            client = get_vault_client()
+            self.assertIsNone(client)
+
+    @patch("src.shared.vault_client.hvac.Client")
+    def test_vault_client_read_secret_failure(self, mock_hvac_client):
+        """Test that read_secret handles failures gracefully."""
+        mock_instance = MagicMock()
+        mock_instance.is_authenticated.return_value = True
+        mock_instance.secrets.kv.v2.read_secret_version.side_effect = Exception(
+            "Network error"
+        )
+        mock_hvac_client.return_value = mock_instance
+
+        client = VaultClient(self.config)
+        secret = client.read_secret("test/path")
+
+        # Should return None on error, not raise
+        self.assertIsNone(secret)
+
 
 if __name__ == "__main__":
     unittest.main()
