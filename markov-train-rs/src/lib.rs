@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use memmap2::Mmap;
 
 const EMPTY_WORD: &str = "";
 const EMPTY_WORD_ID: i32 = 1;
@@ -61,8 +62,11 @@ fn train_from_corpus_rs(corpus_path: String) -> PyResult<()> {
     let mut client = connect_db().map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("DB connect error: {}", e)))?;
 
     let file = File::open(&corpus_path).map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}", e)))?;
-    let reader = BufReader::new(file);
-
+    let file_size = file.metadata().map(|m| m.len()).unwrap_or(0);
+    
+    // Use memory-mapped file for large corpus files (>1MB)
+    let use_mmap = file_size > 1_000_000;
+    
     let re1 = Regex::new(r"(?<!\w)['\-](?!\w)").unwrap();
     let re2 = Regex::new(r"[^\w\s'-]").unwrap();
     let re3 = Regex::new(r"^[-']+|[-']+$").unwrap();
@@ -78,30 +82,66 @@ fn train_from_corpus_rs(corpus_path: String) -> PyResult<()> {
     let mut batch: Vec<(i32, i32, i32)> = Vec::new();
     let stmt = client.prepare("INSERT INTO markov_sequences (p1, p2, next_id, freq) VALUES ($1, $2, $3, 1) ON CONFLICT (p1, p2, next_id) DO UPDATE SET freq = markov_sequences.freq + 1;").unwrap();
 
-    for line in reader.lines() {
-        let line = line.map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}", e)))?;
-        let words = tokenize_text(&line, &re1, &re2, &re3);
-        if words.is_empty() { continue; }
-        let mut p1 = EMPTY_WORD_ID;
-        let mut p2 = EMPTY_WORD_ID;
-        for word in words {
-            if word.len() > 100 { continue; }
-            let next_id = get_word_id(&mut client, &mut cache, &word)
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("DB error: {}", e)))?;
-            batch.push((p1, p2, next_id));
+    if use_mmap {
+        // Memory-mapped file processing for large files
+        let mmap = unsafe {
+            Mmap::map(&file).map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("mmap error: {}", e)))?
+        };
+        let content = std::str::from_utf8(&mmap)
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("UTF-8 decode error: {}", e)))?;
+        
+        for line in content.lines() {
+            let words = tokenize_text(line, &re1, &re2, &re3);
+            if words.is_empty() { continue; }
+            let mut p1 = EMPTY_WORD_ID;
+            let mut p2 = EMPTY_WORD_ID;
+            for word in words {
+                if word.len() > 100 { continue; }
+                let next_id = get_word_id(&mut client, &mut cache, &word)
+                    .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("DB error: {}", e)))?;
+                batch.push((p1, p2, next_id));
+                if batch.len() >= BATCH_SIZE {
+                    for (a,b,c) in &batch { client.execute(&stmt, &[a,b,c]).ok(); }
+                    batch.clear();
+                }
+                p1 = p2;
+                p2 = next_id;
+            }
+            batch.push((p1, p2, EMPTY_WORD_ID));
             if batch.len() >= BATCH_SIZE {
                 for (a,b,c) in &batch { client.execute(&stmt, &[a,b,c]).ok(); }
                 batch.clear();
             }
-            p1 = p2;
-            p2 = next_id;
         }
-        batch.push((p1, p2, EMPTY_WORD_ID));
-        if batch.len() >= BATCH_SIZE {
-            for (a,b,c) in &batch { client.execute(&stmt, &[a,b,c]).ok(); }
-            batch.clear();
+    } else {
+        // Standard buffered reading for smaller files
+        let reader = BufReader::new(file);
+        for line in reader.lines() {
+            let line = line.map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}", e)))?;
+            let words = tokenize_text(&line, &re1, &re2, &re3);
+            if words.is_empty() { continue; }
+            let mut p1 = EMPTY_WORD_ID;
+            let mut p2 = EMPTY_WORD_ID;
+            for word in words {
+                if word.len() > 100 { continue; }
+                let next_id = get_word_id(&mut client, &mut cache, &word)
+                    .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("DB error: {}", e)))?;
+                batch.push((p1, p2, next_id));
+                if batch.len() >= BATCH_SIZE {
+                    for (a,b,c) in &batch { client.execute(&stmt, &[a,b,c]).ok(); }
+                    batch.clear();
+                }
+                p1 = p2;
+                p2 = next_id;
+            }
+            batch.push((p1, p2, EMPTY_WORD_ID));
+            if batch.len() >= BATCH_SIZE {
+                for (a,b,c) in &batch { client.execute(&stmt, &[a,b,c]).ok(); }
+                batch.clear();
+            }
         }
     }
+    
     if !batch.is_empty() {
         for (a,b,c) in &batch { client.execute(&stmt, &[a,b,c]).ok(); }
     }
