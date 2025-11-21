@@ -8,6 +8,8 @@ on:
       ref:
         description: "Git ref to run against"
         required: false
+  pull_request:
+    branches: [ "main" ]
 permissions:
   contents: read
 concurrency:
