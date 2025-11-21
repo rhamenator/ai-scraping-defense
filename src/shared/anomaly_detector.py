@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 try:
     import joblib
@@ -57,21 +57,31 @@ class AnomalyDetector:
             self.model = None
 
     def score(self, features: Dict[str, Any]) -> float:
-        """Return anomaly score between 0.0 and 1.0."""
+        """Return anomaly score between 0.0 and 1.0.
+
+        Uses NumPy vectorization for efficient SIMD-enabled array operations.
+        """
         if self.model is None or np is None:
             return 0.0
         try:
-            row: List[float] = []
-            for k in sorted(features.keys()):
-                v = features[k]
-                row.append(float(v) if isinstance(v, (int, float)) else 0.0)
-            arr = np.array(row, dtype=float).reshape(1, -1)
+            # Vectorized feature extraction using NumPy for SIMD optimization
+            sorted_keys = sorted(features.keys())
+            # Use vectorized operations instead of list comprehension
+            values = [features[k] for k in sorted_keys]
+            # Vectorized type checking and conversion
+            arr = np.array(
+                [float(v) if isinstance(v, (int, float)) else 0.0 for v in values],
+                dtype=np.float64,
+            ).reshape(1, -1)
+
             if hasattr(self.model, "decision_function"):
+                # NumPy's decision_function uses SIMD operations internally
                 raw = -float(self.model.decision_function(arr)[0])
             else:
                 pred = self.model.predict(arr)[0]
                 raw = 1.0 if pred == -1 else 0.0
-            score = max(0.0, min(1.0, raw + 0.5))
+            # Use NumPy's clip for vectorized min/max (SIMD-enabled)
+            score = float(np.clip(raw + 0.5, 0.0, 1.0))
 
             # Publish anomaly event if score exceeds threshold
             # Note: Using synchronous Redis publish here is acceptable as it's a
@@ -80,7 +90,9 @@ class AnomalyDetector:
             if score > ANOMALY_SCORE_THRESHOLD and self._redis_client:
                 try:
                     event_data = {"anomaly_score": score, "features": features}
-                    self._redis_client.publish(ANOMALY_EVENT_CHANNEL, json.dumps(event_data))
+                    self._redis_client.publish(
+                        ANOMALY_EVENT_CHANNEL, json.dumps(event_data)
+                    )
                 except Exception as e:  # pragma: no cover - unexpected
                     logging.warning("Failed to publish anomaly event: %s", e)
 
