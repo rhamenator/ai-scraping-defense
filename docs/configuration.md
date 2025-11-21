@@ -2,6 +2,27 @@
 
 This page documents all environment variables consumed by the Python services. Defaults come from `src/shared/config.py` unless noted.
 
+## Secure Configuration Management
+
+**IMPORTANT:** Follow these security best practices when configuring the AI Scraping Defense system:
+
+### Secret Management
+* **Never commit secrets to version control.** Use `.gitignore` to exclude `.env` files and secret files.
+* **Use secret management tools** for production deployments (HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, Google Secret Manager, or Kubernetes Secrets with encryption at rest).
+* **Prefer secret files over environment variables** when possible. Many configuration options support `*_FILE` variants that read from files (e.g., `REDIS_PASSWORD_FILE` instead of `REDIS_PASSWORD`).
+* **Set strict file permissions** on secret files (mode 600 or 400).
+* **Rotate secrets regularly** according to your security policy.
+
+### Configuration Security
+* Do not use default/placeholder values in production (especially `SYSTEM_SEED`).
+* Use strong, randomly-generated passwords and keys.
+* Implement environment-specific configurations (development, staging, production).
+* Use HTTPS/TLS for all external endpoints (`ESCALATION_WEBHOOK_URL` must use `https://`).
+* Restrict CORS origins (`ADMIN_UI_CORS_ORIGINS`) to specific domains; never use `*` with credentials.
+* Enable audit logging and monitor access to sensitive endpoints.
+
+For detailed secret management guidelines, see [SECURITY.md](../SECURITY.md).
+
 ## Service Hosts
 
 | Variable | Default | Service |
