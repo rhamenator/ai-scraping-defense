@@ -1,9 +1,8 @@
-"""""""Utilities to produce prioritized security inventories from JSON data."""
+"""Utilities to produce prioritized security inventories from JSON data."""
 
 from __future__ import annotations
 
 import json
-import re
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,12 +16,14 @@ SEVERITY_ORDER: Mapping[str, int] = {
     "info": 1,
 }
 
+
 @dataclass
 class InventoryItem:
     id: Optional[str] = None
     title: Optional[str] = None
     severity: str = "info"
     metadata: Dict[str, Any] = field(default_factory=dict)
+
 
 def _normalize_severity(raw: Any) -> str:
     if raw is None:
@@ -35,6 +36,7 @@ def _normalize_severity(raw: Any) -> str:
         return "info"
     return s
 
+
 def load_json(source: str | Path) -> Any:
     """Load JSON from a file path or from a JSON string."""
     text = str(source)
@@ -45,15 +47,28 @@ def load_json(source: str | Path) -> Any:
     # Otherwise assume it's a JSON string
     return json.loads(text)
 
+
 def _as_item(obj: Mapping[str, Any]) -> InventoryItem:
     # Best-effort mapping of common keys
     id_ = obj.get("id") or obj.get("key") or obj.get("name")
-    title = obj.get("title") or obj.get("problem") or obj.get("name") or obj.get("summary")
-    severity = _normalize_severity(obj.get("severity") or obj.get("level") or obj.get("risk"))
+    title = (
+        obj.get("title")
+        or obj.get("problem")
+        or obj.get("name")
+        or obj.get("summary")
+    )
+    severity = _normalize_severity(
+        obj.get("severity") or obj.get("level") or obj.get("risk")
+    )
     metadata = dict(obj)
     return InventoryItem(id=id_, title=title, severity=severity, metadata=metadata)
 
-def extract_findings(parsed_json: Any, *, keys: Sequence[str] = ("findings", "vulnerabilities", "items", "problems")) -> List[InventoryItem]:
+
+def extract_findings(
+    parsed_json: Any,
+    *,
+    keys: Sequence[str] = ("findings", "vulnerabilities", "items", "problems"),
+) -> List[InventoryItem]:
     """
     Extract a list of InventoryItem from parsed JSON.
     Looks for common container keys; if top-level list is provided it is used directly.
@@ -82,9 +97,12 @@ def extract_findings(parsed_json: Any, *, keys: Sequence[str] = ("findings", "vu
 
     return []
 
+
 def prioritize_findings(items: Iterable[InventoryItem]) -> List[InventoryItem]:
     """Return items sorted by severity (highest first)."""
-    return sorted(items, key=lambda it: SEVERITY_ORDER.get(it.severity, 0), reverse=True)
+    return sorted(
+        items, key=lambda it: SEVERITY_ORDER.get(it.severity, 0), reverse=True
+    )
 
 
 def summarize_by_severity(items: Iterable[InventoryItem]) -> Dict[str, int]:
@@ -131,7 +149,9 @@ def generate_inventory_markdown(data: Any) -> str:
     counts = summarize_by_severity(items)
     header_lines = ["# Inventory", ""]
     header_lines.append("## Summary by severity")
-    for sev, cnt in sorted(counts.items(), key=lambda kv: SEVERITY_ORDER.get(kv[0], 0), reverse=True):
+    for sev, cnt in sorted(
+        counts.items(), key=lambda kv: SEVERITY_ORDER.get(kv[0], 0), reverse=True
+    ):
         header_lines.append(f"- **{sev}**: {cnt}")
     header_lines.append("")
 
@@ -146,6 +166,7 @@ def generate_inventory_markdown(data: Any) -> str:
         header_lines.append(f"| {id_text} | {title_text} | {it.severity} |")
 
     return "\n".join(header_lines) + "\n"
+
 
 __all__ = [
     "InventoryItem",
