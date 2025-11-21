@@ -10,12 +10,23 @@ except Exception:  # pragma: no cover - dependency missing in some envs
     jwt = None  # type: ignore
     InvalidTokenError = Exception  # type: ignore
 
+from .quantum_crypto import CryptoAgility, is_pqc_enabled
 
+# Support quantum-resistant algorithms for future JWT signing
+# EdDSA (Ed25519) is quantum-resistant for short-term use
+# ES256 (ECDSA) can be combined with PQC in hybrid mode
 ALGORITHMS_DEFAULT = [
     alg.strip()
     for alg in os.getenv("AUTH_JWT_ALGORITHMS", "HS256").split(",")
     if alg.strip()
 ]
+
+# Add quantum-resistant algorithm support if PQC is enabled
+if is_pqc_enabled() and CryptoAgility.should_use_pqc():
+    # Prefer EdDSA for quantum-resistance awareness
+    if "EdDSA" not in ALGORITHMS_DEFAULT and os.getenv("PQC_JWT_PREFER_EDDSA", "true").lower() == "true":
+        ALGORITHMS_DEFAULT.insert(0, "EdDSA")
+
 JWT_SECRET = os.getenv("AUTH_JWT_SECRET")
 JWT_ISSUER = os.getenv("AUTH_JWT_ISSUER")
 JWT_AUDIENCE = os.getenv("AUTH_JWT_AUDIENCE")

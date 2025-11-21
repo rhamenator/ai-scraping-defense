@@ -23,6 +23,10 @@ webauthn~=2.7
 tenacity~=8.2
 bcrypt~=5.0
 
+# Post-Quantum Cryptography
+oqs~=0.10  # Open Quantum Safe library for NIST-standardized PQC algorithms
+pqcrypto~=0.3  # Additional PQC primitives
+
 # HTTP and Web Scraping
 httpx~=0.28
 requests>=2.32.4,<3

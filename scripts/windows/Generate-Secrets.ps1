@@ -57,6 +57,9 @@ $googleApiKey = "AIza" + (New-RandomPassword -Length 35)
 $cohereApiKey = "coh-" + (New-RandomPassword -Length 40)
 $mistralApiKey = "mistral-" + (New-RandomPassword -Length 40)
 
+# Post-Quantum Cryptography: Generate quantum-resistant JWT secret (256-bit minimum for EdDSA)
+$authJwtSecret = New-RandomPassword -Length 64
+
 # Create Nginx htpasswd content using bcrypt
 $htpasswdFileContent = (htpasswd -nbBC 12 $adminUiUsername $nginxPassword).Trim()
 Set-Content -Path $NginxHtpasswdFile -Value $htpasswdFileContent -Encoding ASCII
@@ -78,6 +81,7 @@ $anthropicApiKey_b64 = ConvertTo-Base64 $anthropicApiKey
 $googleApiKey_b64 = ConvertTo-Base64 $googleApiKey
 $cohereApiKey_b64 = ConvertTo-Base64 $cohereApiKey
 $mistralApiKey_b64 = ConvertTo-Base64 $mistralApiKey
+$authJwtSecret_b64 = ConvertTo-Base64 $authJwtSecret
 
 # Assemble YAML
 $yamlContent = @"
@@ -144,6 +148,15 @@ data:
   MISTRAL_API_KEY: $mistralApiKey_b64
   IP_REPUTATION_API_KEY: $ipReputationApiKey_b64
   COMMUNITY_BLOCKLIST_API_KEY: $communityBlocklistApiKey_b64
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jwt-auth-secret
+  namespace: ai-defense
+type: Opaque
+data:
+  AUTH_JWT_SECRET: $authJwtSecret_b64
 "@
 
 Set-Content -Path $OutputFile -Value $yamlContent -Encoding UTF8
@@ -164,6 +177,7 @@ if ($ExportPath) {
         EXTERNAL_API_KEY = $externalApiKey
         IP_REPUTATION_API_KEY = $ipReputationApiKey
         COMMUNITY_BLOCKLIST_API_KEY = $communityBlocklistApiKey
+        AUTH_JWT_SECRET = $authJwtSecret
     }
     $creds | ConvertTo-Json -Depth 1 | Set-Content -Path $ExportPath -Encoding UTF8
     try { chmod 600 $ExportPath 2>$null } catch {}
