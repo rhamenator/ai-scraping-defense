@@ -1,5 +1,8 @@
 import os
+import shutil
 import tempfile
+
+import pytest
 
 # Set up test environment variables before importing any application code
 # This must be done before importing any src modules that create directories at import time
@@ -32,3 +35,12 @@ os.environ.setdefault(
     "DECISIONS_DB_PATH", os.path.join(test_data_dir, "test_decisions.db")
 )
 os.environ.setdefault("SURICATA_EVE_LOG", os.path.join(test_logs_dir, "test_eve.json"))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_test_dirs():
+    """Clean up temporary test directories after all tests complete."""
+    yield
+    # Cleanup after all tests complete
+    if os.path.exists(unique_test_dir):
+        shutil.rmtree(unique_test_dir, ignore_errors=True)
