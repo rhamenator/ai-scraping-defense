@@ -100,7 +100,7 @@ To further enhance microservices operations, consider integrating a service mesh
 *   **Observability:** Gain deeper insights into service behavior with metrics, tracing, and logging.
 *   **Resiliency:** Implement retries, circuit breakers, and fault injection to improve service reliability.
 
-yaml
+```yaml
 # Example Istio VirtualService for traffic management
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -119,6 +119,7 @@ spec:
         host: ai-service
         subset: v2
       weight: 10
+```
 
 
 ## Service Governance Automation
