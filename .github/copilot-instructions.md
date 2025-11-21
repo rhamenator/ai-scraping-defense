@@ -180,7 +180,7 @@ docker-compose down
 
 ### ML Model Integration
 
-- Models should implement the adapter pattern (see `src/escalation/ml_adapter.py`)
+- Models should implement the adapter pattern (see `src/shared/model_provider.py`)
 - Support for: OpenAI, Anthropic, Google GenAI, Cohere, Mistral
 - Always handle API rate limits and errors gracefully
 - Cache predictions when appropriate (use Redis)
@@ -188,7 +188,7 @@ docker-compose down
 ### Payment Gateway Integration
 
 - Multiple gateways supported: Stripe, PayPal, Braintree, Square, Adyen, Authorize.Net
-- Follow existing gateway patterns in `src/pay_per_crawl/gateways/`
+- Follow existing gateway patterns in `src/pay_per_crawl/payment_gateway.py`
 - Never log full payment details
 - Audit all payment operations
 
