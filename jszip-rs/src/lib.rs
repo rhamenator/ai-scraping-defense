@@ -77,6 +77,7 @@ pub fn create_fake_js_zip(num_files: usize, output_dir: Option<String>) -> PyRes
         let mut rng = rand::rng();
         let size = rng.random_range(5 * 1024..50 * 1024);
         let content = generate_file_content(&name, size);
+        // Clone options for each file (required by zip crate API)
         zip.start_file(name, options.clone()).map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Zip error: {}", e)))?;
         zip.write_all(&content).map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Write error: {}", e)))?;
     }
