@@ -20,7 +20,6 @@ from typing import Any, Dict, List, Optional
 
 from redis.exceptions import RedisError
 
-from .audit import log_event
 from .config import CONFIG, tenant_key
 from .redis_client import get_redis_connection
 
@@ -38,6 +37,9 @@ GDPR_AUDIT_LOG_FILE = os.getenv("GDPR_AUDIT_LOG_FILE", "/app/logs/gdpr_audit.log
 # Data minimization constants
 USER_AGENT_MAX_LENGTH = 100
 IPV6_ANONYMIZATION_LENGTH = 24
+
+# Audit log retention
+GDPR_AUDIT_LOG_MAX_ENTRIES = 10000
 
 
 class ConsentType(str, Enum):
@@ -118,7 +120,11 @@ class GDPRComplianceManager:
     def _log_gdpr_event(self, event_type: str, data: Dict[str, Any]) -> None:
         """Log GDPR compliance event."""
         try:
-            log_event(GDPR_AUDIT_LOG_FILE, event_type, data)
+            # Log to file using structured logging
+            from .utils import log_event as log_event_to_file
+            log_event_to_file(GDPR_AUDIT_LOG_FILE, event_type, data)
+            
+            # Also store in Redis for quick access
             if self.redis_conn:
                 event_data = json.dumps(
                     {
@@ -130,7 +136,7 @@ class GDPRComplianceManager:
                     }
                 )
                 self.redis_conn.lpush(self.audit_key, event_data)
-                self.redis_conn.ltrim(self.audit_key, 0, 9999)
+                self.redis_conn.ltrim(self.audit_key, 0, GDPR_AUDIT_LOG_MAX_ENTRIES - 1)
         except Exception as e:
             logger.error(f"Failed to log GDPR event: {e}")
 
@@ -481,11 +487,11 @@ class GDPRComplianceManager:
                     continue
             
             # Clean up old audit log entries (keep only recent ones)
-            # Keep last 10000 entries as configured in _log_gdpr_event
+            # Keep last GDPR_AUDIT_LOG_MAX_ENTRIES as configured in _log_gdpr_event
             current_length = self.redis_conn.llen(self.audit_key)
-            if current_length > 10000:
-                self.redis_conn.ltrim(self.audit_key, 0, 9999)
-                deleted_count += current_length - 10000
+            if current_length > GDPR_AUDIT_LOG_MAX_ENTRIES:
+                self.redis_conn.ltrim(self.audit_key, 0, GDPR_AUDIT_LOG_MAX_ENTRIES - 1)
+                deleted_count += current_length - GDPR_AUDIT_LOG_MAX_ENTRIES
             
             logger.info(f"GDPR cleanup completed: deleted {deleted_count} records")
         except RedisError as e:

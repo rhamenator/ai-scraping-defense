@@ -362,6 +362,10 @@ async def gdpr_deletion_request(request: Request, user: str = Depends(require_ad
     """Handle GDPR data deletion request."""
     from src.shared.gdpr import get_gdpr_manager
     
+    # Allowed characters for user_id validation
+    ALLOWED_USER_ID_CHARS = "-_"
+    MAX_USER_ID_LENGTH = 255
+    
     form = await request.form()
     user_id = form.get("user_id", "").strip()
     email = form.get("email", "").strip()
@@ -374,14 +378,14 @@ async def gdpr_deletion_request(request: Request, user: str = Depends(require_ad
         )
     
     # Basic validation: alphanumeric, dashes, underscores only
-    if not all(c.isalnum() or c in "-_" for c in user_id):
+    if not all(c.isalnum() or c in ALLOWED_USER_ID_CHARS for c in user_id):
         return JSONResponse(
             status_code=400,
             content={"error": "user_id contains invalid characters"}
         )
     
     # Limit length to prevent abuse
-    if len(user_id) > 255:
+    if len(user_id) > MAX_USER_ID_LENGTH:
         return JSONResponse(
             status_code=400,
             content={"error": "user_id is too long"}
