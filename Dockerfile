@@ -42,6 +42,17 @@ RUN apt-get update && \
 # Create a dedicated non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
+# Container runtime security: Add security labels and metadata
+LABEL org.opencontainers.image.security.capabilities="drop_all" \
+      org.opencontainers.image.security.read_only_root_filesystem="true" \
+      org.opencontainers.image.security.no_new_privileges="true" \
+      org.opencontainers.image.vendor="AI Scraping Defense" \
+      org.opencontainers.image.description="AI Scraping Defense with runtime security hardening"
+
+# Container runtime security: Create required writable directories for non-root user
+RUN mkdir -p /app/logs /app/tmp /app/cache && \
+    chown -R appuser:appuser /app/logs /app/tmp /app/cache
+
 RUN pip check
 
 WORKDIR /app
@@ -66,4 +77,14 @@ RUN chmod +x /app/docker-entrypoint.sh && \
 
 # Drop privileges and set entrypoint
 USER appuser
+
+# Container runtime security: Set security options
+# These should be enforced at runtime with:
+# --security-opt=no-new-privileges:true
+# --cap-drop=ALL
+# --read-only (with tmpfs mounts for /app/logs, /app/tmp, /app/cache)
+# --pids-limit=100
+# --memory=2g
+# --cpus=1.5
+
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

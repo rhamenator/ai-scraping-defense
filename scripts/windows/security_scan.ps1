@@ -169,4 +169,42 @@ if (Get-Command pip-audit -ErrorAction SilentlyContinue) {
     pip-audit -r requirements.txt -f plain > "reports/pip_audit.txt" || $true
 } else { Write-Warning 'pip-audit not installed. Skipping Python dependency audit.' }
 
+Write-Host '=== 26. Container Runtime Security Scan ==='
+if ($DockerImage) {
+    Write-Host "  Scanning container image: $DockerImage"
+    
+    # Snyk container scan
+    if (Get-Command snyk -ErrorAction SilentlyContinue) {
+        Write-Host "  Running Snyk container scan..."
+        snyk container test $DockerImage --json | Out-File "reports/snyk_${SafeImage}.json"
+    } else { Write-Warning 'snyk not installed. Skipping Snyk scan.' }
+    
+    # Docker Bench Security
+    if (Get-Command docker-bench-security -ErrorAction SilentlyContinue) {
+        Write-Host "  Running Docker Bench Security..."
+        docker-bench-security | Out-File "reports/docker_bench_${SafeTarget}.txt"
+    } else {
+        Write-Warning 'docker-bench-security not installed.'
+        Write-Host '  Install: git clone https://github.com/docker/docker-bench-security.git'
+    }
+    
+    # Dive for layer analysis
+    if (Get-Command dive -ErrorAction SilentlyContinue) {
+        Write-Host "  Analyzing image layers with Dive..."
+        dive $DockerImage --ci --lowestEfficiency=0.9 | Out-File "reports/dive_${SafeImage}.txt"
+    } else { Write-Warning 'dive not installed. Skipping layer analysis.' }
+}
+
+Write-Host '=== 27. Container Runtime Monitoring Setup ==='
+Write-Host '  For production runtime security, deploy one of these tools:'
+Write-Host '  - Falco: Runtime threat detection using eBPF'
+Write-Host '    helm install falco falcosecurity/falco --namespace falco --create-namespace'
+Write-Host '  - Tracee: Runtime security and forensics using eBPF'
+Write-Host '    docker run --rm -it --pid=host --cgroupns=host --privileged aquasec/tracee:latest'
+Write-Host '  - Tetragon: eBPF-based security observability and runtime enforcement'
+Write-Host '    kubectl apply -f https://raw.githubusercontent.com/cilium/tetragon/main/install/kubernetes/tetragon.yaml'
+Write-Host '  - Sysdig: Commercial solution with comprehensive runtime protection'
+Write-Host ''
+Write-Host '  See docs/container_runtime_security.md for detailed setup instructions.'
+
 Write-Host "Reports saved in the 'reports' directory. Review them for potential issues." -ForegroundColor Green
