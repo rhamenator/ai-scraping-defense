@@ -12,3 +12,11 @@ crate-type = ["cdylib", "rlib"]
 pyo3 = { version = "0.27.1", features = ["extension-module"] }
 postgres = "0.19"
 regex = "1"
+
+# Optimize register allocation and performance for release builds
+[profile.release]
+opt-level = 3              # Maximum optimization
+lto = "thin"               # Link-time optimization for better register allocation
+codegen-units = 1          # Single codegen unit reduces register pressure
+strip = true               # Strip symbols to reduce binary size
+panic = "abort"            # Abort on panic reduces overhead
