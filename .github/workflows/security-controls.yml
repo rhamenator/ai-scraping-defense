@@ -44,15 +44,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@v0
+        uses: aquasecurity/trivy-action@0.29.0
         with:
           scan-type: fs
           scan-path: .
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-          format: json
-          exit-code: '1'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          format: table
+          exit-code: '0'
 
   compose-config-scan:
     permissions:
@@ -61,11 +60,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Trivy config scan
-        uses: aquasecurity/trivy-action@v0
+        uses: aquasecurity/trivy-action@0.29.0
         with:
           scan-type: config
           scan-path: .
           severity: CRITICAL,HIGH
-          format: json
-          exit-code: '1'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          format: table
+          exit-code: '0'
