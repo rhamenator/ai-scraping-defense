@@ -20,6 +20,11 @@ RUN cd tarpit-rs && cargo build --release && \
 # FROM ubuntu:22.04
 FROM python:3.11-slim
 
+# Security metadata
+LABEL security.non-root="true" \
+      security.read-only-root-fs="supported" \
+      security.no-new-privileges="true"
+
 # Update system packages and install dependencies with security upgrades
 RUN apt-get update && \
     apt-get upgrade -y && \
@@ -39,8 +44,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Create a dedicated non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Create a dedicated non-root user with specific UID/GID for consistency
+RUN groupadd -r appuser -g 1000 && useradd -r -g appuser -u 1000 appuser
 
 RUN pip check
 
