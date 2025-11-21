@@ -249,7 +249,7 @@ class MCPClient:
     async def _call_tool(self, tool_name: str, arguments: Any, timeout: float) -> Dict[str, Any]:
         if ClientSession is None:
             raise MCPClientError(
-                "model-context-protocol package is not installed. Run 'pip install model-context-protocol'."
+                "mcp package is not installed. Run 'pip install mcp'."
             )
         transport = await self._create_transport()
         try:
@@ -297,7 +297,7 @@ class MCPClient:
         if transport_type in {"ws", "wss", "websocket"}:
             if WebSocketClientTransport is None:
                 raise MCPClientError(
-                    "WebSocket transport requires the model-context-protocol websocket extra."
+                    "WebSocket transport requires the mcp websocket extra."
                 )
             return WebSocketClientTransport(
                 self.config.endpoint,
@@ -306,7 +306,7 @@ class MCPClient:
         if transport_type in {"stdio", "process"}:
             if StdioClientTransport is None:
                 raise MCPClientError(
-                    "Stdio transport requires the model-context-protocol stdio extra."
+                    "Stdio transport requires the mcp stdio extra."
                 )
             command = [self.config.executable] + self.config.args if self.config.executable else self.config.args
             return StdioClientTransport(command=command, env=self.config.env or None)  # type: ignore[arg-type]

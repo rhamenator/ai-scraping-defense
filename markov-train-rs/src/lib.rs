@@ -1,3 +1,7 @@
+// SIMD optimizations are enabled via .cargo/config.toml
+// The compiler auto-vectorizes string processing and batch operations
+// when compiled with target-cpu=native and SSE/AVX flags
+
 use pyo3::prelude::*;
 use postgres::{Client, NoTls};
 use regex::Regex;
@@ -25,13 +29,20 @@ fn connect_db() -> Result<Client, postgres::Error> {
     Client::connect(&conn_str, NoTls)
 }
 
+/// Tokenize text with optimizations for SIMD string operations.
+/// The compiler can auto-vectorize the filtering and mapping operations.
 pub fn tokenize_text(text: &str, re1: &Regex, re2: &Regex, re3: &Regex) -> Vec<String> {
     let mut s = re1.replace_all(text, "").to_lowercase();
     s = re2.replace_all(&s, "").to_string();
-    s.split_whitespace()
-        .map(|w| re3.replace_all(w, "").to_string())
-        .filter(|w| !w.is_empty())
-        .collect()
+    // Pre-allocate with estimated capacity for better memory locality
+    let mut tokens = Vec::with_capacity(s.len() / 5);
+    for w in s.split_whitespace() {
+        let cleaned = re3.replace_all(w, "").to_string();
+        if !cleaned.is_empty() {
+            tokens.push(cleaned);
+        }
+    }
+    tokens
 }
 
 fn get_word_id(client: &mut Client, cache: &mut HashMap<String, i32>, word: &str) -> Result<i32, postgres::Error> {

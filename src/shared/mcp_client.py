@@ -55,8 +55,13 @@ def parse_mcp_uri(model_uri: str) -> tuple[str, str, Dict[str, str]]:
     server_label = parsed.netloc or ""
     tool_name = parsed.path.lstrip("/")
     if not server_label or not tool_name:
-        raise ValueError(f"Invalid MCP URI '{model_uri}'. Expected mcp://label/tool format")
-    query = {key: values[-1] for key, values in parse_qs(parsed.query, keep_blank_values=True).items()}
+        raise ValueError(
+            f"Invalid MCP URI '{model_uri}'. Expected mcp://label/tool format"
+        )
+    query = {
+        key: values[-1]
+        for key, values in parse_qs(parsed.query, keep_blank_values=True).items()
+    }
     return server_label, tool_name, query
 
 
@@ -186,7 +191,9 @@ def load_server_config(
                 f"MCP server '{label}' requires MCP_SERVER_{label.upper()}_EXECUTABLE for stdio transport"
             )
     else:
-        raise MCPClientError(f"Unsupported MCP transport '{transport}' for server '{label}'")
+        raise MCPClientError(
+            f"Unsupported MCP transport '{transport}' for server '{label}'"
+        )
 
     return MCPServerConfig(
         label=label,
@@ -210,7 +217,9 @@ class MCPClient:
         self._loop_thread: Optional[threading.Thread] = None
         self._loop_lock = threading.Lock()
 
-    def call_tool(self, tool_name: str, arguments: Any, timeout: Optional[float] = None) -> Dict[str, Any]:
+    def call_tool(
+        self, tool_name: str, arguments: Any, timeout: Optional[float] = None
+    ) -> Dict[str, Any]:
         """Invoke ``tool_name`` with ``arguments`` and return a JSON-serialisable dict."""
 
         effective_timeout = timeout or self.config.timeout
@@ -226,7 +235,9 @@ class MCPClient:
             )
             try:
                 return future.result(timeout=effective_timeout)
-            except Exception as exc:  # pragma: no cover - surfaced as MCPClientError below
+            except (
+                Exception
+            ) as exc:  # pragma: no cover - surfaced as MCPClientError below
                 raise MCPClientError(str(exc)) from exc
         return asyncio.run(self._call_tool(tool_name, arguments, effective_timeout))
 
@@ -235,32 +246,40 @@ class MCPClient:
             if self._background_loop is not None:
                 return self._background_loop
             loop = asyncio.new_event_loop()
-            thread = threading.Thread(target=self._loop_entry, args=(loop,), daemon=True)
+            thread = threading.Thread(
+                target=self._loop_entry, args=(loop,), daemon=True
+            )
             thread.start()
             self._background_loop = loop
             self._loop_thread = thread
             return loop
 
     @staticmethod
-    def _loop_entry(loop: asyncio.AbstractEventLoop) -> None:  # pragma: no cover - background loop
+    def _loop_entry(
+        loop: asyncio.AbstractEventLoop,
+    ) -> None:  # pragma: no cover - background loop
         asyncio.set_event_loop(loop)
         loop.run_forever()
 
-    async def _call_tool(self, tool_name: str, arguments: Any, timeout: float) -> Dict[str, Any]:
+    async def _call_tool(
+        self, tool_name: str, arguments: Any, timeout: float
+    ) -> Dict[str, Any]:
         if ClientSession is None:
-            raise MCPClientError(
-                "model-context-protocol package is not installed. Run 'pip install model-context-protocol'."
-            )
+            raise MCPClientError("mcp package is not installed. Run 'pip install mcp'.")
         transport = await self._create_transport()
         try:
             if hasattr(transport, "__aenter__"):
                 async with transport:  # type: ignore[attr-defined]
-                    return await self._invoke_session(tool_name, arguments, transport, timeout)
+                    return await self._invoke_session(
+                        tool_name, arguments, transport, timeout
+                    )
             return await self._invoke_session(tool_name, arguments, transport, timeout)
         finally:
             close = getattr(transport, "close", None)
             if close:
-                if asyncio.iscoroutinefunction(close):  # pragma: no cover - depends on implementation
+                if asyncio.iscoroutinefunction(
+                    close
+                ):  # pragma: no cover - depends on implementation
                     try:
                         await close()  # type: ignore[call-arg]
                     except Exception:  # pragma: no cover - best effort cleanup
@@ -297,7 +316,7 @@ class MCPClient:
         if transport_type in {"ws", "wss", "websocket"}:
             if WebSocketClientTransport is None:
                 raise MCPClientError(
-                    "WebSocket transport requires the model-context-protocol websocket extra."
+                    "WebSocket transport requires the mcp websocket extra."
                 )
             return WebSocketClientTransport(
                 self.config.endpoint,
@@ -305,10 +324,12 @@ class MCPClient:
             )  # type: ignore[arg-type]
         if transport_type in {"stdio", "process"}:
             if StdioClientTransport is None:
-                raise MCPClientError(
-                    "Stdio transport requires the model-context-protocol stdio extra."
-                )
-            command = [self.config.executable] + self.config.args if self.config.executable else self.config.args
+                raise MCPClientError("Stdio transport requires the mcp stdio extra.")
+            command = (
+                [self.config.executable] + self.config.args
+                if self.config.executable
+                else self.config.args
+            )
             return StdioClientTransport(command=command, env=self.config.env or None)  # type: ignore[arg-type]
         raise MCPClientError(f"Unsupported MCP transport '{transport_type}'")
 
@@ -342,8 +363,12 @@ def call_mcp_tool(
     server_label, tool_name, query = parse_mcp_uri(model_uri)
     merged_overrides: Dict[str, Any] = dict(query)
     if config_overrides:
-        merged_overrides.update({k: v for k, v in config_overrides.items() if v is not None})
-    config = load_server_config(server_label, overrides=merged_overrides, adapter_config=config_overrides)
+        merged_overrides.update(
+            {k: v for k, v in config_overrides.items() if v is not None}
+        )
+    config = load_server_config(
+        server_label, overrides=merged_overrides, adapter_config=config_overrides
+    )
     client = MCPClient(config)
     return client.call_tool(tool_name, arguments, timeout=config.timeout)
 

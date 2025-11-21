@@ -64,4 +64,3 @@ def tokenize_card(
     # best effort to clear sensitive data
     del cleaned  # pragma: no cover - can't reliably ensure in CPython
     return token
-
