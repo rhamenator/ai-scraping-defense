@@ -26,7 +26,7 @@ bcrypt~=5.0
 # HTTP and Web Scraping
 httpx~=0.28
 requests>=2.32.4,<3
-urllib3>=2.5.0,<3
+urllib3>=1.24.2,<2.4.0
 wikipedia~=1.4
 python-multipart~=0.0.20
 cachetools~=5.3
@@ -37,13 +37,18 @@ PyYAML~=6.0
 # Kubernetes
 kubernetes~=34.1
 
+# Secret Management
+hvac~=2.3
+
 # LLM and AI Libraries
 openai>=1.17,<2.0
 anthropic>=0.25,<1.0
+# Note: google-genai has a Pydantic 2.12+ deprecation warning (issue #1579)
+# We filter the warning in pytest.ini until upstream fixes it
 google-genai>=1.0,<2.0
 cohere>=5.3,<6.0
 mistralai>=0.1.4,<2.0
-model-context-protocol>=0.1.0,<1.0
+mcp>=0.1.0,<1.0
 transformers>=4.38,<5.0
 datasets>=2.18,<5.0
 evaluate>=0.4,<1.0

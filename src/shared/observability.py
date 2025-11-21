@@ -23,7 +23,20 @@ from typing import Any, Awaitable, Callable, Optional
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from .metrics import REQUEST_LATENCY, get_metrics, record_request
+from .metrics import (
+    PERFORMANCE_ANOMALY_SCORE,
+    PERFORMANCE_BASELINE,
+    PERFORMANCE_DEGRADATION_DETECTED,
+    PERFORMANCE_INSIGHTS_GENERATED,
+    PERFORMANCE_PERCENTILE,
+    PERFORMANCE_PREDICTIONS_GENERATED,
+    PERFORMANCE_SAMPLES_COLLECTED,
+    PERFORMANCE_TREND,
+    REQUEST_LATENCY,
+    get_metrics,
+    record_request,
+)
+
 HealthCallable = Callable[[], Awaitable["HealthCheckResult"] | "HealthCheckResult"]
 
 
@@ -342,9 +355,14 @@ def configure_observability(
     state = ObservabilityState(settings)
     app.state.observability = state
 
+    # Initialize performance analytics
+    analytics = PerformanceAnalytics(service_name=settings.service_name)
+    app.state.performance_analytics = analytics
+
     _add_metrics_route(app, settings)
     _add_traces_route(app, settings)
     _add_health_route(app, settings)
+    _add_performance_analytics_routes(app, settings)
 
     logger = logging.getLogger(settings.service_name)
 
@@ -372,6 +390,7 @@ def configure_observability(
         )
         token_span = _current_span_ctx.set(span)
         token_state = _current_state_ctx.set(state)
+        token_analytics = _performance_analytics_ctx.set(analytics)
         status_code = 500
         response: Response | None = None
         try:
@@ -410,6 +429,13 @@ def configure_observability(
             _current_span_ctx.reset(token_span)
             _request_id_ctx.reset(token_request)
             _current_state_ctx.reset(token_state)
+            _performance_analytics_ctx.reset(token_analytics)
+
+            # Record performance metrics
+            analytics.record_metric(
+                metric_name=f"request_latency_{endpoint}",
+                value=duration,
+            )
         return response
 
     return settings
@@ -430,6 +456,283 @@ def register_health_check(
     return decorator
 
 
+@dataclass
+class PerformanceMetrics:
+    """Performance metrics snapshot for analytics."""
+
+    metric_name: str
+    service: str
+    value: float
+    timestamp: float
+    percentile_p50: float | None = None
+    percentile_p95: float | None = None
+    percentile_p99: float | None = None
+
+    def to_json(self) -> dict[str, Any]:
+        payload = {
+            "metric_name": self.metric_name,
+            "service": self.service,
+            "value": self.value,
+            "timestamp": datetime.fromtimestamp(self.timestamp, tz=timezone.utc).isoformat(),
+        }
+        if self.percentile_p50 is not None:
+            payload["percentile_p50"] = self.percentile_p50
+        if self.percentile_p95 is not None:
+            payload["percentile_p95"] = self.percentile_p95
+        if self.percentile_p99 is not None:
+            payload["percentile_p99"] = self.percentile_p99
+        return payload
+
+
+@dataclass
+class PerformanceInsight:
+    """Performance insight derived from analytics."""
+
+    insight_type: str
+    service: str
+    metric_name: str
+    description: str
+    severity: str
+    timestamp: float
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "insight_type": self.insight_type,
+            "service": self.service,
+            "metric_name": self.metric_name,
+            "description": self.description,
+            "severity": self.severity,
+            "timestamp": datetime.fromtimestamp(self.timestamp, tz=timezone.utc).isoformat(),
+            "metadata": self.metadata,
+        }
+
+
+@dataclass
+class PerformancePrediction:
+    """Performance prediction for capacity planning."""
+
+    prediction_type: str
+    service: str
+    metric_name: str
+    predicted_value: float
+    confidence: float
+    forecast_horizon: str
+    timestamp: float
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "prediction_type": self.prediction_type,
+            "service": self.service,
+            "metric_name": self.metric_name,
+            "predicted_value": self.predicted_value,
+            "confidence": self.confidence,
+            "forecast_horizon": self.forecast_horizon,
+            "timestamp": datetime.fromtimestamp(self.timestamp, tz=timezone.utc).isoformat(),
+            "metadata": self.metadata,
+        }
+
+
+class PerformanceAnalytics:
+    """Track and analyze performance metrics over time."""
+
+    def __init__(self, service_name: str, history_size: int = 1000) -> None:
+        self.service_name = service_name
+        self._history: deque[PerformanceMetrics] = deque(maxlen=history_size)
+        self._baselines: dict[str, float] = {}
+        self._insights: deque[PerformanceInsight] = deque(maxlen=100)
+        self._predictions: deque[PerformancePrediction] = deque(maxlen=50)
+
+    def record_metric(
+        self,
+        metric_name: str,
+        value: float,
+        percentiles: Optional[dict[str, float]] = None,
+    ) -> None:
+        """Record a performance metric sample."""
+        timestamp = time.time()
+        metrics = PerformanceMetrics(
+            metric_name=metric_name,
+            service=self.service_name,
+            value=value,
+            timestamp=timestamp,
+            percentile_p50=percentiles.get("p50") if percentiles else None,
+            percentile_p95=percentiles.get("p95") if percentiles else None,
+            percentile_p99=percentiles.get("p99") if percentiles else None,
+        )
+        self._history.append(metrics)
+        PERFORMANCE_SAMPLES_COLLECTED.labels(
+            metric_name=metric_name, service=self.service_name
+        ).inc()
+
+        # Record percentiles
+        if percentiles:
+            for percentile_name, percentile_value in percentiles.items():
+                PERFORMANCE_PERCENTILE.labels(
+                    metric_name=f"{metric_name}_{percentile_name}",
+                    service=self.service_name,
+                ).observe(percentile_value)
+
+        # Check for anomalies
+        self._check_for_anomalies(metric_name, value)
+
+    def set_baseline(self, metric_name: str, baseline_value: float) -> None:
+        """Set performance baseline for a metric."""
+        self._baselines[metric_name] = baseline_value
+        PERFORMANCE_BASELINE.labels(
+            metric_name=metric_name, service=self.service_name
+        ).set(baseline_value)
+
+    def _check_for_anomalies(self, metric_name: str, value: float) -> None:
+        """Check if current value deviates from baseline."""
+        baseline = self._baselines.get(metric_name)
+        if baseline is None:
+            return
+
+        # Simple threshold-based anomaly detection
+        deviation = abs(value - baseline) / baseline if baseline > 0 else 0
+        anomaly_score = min(deviation, 1.0)
+
+        PERFORMANCE_ANOMALY_SCORE.labels(
+            metric_name=metric_name, service=self.service_name
+        ).set(anomaly_score)
+
+        # Detect degradation (value increased by more than 50%)
+        if value > baseline * 1.5:
+            PERFORMANCE_DEGRADATION_DETECTED.labels(
+                metric_name=metric_name, service=self.service_name
+            ).inc()
+            insight = PerformanceInsight(
+                insight_type="degradation",
+                service=self.service_name,
+                metric_name=metric_name,
+                description=f"Performance degradation detected: {metric_name} increased from {baseline:.3f} to {value:.3f}",
+                severity="warning",
+                timestamp=time.time(),
+                metadata={"baseline": baseline, "current": value, "deviation": deviation},
+            )
+            self._insights.append(insight)
+            PERFORMANCE_INSIGHTS_GENERATED.labels(
+                insight_type="degradation", service=self.service_name
+            ).inc()
+
+    def calculate_trend(self, metric_name: str, window_size: int = 10) -> float:
+        """Calculate performance trend for a metric."""
+        recent = [
+            m.value
+            for m in list(self._history)[-window_size:]
+            if m.metric_name == metric_name
+        ]
+        if len(recent) < 2:
+            return 0.0
+
+        # Simple linear regression slope
+        n = len(recent)
+        x_mean = (n - 1) / 2
+        y_mean = sum(recent) / n
+        numerator = sum((i - x_mean) * (y - y_mean) for i, y in enumerate(recent))
+        denominator = sum((i - x_mean) ** 2 for i in range(n))
+
+        if denominator == 0:
+            return 0.0
+
+        slope = numerator / denominator
+        # Normalize to -1, 0, 1
+        trend = max(-1.0, min(1.0, slope * 10))
+
+        PERFORMANCE_TREND.labels(metric_name=metric_name, service=self.service_name).set(
+            trend
+        )
+        return trend
+
+    def generate_prediction(
+        self,
+        metric_name: str,
+        prediction_type: str,
+        predicted_value: float,
+        confidence: float,
+        forecast_horizon: str = "1h",
+    ) -> PerformancePrediction:
+        """Generate a performance prediction."""
+        prediction = PerformancePrediction(
+            prediction_type=prediction_type,
+            service=self.service_name,
+            metric_name=metric_name,
+            predicted_value=predicted_value,
+            confidence=confidence,
+            forecast_horizon=forecast_horizon,
+            timestamp=time.time(),
+        )
+        self._predictions.append(prediction)
+        PERFORMANCE_PREDICTIONS_GENERATED.labels(
+            prediction_type=prediction_type, service=self.service_name
+        ).inc()
+        return prediction
+
+    def get_insights(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Get recent performance insights."""
+        return [insight.to_json() for insight in list(self._insights)[-limit:]]
+
+    def get_predictions(self, limit: int = 10) -> list[dict[str, Any]]:
+        """Get recent performance predictions."""
+        return [pred.to_json() for pred in list(self._predictions)[-limit:]]
+
+    def get_history(
+        self, metric_name: Optional[str] = None, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """Get performance history."""
+        history = list(self._history)[-limit:]
+        if metric_name:
+            history = [m for m in history if m.metric_name == metric_name]
+        return [m.to_json() for m in history]
+
+
+_performance_analytics_ctx: ContextVar[PerformanceAnalytics | None] = ContextVar(
+    "performance_analytics", default=None
+)
+
+
+def get_performance_analytics() -> PerformanceAnalytics | None:
+    """Get the current performance analytics instance."""
+    return _performance_analytics_ctx.get()
+
+
+def _add_performance_analytics_routes(
+    app: FastAPI, settings: ObservabilitySettings
+) -> None:
+    """Add performance analytics endpoints."""
+    analytics_path = "/observability/performance"
+
+    if any(getattr(route, "path", None) == analytics_path for route in app.routes):
+        return
+
+    @app.get(f"{analytics_path}/insights", include_in_schema=False)
+    async def performance_insights(limit: int = 20) -> JSONResponse:
+        analytics = get_performance_analytics()
+        if analytics is None:
+            return JSONResponse({"insights": []})
+        return JSONResponse({"insights": analytics.get_insights(limit)})
+
+    @app.get(f"{analytics_path}/predictions", include_in_schema=False)
+    async def performance_predictions(limit: int = 10) -> JSONResponse:
+        analytics = get_performance_analytics()
+        if analytics is None:
+            return JSONResponse({"predictions": []})
+        return JSONResponse({"predictions": analytics.get_predictions(limit)})
+
+    @app.get(f"{analytics_path}/history", include_in_schema=False)
+    async def performance_history(
+        metric_name: Optional[str] = None, limit: int = 100
+    ) -> JSONResponse:
+        analytics = get_performance_analytics()
+        if analytics is None:
+            return JSONResponse({"history": []})
+        return JSONResponse(
+            {"history": analytics.get_history(metric_name=metric_name, limit=limit)}
+        )
+
+
 __all__ = [
     "configure_observability",
     "ObservabilitySettings",
@@ -438,4 +741,9 @@ __all__ = [
     "trace_span",
     "get_request_id",
     "get_current_span",
+    "PerformanceAnalytics",
+    "PerformanceMetrics",
+    "PerformanceInsight",
+    "PerformancePrediction",
+    "get_performance_analytics",
 ]

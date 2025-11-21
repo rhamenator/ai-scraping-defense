@@ -3,26 +3,26 @@
 # extracts features, trains RandomForest, AND saves data for LLM fine-tuning.
 # This version is refactored for high performance using pandas.
 
-import pandas as pd
-import re
+import argparse
 import datetime
-from collections import defaultdict
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.feature_extraction import DictVectorizer
-from sklearn.metrics import classification_report, accuracy_score, roc_auc_score
-from sklearn.pipeline import Pipeline
-import joblib
-import time
-import os
-from urllib.parse import urlparse
 import json
+import os
 import random
+import re
+import time
+from collections import defaultdict
+from typing import Any, Dict, List, Optional, Tuple
+
+import joblib
+import pandas as pd
 import psycopg2
 from psycopg2.extras import DictCursor
-from typing import Optional, Dict, Any, List, Tuple
-import argparse
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
 
 # GeoIP lookup
 try:
