@@ -74,6 +74,9 @@ class AnomalyDetector:
             score = max(0.0, min(1.0, raw + 0.5))
 
             # Publish anomaly event if score exceeds threshold
+            # Note: Using synchronous Redis publish here is acceptable as it's a
+            # fire-and-forget operation with connection pooling. The score() method
+            # is called from synchronous contexts in the codebase.
             if score > ANOMALY_SCORE_THRESHOLD and self._redis_client:
                 try:
                     event_data = {"anomaly_score": score, "features": features}

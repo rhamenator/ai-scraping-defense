@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -59,7 +61,9 @@ async def run_loop(stop_event: asyncio.Event | None = None) -> None:
         stop_event = asyncio.Event()
     while not stop_event.is_set():
         try:
-            compute_and_update()
+            # Run synchronous compute_and_update in an executor to avoid blocking
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, compute_and_update)
         except Exception as exc:  # pragma: no cover - unexpected
             logger.error("Adaptive rate limit update failed: %s", exc)
         try:
@@ -70,9 +74,17 @@ async def run_loop(stop_event: asyncio.Event | None = None) -> None:
 
 async def main():
     """Main entry point for the daemon."""
-    async with asyncio.TaskGroup() as tg:
-        tg.create_task(subscribe_rate_limit_events())
-        tg.create_task(run_loop())
+    # Python 3.11+ has TaskGroup, for 3.10 use gather
+    if hasattr(asyncio, "TaskGroup"):
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(subscribe_rate_limit_events())
+            tg.create_task(run_loop())
+    else:
+        # Fallback for Python 3.10
+        await asyncio.gather(
+            subscribe_rate_limit_events(),
+            run_loop(),
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover - manual execution
