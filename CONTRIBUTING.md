@@ -23,6 +23,23 @@ We welcome meaningful contributions, including but not limited to:
 - **Testing:** Adding unit tests, integration tests, or bot simulation tests.
 - **Security Hardening:** Identifying and patching potential vulnerabilities.
 
+## Security Culture
+
+This project maintains a strong security culture. All contributors are expected to:
+
+- **Follow Security Best Practices**: Write secure code following our guidelines (see below)
+- **Complete Security Training**: New contributors should review security documentation in `docs/security/`
+- **Use Security Tools**: Install and run pre-commit hooks for automated security checks
+- **Report Security Issues**: Follow responsible disclosure process in `SECURITY.md`
+- **Participate in Security Reviews**: Engage constructively in security-focused code reviews
+- **Stay Informed**: Keep up with security advisories relevant to our stack
+
+For comprehensive security culture information, see:
+- `SECURITY.md` - Security policy and reporting
+- `docs/security/security_culture.md` - Security culture programs
+- `docs/security/security_awareness_training.md` - Training curriculum
+- `docs/security/security_champions.md` - Security Champions program
+
 ## How to Contribute
 
 1. **Find an Issue or Propose an Idea:** Look through existing issues or propose a new feature/improvement in the Issues tab or Discussions.
@@ -35,11 +52,51 @@ We welcome meaningful contributions, including but not limited to:
 8. **Push to Your Fork:** `git push origin feature/your-new-feature`
 9. **Submit a Pull Request:** Open a PR against the `main` branch of the original repository. Fill out the PR template clearly.
 
-## Code Style (Example)
+## Code Style
 
 - Follow PEP 8 for Python.
 - Keep Lua scripts clean and commented.
 - Use consistent formatting for Dockerfiles and YAML.
+
+## Security Coding Guidelines
+
+All code contributions must follow these security practices:
+
+### Input Validation
+- Validate and sanitize all user inputs
+- Use Pydantic models for API request validation
+- Reject invalid input rather than attempting to correct it
+- Use allowlists rather than denylists when possible
+
+### Authentication & Authorization
+- Never bypass authentication or authorization checks
+- Use established authentication mechanisms (don't roll your own crypto)
+- Implement proper session management
+- Log all authentication and authorization events
+
+### Data Protection
+- Never log sensitive data (passwords, tokens, PII)
+- Use parameterized queries to prevent SQL injection
+- Encrypt sensitive data at rest and in transit
+- Handle secrets securely (use environment variables, never commit secrets)
+
+### Error Handling
+- Don't expose sensitive information in error messages
+- Log errors with sufficient context for debugging
+- Fail securely (deny by default)
+- Handle all exceptions appropriately
+
+### Dependencies
+- Keep dependencies up-to-date
+- Review security advisories for dependencies
+- Use `pip-audit` and other security scanning tools
+- Document reasons for using specific dependency versions
+
+### Code Review
+- All PRs require review, security-sensitive PRs require Security Champion review
+- Use security review checklist (see `docs/security/security_champions.md`)
+- Address security feedback before merging
+- Don't merge code with known security vulnerabilities
 
 ## Contact
 
