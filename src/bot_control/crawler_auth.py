@@ -1,4 +1,7 @@
-"""Simple crawler registry for token-based authentication backed by Redis."""
+"""Simple crawler registry for token-based authentication backed by Redis.
+
+Supports both web crawlers and mobile applications.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +17,12 @@ def _key(token: str) -> str:
     return tenant_key(f"crawler:token:{token}")
 
 
+def _mobile_app_key(app_id: str) -> str:
+    return tenant_key(f"mobile:app:{app_id}")
+
+
 CRAWLER_TTL_SECONDS = 24 * 60 * 60
+MOBILE_APP_TTL_SECONDS = 30 * 24 * 60 * 60  # 30 days
 
 
 def register_crawler(name: str, token: str, purpose: str) -> bool:

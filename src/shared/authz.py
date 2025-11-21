@@ -10,6 +10,11 @@ except Exception:  # pragma: no cover - dependency missing in some envs
     jwt = None  # type: ignore
     InvalidTokenError = Exception  # type: ignore
 
+try:
+    from src.security.mobile_security import MobilePlatform
+except ImportError:  # pragma: no cover - optional dependency
+    MobilePlatform = None  # type: ignore
+
 
 ALGORITHMS_DEFAULT = [
     alg.strip()
@@ -40,11 +45,50 @@ def _roles_from_claims(claims: dict) -> set[str]:
     return roles
 
 
+def _validate_mobile_claims(claims: dict, request: Request) -> None:
+    """Validate mobile-specific JWT claims.
+
+    Mobile JWTs should include:
+    - 'mobile_platform': Platform identifier (ios, android, etc.)
+    - 'app_version': Application version
+    - 'device_id': Unique device identifier (optional)
+    """
+    # Check if this is a mobile request
+    if not hasattr(request.state, "mobile_device_info"):
+        return  # Not a mobile request, skip validation
+
+    mobile_platform = claims.get("mobile_platform")
+    app_version = claims.get("app_version")
+
+    # Validate mobile platform claim exists
+    if not mobile_platform:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Mobile platform claim missing in token",
+        )
+
+    # Validate platform matches the detected platform
+    device_info = request.state.mobile_device_info
+    if MobilePlatform and device_info.platform != MobilePlatform.UNKNOWN:
+        expected_platform = device_info.platform.value
+        if mobile_platform != expected_platform:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Mobile platform mismatch",
+            )
+
+    # Warn if app version is missing
+    if not app_version:
+        # Not a hard failure, but should be logged
+        pass
+
+
 def verify_jwt_from_request(
     request: Request,
     required_roles: Optional[Iterable[str]] = None,
     *,
     raise_on_missing: bool = True,
+    validate_mobile: bool = True,
 ) -> dict:
     if jwt is None or not JWT_SECRET:
         if raise_on_missing:
@@ -78,15 +122,26 @@ def verify_jwt_from_request(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient role",
             )
+
+    # Validate mobile-specific claims if this is a mobile request
+    if validate_mobile:
+        _validate_mobile_claims(claims, request)
+
     return claims
 
 
 def require_jwt(
-    required_roles: Optional[Iterable[str]] = None, *, optional: bool = False
+    required_roles: Optional[Iterable[str]] = None,
+    *,
+    optional: bool = False,
+    validate_mobile: bool = True,
 ):
     async def _dep(request: Request):
         return verify_jwt_from_request(
-            request, required_roles, raise_on_missing=not optional
+            request,
+            required_roles,
+            raise_on_missing=not optional,
+            validate_mobile=validate_mobile,
         )
 
     return _dep

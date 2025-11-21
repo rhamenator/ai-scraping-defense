@@ -7,6 +7,11 @@ import httpx
 
 from src.shared.config import CONFIG, get_secret
 
+try:
+    from src.security.mobile_security import MobileThreatDetector
+except ImportError:  # pragma: no cover - optional dependency
+    MobileThreatDetector = None  # type: ignore
+
 ENABLE_DDOS_PROTECTION = os.getenv("ENABLE_DDOS_PROTECTION", "true").lower() == "true"
 DDOS_PROTECTION_PROVIDER_URL = os.getenv("DDOS_PROTECTION_PROVIDER_URL")
 DDOS_PROTECTION_API_KEY = os.getenv("DDOS_PROTECTION_API_KEY") or get_secret(
@@ -29,6 +34,11 @@ async def report_attack(
     escalation engine at ``CONFIG.ESCALATION_ENDPOINT``. The
     ``DDOS_INTERNAL_ENDPOINT`` variable may override this default but is not
     prompted for during setup.
+
+    Args:
+        ip: The IP address to report
+        metadata: Additional metadata about the attack
+        attack_type: Type of attack (e.g., "mobile_botnet", "ddos", "unspecified")
     """
 
     if not ENABLE_DDOS_PROTECTION:
@@ -45,7 +55,9 @@ async def report_attack(
             try:
                 # Build request and send to external provider
                 headers = {"Authorization": f"Bearer {DDOS_PROTECTION_API_KEY}"}
-                payload = {"ip": ip}
+                payload = {"ip": ip, "attack_type": attack_type}
+                if metadata:
+                    payload["metadata"] = metadata
                 async with httpx.AsyncClient() as client:
                     resp = await client.post(
                         DDOS_PROTECTION_PROVIDER_URL,
@@ -81,6 +93,40 @@ async def report_attack(
     except Exception as e:  # pragma: no cover - network/HTTP errors
         logger.error(f"Failed to submit IP {ip} for internal analysis: {e}")
         return False
+
+
+def detect_mobile_botnet_pattern(
+    user_agent: str, request_count: int, time_window: int = 60
+) -> bool:
+    """Detect if traffic pattern suggests mobile botnet activity.
+
+    Args:
+        user_agent: User-Agent header
+        request_count: Number of requests in time window
+        time_window: Time window in seconds
+
+    Returns:
+        True if mobile botnet pattern detected
+    """
+    if not user_agent or not MobileThreatDetector:
+        return False
+
+    # High request rate from mobile device is suspicious
+    requests_per_second = request_count / time_window
+    if requests_per_second > 2.0:  # More than 2 req/sec from mobile
+        # Check if it's a mobile user agent
+        ua_lower = user_agent.lower()
+        is_mobile = any(
+            x in ua_lower for x in ["iphone", "ipad", "android", "mobile"]
+        )
+        if is_mobile:
+            logger.warning(
+                f"Possible mobile botnet: {requests_per_second:.2f} req/s "
+                f"from mobile UA: {user_agent[:50]}"
+            )
+            return True
+
+    return False
 
 
 if __name__ == "__main__":  # pragma: no cover - manual execution
