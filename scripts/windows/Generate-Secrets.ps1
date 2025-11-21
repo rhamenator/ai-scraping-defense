@@ -105,6 +105,11 @@ $mistralApiKey_b64 = ConvertTo-Base64 $mistralApiKey
 
 # Assemble YAML
 $yamlContent = @"
+# WARNING: This file contains generated secrets for DEVELOPMENT/TESTING only
+# DO NOT commit this file to version control (already in .gitignore)
+# For production, use a proper secret management solution
+# See SECURITY.md for guidelines
+---
 apiVersion: v1
 kind: Secret
 metadata:

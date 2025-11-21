@@ -88,6 +88,11 @@ echo "$HTPASSWD_FILE_CONTENT" > "$HTPASSWD_OUTPUT_FILE"
 
 # Write YAML to file
 cat > "$OUTPUT_FILE" << EOL
+# WARNING: This file contains generated secrets for DEVELOPMENT/TESTING only
+# DO NOT commit this file to version control (already in .gitignore)
+# For production, use a proper secret management solution
+# See SECURITY.md for guidelines
+---
 apiVersion: v1
 kind: Secret
 metadata:
