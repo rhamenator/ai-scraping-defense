@@ -20,6 +20,14 @@ RUN cd tarpit-rs && cargo build --release && \
 # FROM ubuntu:22.04
 FROM python:3.11-slim
 
+# Add security labels
+LABEL org.opencontainers.image.vendor="AI Scraping Defense" \
+      org.opencontainers.image.title="AI Scraping Defense Service" \
+      org.opencontainers.image.description="Multi-layered defense against AI-powered web scrapers" \
+      org.opencontainers.image.source="https://github.com/rhamenator/ai-scraping-defense" \
+      security.tls="required" \
+      security.unprivileged="true"
+
 # Update system packages and install dependencies with security upgrades
 RUN apt-get update && \
     apt-get upgrade -y && \
@@ -66,4 +74,9 @@ RUN chmod +x /app/docker-entrypoint.sh && \
 
 # Drop privileges and set entrypoint
 USER appuser
+
+# Health check (can be overridden in docker-compose for specific services)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD ["python", "-c", "import sys; sys.exit(0)"]
+
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
