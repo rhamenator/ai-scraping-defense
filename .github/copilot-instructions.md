@@ -136,7 +136,7 @@ docker-compose down
 ### Python Code
 
 1. **Follow PEP 8** with these specifics:
-   - Line length: Use the max line length configured in the repository's tooling (see `.flake8`, `pyproject.toml`, or formatter-specific configs). Do not assume or hard-code a specific numeric limit.
+   - Line length: Use the max line length configured in the repository's tooling (see `.flake8`, `pyproject.toml` (if present), or formatter-specific configs). Do not assume or hard-code a specific numeric limit.
    - Use type hints for function signatures
    - Docstrings for public functions and classes
 
