@@ -7,9 +7,11 @@ common HTTP operations like JSON POST requests.
 Key Features:
 - Async context manager for proper connection lifecycle
 - Configurable timeouts and connection limits
+- HTTP/2 support for improved performance
 - JSON request/response helpers
 - Comprehensive error handling and logging
 - Connection pooling and reuse
+- Network performance metrics
 
 Usage Example:
     async with AsyncHttpClient(timeout=10.0) as client:
@@ -21,6 +23,7 @@ Usage Example:
 """
 
 import logging
+import time
 from typing import Any, Dict, Optional
 
 try:
@@ -94,7 +97,8 @@ class AsyncHttpClient:
         follow_redirects: bool = True,
         verify: bool = True,
         max_connections: int = 100,
-        max_keepalive_connections: int = 20
+        max_keepalive_connections: int = 20,
+        http2: bool = True
     ):
         """Initialize the HTTP client with configuration.
         
@@ -104,6 +108,7 @@ class AsyncHttpClient:
             verify: Whether to verify SSL certificates
             max_connections: Maximum number of connections in the pool
             max_keepalive_connections: Maximum number of keep-alive connections
+            http2: Whether to enable HTTP/2 support for better performance
         """
         if not HTTPX_AVAILABLE:
             logger.warning("httpx not available. HTTP client functionality will be limited.")
@@ -113,6 +118,7 @@ class AsyncHttpClient:
         self.verify = verify
         self.max_connections = max_connections
         self.max_keepalive_connections = max_keepalive_connections
+        self.http2 = http2
         self._client: Optional[httpx.AsyncClient] = None
     
     async def __aenter__(self) -> 'AsyncHttpClient':
@@ -129,17 +135,20 @@ class AsyncHttpClient:
             )
             
             # Initialize the httpx client with our configuration
+            # HTTP/2 enables multiplexing for better performance
             self._client = httpx.AsyncClient(
                 timeout=self.timeout,
                 follow_redirects=self.follow_redirects,
                 verify=self.verify,
-                limits=limits
+                limits=limits,
+                http2=self.http2
             )
             
             logger.debug(
                 f"HTTP client initialized with timeout={self.timeout}s, "
                 f"max_connections={self.max_connections}, "
-                f"max_keepalive={self.max_keepalive_connections}"
+                f"max_keepalive={self.max_keepalive_connections}, "
+                f"http2={'enabled' if self.http2 else 'disabled'}"
             )
             
         except Exception as e:
@@ -201,6 +210,7 @@ class AsyncHttpClient:
         request_timeout = timeout if timeout is not None else self.timeout
         
         try:
+            start_time = time.perf_counter()
             logger.debug(f"Making JSON POST request to {url}")
             response = await self._client.post(
                 url,
@@ -208,10 +218,15 @@ class AsyncHttpClient:
                 headers=request_headers,
                 timeout=request_timeout
             )
+            elapsed = time.perf_counter() - start_time
+            
+            # Extract HTTP version from response for performance monitoring
+            http_version = getattr(response, 'http_version', 'HTTP/1.1')
             
             logger.debug(
                 f"Received response: {response.status_code} from {url} "
-                f"(Content-Length: {len(response.content)} bytes)"
+                f"(Content-Length: {len(response.content)} bytes, "
+                f"Time: {elapsed:.3f}s, Protocol: {http_version})"
             )
             
             return response
@@ -256,6 +271,7 @@ class AsyncHttpClient:
         request_timeout = timeout if timeout is not None else self.timeout
         
         try:
+            start_time = time.perf_counter()
             logger.debug(f"Making GET request to {url}")
             response = await self._client.get(
                 url,
@@ -263,10 +279,15 @@ class AsyncHttpClient:
                 headers=headers,
                 timeout=request_timeout
             )
+            elapsed = time.perf_counter() - start_time
+            
+            # Extract HTTP version from response for performance monitoring
+            http_version = getattr(response, 'http_version', 'HTTP/1.1')
             
             logger.debug(
                 f"Received response: {response.status_code} from {url} "
-                f"(Content-Length: {len(response.content)} bytes)"
+                f"(Content-Length: {len(response.content)} bytes, "
+                f"Time: {elapsed:.3f}s, Protocol: {http_version})"
             )
             
             return response
