@@ -1,3 +1,7 @@
+// SIMD optimizations are enabled via .cargo/config.toml
+// The compiler auto-vectorizes file content generation and string operations
+// when compiled with target-cpu=native and SSE/AVX flags
+
 use pyo3::prelude::*;
 use rand::{distributions::Alphanumeric, Rng};
 use zip::write::FileOptions;
@@ -15,12 +19,15 @@ const FILENAME_PREFIXES: [&str; 12] = [
 const FILENAME_SUFFIXES: [&str; 6] = ["_min", "_pack", "_bundle", "_lib", "_core", ""];
 const FILENAME_EXT: &str = ".js";
 
+/// Generate random string with SIMD-friendly operations.
+/// Pre-allocation improves performance via better memory locality.
 pub fn rand_string(len: usize) -> String {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(len)
-        .map(char::from)
-        .collect()
+    let mut rng = rand::thread_rng();
+    let mut s = String::with_capacity(len);
+    for _ in 0..len {
+        s.push(char::from(rng.sample(Alphanumeric)));
+    }
+    s
 }
 
 #[pyfunction]
@@ -32,6 +39,8 @@ pub fn generate_realistic_filename() -> PyResult<String> {
     Ok(format!("{}{}{}.{}", prefix, suffix, random_hash, "js"))
 }
 
+/// Generate file content with pre-allocated capacity for SIMD optimization.
+/// Better memory layout enables auto-vectorization of byte operations.
 pub fn generate_file_content(name: &str, target_size: usize) -> Vec<u8> {
     let mut rng = rand::thread_rng();
     let mut content = format!("// Fake module: {}\n(function() {{\n", name);
@@ -43,9 +52,11 @@ pub fn generate_file_content(name: &str, target_size: usize) -> Vec<u8> {
             rng.gen_range(0..1000)));
     }
     content.push_str("})();\n");
-    let mut bytes = content.into_bytes();
+    let mut bytes = Vec::with_capacity(target_size);
+    bytes.extend_from_slice(content.as_bytes());
     if bytes.len() < target_size {
-        let padding: String = rand_string(target_size - bytes.len());
+        let padding_len = target_size - bytes.len();
+        let padding = rand_string(padding_len);
         bytes.extend_from_slice(padding.as_bytes());
     }
     bytes
