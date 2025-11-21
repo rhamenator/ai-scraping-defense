@@ -10,6 +10,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Optional
 
 import httpx
+import redis.asyncio as redis
 
 from src.shared.config import CONFIG
 from src.shared.utils import LOG_DIR, log_error, log_event
@@ -41,6 +42,12 @@ ALERT_EMAIL_FROM = CONFIG.ALERT_EMAIL_FROM
 ALERT_EMAIL_TO = CONFIG.ALERT_EMAIL_TO
 ALERT_MIN_REASON_SEVERITY = CONFIG.ALERT_MIN_REASON_SEVERITY
 
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+REDIS_DB = int(os.environ.get("REDIS_DB", 0))
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
+ANOMALY_EVENT_CHANNEL = "anomaly_events"
+
 
 # ---------------------------------------------------------------------------
 # SMTP password loader
@@ -54,9 +61,7 @@ def _load_smtp_password() -> Optional[str]:
             value = f.read().strip()
             return value or None
     except FileNotFoundError as e:
-        logger.warning(
-            "SMTP password file not found at %s: %s", ALERT_SMTP_PASSWORD_FILE, e
-        )
+        logger.warning("SMTP password file not found at %s: %s", ALERT_SMTP_PASSWORD_FILE, e)
     except PermissionError as e:
         logger.error(
             "Permission denied reading SMTP password file at %s: %s",
@@ -92,9 +97,7 @@ async def send_generic_webhook_alert(event_data: "WebhookEvent") -> None:
 
     if ALERT_ABSTRACTIONS_AVAILABLE:
         try:
-            generic_sender = HttpAlertSender(
-                webhook_url=ALERT_GENERIC_WEBHOOK_URL, timeout=10.0
-            )
+            generic_sender = HttpAlertSender(webhook_url=ALERT_GENERIC_WEBHOOK_URL, timeout=10.0)
             alert_data = {
                 "alert_type": "AI_DEFENSE_BLOCK",
                 "reason": event_data.reason,
@@ -141,9 +144,7 @@ async def _send_generic_webhook_alert_legacy(event_data: "WebhookEvent") -> None
     try:
         json_payload = json.loads(json.dumps(payload, default=str))
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                ALERT_GENERIC_WEBHOOK_URL, json=json_payload, timeout=10.0
-            )
+            response = await client.post(ALERT_GENERIC_WEBHOOK_URL, json=json_payload, timeout=10.0)
             response.raise_for_status()
             logger.info("Generic webhook alert sent successfully for IP %s.", ip)
             log_event(
@@ -176,9 +177,7 @@ async def send_slack_alert(event_data: "WebhookEvent") -> None:
 
     if ALERT_ABSTRACTIONS_AVAILABLE:
         try:
-            slack_sender = SlackAlertSender(
-                webhook_url=ALERT_SLACK_WEBHOOK_URL, timeout=10.0
-            )
+            slack_sender = SlackAlertSender(webhook_url=ALERT_SLACK_WEBHOOK_URL, timeout=10.0)
             alert_data = {
                 "reason": reason,
                 "event_type": event_data.event_type,
@@ -194,9 +193,7 @@ async def send_slack_alert(event_data: "WebhookEvent") -> None:
                     {"reason": reason, "ip": ip},
                 )
             else:
-                log_error(
-                    f"Failed to send Slack alert for IP {ip} using new alert system"
-                )
+                log_error(f"Failed to send Slack alert for IP {ip} using new alert system")
         except Exception as e:  # pragma: no cover - fallback path
             log_error(
                 f"Error using new Slack alert system for IP {ip}, falling back to legacy",
@@ -225,16 +222,12 @@ async def _send_slack_alert_legacy(event_data: "WebhookEvent") -> None:
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(
-                ALERT_SLACK_WEBHOOK_URL, headers=headers, json=payload
-            )
+            response = await client.post(ALERT_SLACK_WEBHOOK_URL, headers=headers, json=payload)
             response.raise_for_status()
         logger.info("Slack alert sent successfully for IP %s.", ip)
         log_event(ALERT_LOG_FILE, "ALERT_SENT_SLACK", {"reason": reason, "ip": ip})
     except httpx.HTTPError as e:
-        log_error(
-            f"Failed to send Slack alert to {ALERT_SLACK_WEBHOOK_URL} for IP {ip}", e
-        )
+        log_error(f"Failed to send Slack alert to {ALERT_SLACK_WEBHOOK_URL} for IP {ip}", e)
     except Exception as e:  # pragma: no cover - unexpected
         log_error(f"Unexpected error sending Slack alert for IP {ip}", e)
 
@@ -275,9 +268,7 @@ IP added to blocklist (TTL: {CONFIG.BLOCKLIST_TTL_SECONDS}s). Logs in {LOG_DIR}.
                     context=ssl.create_default_context(),
                 )
             else:
-                smtp_conn = smtplib.SMTP(
-                    str(ALERT_SMTP_HOST), ALERT_SMTP_PORT, timeout=15
-                )
+                smtp_conn = smtplib.SMTP(str(ALERT_SMTP_HOST), ALERT_SMTP_PORT, timeout=15)
             if ALERT_SMTP_USE_TLS and ALERT_SMTP_PORT != 465:
                 smtp_conn.starttls(context=ssl.create_default_context())
             if ALERT_SMTP_USER:
@@ -351,3 +342,59 @@ async def send_alert(event_data: "WebhookEvent") -> None:
         await send_smtp_alert(event_data)
     elif ALERT_METHOD != "none":
         log_error(f"Alert method '{ALERT_METHOD}' invalid.")
+
+
+# ---------------------------------------------------------------------------
+# Redis Event-Driven Operations
+# ---------------------------------------------------------------------------
+
+
+async def get_redis_client():
+    """Create and return an async Redis client."""
+    return redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        password=REDIS_PASSWORD,
+        decode_responses=True,
+    )
+
+
+async def subscribe_anomaly_events():
+    """Subscribe to anomaly events from Redis Pub/Sub."""
+    redis_client = await get_redis_client()
+    try:
+        pubsub = redis_client.pubsub()
+        await pubsub.subscribe(ANOMALY_EVENT_CHANNEL)
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                try:
+                    event_data = json.loads(message["data"])
+                    await handle_anomaly_event(event_data)
+                except json.JSONDecodeError as e:
+                    logger.error("Failed to decode anomaly event: %s", e)
+                except Exception as e:
+                    logger.error("Error handling anomaly event: %s", e)
+    finally:
+        await redis_client.aclose()
+
+
+async def handle_anomaly_event(event_data):
+    """Process the anomaly event."""
+    logger.info("Received anomaly event: %s", event_data)
+    # Process the anomaly event here. Example:
+    # You might decide to trigger alerts or take other actions based on the anomaly score and features.
+    # This is a placeholder; implement your logic here.
+    # Example of alerting:
+    # event_data['reason'] = f"High Anomaly Score: {event_data['anomaly_score']:.2f}"
+    # await send_alert(event_data)
+
+
+async def main():
+    """Main entry point for the Redis subscriber."""
+    # Await the Redis subscriber task to keep the event loop running
+    await subscribe_anomaly_events()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
