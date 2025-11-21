@@ -55,9 +55,81 @@ and escalated in production.
 5. **Post-Incident Review** – Document root cause, control gaps, and follow-up
    actions in the knowledge base. Update detection rules and runbooks.
 
+## Security Chaos Engineering
+
+Security chaos engineering proactively tests the system's resilience to security-
+related failures through controlled failure injection and game day exercises.
+
+### Failure Injection Testing
+
+Regularly test system behavior under failure conditions:
+
+- **Redis Unavailability** – Verify rate limiting degrades gracefully when Redis
+  is unavailable. Test with `test/security/test_chaos_engineering.py::TestRedisFailureResilience`.
+- **Network Failures** – Validate DDoS protection and escalation engine handle
+  network timeouts and intermittent connectivity without crashes.
+- **Authentication Failures** – Test audit logging continues when authentication
+  services are degraded.
+- **Cascading Failures** – Simulate multiple simultaneous failures (Redis + network)
+  to validate defense-in-depth and fallback mechanisms.
+
+Run failure injection tests:
+```bash
+pytest test/security/test_chaos_engineering.py -v
+```
+
+### Security Game Days
+
+Conduct quarterly security game day exercises to validate incident response:
+
+1. **DDoS Attack Simulation** – Simulate distributed denial-of-service attacks
+   from multiple IPs. Verify rate limiting activates, alerts fire, and system
+   remains available for legitimate traffic.
+
+2. **Credential Stuffing Drill** – Test authentication rate limiting and account
+   lockout mechanisms under automated credential stuffing attempts.
+
+3. **Multi-Vector Attack** – Simulate coordinated attacks across multiple vectors
+   (DDoS + credential stuffing + infrastructure failures) to test comprehensive
+   defense capabilities.
+
+4. **Incident Recovery Drill** – Practice full incident lifecycle: detection,
+   containment, recovery, and validation. Measure MTTR (Mean Time To Recovery).
+
+Run game day scenarios:
+```bash
+pytest test/security/test_security_gameday.py -v
+```
+
+### Resilience Validation
+
+Key resilience requirements validated through chaos testing:
+
+- **Graceful Degradation** – Security controls degrade gracefully rather than
+  failing open when dependencies are unavailable.
+- **Fallback Mechanisms** – System automatically falls back to secondary mechanisms
+  (e.g., local analysis when cloud services unavailable).
+- **Recovery Automation** – System self-recovers when transient failures resolve
+  without manual intervention.
+- **Blast Radius Containment** – Failure in one security component doesn't cascade
+  to unrelated components.
+
+### Metrics and Reporting
+
+Track resilience metrics during chaos tests:
+
+- **Failure Rate** – Percentage of operations that fail during injected failures
+- **Fallback Activation Rate** – How often fallback mechanisms activate
+- **Recovery Time** – Time to restore normal operation after failure resolution
+- **Availability During Failures** – System availability percentage during failures
+
+Generate game day reports to track improvements over time and identify weaknesses.
+
 ## Continuous Improvement
 
 - Integrate new findings from subsequent security batches by regenerating the
   inventory (`python src/security_audit/inventory.py`).
 - Track remediation status in the governance dashboard with owners, due dates,
   and verification artifacts from CI/CD runs.
+- Conduct security chaos engineering tests quarterly and after significant changes.
+- Update failure scenarios based on production incidents and emerging threats.
