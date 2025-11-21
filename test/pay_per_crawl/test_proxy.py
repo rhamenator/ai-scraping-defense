@@ -61,8 +61,8 @@ class TestPayPerCrawlProxy(unittest.TestCase):
 
     def test_ssrf_protection_scheme_mismatch(self):
         """Test SSRF protection rejects requests with mismatched scheme"""
-        # Simulate a malicious path that tries to change the scheme
-        # The urljoin might produce a URL with different scheme in edge cases
+        # Defense-in-depth: Even if initial validation is bypassed,
+        # the SSRF check should catch scheme mismatches
         with patch(
             "src.pay_per_crawl.proxy.urljoin", return_value="https://evil.com/data"
         ):
@@ -72,13 +72,31 @@ class TestPayPerCrawlProxy(unittest.TestCase):
 
     def test_ssrf_protection_netloc_mismatch(self):
         """Test SSRF protection rejects requests with mismatched netloc"""
-        # Simulate a path that results in a different host
+        # Defense-in-depth: Even if initial validation is bypassed,
+        # the SSRF check should catch host mismatches
         with patch(
             "src.pay_per_crawl.proxy.urljoin", return_value="http://evil.com/data"
         ):
             resp = self.client.get("/data", headers={"X-API-Key": "tok"})
             self.assertEqual(resp.status_code, 400)
             self.assertIn("Invalid upstream URL", resp.json()["detail"])
+
+    def test_absolute_url_with_scheme_rejected(self):
+        """Test that absolute URLs with scheme are rejected by initial validation"""
+        # Realistic attack: Try to use absolute URL
+        resp = self.client.get(
+            "/http://evil.com/malicious", headers={"X-API-Key": "tok"}
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Invalid path", resp.json()["detail"])
+
+    def test_protocol_relative_url_rejected(self):
+        """Test that protocol-relative URLs are rejected"""
+        # Realistic attack: Try protocol-relative URL (//host/path)
+        # Note: FastAPI decodes the path, so we encode the slashes
+        resp = self.client.get("/%2F%2Fevil.com/data", headers={"X-API-Key": "tok"})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Invalid path", resp.json()["detail"])
 
     def test_ssrf_protection_allows_valid_upstream(self):
         """Test that valid upstream URLs are allowed through"""
