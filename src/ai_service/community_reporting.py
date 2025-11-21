@@ -5,6 +5,7 @@ import os
 from typing import Dict
 
 import httpx
+import redis.asyncio as redis
 
 from src.shared.config import CONFIG
 from src.shared.utils import LOG_DIR, log_event
@@ -28,6 +29,12 @@ COMMUNITY_BLOCKLIST_API_KEY = CONFIG.COMMUNITY_BLOCKLIST_API_KEY
 COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = CONFIG.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT
 
 COMMUNITY_REPORT_LOG_FILE = os.path.join(LOG_DIR, "community_report.log")
+
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+REDIS_DB = int(os.environ.get("REDIS_DB", 0))
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
+REPORTING_EVENT_CHANNEL = "reporting_events"
 
 
 async def report_ip_to_community(ip: str, reason: str, details: Dict) -> bool:
@@ -54,11 +61,7 @@ async def report_ip_to_community(ip: str, reason: str, details: Dict) -> bool:
     categories = "18"  # Default: Brute-Force
     if "scan" in reason.lower():
         categories = "14"
-    if (
-        "scraping" in reason.lower()
-        or "crawler" in reason.lower()
-        or "llm" in reason.lower()
-    ):
+    if "scraping" in reason.lower() or "crawler" in reason.lower() or "llm" in reason.lower():
         categories = "19"
     if "honeypot" in reason.lower():
         categories = "22"
@@ -132,3 +135,59 @@ async def report_ip_to_community(ip: str, reason: str, details: Dict) -> bool:
         logger.error("Unexpected error reporting IP %s: %s", ip, e)
         increment_counter_metric(COMMUNITY_REPORTS_ERRORS_UNEXPECTED)
         return False
+
+
+# ---------------------------------------------------------------------------
+# Redis Event-Driven Operations
+# ---------------------------------------------------------------------------
+
+
+async def get_redis_client():
+    """Create and return an async Redis client."""
+    return redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        password=REDIS_PASSWORD,
+        decode_responses=True,
+    )
+
+
+async def subscribe_reporting_events():
+    """Subscribe to reporting events from Redis Pub/Sub."""
+    redis_client = await get_redis_client()
+    try:
+        pubsub = redis_client.pubsub()
+        await pubsub.subscribe(REPORTING_EVENT_CHANNEL)
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                try:
+                    event_data = json.loads(message["data"])
+                    await handle_reporting_event(event_data)
+                except json.JSONDecodeError as e:
+                    logger.error("Failed to decode reporting event: %s", e)
+                except Exception as e:
+                    logger.error("Error handling reporting event: %s", e)
+    finally:
+        await redis_client.aclose()
+
+
+async def handle_reporting_event(event_data):
+    """Process the reporting event."""
+    ip = event_data.get("ip")
+    reason = event_data.get("reason")
+    details = event_data.get("details")
+    if ip and reason and details:
+        await report_ip_to_community(ip, reason, details)
+    else:
+        logger.warning("Invalid reporting event: %s", event_data)
+
+
+async def main():
+    """Main entry point for the Redis subscriber."""
+    # Await the Redis subscriber task to keep the event loop running
+    await subscribe_reporting_events()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
