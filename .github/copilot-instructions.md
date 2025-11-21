@@ -81,9 +81,9 @@ pre-commit run --files <file1> [file2 ...]
 ```
 
 The project uses:
-- **black**: Python code formatting (line length 100)
+- **black**: Python code formatting (respects the max line length configured in the repository)
 - **isort**: Import sorting
-- **flake8**: Python linting (see `.flake8` for configuration)
+- **flake8**: Python linting (see `.flake8` for configuration including max line length)
 
 Configuration files:
 - `.flake8` - Flake8 settings
@@ -136,7 +136,7 @@ docker-compose down
 ### Python Code
 
 1. **Follow PEP 8** with these specifics:
-   - Line length: 100 characters (configured in `.flake8`)
+   - Line length: Use the max line length configured in the repository's tooling (see `.flake8`, `pyproject.toml`, or formatter-specific configs). Do not assume or hard-code a specific numeric limit.
    - Use type hints for function signatures
    - Docstrings for public functions and classes
 
