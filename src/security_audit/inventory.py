@@ -1,9 +1,8 @@
-"""""""Utilities to produce prioritized security inventories from JSON data."""
+"""Utilities to produce prioritized security inventories from JSON data."""
 
 from __future__ import annotations
 
 import json
-import re
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,12 +16,14 @@ SEVERITY_ORDER: Mapping[str, int] = {
     "info": 1,
 }
 
-dataclass
+
+@dataclass
 class InventoryItem:
     id: Optional[str] = None
     title: Optional[str] = None
     severity: str = "info"
     metadata: Dict[str, Any] = field(default_factory=dict)
+
 
 def _normalize_severity(raw: Any) -> str:
     if raw is None:
@@ -35,6 +36,7 @@ def _normalize_severity(raw: Any) -> str:
         return "info"
     return s
 
+
 def load_json(source: str | Path) -> Any:
     """Load JSON from a file path or from a JSON string."""
     text = str(source)
@@ -45,6 +47,7 @@ def load_json(source: str | Path) -> Any:
     # Otherwise assume it's a JSON string
     return json.loads(text)
 
+
 def _as_item(obj: Mapping[str, Any]) -> InventoryItem:
     # Best-effort mapping of common keys
     id_ = obj.get("id") or obj.get("key") or obj.get("name")
@@ -53,7 +56,12 @@ def _as_item(obj: Mapping[str, Any]) -> InventoryItem:
     metadata = dict(obj)
     return InventoryItem(id=id_, title=title, severity=severity, metadata=metadata)
 
-def extract_findings(parsed_json: Any, *, keys: Sequence[str] = ("findings", "vulnerabilities", "items")) -> List[InventoryItem]:
+
+def extract_findings(
+    parsed_json: Any,
+    *,
+    keys: Sequence[str] = ("findings", "vulnerabilities", "items")
+) -> List[InventoryItem]:
     """
     Extract a list of InventoryItem from parsed JSON.
     Looks for common container keys; if top-level list is provided it is used directly.
@@ -75,6 +83,7 @@ def extract_findings(parsed_json: Any, *, keys: Sequence[str] = ("findings", "vu
                 return [_as_item(x) for x in val if isinstance(x, Mapping)]
 
     return []
+
 
 def prioritize_findings(items: Iterable[InventoryItem]) -> List[InventoryItem]:
     """Return items sorted by severity (highest first)."""
@@ -140,6 +149,7 @@ def generate_inventory_markdown(data: Any) -> str:
         header_lines.append(f"| {id_text} | {title_text} | {it.severity} |")
 
     return "\n".join(header_lines) + "\n"
+
 
 __all__ = [
     "InventoryItem",

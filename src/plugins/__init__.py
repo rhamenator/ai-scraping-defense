@@ -20,6 +20,7 @@ def _is_within(base: Path, target: Path) -> bool:
     except ValueError:
         return False
 
+
 def load_plugins(
     allowed_plugins: List[str] | None = None,
 ) -> List[Callable[[object], float]]:
