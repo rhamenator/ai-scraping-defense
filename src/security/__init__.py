@@ -5,6 +5,12 @@ from .sequence_anomaly import (
     SequenceAnomalyDetector,
     train_markov_model,
 )
+from .security_metrics import (  # noqa: F401
+    SecurityKPIs,
+    SecurityScorecard,
+    SecurityMetricsCollector,
+    get_security_metrics_collector,
+)
 
 __all__ = [
     "RiskScorer",
@@ -12,4 +18,8 @@ __all__ = [
     "MarkovModel",
     "SequenceAnomalyDetector",
     "train_markov_model",
+    "SecurityKPIs",
+    "SecurityScorecard",
+    "SecurityMetricsCollector",
+    "get_security_metrics_collector",
 ]

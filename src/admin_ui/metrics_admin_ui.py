@@ -1,5 +1,32 @@
 """Metrics interface for the Admin UI service."""
 
-from src.shared.metrics import get_metrics  # noqa: F401
+from src.shared.metrics import (  # noqa: F401
+    SECURITY_ACTIVE_SESSIONS,
+    SECURITY_ACTIVE_THREATS,
+    SECURITY_ALERTS_PENDING,
+    SECURITY_ATTACKS_BLOCKED,
+    SECURITY_AUTH_FAILURES,
+    SECURITY_AUTHZ_DENIALS,
+    SECURITY_BLOCKED_IPS,
+    SECURITY_COMPLIANCE_SCORE,
+    SECURITY_COMPLIANCE_VIOLATIONS,
+    SECURITY_DETECTION_COVERAGE,
+    SECURITY_FALSE_POSITIVE_RATE,
+    SECURITY_INCIDENT_ESCALATIONS,
+    SECURITY_MEAN_TIME_TO_DETECT,
+    SECURITY_MEAN_TIME_TO_REMEDIATE,
+    SECURITY_MEAN_TIME_TO_RESPOND,
+    SECURITY_RESPONSE_READINESS,
+    SECURITY_THREAT_LEVEL,
+    SECURITY_THREATS_DETECTED,
+    SECURITY_TRUE_POSITIVE_RATE,
+    SECURITY_VULNERABILITY_COUNT,
+    get_metrics,
+)
+from src.security.security_metrics import (  # noqa: F401
+    SecurityKPIs,
+    SecurityScorecard,
+    get_security_metrics_collector,
+)
 
 __all__ = [name for name in locals() if not name.startswith("_")]

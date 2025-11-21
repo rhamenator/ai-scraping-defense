@@ -14,8 +14,28 @@ platform.
 | Tarpit API          | Error rate < 0.5%                        | `http_requests_total` vs `errors_total`|
 | Cloud Dashboard     | Metrics fanout < 2s                      | `REQUEST_LATENCY` by endpoint          |
 
+## Security Service Level Objectives
+
+| Security Metric                  | SLO Target                               | Measurement                                    |
+|----------------------------------|------------------------------------------|------------------------------------------------|
+| Detection Accuracy               | ≥ 90%                                    | `security_true_positive_rate_percent`          |
+| False Positive Rate              | ≤ 5%                                     | `security_false_positive_rate_percent`         |
+| Mean Time to Detect (MTTD)       | ≤ 60 seconds                             | `security_mean_time_to_detect_seconds`         |
+| Mean Time to Respond (MTTR)      | ≤ 300 seconds (5 minutes)                | `security_mean_time_to_respond_seconds`        |
+| Mean Time to Remediate           | ≤ 600 seconds (10 minutes)               | `security_mean_time_to_remediate_seconds`      |
+| Attack Block Rate                | ≥ 95%                                    | `security_attacks_blocked_total` / threats     |
+| Threat Level - Normal Operations | ≤ 2 (on 0-5 scale)                       | `security_threat_level_current`                |
+| Overall Security Score           | ≥ 85/100                                 | Calculated from security scorecard             |
+| Compliance Score                 | ≥ 90/100 per standard                    | `security_compliance_score_current`            |
+| Response Readiness Score         | ≥ 85/100                                 | `security_response_readiness_score`            |
+| Critical Vulnerabilities         | 0 within 24 hours of discovery           | `security_vulnerability_count_current{severity="critical"}` |
+| High Vulnerabilities             | ≤ 5 open at any time                     | `security_vulnerability_count_current{severity="high"}` |
+| Pending Critical Alerts          | ≤ 5, resolved within 1 hour              | `security_alerts_pending_current{severity="critical"}` |
+| Detection Coverage               | ≥ 95% of known attack vectors            | `security_detection_coverage_percent`          |
+
 SLO dashboards are provided in Grafana.  Alert thresholds are derived from SLOs
-with a 5-minute evaluation window.
+with a 5-minute evaluation window for service metrics and 15-minute windows for
+security metrics to reduce alert fatigue.
 
 ## Incident Response Workflow
 

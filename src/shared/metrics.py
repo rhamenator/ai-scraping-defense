@@ -417,6 +417,128 @@ HUMANS_DETECTED_EXTERNAL_API = Counter(
     registry=REGISTRY,
 )
 
+# Security-Specific Counters
+SECURITY_ATTACKS_BLOCKED = Counter(
+    "security_attacks_blocked_total",
+    "Total number of attacks blocked by security systems.",
+    ["attack_type", "severity"],
+    registry=REGISTRY,
+)
+SECURITY_THREATS_DETECTED = Counter(
+    "security_threats_detected_total",
+    "Total number of security threats detected.",
+    ["threat_type", "source"],
+    registry=REGISTRY,
+)
+SECURITY_AUTH_FAILURES = Counter(
+    "security_auth_failures_total",
+    "Total authentication failures.",
+    ["auth_method", "failure_reason"],
+    registry=REGISTRY,
+)
+SECURITY_AUTHZ_DENIALS = Counter(
+    "security_authz_denials_total",
+    "Total authorization denials.",
+    ["resource", "action"],
+    registry=REGISTRY,
+)
+SECURITY_RATE_LIMIT_VIOLATIONS = Counter(
+    "security_rate_limit_violations_total",
+    "Total rate limit violations detected.",
+    ["endpoint", "limit_type"],
+    registry=REGISTRY,
+)
+SECURITY_CAPTCHA_SUCCESSES = Counter(
+    "security_captcha_successes_total",
+    "Total successful CAPTCHA verifications.",
+    ["captcha_type"],
+    registry=REGISTRY,
+)
+SECURITY_CAPTCHA_FAILURES = Counter(
+    "security_captcha_failures_total",
+    "Total failed CAPTCHA verifications.",
+    ["captcha_type", "failure_reason"],
+    registry=REGISTRY,
+)
+SECURITY_HONEYPOT_HITS = Counter(
+    "security_honeypot_hits_total",
+    "Total honeypot trap activations.",
+    ["honeypot_type", "ip_reputation"],
+    registry=REGISTRY,
+)
+SECURITY_AUDIT_EVENTS = Counter(
+    "security_audit_events_total",
+    "Total security audit events logged.",
+    ["event_category", "severity"],
+    registry=REGISTRY,
+)
+SECURITY_COMPLIANCE_VIOLATIONS = Counter(
+    "security_compliance_violations_total",
+    "Total compliance policy violations detected.",
+    ["policy_type", "severity"],
+    registry=REGISTRY,
+)
+SECURITY_SUSPICIOUS_PATTERNS = Counter(
+    "security_suspicious_patterns_total",
+    "Total suspicious activity patterns detected.",
+    ["pattern_type"],
+    registry=REGISTRY,
+)
+SECURITY_IP_BLOCKS = Counter(
+    "security_ip_blocks_total",
+    "Total IPs blocked by security systems.",
+    ["block_reason", "duration"],
+    registry=REGISTRY,
+)
+SECURITY_WAF_RULES_TRIGGERED = Counter(
+    "security_waf_rules_triggered_total",
+    "Total WAF rule triggers.",
+    ["rule_id", "severity"],
+    registry=REGISTRY,
+)
+SECURITY_INTRUSION_ATTEMPTS = Counter(
+    "security_intrusion_attempts_total",
+    "Total intrusion attempts detected.",
+    ["attack_vector", "severity"],
+    registry=REGISTRY,
+)
+SECURITY_DATA_EXFILTRATION_ATTEMPTS = Counter(
+    "security_data_exfiltration_attempts_total",
+    "Total data exfiltration attempts detected.",
+    ["detection_method"],
+    registry=REGISTRY,
+)
+SECURITY_ANOMALIES_DETECTED = Counter(
+    "security_anomalies_detected_total",
+    "Total security anomalies detected.",
+    ["anomaly_type", "confidence"],
+    registry=REGISTRY,
+)
+SECURITY_FALSE_POSITIVES = Counter(
+    "security_false_positives_total",
+    "Total false positive security detections.",
+    ["detection_type"],
+    registry=REGISTRY,
+)
+SECURITY_TRUE_POSITIVES = Counter(
+    "security_true_positives_total",
+    "Total true positive security detections.",
+    ["detection_type"],
+    registry=REGISTRY,
+)
+SECURITY_INCIDENT_ESCALATIONS = Counter(
+    "security_incident_escalations_total",
+    "Total security incidents escalated.",
+    ["severity", "escalation_level"],
+    registry=REGISTRY,
+)
+SECURITY_POLICY_UPDATES = Counter(
+    "security_policy_updates_total",
+    "Total security policy updates applied.",
+    ["policy_type"],
+    registry=REGISTRY,
+)
+
 
 # 2. Histograms (from previous versions)
 REQUEST_LATENCY = Histogram(
@@ -454,6 +576,54 @@ RESPONSE_SIZE = Histogram(
     "Size of HTTP responses in bytes.",
     ["endpoint"],
     registry=REGISTRY,
+)
+
+# Security-Specific Histograms
+SECURITY_THREAT_SCORE_DISTRIBUTION = Histogram(
+    "security_threat_score_distribution",
+    "Distribution of threat scores.",
+    ["score_type"],
+    registry=REGISTRY,
+    buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+)
+SECURITY_ATTACK_SCORE_DISTRIBUTION = Histogram(
+    "security_attack_score_distribution",
+    "Distribution of attack scores.",
+    ["attack_type"],
+    registry=REGISTRY,
+    buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+)
+SECURITY_RISK_SCORE_DISTRIBUTION = Histogram(
+    "security_risk_score_distribution",
+    "Distribution of risk scores.",
+    ["risk_category"],
+    registry=REGISTRY,
+    buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+)
+SECURITY_RESPONSE_TIME = Histogram(
+    "security_response_time_seconds",
+    "Time taken to respond to security events.",
+    ["event_type"],
+    registry=REGISTRY,
+)
+SECURITY_DETECTION_LATENCY = Histogram(
+    "security_detection_latency_seconds",
+    "Latency from event occurrence to detection.",
+    ["detection_method"],
+    registry=REGISTRY,
+)
+SECURITY_MITIGATION_TIME = Histogram(
+    "security_mitigation_time_seconds",
+    "Time taken to mitigate security threats.",
+    ["threat_type"],
+    registry=REGISTRY,
+)
+SECURITY_ANOMALY_SCORE_DISTRIBUTION = Histogram(
+    "security_anomaly_score_distribution",
+    "Distribution of anomaly detection scores.",
+    ["detector_type"],
+    registry=REGISTRY,
+    buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
 )
 
 # 3. Gauges (from previous versions)
@@ -506,6 +676,101 @@ FEATURE_FLAGS = Gauge(
     "feature_flags_status",
     "Status of feature flags (1=on, 0=off).",
     ["flag_name"],
+    registry=REGISTRY,
+)
+
+# Security-Specific Gauges
+SECURITY_THREAT_LEVEL = Gauge(
+    "security_threat_level_current",
+    "Current overall security threat level (0-5).",
+    registry=REGISTRY,
+)
+SECURITY_ACTIVE_THREATS = Gauge(
+    "security_active_threats_current",
+    "Current number of active security threats.",
+    ["threat_type"],
+    registry=REGISTRY,
+)
+SECURITY_BLOCKED_IPS = Gauge(
+    "security_blocked_ips_current",
+    "Current number of blocked IP addresses.",
+    ["block_reason"],
+    registry=REGISTRY,
+)
+SECURITY_ACTIVE_SESSIONS = Gauge(
+    "security_active_sessions_current",
+    "Current number of active authenticated sessions.",
+    ["auth_method"],
+    registry=REGISTRY,
+)
+SECURITY_QUARANTINED_REQUESTS = Gauge(
+    "security_quarantined_requests_current",
+    "Current number of quarantined requests under review.",
+    registry=REGISTRY,
+)
+SECURITY_POLICY_VERSION = Gauge(
+    "security_policy_version_info",
+    "Current version of security policies in effect.",
+    ["policy_type"],
+    registry=REGISTRY,
+)
+SECURITY_COMPLIANCE_SCORE = Gauge(
+    "security_compliance_score_current",
+    "Current security compliance score (0-100).",
+    ["compliance_standard"],
+    registry=REGISTRY,
+)
+SECURITY_VULNERABILITY_COUNT = Gauge(
+    "security_vulnerability_count_current",
+    "Current number of known vulnerabilities.",
+    ["severity"],
+    registry=REGISTRY,
+)
+SECURITY_DETECTION_COVERAGE = Gauge(
+    "security_detection_coverage_percent",
+    "Percentage of attack vectors with active detection (0-100).",
+    ["coverage_category"],
+    registry=REGISTRY,
+)
+SECURITY_RESPONSE_READINESS = Gauge(
+    "security_response_readiness_score",
+    "Security incident response readiness score (0-100).",
+    registry=REGISTRY,
+)
+SECURITY_MEAN_TIME_TO_DETECT = Gauge(
+    "security_mean_time_to_detect_seconds",
+    "Mean time to detect security incidents (rolling average).",
+    ["incident_type"],
+    registry=REGISTRY,
+)
+SECURITY_MEAN_TIME_TO_RESPOND = Gauge(
+    "security_mean_time_to_respond_seconds",
+    "Mean time to respond to security incidents (rolling average).",
+    ["incident_type"],
+    registry=REGISTRY,
+)
+SECURITY_MEAN_TIME_TO_REMEDIATE = Gauge(
+    "security_mean_time_to_remediate_seconds",
+    "Mean time to remediate security incidents (rolling average).",
+    ["incident_type"],
+    registry=REGISTRY,
+)
+SECURITY_FALSE_POSITIVE_RATE = Gauge(
+    "security_false_positive_rate_percent",
+    "Current false positive rate for security detections (0-100).",
+    ["detection_type"],
+    registry=REGISTRY,
+)
+SECURITY_TRUE_POSITIVE_RATE = Gauge(
+    "security_true_positive_rate_percent",
+    "Current true positive rate for security detections (0-100).",
+    ["detection_type"],
+    registry=REGISTRY,
+)
+SECURITY_ALERTS_PENDING = Gauge(
+    "security_alerts_pending_current",
+    "Current number of pending security alerts requiring review.",
+    ["severity"],
     registry=REGISTRY,
 )
 
