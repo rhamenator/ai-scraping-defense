@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-"""Payment gateway abstractions and provider implementations."""
+"""Payment gateway abstractions and provider implementations.
+
+GDPR Compliance Notes:
+- Payment information is processed under "contract" legal basis
+- All payment operations are logged to audit log for compliance
+- Sensitive data (card numbers, API keys) are redacted in logs
+- User data can be deleted via GDPR deletion request workflow
+- Payment records are retained as required by financial regulations
+"""
 
 import logging
 import os
