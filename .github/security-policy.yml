@@ -1,0 +1,136 @@
+# Security Policy Configuration for DevSecOps Integration
+# This file defines security thresholds and gates for the CI/CD pipeline
+
+security_gate:
+  # Severity threshold for blocking builds
+  # Options: critical, high, medium, low
+  severity_threshold: high
+  
+  # Maximum allowed issues by severity before blocking
+  thresholds:
+    critical: 0  # Block any critical issues
+    high: 0      # Block any high severity issues  
+    medium: 10   # Allow up to 10 medium severity issues
+    low: 50      # Allow up to 50 low severity issues
+  
+  # Secret detection
+  secrets:
+    block_on_detection: true
+    allowed_patterns: []  # List of regex patterns to exclude
+  
+  # Dependency vulnerabilities
+  dependencies:
+    block_critical: true
+    block_high: true
+    block_medium: false
+    max_age_days: 90  # Block vulnerabilities older than 90 days
+
+# Tools configuration
+tools:
+  # SAST tools
+  sast:
+    enabled: true
+    tools:
+      - semgrep
+      - bandit
+    timeout_minutes: 10
+  
+  # Secret scanning
+  secrets:
+    enabled: true
+    tools:
+      - gitleaks
+    scan_history: false  # Only scan current changes
+  
+  # Dependency scanning
+  dependencies:
+    enabled: true
+    tools:
+      - pip-audit
+      - safety
+      - npm-audit
+    fail_on_error: true
+  
+  # Container scanning
+  container:
+    enabled: true
+    tools:
+      - trivy
+    scan_layers: true
+    severities:
+      - CRITICAL
+      - HIGH
+
+# Shift-left practices
+shift_left:
+  # Pre-commit hooks
+  pre_commit:
+    enabled: true
+    enforce: true
+    checks:
+      - secret-detection
+      - bandit
+      - safety
+  
+  # IDE integration
+  ide_integration:
+    enabled: true
+    recommended_plugins:
+      - name: "SonarLint"
+        url: "https://www.sonarsource.com/products/sonarlint/"
+      - name: "Snyk"
+        url: "https://snyk.io/platform/ide-plugins/"
+
+# Security automation
+automation:
+  # Auto-fix configuration
+  autofix:
+    enabled: true
+    auto_merge: false  # Require manual review
+    categories:
+      - low-severity
+      - formatting
+  
+  # Auto-triage
+  triage:
+    enabled: true
+    allowlist_path: ".github/triage/allowlist.yml"
+  
+  # Notifications
+  notifications:
+    slack_webhook: ""  # Configure in GitHub Secrets
+    email: ""  # Configure in repository settings
+    create_issues: true
+
+# Compliance requirements
+compliance:
+  # Standards to validate against
+  standards:
+    - OWASP-Top-10
+    - CWE-Top-25
+    - PCI-DSS
+  
+  # Required security controls
+  required_controls:
+    - authentication
+    - authorization
+    - input-validation
+    - output-encoding
+    - cryptography
+    - error-handling
+    - logging
+
+# Reporting
+reporting:
+  # Generate security reports
+  generate_reports: true
+  report_formats:
+    - json
+    - sarif
+    - html
+  
+  # Upload to security dashboard
+  upload_to_dashboard: true
+  
+  # Retention
+  retention_days: 90
