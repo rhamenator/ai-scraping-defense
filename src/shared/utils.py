@@ -7,7 +7,7 @@ import os
 from logging.handlers import RotatingFileHandler
 from typing import Dict, Optional
 
-LOG_DIR = "/app/logs"
+LOG_DIR = os.getenv("LOG_DIR", "/app/logs")
 ERROR_LOG_FILE = os.path.join(LOG_DIR, "aiservice_errors.log")
 LOG_MAX_BYTES = 1_000_000
 LOG_BACKUP_COUNT = 3

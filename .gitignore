@@ -157,3 +157,4 @@ iis/DefenseModule/obj/project.assets.json
 iis/DefenseModule/obj/project.nuget.cache
 
 .fake
+automation/
