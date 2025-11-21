@@ -94,7 +94,7 @@ classDiagram
     BaseModelAdapter <|-- MistralAdapter
     BaseModelAdapter <|-- GoogleGeminiAdapter
     BaseModelAdapter <|-- OllamaAdapter
-    
+
     model_provider ..> BaseModelAdapter : creates
 ```
 
