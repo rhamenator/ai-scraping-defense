@@ -1,0 +1,536 @@
+# Container Runtime Security Policies for Kubernetes
+---
+# PodSecurityPolicy for restricted containers (most services)
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: ai-defense-restricted
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'runtime/default'
+    apparmor.security.beta.kubernetes.io/allowedProfileNames: 'runtime/default'
+    seccomp.security.alpha.kubernetes.io/defaultProfileName: 'runtime/default'
+    apparmor.security.beta.kubernetes.io/defaultProfileName: 'runtime/default'
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  seLinux:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'RunAsAny'
+  fsGroup:
+    rule: 'RunAsAny'
+  readOnlyRootFilesystem: true
+
+---
+# PodSecurityPolicy for network security tools (fail2ban, suricata)
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: ai-defense-network-tools
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'runtime/default'
+    apparmor.security.beta.kubernetes.io/allowedProfileNames: 'runtime/default'
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  allowedCapabilities:
+    - NET_ADMIN
+    - NET_RAW
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: 'RunAsAny'
+  seLinux:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'RunAsAny'
+  fsGroup:
+    rule: 'RunAsAny'
+  readOnlyRootFilesystem: false
+
+---
+# RuntimeClass for gVisor (enhanced isolation)
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: gvisor
+handler: runsc
+
+---
+# RuntimeClass for Kata Containers (VM-based isolation)
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: kata-containers
+handler: kata
+
+---
+# NetworkPolicy to restrict egress from containers
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ai-defense-default-deny-egress
+  namespace: ai-defense
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow internal cluster communication
+    - to:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 8001
+        - protocol: TCP
+          port: 8002
+        - protocol: TCP
+          port: 8003
+        - protocol: TCP
+          port: 8004
+
+---
+# NetworkPolicy to restrict ingress to containers
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ai-defense-default-deny-ingress
+  namespace: ai-defense
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+    # Allow inter-pod communication within namespace
+    - from:
+        - podSelector: {}
+
+---
+# LimitRange to enforce resource limits
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: ai-defense-limits
+  namespace: ai-defense
+spec:
+  limits:
+    - max:
+        cpu: "2"
+        memory: "4Gi"
+      min:
+        cpu: "100m"
+        memory: "64Mi"
+      default:
+        cpu: "500m"
+        memory: "512Mi"
+      defaultRequest:
+        cpu: "200m"
+        memory: "256Mi"
+      type: Container
+    - max:
+        cpu: "4"
+        memory: "8Gi"
+      min:
+        cpu: "100m"
+        memory: "64Mi"
+      type: Pod
+
+---
+# ResourceQuota for the namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: ai-defense-quota
+  namespace: ai-defense
+spec:
+  hard:
+    requests.cpu: "10"
+    requests.memory: "20Gi"
+    limits.cpu: "20"
+    limits.memory: "40Gi"
+    persistentvolumeclaims: "10"
+    pods: "50"
+
+---
+# Falco DaemonSet for runtime security monitoring
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: falco
+  namespace: ai-defense
+  labels:
+    app: falco
+spec:
+  selector:
+    matchLabels:
+      app: falco
+  template:
+    metadata:
+      labels:
+        app: falco
+    spec:
+      serviceAccountName: falco
+      hostNetwork: true
+      hostPID: true
+      priorityClassName: system-node-critical
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+      containers:
+        - name: falco
+          image: falcosecurity/falco:latest
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          args:
+            - /usr/bin/falco
+            - --cri
+            - /run/containerd/containerd.sock
+            - -K
+            - /var/run/secrets/kubernetes.io/serviceaccount/token
+            - -k
+            - https://kubernetes.default
+            - -pk
+          volumeMounts:
+            - mountPath: /host/var/run/docker.sock
+              name: docker-socket
+              readOnly: true
+            - mountPath: /host/run/containerd/containerd.sock
+              name: containerd-socket
+              readOnly: true
+            - mountPath: /host/dev
+              name: dev-fs
+              readOnly: true
+            - mountPath: /host/proc
+              name: proc-fs
+              readOnly: true
+            - mountPath: /host/boot
+              name: boot-fs
+              readOnly: true
+            - mountPath: /host/lib/modules
+              name: lib-modules
+              readOnly: true
+            - mountPath: /host/usr
+              name: usr-fs
+              readOnly: true
+            - mountPath: /etc/falco
+              name: falco-config
+          resources:
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+      volumes:
+        - name: docker-socket
+          hostPath:
+            path: /var/run/docker.sock
+        - name: containerd-socket
+          hostPath:
+            path: /run/containerd/containerd.sock
+        - name: dev-fs
+          hostPath:
+            path: /dev
+        - name: proc-fs
+          hostPath:
+            path: /proc
+        - name: boot-fs
+          hostPath:
+            path: /boot
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+        - name: usr-fs
+          hostPath:
+            path: /usr
+        - name: falco-config
+          configMap:
+            name: falco-config
+
+---
+# Falco ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: falco
+  namespace: ai-defense
+
+---
+# Falco ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: falco
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+
+---
+# Falco ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: falco
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: falco
+subjects:
+  - kind: ServiceAccount
+    name: falco
+    namespace: ai-defense
+
+---
+# Falco ConfigMap with custom rules
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-config
+  namespace: ai-defense
+data:
+  falco.yaml: |
+    rules_file:
+      - /etc/falco/falco_rules.yaml
+      - /etc/falco/falco_rules.local.yaml
+      - /etc/falco/k8s_audit_rules.yaml
+      - /etc/falco/container_runtime_rules.yaml
+    
+    json_output: true
+    json_include_output_property: true
+    
+    log_stderr: true
+    log_syslog: true
+    log_level: info
+    
+    priority: debug
+    
+    buffered_outputs: true
+    
+    outputs:
+      rate: 1
+      max_burst: 1000
+    
+    syslog_output:
+      enabled: true
+    
+    file_output:
+      enabled: true
+      keep_alive: false
+      filename: /var/log/falco.log
+    
+    stdout_output:
+      enabled: true
+    
+    grpc:
+      enabled: true
+      bind_address: "0.0.0.0:5060"
+      threadiness: 8
+    
+    grpc_output:
+      enabled: true
+
+  container_runtime_rules.yaml: |
+    # Custom container runtime security rules for AI Scraping Defense
+    
+    - rule: Shell Spawned in Container
+      desc: Detect shell processes spawned inside containers
+      condition: >
+        spawned_process and container and
+        (proc.name = bash or proc.name = sh or proc.name = zsh or
+         proc.name = dash or proc.name = csh or proc.name = tcsh)
+      output: >
+        Shell spawned in container (user=%user.name container=%container.name
+        shell=%proc.name parent=%proc.pname cmdline=%proc.cmdline)
+      priority: WARNING
+      tags: [container, shell, mitre_execution]
+    
+    - rule: Container Privilege Escalation
+      desc: Detect privilege escalation attempts in containers
+      condition: >
+        spawned_process and container and
+        (proc.name in (sudo, su, setuid, setgid) or
+         (proc.args contains "chmod +s") or
+         (proc.args contains "chmod u+s"))
+      output: >
+        Privilege escalation attempted in container (user=%user.name
+        container=%container.name process=%proc.name cmdline=%proc.cmdline)
+      priority: CRITICAL
+      tags: [container, privilege_escalation, mitre_privilege_escalation]
+    
+    - rule: Suspicious File Modification in Container
+      desc: Detect modifications to critical system files in containers
+      condition: >
+        open_write and container and
+        (fd.name startswith /etc/passwd or
+         fd.name startswith /etc/shadow or
+         fd.name startswith /etc/sudoers or
+         fd.name startswith /usr/bin or
+         fd.name startswith /usr/sbin)
+      output: >
+        Critical file modified in container (user=%user.name
+        container=%container.name file=%fd.name process=%proc.name)
+      priority: CRITICAL
+      tags: [container, filesystem, mitre_persistence]
+    
+    - rule: Container Network Scan
+      desc: Detect network scanning from containers
+      condition: >
+        outbound and container and
+        (fd.l4proto = tcp and (fd.sport > 1024 or fd.dport > 1024)) and
+        (proc.name in (nmap, masscan, zmap, nc, netcat))
+      output: >
+        Network scan detected from container (user=%user.name
+        container=%container.name dest=%fd.rip:%fd.rport tool=%proc.name)
+      priority: WARNING
+      tags: [container, network, mitre_discovery]
+    
+    - rule: Container Reverse Shell
+      desc: Detect reverse shell attempts from containers
+      condition: >
+        spawned_process and container and
+        ((proc.name = bash or proc.name = sh) and
+         (proc.args contains "-i" or proc.args contains "/dev/tcp" or
+          proc.args contains "/dev/udp" or proc.args contains "0>&1"))
+      output: >
+        Reverse shell detected in container (user=%user.name
+        container=%container.name cmdline=%proc.cmdline)
+      priority: CRITICAL
+      tags: [container, shell, mitre_command_and_control]
+    
+    - rule: Container Binary Download
+      desc: Detect binary downloads in containers
+      condition: >
+        spawned_process and container and
+        (proc.name in (wget, curl, fetch) and
+         (proc.args contains ".sh" or proc.args contains "/bin/" or
+          proc.args contains "github.com" or proc.args contains "pastebin"))
+      output: >
+        Binary download detected in container (user=%user.name
+        container=%container.name cmdline=%proc.cmdline)
+      priority: WARNING
+      tags: [container, download, mitre_execution]
+    
+    - rule: Container Package Manager Execution
+      desc: Detect package manager use in running containers
+      condition: >
+        spawned_process and container and
+        proc.name in (apt, apt-get, yum, dnf, zypper, apk, pip, npm)
+      output: >
+        Package manager executed in container (user=%user.name
+        container=%container.name package_manager=%proc.name cmdline=%proc.cmdline)
+      priority: WARNING
+      tags: [container, package_manager]
+    
+    - rule: Container Sensitive Mount
+      desc: Detect containers mounting sensitive host paths
+      condition: >
+        container and (container.mount.dest in (/etc, /var/run, /root, /home) or
+         container.mount.source in (/etc, /var/run, /root, /home))
+      output: >
+        Container with sensitive host mount (container=%container.name
+        mount_source=%container.mount.source mount_dest=%container.mount.dest)
+      priority: WARNING
+      tags: [container, mount]
+
+---
+# Falco Exporter for Prometheus integration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: falco-exporter
+  namespace: ai-defense
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: falco-exporter
+  template:
+    metadata:
+      labels:
+        app: falco-exporter
+    spec:
+      containers:
+        - name: falco-exporter
+          image: falcosecurity/falco-exporter:latest
+          args:
+            - --client-hostname=falco
+            - --client-port=5060
+          ports:
+            - containerPort: 9376
+              name: metrics
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+
+---
+# Falco Exporter Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: falco-exporter
+  namespace: ai-defense
+  labels:
+    app: falco-exporter
+spec:
+  ports:
+    - port: 9376
+      targetPort: 9376
+      name: metrics
+  selector:
+    app: falco-exporter

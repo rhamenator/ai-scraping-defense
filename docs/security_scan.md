@@ -1,6 +1,6 @@
 # Security Scan Helper
 
-`scripts/linux/security_scan.sh` runs a collection of open-source tools to audit a target for common weaknesses. It invokes scanners such as **Nmap**, **Nikto**, **OWASP ZAP**, and **Trivy** alongside optional checks like **SQLMap** and **Bandit**.
+`scripts/linux/security_scan.sh` runs a collection of open-source tools to audit a target for common weaknesses. It invokes scanners such as **Nmap**, **Nikto**, **OWASP ZAP**, **Trivy**, and **Grype** alongside optional checks like **SQLMap** and **Bandit**. Additionally, it includes container runtime security scanning with tools like **Snyk**, **Docker Bench Security**, and **Dive** for comprehensive container image analysis.
 
 ## Prerequisites
 - Linux environment with the required utilities installed (e.g. `nmap`, `nikto`, `zaproxy`, `trivy`, `sqlmap`, `masscan`, `bandit`, etc.)
