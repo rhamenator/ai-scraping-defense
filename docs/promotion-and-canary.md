@@ -10,3 +10,4 @@ Manual Prod Deploy:
 Canary:
 - Chart ships `ai-scraping-defense` (primary) and `ai-scraping-defense-canary` ingress with NGINX canary annotations.
 - Adjust traffic with `.github/workflows/canary-shift.yml` input `weight` (0–100).
+- Setting `weight` to 0 disables the canary.

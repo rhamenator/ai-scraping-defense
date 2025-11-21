@@ -11,6 +11,7 @@ on:
       weight: { description: "Canary weight (0-100)", required: true, type: number }
       namespace: { description: "Kubernetes namespace", required: false, default: production }
       canary_ingress: { description: "Canary ingress name", required: false, default: ai-scraping-defense-canary }
+      primary_ingress: { description: "Primary ingress name", required: false, default: ai-scraping-defense }
 permissions:
   contents: read
 concurrency:
@@ -38,4 +39,14 @@ jobs:
           kubectl -n "${{ inputs.namespace }}" annotate ingress "${{ inputs.canary_ingress }}" \
             nginx.ingress.kubernetes.io/canary="true" \
             nginx.ingress.kubernetes.io/canary-weight="${{ inputs.weight }}" --overwrite
+
+          kubectl -n "${{ inputs.namespace }}" get ingress "${{ inputs.canary_ingress }}" -o yaml
+
+      - name: Disable canary (set weight to 0)
+        if: ${{ inputs.weight == 0 }}
+        run: |
+          kubectl -n "${{ inputs.namespace }}" annotate ingress "${{ inputs.canary_ingress }}" \
+            nginx.ingress.kubernetes.io/canary="false" \
+            nginx.ingress.kubernetes.io/canary-weight="0" --overwrite
+
           kubectl -n "${{ inputs.namespace }}" get ingress "${{ inputs.canary_ingress }}" -o yaml
