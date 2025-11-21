@@ -3,21 +3,20 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: DevSkim
+name: DevSkim (Security & Supply Chain)
 
 on:
   workflow_dispatch: # Allows manual triggering of the workflow from the GitHub UI
-  # Uncomment the lines below to enable automatic runs on push or pull request events
-  # push:
-  #   branches: [ "main" ]
-  # pull_request:
-  #   branches: [ "main" ]
-  # schedule:
-  #   - cron: '45 0 * * 1'
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '45 0 * * 1'
 
 jobs:
   lint:
-    name: DevSkim
+    name: DevSkim Security Scan
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -30,7 +29,28 @@ jobs:
       - name: Run DevSkim scanner
         uses: microsoft/DevSkim-Action@v1
 
+      - name: Check for supply chain indicators
+        run: |
+          echo "Scanning for supply chain security issues..."
+          
+          # Check for suspicious dependency patterns
+          if grep -rE "(eval|exec|__import__)\(" --include="setup.py" --include="__init__.py" .; then
+            echo "::warning::Found dynamic code execution in package setup files"
+          fi
+          
+          # Check for hardcoded credentials in dependencies
+          if grep -rE "(password|api[_-]?key|secret|token)\s*=\s*['\"][^'\"]+['\"]" --include="*.txt" requirements*.txt constraints.txt; then
+            echo "::error::Potential hardcoded credentials found in requirements"
+            exit 1
+          fi
+          
+          # Verify requirements.lock exists for reproducibility
+          if [ ! -f "requirements.lock" ]; then
+            echo "::warning::requirements.lock not found - builds may not be reproducible"
+          fi
+
       - name: Upload DevSkim scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@528ca598d956c91826bd742262cdfc5d02b77710
         with:
           sarif_file: devskim-results.sarif
+        if: always()
