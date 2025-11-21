@@ -58,6 +58,9 @@ NGINX_PASSWORD=$(generate_password 32)
 EXTERNAL_API_KEY="key-for-$(generate_password)"; IP_REPUTATION_API_KEY="key-for-$(generate_password)"; COMMUNITY_BLOCKLIST_API_KEY="key-for-$(generate_password)"
 OPENAI_API_KEY="sk-$(generate_password 40)"; ANTHROPIC_API_KEY="sk-ant-$(generate_password 40)"; GOOGLE_API_KEY="AIza$(generate_password 35)"; COHERE_API_KEY="coh-$(generate_password 40)"; MISTRAL_API_KEY="mistral-$(generate_password 40)"
 
+# Post-Quantum Cryptography: Generate quantum-resistant JWT secret (256-bit minimum for EdDSA)
+AUTH_JWT_SECRET=$(generate_password 64)
+
 # Create Nginx htpasswd content using bcrypt
 HTPASSWD_FILE_CONTENT=$(htpasswd -nbBC 12 "$ADMIN_UI_USERNAME" "$NGINX_PASSWORD" | tr -d '\n')
 # Write htpasswd file for local Docker Compose usage
@@ -128,6 +131,15 @@ data:
   MISTRAL_API_KEY: $(echo -n "$MISTRAL_API_KEY" | base64 | tr -d '\n')
   IP_REPUTATION_API_KEY: $(echo -n "$IP_REPUTATION_API_KEY" | base64 | tr -d '\n')
   COMMUNITY_BLOCKLIST_API_KEY: $(echo -n "$COMMUNITY_BLOCKLIST_API_KEY" | base64 | tr -d '\n')
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jwt-auth-secret
+  namespace: ai-defense
+type: Opaque
+data:
+  AUTH_JWT_SECRET: $(echo -n "$AUTH_JWT_SECRET" | base64 | tr -d '\n')
 EOL
 
 if [ -n "$export_path" ]; then
@@ -146,7 +158,8 @@ if [ -n "$export_path" ]; then
   "MISTRAL_API_KEY": "$MISTRAL_API_KEY",
   "EXTERNAL_API_KEY": "$EXTERNAL_API_KEY",
   "IP_REPUTATION_API_KEY": "$IP_REPUTATION_API_KEY",
-  "COMMUNITY_BLOCKLIST_API_KEY": "$COMMUNITY_BLOCKLIST_API_KEY"
+  "COMMUNITY_BLOCKLIST_API_KEY": "$COMMUNITY_BLOCKLIST_API_KEY",
+  "AUTH_JWT_SECRET": "$AUTH_JWT_SECRET"
 }
 EOF
   chmod 600 "$export_path"
@@ -180,6 +193,7 @@ if [ "$update_env" = true ]; then
   update_var EXTERNAL_API_KEY "$EXTERNAL_API_KEY" "$ENV_FILE"
   update_var IP_REPUTATION_API_KEY "$IP_REPUTATION_API_KEY" "$ENV_FILE"
   update_var COMMUNITY_BLOCKLIST_API_KEY "$COMMUNITY_BLOCKLIST_API_KEY" "$ENV_FILE"
+  update_var AUTH_JWT_SECRET "$AUTH_JWT_SECRET" "$ENV_FILE"
 
   # Write secret files for Docker Compose
   SECRETS_DIR="$ROOT_DIR/secrets"

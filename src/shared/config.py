@@ -409,6 +409,32 @@ class Config:
         default_factory=lambda: float(os.getenv("ANOMALY_THRESHOLD", 0.7))
     )
 
+    # Post-Quantum Cryptography Configuration
+    ENABLE_PQC: bool = field(
+        default_factory=lambda: os.getenv("ENABLE_PQC", "false").lower() == "true"
+    )
+    CRYPTO_MODE: str = field(
+        default_factory=lambda: os.getenv("CRYPTO_MODE", "classical").lower()
+    )
+    PQC_KEM_ALGORITHM: str = field(
+        default_factory=lambda: os.getenv("PQC_KEM_ALGORITHM", "Kyber768")
+    )
+    PQC_SIGNATURE_ALGORITHM: str = field(
+        default_factory=lambda: os.getenv("PQC_SIGNATURE_ALGORITHM", "Dilithium3")
+    )
+    PQC_PROTECT_LONG_TERM_SECRETS: bool = field(
+        default_factory=lambda: os.getenv("PQC_PROTECT_LONG_TERM_SECRETS", "false").lower() == "true"
+    )
+    PQC_HIGH_VALUE_DATA: bool = field(
+        default_factory=lambda: os.getenv("PQC_HIGH_VALUE_DATA", "false").lower() == "true"
+    )
+    PQC_QUANTUM_THREAT_TIMELINE_YEARS: int = field(
+        default_factory=lambda: int(os.getenv("PQC_QUANTUM_THREAT_TIMELINE_YEARS", "10"))
+    )
+    PQC_JWT_PREFER_EDDSA: bool = field(
+        default_factory=lambda: os.getenv("PQC_JWT_PREFER_EDDSA", "true").lower() == "true"
+    )
+
     # Derived attribute: namespace prefix for Redis keys and similar resources
     TENANT_PREFIX: str = field(init=False)
 
