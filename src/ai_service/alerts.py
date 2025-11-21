@@ -380,14 +380,24 @@ async def subscribe_anomaly_events():
 
 
 async def handle_anomaly_event(event_data):
-    """Process the anomaly event."""
+    """
+    Process anomaly detection events from Redis Pub/Sub.
+
+    This function receives high-score anomaly events and can trigger
+    alerts or other defensive actions. Currently logs events; extend
+    as needed to integrate with alerting or blocking systems.
+
+    Args:
+        event_data: Dictionary with 'anomaly_score' and 'features' keys
+
+    Example implementation:
+        anomaly_score = event_data.get('anomaly_score', 0)
+        if anomaly_score > 0.9:
+            event_data['reason'] = f"Critical Anomaly Score: {anomaly_score:.2f}"
+            await send_alert(event_data)
+    """
     logger.info("Received anomaly event: %s", event_data)
-    # Process the anomaly event here. Example:
-    # You might decide to trigger alerts or take other actions based on the anomaly score and features.
-    # This is a placeholder; implement your logic here.
-    # Example of alerting:
-    # event_data['reason'] = f"High Anomaly Score: {event_data['anomaly_score']:.2f}"
-    # await send_alert(event_data)
+    # TODO: Implement alerting logic based on anomaly score and features
 
 
 async def main():

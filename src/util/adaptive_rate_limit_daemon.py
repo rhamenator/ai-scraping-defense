@@ -51,8 +51,18 @@ async def subscribe_rate_limit_events():
 
 
 async def handle_rate_limit_event(event_data):
-    """Process the rate limit event."""
+    """
+    Process the rate limit event.
+
+    This is a placeholder for future event-driven rate limit adjustments.
+    Event data is expected to contain rate limit configuration changes
+    that should be applied dynamically without daemon restart.
+
+    Args:
+        event_data: Dictionary containing rate limit event information
+    """
     logger.info("Received rate limit event: %s", event_data)
+    # TODO: Implement dynamic rate limit configuration updates based on event_data
 
 
 async def run_loop(stop_event: asyncio.Event | None = None) -> None:
@@ -74,17 +84,21 @@ async def run_loop(stop_event: asyncio.Event | None = None) -> None:
 
 async def main():
     """Main entry point for the daemon."""
-    # Python 3.11+ has TaskGroup, for 3.10 use gather
+    # Python 3.11+ has TaskGroup with proper exception handling
     if hasattr(asyncio, "TaskGroup"):
         async with asyncio.TaskGroup() as tg:
             tg.create_task(subscribe_rate_limit_events())
             tg.create_task(run_loop())
     else:
-        # Fallback for Python 3.10
-        await asyncio.gather(
-            subscribe_rate_limit_events(),
-            run_loop(),
-        )
+        # Fallback for Python 3.10 - both tasks will be cancelled if one fails
+        try:
+            await asyncio.gather(
+                subscribe_rate_limit_events(),
+                run_loop(),
+            )
+        except Exception:
+            # Ensure both tasks are cleaned up on error
+            raise
 
 
 if __name__ == "__main__":  # pragma: no cover - manual execution
