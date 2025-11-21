@@ -34,4 +34,55 @@ We may recognize your contribution publicly once the vulnerability is addressed,
 * Container images are built from trusted base images.
 * The Admin UI requires explicit CORS origins. Set `ADMIN_UI_CORS_ORIGINS` to allowed hosts (default `http://localhost`) and avoid using `*` when credentials are allowed.
 
+## Security Culture
+
+Our project is committed to fostering a strong security culture where every contributor understands their role in maintaining the security posture of the AI Scraping Defense Stack.
+
+### Security Awareness Training
+
+All contributors are encouraged to:
+
+1. **Complete Security Onboarding**: Review our security documentation including threat models, secure coding guidelines, and incident response procedures.
+2. **Stay Informed**: Keep up-to-date with security advisories, CVE databases, and security best practices relevant to our technology stack.
+3. **Practice Secure Development**: Follow our secure coding guidelines documented in `CONTRIBUTING.md` and enforce security checks via pre-commit hooks.
+4. **Regular Training**: Participate in security training sessions and workshops (see `docs/security/security_awareness_training.md` for curriculum).
+
+### Security Champions Network
+
+We maintain a Security Champions program to promote security awareness across the project:
+
+* **Role**: Security Champions are contributors with heightened security awareness who serve as security advocates within their areas of contribution.
+* **Responsibilities**:
+  - Review security-related pull requests
+  - Participate in security audits and threat modeling sessions
+  - Share security knowledge with other contributors
+  - Escalate security concerns to maintainers
+  - Contribute to security documentation and training materials
+* **Becoming a Champion**: Contributors who demonstrate consistent security awareness and make meaningful security contributions may be invited to join the Security Champions network.
+
+For more details, see `docs/security/security_champions.md`.
+
+### Security Culture Measurement
+
+We track and measure our security culture through:
+
+1. **Metrics**:
+   - Security issue resolution time (target: <7 days for high severity)
+   - Security test coverage (target: >80% for security-critical components)
+   - Security training completion rate for active contributors
+   - Pre-commit security check compliance rate
+   - Number of security findings in code reviews
+
+2. **Regular Assessments**:
+   - Quarterly security culture surveys for contributors
+   - Monthly security metrics review in maintainer meetings
+   - Annual security posture assessment
+
+3. **Continuous Improvement**:
+   - Security retrospectives after major releases
+   - Post-incident reviews with action items
+   - Regular updates to security documentation based on lessons learned
+
+For comprehensive security culture programs and measurement details, see `docs/security/security_culture.md`.
+
 Thank you for helping keep the AI Scraping Defense Stack secure!
