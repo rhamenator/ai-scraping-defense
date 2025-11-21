@@ -418,6 +418,33 @@ HUMANS_DETECTED_EXTERNAL_API = Counter(
 )
 
 
+# IoT Device Metrics
+DEVICE_UPTIME = Counter(
+    "device_uptime_seconds",
+    "Uptime of IoT devices in seconds.",
+    ["device_id"],  # Added device_id label to differentiate devices
+    registry=REGISTRY
+)
+DEVICE_STATUS = Gauge(
+    "device_status",
+    "Status of IoT devices (1=active, 0=inactive).",
+    ["device_id"],
+    registry=REGISTRY
+)
+DEVICE_TEMPERATURE = Histogram(
+    "device_temperature_celsius",
+    "Temperature of IoT devices in Celsius.",
+    ["device_id"],
+    registry=REGISTRY
+)
+DEVICE_CONNECTIVITY = Counter(
+    "device_connectivity_changes_total",
+    "Total number of connectivity changes for IoT devices.",
+    ["device_id", "connection_type"],
+    registry=REGISTRY
+)
+
+
 # 2. Histograms (from previous versions)
 REQUEST_LATENCY = Histogram(
     "http_request_duration_seconds",
