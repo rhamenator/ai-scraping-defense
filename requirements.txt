@@ -41,7 +41,7 @@ kubernetes~=34.1
 hvac~=2.3
 
 # LLM and AI Libraries
-openai>=1.17,<2.0
+openai>=1.17,<3.0
 anthropic>=0.25,<1.0
 # Note: google-genai has a Pydantic 2.12+ deprecation warning (issue #1579)
 # We filter the warning in pytest.ini until upstream fixes it
