@@ -1,0 +1,296 @@
+groups:
+  - name: security_kpi_recording_rules
+    interval: 60s
+    rules:
+      # Detection effectiveness metrics
+      - record: security:detection_accuracy:rate
+        expr: |
+          (
+            sum(security_true_positives_total)
+            / 
+            (sum(security_true_positives_total) + sum(security_false_positives_total))
+          ) * 100
+
+      - record: security:false_positive_rate:rate
+        expr: |
+          (
+            sum(security_false_positives_total)
+            /
+            (sum(security_true_positives_total) + sum(security_false_positives_total))
+          ) * 100
+
+      - record: security:attack_block_rate:rate
+        expr: |
+          (
+            sum(rate(security_attacks_blocked_total[5m]))
+            /
+            sum(rate(security_threats_detected_total[5m]))
+          ) * 100
+
+      # Response time metrics
+      - record: security:detection_latency:p95
+        expr: histogram_quantile(0.95, rate(security_detection_latency_seconds_bucket[5m]))
+
+      - record: security:detection_latency:p99
+        expr: histogram_quantile(0.99, rate(security_detection_latency_seconds_bucket[5m]))
+
+      - record: security:response_time:p95
+        expr: histogram_quantile(0.95, rate(security_response_time_seconds_bucket[5m]))
+
+      - record: security:response_time:p99
+        expr: histogram_quantile(0.99, rate(security_response_time_seconds_bucket[5m]))
+
+      - record: security:mitigation_time:p95
+        expr: histogram_quantile(0.95, rate(security_mitigation_time_seconds_bucket[5m]))
+
+      # Attack trends
+      - record: security:attacks_blocked:rate5m
+        expr: sum(rate(security_attacks_blocked_total[5m])) by (attack_type, severity)
+
+      - record: security:threats_detected:rate5m
+        expr: sum(rate(security_threats_detected_total[5m])) by (threat_type, source)
+
+      - record: security:intrusions:rate5m
+        expr: sum(rate(security_intrusion_attempts_total[5m])) by (attack_vector, severity)
+
+      # Authentication metrics
+      - record: security:auth_failure_rate:rate5m
+        expr: sum(rate(security_auth_failures_total[5m])) by (auth_method, failure_reason)
+
+      - record: security:authz_denial_rate:rate5m
+        expr: sum(rate(security_authz_denials_total[5m])) by (resource, action)
+
+      # Rate limiting
+      - record: security:rate_limit_violations:rate5m
+        expr: sum(rate(security_rate_limit_violations_total[5m])) by (endpoint, limit_type)
+
+      # Anomaly detection
+      - record: security:anomalies:rate5m
+        expr: sum(rate(security_anomalies_detected_total[5m])) by (anomaly_type, confidence)
+
+      # Incident metrics
+      - record: security:incidents_escalated:rate5m
+        expr: sum(rate(security_incident_escalations_total[5m])) by (severity, escalation_level)
+
+      # Compliance
+      - record: security:compliance_violations:rate5m
+        expr: sum(rate(security_compliance_violations_total[5m])) by (policy_type, severity)
+
+  - name: security_slo_alerts
+    rules:
+      # Detection effectiveness alerts
+      - alert: SecurityDetectionAccuracyLow
+        expr: security:detection_accuracy:rate < 90
+        for: 15m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Security detection accuracy below SLO"
+          description: "Detection accuracy is {{ $value | humanize }}%, below the 90% SLO target"
+
+      - alert: SecurityFalsePositiveRateHigh
+        expr: security:false_positive_rate:rate > 10
+        for: 30m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Security false positive rate above threshold"
+          description: "False positive rate is {{ $value | humanize }}%, above the 5% SLO target"
+
+      # Response time alerts
+      - alert: SecurityDetectionLatencyHigh
+        expr: security_mean_time_to_detect_seconds > 120
+        for: 10m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Mean time to detect exceeds SLO"
+          description: "MTTD is {{ $value | humanize }}s, exceeds 60s SLO target"
+
+      - alert: SecurityResponseTimeSlow
+        expr: security_mean_time_to_respond_seconds > 600
+        for: 10m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Mean time to respond exceeds SLO"
+          description: "MTTR is {{ $value | humanize }}s, exceeds 300s (5 min) SLO target"
+
+      - alert: SecurityRemediationTimeSlow
+        expr: security_mean_time_to_remediate_seconds > 1200
+        for: 15m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Mean time to remediate exceeds SLO"
+          description: "Remediation time is {{ $value | humanize }}s, exceeds 600s (10 min) SLO target"
+
+      # Threat level alerts
+      - alert: SecurityThreatLevelElevated
+        expr: security_threat_level_current >= 3
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Security threat level elevated"
+          description: "Current threat level is {{ $value }}, above normal threshold of 2"
+
+      - alert: SecurityThreatLevelCritical
+        expr: security_threat_level_current >= 4
+        for: 2m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Security threat level CRITICAL"
+          description: "Current threat level is {{ $value }}, immediate attention required"
+
+      # Attack rate alerts
+      - alert: SecurityAttackRateHigh
+        expr: sum(rate(security_attacks_blocked_total[5m])) > 10
+        for: 10m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High rate of security attacks detected"
+          description: "Attack rate is {{ $value | humanize }}/sec over the last 5 minutes"
+
+      - alert: SecurityAttackSpike
+        expr: |
+          (
+            sum(rate(security_attacks_blocked_total[5m]))
+            /
+            sum(rate(security_attacks_blocked_total[1h] offset 1h))
+          ) > 5
+        for: 5m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Security attack spike detected"
+          description: "Attack rate increased by {{ $value }}x compared to 1 hour ago"
+
+      # Vulnerability alerts
+      - alert: SecurityCriticalVulnerabilities
+        expr: security_vulnerability_count_current{severity="critical"} > 0
+        for: 5m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Critical security vulnerabilities detected"
+          description: "{{ $value }} critical vulnerabilities require immediate remediation"
+
+      - alert: SecurityHighVulnerabilities
+        expr: security_vulnerability_count_current{severity="high"} > 5
+        for: 1h
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High severity vulnerabilities above threshold"
+          description: "{{ $value }} high severity vulnerabilities exceed SLO limit of 5"
+
+      # Compliance alerts
+      - alert: SecurityComplianceScoreLow
+        expr: security_compliance_score_current < 80
+        for: 1h
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Security compliance score below threshold"
+          description: "Compliance score for {{ $labels.compliance_standard }} is {{ $value }}%, below 90% SLO"
+
+      - alert: SecurityComplianceViolationRate
+        expr: sum(rate(security_compliance_violations_total[5m])) > 0.1
+        for: 30m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High rate of compliance violations"
+          description: "Compliance violations occurring at {{ $value | humanize }}/sec"
+
+      # Alert backlog
+      - alert: SecurityCriticalAlertsBacklog
+        expr: security_alerts_pending_current{severity="critical"} > 5
+        for: 30m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Critical security alerts backlog"
+          description: "{{ $value }} critical security alerts pending review for 30+ minutes"
+
+      - alert: SecurityHighAlertsBacklog
+        expr: security_alerts_pending_current{severity="high"} > 20
+        for: 1h
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High severity security alerts backlog"
+          description: "{{ $value }} high severity security alerts pending review"
+
+      # Response readiness
+      - alert: SecurityResponseReadinessLow
+        expr: security_response_readiness_score < 70
+        for: 1h
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Security response readiness below threshold"
+          description: "Response readiness score is {{ $value }}%, below 85% SLO target"
+
+      # Detection coverage
+      - alert: SecurityDetectionCoverageLow
+        expr: security_detection_coverage_percent < 90
+        for: 2h
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Security detection coverage below threshold"
+          description: "Detection coverage for {{ $labels.coverage_category }} is {{ $value }}%, below 95% SLO"
+
+      # Authentication anomalies
+      - alert: SecurityAuthFailureSpike
+        expr: sum(rate(security_auth_failures_total[5m])) > 5
+        for: 10m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High rate of authentication failures"
+          description: "Authentication failures at {{ $value | humanize }}/sec, potential attack"
+
+      # Intrusion detection
+      - alert: SecurityIntrusionAttempts
+        expr: sum(rate(security_intrusion_attempts_total[5m])) > 1
+        for: 5m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Intrusion attempts detected"
+          description: "{{ $value | humanize }} intrusion attempts per second detected"
+
+      # Data exfiltration
+      - alert: SecurityDataExfiltrationAttempt
+        expr: sum(rate(security_data_exfiltration_attempts_total[5m])) > 0
+        for: 2m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Data exfiltration attempt detected"
+          description: "Potential data exfiltration detected via {{ $labels.detection_method }}"

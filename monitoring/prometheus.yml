@@ -1,5 +1,6 @@
 global:
   scrape_interval: 15s
+  evaluation_interval: 15s
 
 scrape_configs:
   - job_name: ai-services
@@ -11,3 +12,30 @@ scrape_configs:
           - config_recommender:8010
           - cloud_proxy:8008
           - prompt_router:8009
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  - job_name: security-metrics
+    static_configs:
+      - targets:
+          - escalation_engine:8003
+          - ai_service:8000
+          - admin_ui:8002
+    metrics_path: /metrics
+    scrape_interval: 30s
+    metric_relabel_configs:
+      # Keep only security-related metrics for this job
+      - source_labels: [__name__]
+        regex: 'security_.*'
+        action: keep
+
+# Recording rules for security KPIs
+rule_files:
+  - /etc/prometheus/security_rules.yml
+
+# Alerting rules for security SLOs
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
