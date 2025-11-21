@@ -1,4 +1,10 @@
-"""Central configuration dataclass and helpers for environment settings."""
+"""Central configuration dataclass and helpers for environment settings.
+
+Security Note:
+- For XML parsing, use src.util.secure_xml_parser functions to prevent XXE attacks
+- For YAML parsing, always use yaml.safe_load or safe_yaml_load_file
+- Never use yaml.load (unsafe) or xml.etree.ElementTree directly
+"""
 
 import logging
 import os
