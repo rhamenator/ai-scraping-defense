@@ -16,6 +16,13 @@ from src.shared.gdpr import (
 )
 
 
+def _iso_timestamp(dt: datetime.datetime = None) -> str:
+    """Helper to create ISO timestamp in GDPR format."""
+    if dt is None:
+        dt = datetime.datetime.now(datetime.timezone.utc)
+    return dt.isoformat().replace("+00:00", "Z")
+
+
 @pytest.fixture
 def mock_redis():
     """Mock Redis connection."""
@@ -95,7 +102,7 @@ def test_check_consent_granted(gdpr_manager, mock_redis):
         "user_id": "user123",
         "consent_type": ConsentType.ANALYTICS.value,
         "granted": True,
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": _iso_timestamp(),
     }
     mock_redis.get.return_value = json.dumps(consent_data)
     
@@ -109,7 +116,7 @@ def test_check_consent_not_granted(gdpr_manager, mock_redis):
         "user_id": "user123",
         "consent_type": ConsentType.ANALYTICS.value,
         "granted": False,
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": _iso_timestamp(),
     }
     mock_redis.get.return_value = json.dumps(consent_data)
     
@@ -119,16 +126,15 @@ def test_check_consent_not_granted(gdpr_manager, mock_redis):
 
 def test_check_consent_expired(gdpr_manager, mock_redis):
     """Test checking consent when it has expired."""
-    expired_time = (
-        datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
-    ).isoformat().replace("+00:00", "Z")
+    expired_dt = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
+    expired_time = _iso_timestamp(expired_dt)
     
     consent_data = {
         "user_id": "user123",
         "consent_type": ConsentType.ANALYTICS.value,
         "granted": True,
         "expires_at": expired_time,
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": _iso_timestamp(),
     }
     mock_redis.get.return_value = json.dumps(consent_data)
     

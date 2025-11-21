@@ -363,24 +363,39 @@ async def gdpr_deletion_request(request: Request, user: str = Depends(require_ad
     from src.shared.gdpr import get_gdpr_manager
     
     form = await request.form()
-    user_id = form.get("user_id")
-    email = form.get("email")
+    user_id = form.get("user_id", "").strip()
+    email = form.get("email", "").strip()
     
+    # Validate user_id
     if not user_id:
         return JSONResponse(
             status_code=400,
             content={"error": "user_id is required"}
         )
     
+    # Basic validation: alphanumeric, dashes, underscores only
+    if not all(c.isalnum() or c in "-_" for c in user_id):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "user_id contains invalid characters"}
+        )
+    
+    # Limit length to prevent abuse
+    if len(user_id) > 255:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "user_id is too long"}
+        )
+    
     gdpr = get_gdpr_manager()
-    deletion_request = gdpr.request_data_deletion(user_id=user_id, email=email)
+    deletion_request = gdpr.request_data_deletion(user_id=user_id, email=email or None)
     
     log_event(
         user,
         "gdpr_deletion_request",
         {
             "user_id": user_id,
-            "email": email,
+            "email": email or "none",
             "request_id": deletion_request.request_id
         },
     )

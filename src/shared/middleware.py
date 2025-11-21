@@ -151,12 +151,15 @@ class GDPRComplianceMiddleware(BaseHTTPMiddleware):
             gdpr = get_gdpr_manager()
 
             # Extract request data
+            import datetime
             request_data = {
                 "ip_address": request.client.host if request.client else "unknown",
                 "user_agent": request.headers.get("user-agent", ""),
                 "path": request.url.path,
                 "method": request.method,
-                "timestamp": time.time(),
+                "timestamp": datetime.datetime.now(datetime.timezone.utc)
+                .isoformat()
+                .replace("+00:00", "Z"),
             }
 
             # Apply data minimization

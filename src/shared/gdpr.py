@@ -35,6 +35,10 @@ GDPR_DATA_RETENTION_DAYS = int(os.getenv("GDPR_DATA_RETENTION_DAYS", "365"))
 GDPR_CONSENT_REQUIRED = os.getenv("GDPR_CONSENT_REQUIRED", "true").lower() == "true"
 GDPR_AUDIT_LOG_FILE = os.getenv("GDPR_AUDIT_LOG_FILE", "/app/logs/gdpr_audit.log")
 
+# Data minimization constants
+USER_AGENT_MAX_LENGTH = 100
+IPV6_ANONYMIZATION_LENGTH = 24
+
 
 class ConsentType(str, Enum):
     """Types of consent that can be requested."""
@@ -351,8 +355,11 @@ class GDPRComplianceManager:
                     self.redis_conn.delete(key)
 
             logger.info(f"Deleted data for user {user_id}, categories: {data_categories}")
+        except RedisError as e:
+            logger.error(f"Redis error deleting user data: {e}")
+            raise
         except Exception as e:
-            logger.error(f"Error deleting user data: {e}")
+            logger.error(f"Unexpected error deleting user data: {e}")
             raise
 
     def minimize_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -382,10 +389,10 @@ class GDPRComplianceManager:
                         minimized[field] = f"{parts[0]}.{parts[1]}.{parts[2]}.0"
                     else:
                         # For IPv6 or other formats, truncate
-                        minimized[field] = value[:24] + "::0"
+                        minimized[field] = value[:IPV6_ANONYMIZATION_LENGTH] + "::0"
                 # Truncate user agent to reduce fingerprinting
                 elif field == "user_agent" and isinstance(value, str):
-                    minimized[field] = value[:100]
+                    minimized[field] = value[:USER_AGENT_MAX_LENGTH]
                 else:
                     minimized[field] = value
 
@@ -437,26 +444,58 @@ class GDPRComplianceManager:
         return report
 
     async def cleanup_expired_data(self) -> int:
-        """Clean up data older than retention period."""
+        """Clean up data older than retention period.
+        
+        This method should be called periodically (e.g., daily) to remove
+        data that has exceeded the retention period. The implementation
+        scans through stored data and removes records based on timestamps.
+        
+        Returns:
+            Number of records deleted
+        """
         if not GDPR_ENABLED or not self.redis_conn:
             return 0
 
         deleted_count = 0
-        cutoff_date = datetime.datetime.now(
-            datetime.timezone.utc
-        ) - datetime.timedelta(days=GDPR_DATA_RETENTION_DAYS)
+        cutoff_timestamp = (
+            datetime.datetime.now(datetime.timezone.utc)
+            - datetime.timedelta(days=GDPR_DATA_RETENTION_DAYS)
+        ).isoformat().replace("+00:00", "Z")
 
         try:
-            # This is a placeholder - actual implementation would need
-            # to check timestamps in stored data
-            logger.info(f"Running data cleanup for data older than {cutoff_date}")
-            # Implementation would scan through data and delete expired records
+            logger.info(f"Running GDPR data cleanup for data older than {cutoff_timestamp}")
+            
+            # Clean up expired consent records
+            consent_pattern = f"{self.consent_key_prefix}:*"
+            for key in self.redis_conn.scan_iter(match=consent_pattern):
+                try:
+                    data = self.redis_conn.get(key)
+                    if data:
+                        consent = json.loads(data)
+                        timestamp = consent.get("timestamp", "")
+                        if timestamp and timestamp < cutoff_timestamp:
+                            self.redis_conn.delete(key)
+                            deleted_count += 1
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.warning(f"Failed to parse consent data for key {key}: {e}")
+                    continue
+            
+            # Clean up old audit log entries (keep only recent ones)
+            # Keep last 10000 entries as configured in _log_gdpr_event
+            current_length = self.redis_conn.llen(self.audit_key)
+            if current_length > 10000:
+                self.redis_conn.ltrim(self.audit_key, 0, 9999)
+                deleted_count += current_length - 10000
+            
+            logger.info(f"GDPR cleanup completed: deleted {deleted_count} records")
+        except RedisError as e:
+            logger.error(f"Redis error during data cleanup: {e}")
         except Exception as e:
-            logger.error(f"Error during data cleanup: {e}")
+            logger.error(f"Unexpected error during data cleanup: {e}")
 
         self._log_gdpr_event(
             "data_cleanup_completed",
-            {"deleted_count": deleted_count, "cutoff_date": cutoff_date.isoformat()},
+            {"deleted_count": deleted_count, "cutoff_timestamp": cutoff_timestamp},
         )
 
         return deleted_count
