@@ -6,9 +6,11 @@ import tempfile
 os.environ.setdefault("SYSTEM_SEED", "test_seed")
 
 # Use temp directory for logs and data in tests to avoid permission issues
-temp_dir = tempfile.gettempdir()
-test_data_dir = os.path.join(temp_dir, "test_data")
-test_logs_dir = os.path.join(temp_dir, "test_logs")
+# Create a unique subdirectory to avoid conflicts with other test runs
+temp_base = tempfile.gettempdir()
+unique_test_dir = os.path.join(temp_base, f"ai-scraping-defense-tests-{os.getpid()}")
+test_data_dir = os.path.join(unique_test_dir, "data")
+test_logs_dir = os.path.join(unique_test_dir, "logs")
 
 # Create test directories
 os.makedirs(test_data_dir, exist_ok=True)
