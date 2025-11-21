@@ -40,3 +40,17 @@ def log_event(user: str, action: str, details: Optional[dict] = None) -> None:
     if details:
         msg += "\t" + json.dumps(details, sort_keys=True)
     logger.info(msg)
+
+
+def log_insider_threat(
+    user: str, threat_type: str, risk_score: float, indicators: list, details: Optional[dict] = None
+) -> None:
+    """Log an insider threat detection event."""
+    threat_details = {
+        "threat_type": threat_type,
+        "risk_score": risk_score,
+        "indicators": indicators,
+    }
+    if details:
+        threat_details.update(details)
+    log_event(user, "INSIDER_THREAT_DETECTED", threat_details)

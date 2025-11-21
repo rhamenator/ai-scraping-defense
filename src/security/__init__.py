@@ -5,6 +5,12 @@ from .sequence_anomaly import (
     SequenceAnomalyDetector,
     train_markov_model,
 )
+from .insider_threat import (
+    InsiderThreatDetector,
+    InsiderThreatEvent,
+    UserBehaviorProfile,
+    get_insider_threat_detector,
+)
 
 __all__ = [
     "RiskScorer",
@@ -12,4 +18,8 @@ __all__ = [
     "MarkovModel",
     "SequenceAnomalyDetector",
     "train_markov_model",
+    "InsiderThreatDetector",
+    "InsiderThreatEvent",
+    "UserBehaviorProfile",
+    "get_insider_threat_detector",
 ]
