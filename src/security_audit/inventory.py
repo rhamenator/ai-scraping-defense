@@ -17,7 +17,7 @@ SEVERITY_ORDER: Mapping[str, int] = {
     "info": 1,
 }
 
-dataclass
+@dataclass
 class InventoryItem:
     id: Optional[str] = None
     title: Optional[str] = None
@@ -48,12 +48,12 @@ def load_json(source: str | Path) -> Any:
 def _as_item(obj: Mapping[str, Any]) -> InventoryItem:
     # Best-effort mapping of common keys
     id_ = obj.get("id") or obj.get("key") or obj.get("name")
-    title = obj.get("title") or obj.get("name") or obj.get("summary")
+    title = obj.get("title") or obj.get("problem") or obj.get("name") or obj.get("summary")
     severity = _normalize_severity(obj.get("severity") or obj.get("level") or obj.get("risk"))
     metadata = dict(obj)
     return InventoryItem(id=id_, title=title, severity=severity, metadata=metadata)
 
-def extract_findings(parsed_json: Any, *, keys: Sequence[str] = ("findings", "vulnerabilities", "items")) -> List[InventoryItem]:
+def extract_findings(parsed_json: Any, *, keys: Sequence[str] = ("findings", "vulnerabilities", "items", "problems")) -> List[InventoryItem]:
     """
     Extract a list of InventoryItem from parsed JSON.
     Looks for common container keys; if top-level list is provided it is used directly.
@@ -73,6 +73,12 @@ def extract_findings(parsed_json: Any, *, keys: Sequence[str] = ("findings", "vu
         for val in parsed_json.values():
             if isinstance(val, list) and val and isinstance(val[0], Mapping):
                 return [_as_item(x) for x in val if isinstance(x, Mapping)]
+            # Recursively search nested dicts for the keys
+            if isinstance(val, Mapping):
+                for k in keys:
+                    nested_val = val.get(k)
+                    if isinstance(nested_val, list):
+                        return [_as_item(x) for x in nested_val if isinstance(x, Mapping)]
 
     return []
 
