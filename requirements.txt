@@ -37,6 +37,9 @@ PyYAML~=6.0
 # Kubernetes
 kubernetes~=34.1
 
+# Secret Management
+hvac~=2.3
+
 # LLM and AI Libraries
 openai>=1.17,<2.0
 anthropic>=0.25,<1.0

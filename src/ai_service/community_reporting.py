@@ -51,6 +51,14 @@ async def report_ip_to_community(ip: str, reason: str, details: Dict) -> bool:
             )
         return False
 
+    # Apply GDPR data minimization before reporting
+    try:
+        from src.shared.gdpr import get_gdpr_manager
+        gdpr = get_gdpr_manager()
+        details = gdpr.minimize_data(details)
+    except Exception as e:
+        logger.warning(f"GDPR data minimization failed: {e}")
+
     increment_counter_metric(COMMUNITY_REPORTS_ATTEMPTED)
     logger.info(
         "Reporting IP %s to community blocklist: %s",
