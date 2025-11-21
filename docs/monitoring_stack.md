@@ -24,3 +24,13 @@ GRAFANA_PORT=3000
 
 - **Prometheus UI:** [http://localhost:${PROMETHEUS_PORT:-9090}](http://localhost:9090)
 - **Grafana UI:** [http://localhost:${GRAFANA_PORT:-3000}](http://localhost:3000) (default login `admin`/`admin`)
+
+## Automation and Compliance with Terraform
+
+To manage the monitoring stack as code and ensure compliance, consider the following steps:
+
+1.  **Terraform Configuration:** Define Prometheus, Grafana, and associated resources (e.g., persistent volumes, network policies) using Terraform. This allows for infrastructure-as-code and repeatable deployments.
+2.  **Monitoring Configuration Versioning:** Manage Prometheus configuration files (e.g., `prometheus.yml`, alert rules) and Grafana dashboards in a version control system (e.g., Git). Use Terraform to deploy these configurations from the repository.
+3.  **Dashboard Automation:** Implement Grafana dashboard automation by defining dashboards as code using Terraform's Grafana provider. This ensures consistent dashboards across environments.
+4.  **Alert Rule Management:** Define alert rules in code and use Terraform to manage and deploy them to Prometheus. This facilitates easy updates and version control for alerts.
+5.  **Observability Compliance:** Use Terraform policies (e.g., HashiCorp Sentinel, Open Policy Agent) to enforce observability standards, such as ensuring all services expose metrics endpoints and have appropriate alerting configured.
