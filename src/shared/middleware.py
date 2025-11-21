@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import time
 from collections import deque
@@ -19,6 +20,8 @@ from .observability import (
     ObservabilitySettings,
     configure_observability,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -137,11 +140,75 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class InsiderThreatMiddleware(BaseHTTPMiddleware):
+    """Monitor user behavior for insider threat detection."""
+
+    def __init__(self, app: FastAPI) -> None:
+        super().__init__(app)
+        self._enabled = os.getenv("INSIDER_THREAT_DETECTION_ENABLED", "true").lower() == "true"
+        self._sensitive_paths = [
+            "/admin",
+            "/api/secrets",
+            "/api/config",
+            "/api/users",
+            "/api/audit",
+        ]
+
+    async def dispatch(self, request: Request, call_next):
+        if not self._enabled:
+            return await call_next(request)
+
+        # Extract user information from request state or headers
+        user_id = getattr(request.state, "user_id", None)
+        if not user_id:
+            # Try to extract from Authorization header or other auth mechanism
+            auth_header = request.headers.get("authorization", "")
+            if auth_header.startswith("Bearer "):
+                # In a real implementation, decode the JWT token
+                user_id = "authenticated_user"
+
+        if user_id:
+            try:
+                from src.security.insider_threat import get_insider_threat_detector
+
+                detector = get_insider_threat_detector()
+                client_ip = request.client.host if request.client else "unknown"
+                user_agent = request.headers.get("user-agent", "")
+                endpoint = str(request.url.path)
+
+                # Check if accessing sensitive resource
+                is_sensitive = any(endpoint.startswith(path) for path in self._sensitive_paths)
+
+                # Record the access
+                detector.record_access(
+                    user_id=user_id,
+                    endpoint=endpoint,
+                    client_ip=client_ip,
+                    user_agent=user_agent,
+                    is_sensitive=is_sensitive,
+                )
+
+                # Analyze for threats
+                threat = detector.analyze_user(user_id)
+                if threat and threat.risk_score >= 0.8:
+                    # High-risk threat detected - could block or flag
+                    logger.warning(
+                        f"High-risk insider threat detected for user {user_id}: "
+                        f"{threat.threat_type} (score: {threat.risk_score:.2f})"
+                    )
+            except Exception as e:
+                # Don't block requests if monitoring fails
+                logger.error(f"Error in insider threat monitoring: {e}")
+
+        return await call_next(request)
+
+
 def add_security_middleware(
     app: FastAPI, security_settings: SecuritySettings | None = None
 ) -> SecuritySettings:
     settings = security_settings or _load_security_settings()
 
+    app.add_middleware(InsiderThreatMiddleware)
     app.add_middleware(BodySizeLimitMiddleware, max_body_size=settings.max_body_size)
     app.add_middleware(
         RateLimitMiddleware,

@@ -1,0 +1,148 @@
+# Security Configuration for AI Scraping Defense
+# Insider Threat Detection and Response
+
+insider_threat:
+  # Enable insider threat detection
+  enabled: true
+  
+  # Time window for threat analysis (hours)
+  analysis_window_hours: 24
+  
+  # Authentication monitoring
+  authentication:
+    max_failed_attempts: 5
+    lockout_duration_minutes: 30
+    suspicious_auth_threshold: 0.7
+  
+  # Access pattern monitoring
+  access_patterns:
+    # Threshold for triggering alerts (0.0-1.0)
+    suspicious_threshold: 0.7
+    
+    # Working hours (for after-hours detection)
+    working_hours:
+      start: 8  # 8 AM
+      end: 18   # 6 PM
+      timezone: "UTC"
+    
+    # After-hours access thresholds
+    after_hours:
+      max_access_ratio: 0.5
+      min_access_count: 10
+  
+  # User behavior analytics
+  behavior_analytics:
+    # Track user access patterns
+    track_ip_addresses: true
+    track_user_agents: true
+    track_endpoints: true
+    
+    # Anomaly detection settings
+    max_ip_addresses: 5
+    max_sensitive_resources: 10
+    
+    # Profile retention
+    profile_ttl_hours: 24
+    endpoint_history_limit: 100
+  
+  # Sensitive resources
+  sensitive_resources:
+    # Paths that are considered sensitive
+    paths:
+      - /admin/*
+      - /api/secrets/*
+      - /api/config/*
+      - /api/users/*
+      - /api/audit/*
+    
+    # Methods that are considered sensitive
+    methods:
+      - DELETE
+      - PUT
+      - PATCH
+  
+  # Threat response procedures
+  response:
+    # Automatic response actions
+    auto_block_enabled: false
+    auto_alert_enabled: true
+    
+    # Escalation thresholds
+    escalation_levels:
+      low: 0.3
+      medium: 0.5
+      high: 0.7
+      critical: 0.9
+    
+    # Notification channels
+    notifications:
+      - type: "audit_log"
+        enabled: true
+      - type: "redis_pubsub"
+        enabled: true
+        channel: "insider_threat:events"
+      - type: "slack"
+        enabled: false
+        webhook_url: "${SLACK_WEBHOOK_URL}"
+  
+  # Data exfiltration detection
+  data_exfiltration:
+    enabled: true
+    
+    # Monitor for unusual data access patterns
+    volume_threshold_mb: 100
+    download_rate_threshold: 50  # requests per hour
+    
+    # Track bulk operations
+    bulk_operation_threshold: 20
+
+# Rate limiting for authentication
+rate_limiting:
+  authentication:
+    requests_per_minute: 10
+    requests_per_hour: 60
+    burst_size: 5
+  
+  sensitive_endpoints:
+    requests_per_minute: 30
+    requests_per_hour: 200
+    burst_size: 10
+
+# Audit logging
+audit_logging:
+  # Enable comprehensive audit logging
+  enabled: true
+  
+  # Log all authentication events
+  log_authentication: true
+  
+  # Log all access to sensitive resources
+  log_sensitive_access: true
+  
+  # Log all failed operations
+  log_failures: true
+  
+  # Retention period (days)
+  retention_days: 90
+
+# Security monitoring
+monitoring:
+  # Enable real-time monitoring
+  enabled: true
+  
+  # Metrics collection
+  metrics:
+    - insider_threat_events
+    - failed_authentication_attempts
+    - after_hours_access_count
+    - sensitive_resource_access_count
+  
+  # Alert thresholds
+  alerts:
+    multiple_failed_auth:
+      threshold: 5
+      window_minutes: 5
+    
+    rapid_sensitive_access:
+      threshold: 10
+      window_minutes: 1

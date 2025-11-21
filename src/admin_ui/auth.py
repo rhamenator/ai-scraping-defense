@@ -65,6 +65,13 @@ def require_auth(
         credentials.password.encode(), password_hash
     )
     if not valid:
+        # Record failed authentication for insider threat detection
+        try:
+            from src.security.insider_threat import get_insider_threat_detector
+            detector = get_insider_threat_detector()
+            detector.record_failed_auth(credentials.username, client_ip)
+        except Exception:
+            pass  # Don't block auth flow if monitoring fails
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
 
     token_user = passkeys._consume_passkey_token(
