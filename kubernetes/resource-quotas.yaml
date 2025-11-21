@@ -1,0 +1,66 @@
+# kubernetes/resource-quotas.yaml
+# Resource quotas and limit ranges for namespace-level resource management
+# Following CIS Benchmark 5.2 - Resource Management
+
+---
+# Namespace-wide resource quota
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: ai-defense-quota
+  namespace: ai-defense
+spec:
+  hard:
+    # Compute resources
+    requests.cpu: "10"
+    requests.memory: 20Gi
+    limits.cpu: "20"
+    limits.memory: 40Gi
+    # Storage resources
+    requests.storage: 100Gi
+    persistentvolumeclaims: "10"
+    # Object counts
+    pods: "50"
+    services: "20"
+    configmaps: "30"
+    secrets: "20"
+    replicationcontrollers: "0"
+    services.loadbalancers: "2"
+
+---
+# Default limits for containers without resource specifications
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: ai-defense-limits
+  namespace: ai-defense
+spec:
+  limits:
+  # Pod-level limits
+  - type: Pod
+    max:
+      cpu: "4"
+      memory: 8Gi
+    min:
+      cpu: "10m"
+      memory: 16Mi
+  # Container-level limits
+  - type: Container
+    default:
+      cpu: "500m"
+      memory: 512Mi
+    defaultRequest:
+      cpu: "100m"
+      memory: 128Mi
+    max:
+      cpu: "2"
+      memory: 4Gi
+    min:
+      cpu: "10m"
+      memory: 16Mi
+  # PVC limits
+  - type: PersistentVolumeClaim
+    max:
+      storage: 50Gi
+    min:
+      storage: 1Gi

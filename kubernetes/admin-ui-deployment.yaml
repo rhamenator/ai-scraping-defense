@@ -27,6 +27,14 @@ spec:
       labels:
         app: admin-ui
     spec:
+      serviceAccountName: admin-ui-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: admin-ui
         # IMPORTANT: Replace with your actual container image registry and tag.
@@ -36,6 +44,15 @@ spec:
         command: ["python", "src/admin_ui/admin_ui.py"]
         ports:
         - containerPort: 5002
+          protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
         resources:
           requests:
             cpu: "100m"
@@ -56,9 +73,23 @@ spec:
             port: 5002
           initialDelaySeconds: 5
           periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
         livenessProbe:
           httpGet:
             path: /health
             port: 5002
           initialDelaySeconds: 10
           periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /home/appuser/.cache
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir: {}

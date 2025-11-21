@@ -34,13 +34,33 @@ spec:
       labels:
         app: nginx-proxy
     spec:
+      serviceAccountName: nginx-proxy-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: nginx
         image: openresty/openresty:1.21.4.1-alpine
         imagePullPolicy: Always
         ports:
         - containerPort: 80
+          protocol: TCP
         - containerPort: 443
+          protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 101
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
         resources:
           requests:
             cpu: "100m"
@@ -54,28 +74,42 @@ spec:
             port: 80
           initialDelaySeconds: 5
           periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
         livenessProbe:
           httpGet:
             path: /healthz
             port: 80
           initialDelaySeconds: 10
           periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
         volumeMounts:
         - name: nginx-config
           mountPath: /etc/nginx/conf.d
+          readOnly: true
         - name: lua-scripts
           mountPath: /etc/nginx/lua
+          readOnly: true
         - name: waf-rules
           mountPath: /etc/nginx/modsecurity
+          readOnly: true
         - name: robots-txt
           mountPath: /etc/nginx/robots.txt
           subPath: robots.txt
+          readOnly: true
         # Mount the .htpasswd secret file
         - name: nginx-auth-secret
           mountPath: /etc/nginx/secrets
           readOnly: true
         - name: nginx-logs
           mountPath: /var/log/nginx
+        - name: nginx-cache
+          mountPath: /var/cache/nginx
+        - name: nginx-run
+          mountPath: /var/run
+        - name: tmp
+          mountPath: /tmp
       volumes:
       - name: nginx-config
         configMap:
@@ -93,6 +127,13 @@ spec:
       - name: nginx-auth-secret
         secret:
           secretName: nginx-auth
+          defaultMode: 0400
       - name: nginx-logs
         persistentVolumeClaim:
           claimName: nginx-logs-pvc
+      - name: nginx-cache
+        emptyDir: {}
+      - name: nginx-run
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}

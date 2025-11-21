@@ -33,6 +33,14 @@ spec:
       labels:
         app: postgres
     spec:
+      serviceAccountName: postgres-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: postgres
         image: postgres:15-alpine
@@ -40,10 +48,46 @@ spec:
         ports:
         - containerPort: 5432
           name: postgres
+          protocol: TCP
         envFrom:
           # Load database credentials from the secret.
           - secretRef:
               name: postgres-credentials
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 70
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U $POSTGRES_USER
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U $POSTGRES_USER
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
         volumeMounts:
         # Mount the persistent volume for data storage.
         - name: postgres-storage
@@ -51,10 +95,19 @@ spec:
         # Mount the initialization script.
         - name: init-db
           mountPath: /docker-entrypoint-initdb.d
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        - name: run
+          mountPath: /var/run/postgresql
       volumes:
         - name: init-db
           configMap:
             name: postgres-init-script
+        - name: tmp
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
   # Define the volume claim template for persistent storage.
   volumeClaimTemplates:
   - metadata:

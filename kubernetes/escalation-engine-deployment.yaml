@@ -27,6 +27,14 @@ spec:
       labels:
         app: escalation-engine
     spec:
+      serviceAccountName: escalation-engine-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: escalation-engine
         image: your-registry/ai-scraping-defense:latest
@@ -35,6 +43,7 @@ spec:
         command: ["uvicorn", "src.escalation.escalation_engine:app", "--host", "0.0.0.0", "--port", "8003"]
         ports:
         - containerPort: 8003
+          protocol: TCP
         envFrom:
         - configMapRef:
             name: app-config
@@ -42,6 +51,14 @@ spec:
             name: postgres-credentials
         - secretRef:
             name: redis-credentials
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
         resources:
           requests:
             cpu: "100m"
@@ -55,17 +72,29 @@ spec:
             port: 8003
           initialDelaySeconds: 5
           periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
         livenessProbe:
           httpGet:
             path: /health
             port: 8003
           initialDelaySeconds: 10
           periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
         volumeMounts:
         - name: models-storage
           mountPath: /app/models
           readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /home/appuser/.cache
       volumes:
       - name: models-storage
         persistentVolumeClaim:
           claimName: models-pvc
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir: {}
