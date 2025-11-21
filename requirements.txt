@@ -26,7 +26,7 @@ bcrypt~=5.0
 # HTTP and Web Scraping
 httpx~=0.28
 requests>=2.32.4,<3
-urllib3>=2.5.0,<3
+urllib3>=1.24.2,<2.4.0
 wikipedia~=1.4
 python-multipart~=0.0.20
 cachetools~=5.3
@@ -36,6 +36,9 @@ PyYAML~=6.0
 
 # Kubernetes
 kubernetes~=34.1
+
+# Secret Management
+hvac~=2.3
 
 # LLM and AI Libraries
 openai>=1.17,<2.0

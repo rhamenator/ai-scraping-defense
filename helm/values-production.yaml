@@ -19,6 +19,14 @@ ingress:
           pathType: Prefix
   tls: []
 
+vault:
+  enabled: true
+  address: https://vault.production.internal:8200
+  authMethod: kubernetes
+  role: ai-defense-production
+  secretPath: secret/data/ai-defense/production
+  verifyTLS: true
+
 services:
   core:
     enabled: true

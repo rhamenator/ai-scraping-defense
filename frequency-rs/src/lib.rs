@@ -1,3 +1,7 @@
+// SIMD optimizations are enabled via .cargo/config.toml
+// The Rust compiler will auto-vectorize operations using SSE/AVX instructions
+// when compiled with target-cpu=native
+
 use pyo3::prelude::*;
 use redis::{FromRedisValue, Value};
 use std::env;

@@ -175,5 +175,115 @@ class TestMetricsFallback(unittest.TestCase):
         importlib.reload(metrics)
 
 
+class TestPerformanceMetrics(unittest.TestCase):
+    def setUp(self):
+        """Create a new registry for each test."""
+        self.registry = CollectorRegistry()
+        with patch("prometheus_client.CollectorRegistry", return_value=self.registry):
+            importlib.reload(metrics)
+
+    def tearDown(self):
+        """Reload the metrics module to restore the default registry."""
+        importlib.reload(metrics)
+
+    def test_performance_baseline_gauge(self):
+        """Test performance baseline gauge."""
+        gauge = metrics.PERFORMANCE_BASELINE
+        metrics.set_gauge_metric(gauge, 0.5, labels={"metric_name": "latency", "service": "api"})
+        self.assertEqual(
+            self.registry.get_sample_value(
+                gauge._name, {"metric_name": "latency", "service": "api"}
+            ),
+            0.5,
+        )
+
+    def test_performance_anomaly_score_gauge(self):
+        """Test performance anomaly score gauge."""
+        gauge = metrics.PERFORMANCE_ANOMALY_SCORE
+        metrics.set_gauge_metric(gauge, 0.8, labels={"metric_name": "latency", "service": "api"})
+        self.assertEqual(
+            self.registry.get_sample_value(
+                gauge._name, {"metric_name": "latency", "service": "api"}
+            ),
+            0.8,
+        )
+
+    def test_performance_trend_gauge(self):
+        """Test performance trend gauge."""
+        gauge = metrics.PERFORMANCE_TREND
+        metrics.set_gauge_metric(gauge, -0.5, labels={"metric_name": "latency", "service": "api"})
+        self.assertEqual(
+            self.registry.get_sample_value(
+                gauge._name, {"metric_name": "latency", "service": "api"}
+            ),
+            -0.5,
+        )
+
+    def test_performance_samples_counter(self):
+        """Test performance samples counter."""
+        counter = metrics.PERFORMANCE_SAMPLES_COLLECTED
+        metrics.increment_counter_metric(
+            counter, labels={"metric_name": "latency", "service": "api"}
+        )
+        metrics.increment_counter_metric(
+            counter, labels={"metric_name": "latency", "service": "api"}
+        )
+        self.assertEqual(
+            self.registry.get_sample_value(
+                f"{counter._name}_total", {"metric_name": "latency", "service": "api"}
+            ),
+            2.0,
+        )
+
+    def test_performance_predictions_counter(self):
+        """Test performance predictions counter."""
+        counter = metrics.PERFORMANCE_PREDICTIONS_GENERATED
+        metrics.increment_counter_metric(
+            counter, labels={"prediction_type": "capacity", "service": "api"}
+        )
+        self.assertEqual(
+            self.registry.get_sample_value(
+                f"{counter._name}_total", {"prediction_type": "capacity", "service": "api"}
+            ),
+            1.0,
+        )
+
+    def test_performance_insights_counter(self):
+        """Test performance insights counter."""
+        counter = metrics.PERFORMANCE_INSIGHTS_GENERATED
+        metrics.increment_counter_metric(
+            counter, labels={"insight_type": "degradation", "service": "api"}
+        )
+        self.assertEqual(
+            self.registry.get_sample_value(
+                f"{counter._name}_total", {"insight_type": "degradation", "service": "api"}
+            ),
+            1.0,
+        )
+
+    def test_performance_degradation_counter(self):
+        """Test performance degradation counter."""
+        counter = metrics.PERFORMANCE_DEGRADATION_DETECTED
+        metrics.increment_counter_metric(
+            counter, labels={"metric_name": "latency", "service": "api"}
+        )
+        self.assertEqual(
+            self.registry.get_sample_value(
+                f"{counter._name}_total", {"metric_name": "latency", "service": "api"}
+            ),
+            1.0,
+        )
+
+    def test_performance_percentile_histogram(self):
+        """Test performance percentile histogram."""
+        histo = metrics.PERFORMANCE_PERCENTILE
+        labels = {"metric_name": "latency", "service": "api"}
+        metrics.observe_histogram_metric(histo, 0.1, labels=labels)
+        metrics.observe_histogram_metric(histo, 0.2, labels=labels)
+        self.assertEqual(
+            self.registry.get_sample_value(f"{histo._name}_count", labels), 2.0
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
