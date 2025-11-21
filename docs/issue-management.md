@@ -69,7 +69,7 @@ These patterns work in:
 
 - GitHub CLI (`gh`) installed and authenticated
 - `GITHUB_TOKEN` environment variable with `repo` scope
-- Python 3.8 or higher
+- Python 3.9 or higher (uses built-in generic type hints)
 
 ### Configuration
 

@@ -27,6 +27,13 @@ class TestReopenUnlinkedIssues(unittest.TestCase):
         result = reopen_unlinked_issues.extract_issue_numbers_from_text(None)
         self.assertEqual(result, set())
 
+    def test_extract_issue_numbers_avoids_commit_shas(self):
+        """Test that commit SHAs are not mistaken for issue numbers."""
+        text = "Commit a1b2c3d456 fixes issue. See #123 for details."
+        result = reopen_unlinked_issues.extract_issue_numbers_from_text(text)
+        # Should only extract #123, not any digits from the SHA
+        self.assertEqual(result, {123})
+
     def test_build_pr_to_issues_map(self):
         """Test building PR to issues mapping."""
         prs = [

@@ -96,26 +96,26 @@ def extract_issue_numbers_from_text(text: str) -> set[int]:
     - Fix #123
     - Close #123
     - Resolve #123
-    - #123 (standalone)
+    - #123 (standalone with word boundaries to avoid commit SHAs)
     """
     if not text:
         return set()
 
-    patterns = [
-        r"(?:fix|fixes|fixed|close|closes|closed|resolve|resolves|resolved)\s+#(\d+)",
-        r"#(\d+)",
-    ]
+    # Use a single comprehensive pattern with word boundaries
+    # This matches # followed by digits, but only when:
+    # - Not preceded by alphanumeric or underscore (avoids hex in commit SHAs)
+    # - Followed by word boundary (avoids matching middle of longer numbers)
+    pattern = r"(?<![a-zA-Z0-9_])#(\d+)\b"
 
     issue_numbers = set()
     text_lower = text.lower()
 
-    for pattern in patterns:
-        matches = re.finditer(pattern, text_lower)
-        for match in matches:
-            try:
-                issue_numbers.add(int(match.group(1)))
-            except (ValueError, IndexError):
-                continue
+    matches = re.finditer(pattern, text_lower)
+    for match in matches:
+        try:
+            issue_numbers.add(int(match.group(1)))
+        except (ValueError, IndexError):
+            continue
 
     return issue_numbers
 
