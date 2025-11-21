@@ -1,0 +1,405 @@
+name: Security Gate (DevSecOps)
+
+on:
+  pull_request:
+    branches: ["main", "develop"]
+  push:
+    branches: ["main", "develop"]
+  workflow_dispatch:
+    inputs:
+      severity_threshold:
+        description: "Block on severity (critical|high|medium|low)"
+        required: false
+        default: "high"
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+  issues: write
+  statuses: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security-gate-check:
+    name: Security Gate Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      gate_passed: ${{ steps.evaluate.outputs.gate_passed }}
+      critical_count: ${{ steps.evaluate.outputs.critical_count }}
+      high_count: ${{ steps.evaluate.outputs.high_count }}
+      medium_count: ${{ steps.evaluate.outputs.medium_count }}
+      low_count: ${{ steps.evaluate.outputs.low_count }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: '3.11'
+
+      - name: Install Security Tools
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y jq curl unzip
+
+          # Core security scanners
+          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/install.sh | sudo bash -s -- -b /usr/local/bin
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
+          pipx install semgrep bandit pip-audit safety || python -m pip install --user semgrep bandit pip-audit safety
+
+          # Install dependencies for code scanning
+          if [ -f requirements.txt ]; then pip install -r requirements.txt || true; fi
+
+      - name: Create Reports Directory
+        run: mkdir -p reports/security-gate
+
+      # Shift-Left Security: Secret Scanning
+      - name: Secret Scanning (Gitleaks)
+        id: secrets
+        run: |
+          echo "Running secret detection..."
+          gitleaks detect --no-banner -s . -r reports/security-gate/gitleaks.json -f json || true
+          
+          # Count findings
+          if [ -f reports/security-gate/gitleaks.json ]; then
+            SECRET_COUNT=$(jq 'length' reports/security-gate/gitleaks.json)
+            echo "secret_count=${SECRET_COUNT}" >> $GITHUB_OUTPUT
+          else
+            echo "secret_count=0" >> $GITHUB_OUTPUT
+          fi
+
+      # Shift-Left Security: SAST
+      - name: Static Application Security Testing (Semgrep)
+        id: sast
+        run: |
+          echo "Running SAST analysis..."
+          semgrep ci --config p/security-audit --config p/owasp-top-ten --json --severity=INFO --timeout 5m --output reports/security-gate/semgrep.json || true
+          
+          # Parse results by severity
+          python3 - <<'EOF' >> $GITHUB_OUTPUT
+          import json
+          import sys
+          
+          try:
+              with open('reports/security-gate/semgrep.json', 'r') as f:
+                  data = json.load(f)
+              
+              results = data.get('results', [])
+              
+              # Count by severity
+              critical = sum(1 for r in results if r.get('extra', {}).get('severity', '').lower() == 'critical')
+              high = sum(1 for r in results if r.get('extra', {}).get('severity', '').lower() == 'error')
+              medium = sum(1 for r in results if r.get('extra', {}).get('severity', '').lower() == 'warning')
+              low = sum(1 for r in results if r.get('extra', {}).get('severity', '').lower() == 'info')
+              
+              print(f"sast_critical={critical}")
+              print(f"sast_high={high}")
+              print(f"sast_medium={medium}")
+              print(f"sast_low={low}")
+              print(f"sast_total={len(results)}")
+          except Exception as e:
+              print(f"sast_critical=0")
+              print(f"sast_high=0")
+              print(f"sast_medium=0")
+              print(f"sast_low=0")
+              print(f"sast_total=0")
+          EOF
+
+      # Shift-Left Security: Python Security Scanning
+      - name: Python Security (Bandit)
+        if: hashFiles('**/*.py') != ''
+        id: bandit
+        run: |
+          echo "Running Bandit security scanner..."
+          bandit -r . -f json -o reports/security-gate/bandit.json || true
+          
+          python3 - <<'EOF' >> $GITHUB_OUTPUT
+          import json
+          import sys
+          
+          try:
+              with open('reports/security-gate/bandit.json', 'r') as f:
+                  data = json.load(f)
+              
+              results = data.get('results', [])
+              
+              # Count by severity
+              high = sum(1 for r in results if r.get('issue_severity', '').lower() == 'high')
+              medium = sum(1 for r in results if r.get('issue_severity', '').lower() == 'medium')
+              low = sum(1 for r in results if r.get('issue_severity', '').lower() == 'low')
+              
+              print(f"bandit_high={high}")
+              print(f"bandit_medium={medium}")
+              print(f"bandit_low={low}")
+              print(f"bandit_total={len(results)}")
+          except Exception as e:
+              print(f"bandit_high=0")
+              print(f"bandit_medium=0")
+              print(f"bandit_low=0")
+              print(f"bandit_total=0")
+          EOF
+
+      # Shift-Left Security: Dependency Scanning
+      - name: Dependency Vulnerability Scanning
+        id: deps
+        run: |
+          echo "Scanning dependencies for vulnerabilities..."
+          
+          # Python dependencies
+          if [ -f requirements.txt ]; then
+            pip-audit -r requirements.txt -f json -o reports/security-gate/pip-audit.json || true
+            
+            python3 - <<'EOF' >> $GITHUB_OUTPUT
+          import json
+          try:
+              with open('reports/security-gate/pip-audit.json', 'r') as f:
+                  data = json.load(f)
+              
+              vulns = data.get('vulnerabilities', [])
+              
+              # Count vulnerabilities
+              critical = sum(1 for v in vulns if 'CRITICAL' in str(v))
+              high = sum(1 for v in vulns if 'HIGH' in str(v))
+              
+              print(f"deps_critical={critical}")
+              print(f"deps_high={high}")
+              print(f"deps_total={len(vulns)}")
+          except Exception:
+              print(f"deps_critical=0")
+              print(f"deps_high=0")
+              print(f"deps_total=0")
+          EOF
+          else
+            echo "deps_critical=0" >> $GITHUB_OUTPUT
+            echo "deps_high=0" >> $GITHUB_OUTPUT
+            echo "deps_total=0" >> $GITHUB_OUTPUT
+          fi
+
+      # Shift-Left Security: Container Scanning
+      - name: Container Security (Trivy)
+        id: trivy
+        run: |
+          echo "Scanning containers for vulnerabilities..."
+          trivy fs --quiet --format json --security-checks vuln,config,secret --severity CRITICAL,HIGH --output reports/security-gate/trivy.json . || true
+          
+          python3 - <<'EOF' >> $GITHUB_OUTPUT
+          import json
+          try:
+              with open('reports/security-gate/trivy.json', 'r') as f:
+                  data = json.load(f)
+              
+              results = data.get('Results', [])
+              critical = 0
+              high = 0
+              
+              for result in results:
+                  vulns = result.get('Vulnerabilities', [])
+                  critical += sum(1 for v in vulns if v.get('Severity', '').upper() == 'CRITICAL')
+                  high += sum(1 for v in vulns if v.get('Severity', '').upper() == 'HIGH')
+              
+              print(f"trivy_critical={critical}")
+              print(f"trivy_high={high}")
+              print(f"trivy_total={critical + high}")
+          except Exception:
+              print(f"trivy_critical=0")
+              print(f"trivy_high=0")
+              print(f"trivy_total=0")
+          EOF
+
+      # Security Gate Evaluation
+      - name: Evaluate Security Gate
+        id: evaluate
+        env:
+          SEVERITY_THRESHOLD: ${{ inputs.severity_threshold || 'high' }}
+          SECRET_COUNT: ${{ steps.secrets.outputs.secret_count || '0' }}
+          SAST_CRITICAL: ${{ steps.sast.outputs.sast_critical || '0' }}
+          SAST_HIGH: ${{ steps.sast.outputs.sast_high || '0' }}
+          SAST_MEDIUM: ${{ steps.sast.outputs.sast_medium || '0' }}
+          SAST_LOW: ${{ steps.sast.outputs.sast_low || '0' }}
+          BANDIT_HIGH: ${{ steps.bandit.outputs.bandit_high || '0' }}
+          BANDIT_MEDIUM: ${{ steps.bandit.outputs.bandit_medium || '0' }}
+          BANDIT_LOW: ${{ steps.bandit.outputs.bandit_low || '0' }}
+          DEPS_CRITICAL: ${{ steps.deps.outputs.deps_critical || '0' }}
+          DEPS_HIGH: ${{ steps.deps.outputs.deps_high || '0' }}
+          TRIVY_CRITICAL: ${{ steps.trivy.outputs.trivy_critical || '0' }}
+          TRIVY_HIGH: ${{ steps.trivy.outputs.trivy_high || '0' }}
+        run: |
+          python3 - <<'EOF'
+          import os
+          import sys
+          
+          # Get environment variables
+          severity_threshold = os.environ.get('SEVERITY_THRESHOLD', 'high').lower()
+          
+          # Aggregate findings
+          critical_count = (
+              int(os.environ.get('SAST_CRITICAL', '0')) +
+              int(os.environ.get('DEPS_CRITICAL', '0')) +
+              int(os.environ.get('TRIVY_CRITICAL', '0'))
+          )
+          
+          high_count = (
+              int(os.environ.get('SAST_HIGH', '0')) +
+              int(os.environ.get('BANDIT_HIGH', '0')) +
+              int(os.environ.get('DEPS_HIGH', '0')) +
+              int(os.environ.get('TRIVY_HIGH', '0'))
+          )
+          
+          medium_count = (
+              int(os.environ.get('SAST_MEDIUM', '0')) +
+              int(os.environ.get('BANDIT_MEDIUM', '0'))
+          )
+          
+          low_count = (
+              int(os.environ.get('SAST_LOW', '0')) +
+              int(os.environ.get('BANDIT_LOW', '0'))
+          )
+          
+          secret_count = int(os.environ.get('SECRET_COUNT', '0'))
+          
+          # Write outputs
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"critical_count={critical_count}\n")
+              f.write(f"high_count={high_count}\n")
+              f.write(f"medium_count={medium_count}\n")
+              f.write(f"low_count={low_count}\n")
+              f.write(f"secret_count={secret_count}\n")
+              f.write(f"total_issues={critical_count + high_count + medium_count + low_count + secret_count}\n")
+          
+          # Security gate logic
+          gate_passed = True
+          blocking_issues = []
+          
+          # Always block on secrets
+          if secret_count > 0:
+              gate_passed = False
+              blocking_issues.append(f"Found {secret_count} secret(s)")
+          
+          # Block based on threshold
+          if critical_count > 0:
+              gate_passed = False
+              blocking_issues.append(f"Found {critical_count} CRITICAL issue(s)")
+          
+          if severity_threshold in ['high', 'medium', 'low'] and high_count > 0:
+              gate_passed = False
+              blocking_issues.append(f"Found {high_count} HIGH severity issue(s)")
+          
+          if severity_threshold in ['medium', 'low'] and medium_count > 0:
+              gate_passed = False
+              blocking_issues.append(f"Found {medium_count} MEDIUM severity issue(s)")
+          
+          if severity_threshold == 'low' and low_count > 0:
+              gate_passed = False
+              blocking_issues.append(f"Found {low_count} LOW severity issue(s)")
+          
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"gate_passed={'true' if gate_passed else 'false'}\n")
+          
+          # Print summary
+          print("\n" + "="*60)
+          print("SECURITY GATE EVALUATION")
+          print("="*60)
+          print(f"Threshold: {severity_threshold.upper()}")
+          print(f"\nFindings:")
+          print(f"  - CRITICAL: {critical_count}")
+          print(f"  - HIGH:     {high_count}")
+          print(f"  - MEDIUM:   {medium_count}")
+          print(f"  - LOW:      {low_count}")
+          print(f"  - SECRETS:  {secret_count}")
+          print(f"\nTotal Issues: {critical_count + high_count + medium_count + low_count + secret_count}")
+          print(f"\nGate Status: {'✅ PASSED' if gate_passed else '❌ FAILED'}")
+          
+          if not gate_passed:
+              print(f"\nBlocking Issues:")
+              for issue in blocking_issues:
+                  print(f"  - {issue}")
+              print("\n" + "="*60)
+              print("⚠️  Security gate FAILED. Please fix the issues above.")
+              print("="*60 + "\n")
+              sys.exit(1)
+          else:
+              print("\n" + "="*60)
+              print("✅ Security gate PASSED")
+              print("="*60 + "\n")
+          EOF
+
+      - name: Upload Security Reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: security-gate-reports
+          path: reports/security-gate/
+          retention-days: 30
+
+      - name: Generate Security Summary
+        if: always()
+        run: |
+          echo "## 🔒 Security Gate Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ${{ steps.evaluate.outputs.gate_passed == 'true' && '✅ PASSED' || '❌ FAILED' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Findings by Severity" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔴 Critical | ${{ steps.evaluate.outputs.critical_count || '0' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟠 High | ${{ steps.evaluate.outputs.high_count || '0' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟡 Medium | ${{ steps.evaluate.outputs.medium_count || '0' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟢 Low | ${{ steps.evaluate.outputs.low_count || '0' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔑 Secrets | ${{ steps.secrets.outputs.secret_count || '0' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Total Issues**: ${{ steps.evaluate.outputs.total_issues || '0' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tool Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **SAST (Semgrep)**: ${{ steps.sast.outputs.sast_total || '0' }} findings" >> $GITHUB_STEP_SUMMARY
+          echo "- **Python Security (Bandit)**: ${{ steps.bandit.outputs.bandit_total || '0' }} findings" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dependencies**: ${{ steps.deps.outputs.deps_total || '0' }} vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          echo "- **Container (Trivy)**: ${{ steps.trivy.outputs.trivy_total || '0' }} vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          echo "- **Secrets (Gitleaks)**: ${{ steps.secrets.outputs.secret_count || '0' }} exposed secrets" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          script: |
+            const gatePassed = '${{ steps.evaluate.outputs.gate_passed }}' === 'true';
+            const criticalCount = '${{ steps.evaluate.outputs.critical_count || '0' }}';
+            const highCount = '${{ steps.evaluate.outputs.high_count || '0' }}';
+            const mediumCount = '${{ steps.evaluate.outputs.medium_count || '0' }}';
+            const lowCount = '${{ steps.evaluate.outputs.low_count || '0' }}';
+            const secretCount = '${{ steps.secrets.outputs.secret_count || '0' }}';
+            
+            const body = `## 🔒 Security Gate Report
+            
+            **Status**: ${gatePassed ? '✅ PASSED' : '❌ FAILED'}
+            
+            ### Findings by Severity
+            
+            | Severity | Count |
+            |----------|-------|
+            | 🔴 Critical | ${criticalCount} |
+            | 🟠 High | ${highCount} |
+            | 🟡 Medium | ${mediumCount} |
+            | 🟢 Low | ${lowCount} |
+            | 🔑 Secrets | ${secretCount} |
+            
+            ${!gatePassed ? '⚠️ **Action Required**: Please address the security issues before merging.' : '✅ All security checks passed!'}
+            
+            [View detailed reports](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

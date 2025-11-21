@@ -12,6 +12,8 @@ on:
     branches: [ "main" ]
 permissions:
   contents: read
+  security-events: write
+  pull-requests: write
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
   cancel-in-progress: true
