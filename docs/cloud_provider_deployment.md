@@ -82,4 +82,5 @@ The scripts build and push the image, create the cluster if it does not already 
 ./gke_deploy.ps1
 ```
 
+
 Customize environment variables such as `PROJECT_ID`, `CLUSTER_NAME`, and `GKE_ZONE` before running the scripts to suit your Google Cloud environment.
