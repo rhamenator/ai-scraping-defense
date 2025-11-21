@@ -15,10 +15,13 @@ name: Codacy Security Scan
 
 on:
   workflow_dispatch: # Allows manual triggering of the workflow from the GitHub UI
-  pull_request:
-    # The branches below must be a subset of the branches above
-    branches: [ "main" ]
-
+  # Uncomment the lines below to enable automatic runs on push or pull request events
+  # push:
+  #   branches: [ "main" ]
+  # pull_request:
+  #   The branches below must be a subset of the branches above
+  #   branches: [ "main" ]
+  
 permissions:
   contents: read
 
