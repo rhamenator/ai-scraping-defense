@@ -52,15 +52,15 @@ def _as_item(obj: Mapping[str, Any]) -> InventoryItem:
     # Best-effort mapping of common keys
     id_ = obj.get("id") or obj.get("key") or obj.get("name")
     title = obj.get("title") or obj.get("name") or obj.get("summary")
-    severity = _normalize_severity(obj.get("severity") or obj.get("level") or obj.get("risk"))
+    severity = _normalize_severity(
+        obj.get("severity") or obj.get("level") or obj.get("risk")
+    )
     metadata = dict(obj)
     return InventoryItem(id=id_, title=title, severity=severity, metadata=metadata)
 
 
 def extract_findings(
-    parsed_json: Any,
-    *,
-    keys: Sequence[str] = ("findings", "vulnerabilities", "items")
+    parsed_json: Any, *, keys: Sequence[str] = ("findings", "vulnerabilities", "items")
 ) -> List[InventoryItem]:
     """
     Extract a list of InventoryItem from parsed JSON.
@@ -87,7 +87,9 @@ def extract_findings(
 
 def prioritize_findings(items: Iterable[InventoryItem]) -> List[InventoryItem]:
     """Return items sorted by severity (highest first)."""
-    return sorted(items, key=lambda it: SEVERITY_ORDER.get(it.severity, 0), reverse=True)
+    return sorted(
+        items, key=lambda it: SEVERITY_ORDER.get(it.severity, 0), reverse=True
+    )
 
 
 def summarize_by_severity(items: Iterable[InventoryItem]) -> Dict[str, int]:
@@ -134,7 +136,9 @@ def generate_inventory_markdown(data: Any) -> str:
     counts = summarize_by_severity(items)
     header_lines = ["# Inventory", ""]
     header_lines.append("## Summary by severity")
-    for sev, cnt in sorted(counts.items(), key=lambda kv: SEVERITY_ORDER.get(kv[0], 0), reverse=True):
+    for sev, cnt in sorted(
+        counts.items(), key=lambda kv: SEVERITY_ORDER.get(kv[0], 0), reverse=True
+    ):
         header_lines.append(f"- **{sev}**: {cnt}")
     header_lines.append("")
 
