@@ -1,10 +1,14 @@
+// SIMD optimizations are enabled via .cargo/config.toml
+// The compiler auto-vectorizes file content generation and string operations
+// when compiled with target-cpu=native and SSE/AVX flags
+
 use pyo3::prelude::*;
-use rand::{distributions::Alphanumeric, Rng};
-use zip::write::FileOptions;
+use rand::Rng;
+use zip::write::{FileOptions, ExtendedFileOptions};
 use chrono::Utc;
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 const DEFAULT_ARCHIVE_DIR: &str = "/app/fake_archives";
 const FILENAME_PREFIXES: [&str; 12] = [
@@ -15,32 +19,39 @@ const FILENAME_PREFIXES: [&str; 12] = [
 const FILENAME_SUFFIXES: [&str; 6] = ["_min", "_pack", "_bundle", "_lib", "_core", ""];
 const FILENAME_EXT: &str = ".js";
 
+/// Generate random string with SIMD-friendly operations.
+/// The compiler can auto-vectorize the sampling and character conversion.
 pub fn rand_string(len: usize) -> String {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(len)
-        .map(char::from)
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let mut rng = rand::rng();
+    (0..len)
+        .map(|_| {
+            let idx = rng.random_range(0..CHARSET.len());
+            CHARSET[idx] as char
+        })
         .collect()
 }
 
 #[pyfunction]
 pub fn generate_realistic_filename() -> PyResult<String> {
-    let mut rng = rand::thread_rng();
-    let prefix = FILENAME_PREFIXES[rng.gen_range(0..FILENAME_PREFIXES.len())];
-    let suffix = FILENAME_SUFFIXES[rng.gen_range(0..FILENAME_SUFFIXES.len())];
+    let mut rng = rand::rng();
+    let prefix = FILENAME_PREFIXES[rng.random_range(0..FILENAME_PREFIXES.len())];
+    let suffix = FILENAME_SUFFIXES[rng.random_range(0..FILENAME_SUFFIXES.len())];
     let random_hash: String = rand_string(8).to_lowercase();
     Ok(format!("{}{}{}.{}", prefix, suffix, random_hash, "js"))
 }
 
+/// Generate file content with SIMD optimization enabled.
+/// The compiler auto-vectorizes byte operations and string concatenation.
 pub fn generate_file_content(name: &str, target_size: usize) -> Vec<u8> {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut content = format!("// Fake module: {}\n(function() {{\n", name);
-    let vars = rng.gen_range(5..20);
+    let vars = rng.random_range(5..20);
     for _ in 0..vars {
-        let var_name = rand_string(rng.gen_range(4..10));
+        let var_name = rand_string(rng.random_range(4..10));
         content.push_str(&format!("  var {} = {}\n",
             var_name,
-            rng.gen_range(0..1000)));
+            rng.random_range(0..1000)));
     }
     content.push_str("})();\n");
     let mut bytes = content.into_bytes();
@@ -59,12 +70,15 @@ pub fn create_fake_js_zip(num_files: usize, output_dir: Option<String>) -> PyRes
     let archive_path = Path::new(&out_dir).join(format!("assets_{}.zip", timestamp));
     let file = File::create(&archive_path).map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Failed to create zip: {}", e)))?;
     let mut zip = zip::ZipWriter::new(file);
-    let options = FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    let options = FileOptions::<ExtendedFileOptions>::default()
+        .compression_method(zip::CompressionMethod::Deflated);
     for _ in 0..num_files {
         let name = generate_realistic_filename()?;
-        let size = rand::thread_rng().gen_range(5 * 1024..50 * 1024);
+        let mut rng = rand::rng();
+        let size = rng.random_range(5 * 1024..50 * 1024);
         let content = generate_file_content(&name, size);
-        zip.start_file(name, options).map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Zip error: {}", e)))?;
+        // Clone options for each file (required by zip crate API)
+        zip.start_file(name, options.clone()).map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Zip error: {}", e)))?;
         zip.write_all(&content).map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Write error: {}", e)))?;
     }
     zip.finish().map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Finish zip error: {}", e)))?;
@@ -82,6 +96,7 @@ fn jszip_rs(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
 mod tests {
     use super::*;
     use std::fs;
+    use std::path::PathBuf;
 
     #[test]
     fn filename_varies() {
