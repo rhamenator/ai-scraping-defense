@@ -21,7 +21,6 @@ import re
 import subprocess
 import sys
 import time
-from typing import Dict, List, Set
 
 LOG = logging.getLogger("reopen_unlinked_issues")
 
@@ -29,7 +28,7 @@ DEFAULT_LIMIT = 500
 RATE_LIMIT_SLEEP = 0.5
 
 
-def run_gh_command(cmd: List[str], check: bool = True) -> subprocess.CompletedProcess:
+def run_gh_command(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
     """Run a GitHub CLI command and return the result."""
     try:
         result = subprocess.run(
@@ -46,7 +45,7 @@ def run_gh_command(cmd: List[str], check: bool = True) -> subprocess.CompletedPr
         raise
 
 
-def fetch_closed_issues(limit: int = DEFAULT_LIMIT) -> List[Dict]:
+def fetch_closed_issues(limit: int = DEFAULT_LIMIT) -> list[dict]:
     """Fetch closed issues from GitHub."""
     LOG.info(f"Fetching up to {limit} closed issues from GitHub...")
     cmd = [
@@ -66,7 +65,7 @@ def fetch_closed_issues(limit: int = DEFAULT_LIMIT) -> List[Dict]:
     return issues
 
 
-def fetch_pull_requests(state: str = "all", limit: int = DEFAULT_LIMIT) -> List[Dict]:
+def fetch_pull_requests(state: str = "all", limit: int = DEFAULT_LIMIT) -> list[dict]:
     """Fetch pull requests from GitHub."""
     LOG.info(f"Fetching pull requests with state={state} (limit={limit})...")
     cmd = [
@@ -86,7 +85,7 @@ def fetch_pull_requests(state: str = "all", limit: int = DEFAULT_LIMIT) -> List[
     return prs
 
 
-def extract_issue_numbers_from_text(text: str) -> Set[int]:
+def extract_issue_numbers_from_text(text: str) -> set[int]:
     """
     Extract issue numbers from text using common patterns.
 
@@ -121,12 +120,12 @@ def extract_issue_numbers_from_text(text: str) -> Set[int]:
     return issue_numbers
 
 
-def build_pr_to_issues_map(prs: List[Dict]) -> Dict[int, Set[int]]:
+def build_pr_to_issues_map(prs: list[dict]) -> dict[int, set[int]]:
     """
     Build a mapping of PR numbers to the issues they reference.
 
     Returns:
-        Dict mapping PR number to set of issue numbers it closes/references.
+        dict mapping PR number to set of issue numbers it closes/references.
     """
     pr_to_issues = {}
 
@@ -158,13 +157,13 @@ def build_pr_to_issues_map(prs: List[Dict]) -> Dict[int, Set[int]]:
 
 
 def build_issue_to_prs_map(
-    pr_to_issues: Dict[int, Set[int]], prs: List[Dict]
-) -> Dict[int, List[Dict]]:
+    pr_to_issues: dict[int, set[int]], prs: list[dict]
+) -> dict[int, list[dict]]:
     """
     Build a reverse mapping of issue numbers to the PRs that reference them.
 
     Returns:
-        Dict mapping issue number to list of PRs (with merged status).
+        dict mapping issue number to list of PRs (with merged status).
     """
     issue_to_prs = {}
     pr_details = {pr["number"]: pr for pr in prs}
@@ -189,7 +188,7 @@ def build_issue_to_prs_map(
     return issue_to_prs
 
 
-def has_merged_pr(issue_number: int, issue_to_prs: Dict[int, List[Dict]]) -> bool:
+def has_merged_pr(issue_number: int, issue_to_prs: dict[int, list[dict]]) -> bool:
     """Check if an issue has at least one merged PR."""
     prs = issue_to_prs.get(issue_number, [])
     return any(pr.get("merged", False) for pr in prs)
