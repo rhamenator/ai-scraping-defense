@@ -22,7 +22,9 @@ class ConfigDrift:
                          Defaults to ./data/config_baselines/
         """
         if baseline_dir is None:
-            baseline_dir = Path(__file__).parent.parent.parent / "data" / "config_baselines"
+            baseline_dir = (
+                Path(__file__).parent.parent.parent / "data" / "config_baselines"
+            )
 
         self.baseline_dir = baseline_dir
         self.baseline_dir.mkdir(parents=True, exist_ok=True)
@@ -124,7 +126,9 @@ class ConfigDrift:
         logger.info("Saved configuration baseline: %s", filepath)
         return filepath
 
-    def load_baseline(self, environment: str, version: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def load_baseline(
+        self, environment: str, version: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """
         Load configuration baseline.
 
@@ -152,7 +156,10 @@ class ConfigDrift:
             return None
 
     def detect_drift(
-        self, current_config: Dict[str, Any], baseline: Optional[Dict[str, Any]] = None, environment: Optional[str] = None
+        self,
+        current_config: Dict[str, Any],
+        baseline: Optional[Dict[str, Any]] = None,
+        environment: Optional[str] = None,
     ) -> Tuple[bool, List[str], Dict[str, Any]]:
         """
         Detect configuration drift from baseline.
@@ -211,7 +218,11 @@ class ConfigDrift:
                         change = f"Removed: {new_path}"
                         changes.append(change)
                         drift_details["changes"].append(
-                            {"type": "removed", "path": new_path, "old_value": base[key]}
+                            {
+                                "type": "removed",
+                                "path": new_path,
+                                "old_value": base[key],
+                            }
                         )
                     else:
                         compare_dicts(new_path, base[key], curr[key])

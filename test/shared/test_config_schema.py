@@ -118,18 +118,14 @@ class TestCaptchaConfig(unittest.TestCase):
 
     def test_valid_captcha_config(self):
         """Test valid CAPTCHA configuration."""
-        config = CaptchaConfig(
-            score_threshold_low=0.2, score_threshold_high=0.5
-        )
+        config = CaptchaConfig(score_threshold_low=0.2, score_threshold_high=0.5)
         self.assertEqual(config.score_threshold_low, 0.2)
         self.assertEqual(config.score_threshold_high, 0.5)
 
     def test_invalid_threshold_order(self):
         """Test CAPTCHA with low > high threshold."""
         with self.assertRaises(ValidationError):
-            CaptchaConfig(
-                score_threshold_low=0.7, score_threshold_high=0.3
-            )
+            CaptchaConfig(score_threshold_low=0.7, score_threshold_high=0.3)
 
 
 class TestSecurityConfig(unittest.TestCase):

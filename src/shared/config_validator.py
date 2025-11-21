@@ -6,7 +6,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from pydantic import ValidationError
 
@@ -104,7 +104,9 @@ class ConfigLoader:
                 debug=env.get("DEBUG", "false").lower() == "true",
                 tenant_id=env.get("TENANT_ID", "default"),
                 app_env=Environment(env.get("APP_ENV", "production").lower()),
-                model_uri=env.get("MODEL_URI", "sklearn:///app/models/bot_detection_rf_model.joblib"),
+                model_uri=env.get(
+                    "MODEL_URI", "sklearn:///app/models/bot_detection_rf_model.joblib"
+                ),
                 model_type=env.get("MODEL_TYPE"),
                 model_version=env.get("MODEL_VERSION"),
                 ai_service=ai_service,
@@ -215,8 +217,7 @@ class ConfigLoader:
     def _load_captcha_config(self, env: Dict[str, str]) -> CaptchaConfig:
         """Load CAPTCHA configuration."""
         return CaptchaConfig(
-            enable_trigger=env.get("ENABLE_CAPTCHA_TRIGGER", "false").lower()
-            == "true",
+            enable_trigger=env.get("ENABLE_CAPTCHA_TRIGGER", "false").lower() == "true",
             score_threshold_low=float(env.get("CAPTCHA_SCORE_THRESHOLD_LOW", 0.2)),
             score_threshold_high=float(env.get("CAPTCHA_SCORE_THRESHOLD_HIGH", 0.5)),
             verification_url=env.get("CAPTCHA_VERIFICATION_URL"),

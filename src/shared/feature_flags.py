@@ -3,7 +3,7 @@
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -86,7 +86,9 @@ class FeatureFlagManager:
 
         # Default config path
         if config_path is None:
-            config_path = Path(__file__).parent.parent.parent / "config" / "features.yaml"
+            config_path = (
+                Path(__file__).parent.parent.parent / "config" / "features.yaml"
+            )
 
         self.config_path = config_path
         self._load_features()
@@ -117,7 +119,9 @@ class FeatureFlagManager:
 
             # Apply environment-specific overrides
             env_overrides = (
-                config.get("environments", {}).get(self.environment, {}).get("overrides", {})
+                config.get("environments", {})
+                .get(self.environment, {})
+                .get("overrides", {})
             )
             for name, override_data in env_overrides.items():
                 if name in self.features:
@@ -191,9 +195,7 @@ class FeatureFlagManager:
                     errors.append(error)
                     if auto_disable:
                         feature.enabled = False
-                        logger.warning(
-                            "%s. Auto-disabled '%s'.", error, feature.name
-                        )
+                        logger.warning("%s. Auto-disabled '%s'.", error, feature.name)
                 elif not self.features[required].enabled:
                     error = (
                         f"Feature '{feature.name}' requires '{required}' "
@@ -202,9 +204,7 @@ class FeatureFlagManager:
                     errors.append(error)
                     if auto_disable:
                         feature.enabled = False
-                        logger.warning(
-                            "%s. Auto-disabled '%s'.", error, feature.name
-                        )
+                        logger.warning("%s. Auto-disabled '%s'.", error, feature.name)
 
         if errors and not auto_disable:
             raise FeatureFlagError(
@@ -222,7 +222,9 @@ class FeatureFlagManager:
             True if feature is enabled, False otherwise.
         """
         if feature_name not in self.features:
-            logger.warning("Unknown feature flag: %s. Defaulting to disabled.", feature_name)
+            logger.warning(
+                "Unknown feature flag: %s. Defaulting to disabled.", feature_name
+            )
             return False
 
         feature = self.features[feature_name]

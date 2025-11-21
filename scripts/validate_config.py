@@ -5,15 +5,16 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import List
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.shared.config_schema import AppConfig
-from src.shared.config_validator import ConfigLoader, ConfigValidationError
-from src.shared.feature_flags import FeatureFlagManager
-from src.util.config_drift import ConfigDrift
+from src.shared.config_drift import ConfigDrift  # noqa: E402
+from src.shared.config_validator import (  # noqa: E402
+    ConfigLoader,
+    ConfigValidationError,
+)
+from src.shared.feature_flags import FeatureFlagManager  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,9 @@ def validate_configuration(
         is_valid, errors = loader.validate_config(config)
 
         if errors:
-            logger.error("✗ Configuration validation failed with %d error(s):", len(errors))
+            logger.error(
+                "✗ Configuration validation failed with %d error(s):", len(errors)
+            )
             for error in errors:
                 logger.error("  - %s", error)
             return False
@@ -291,9 +294,7 @@ Examples:
     )
 
     # Drift detection command
-    drift_parser = subparsers.add_parser(
-        "drift", help="Check for configuration drift"
-    )
+    drift_parser = subparsers.add_parser("drift", help="Check for configuration drift")
     drift_parser.add_argument(
         "--env-file",
         type=Path,
@@ -336,9 +337,7 @@ Examples:
     success = False
 
     if args.command == "validate":
-        success = validate_configuration(
-            args.env_file, args.strict, args.environment
-        )
+        success = validate_configuration(args.env_file, args.strict, args.environment)
 
     elif args.command == "features":
         success = validate_feature_flags(args.environment)

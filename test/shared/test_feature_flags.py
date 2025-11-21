@@ -70,16 +70,8 @@ class TestFeatureFlagManager(unittest.TestCase):
                 },
             },
             "environments": {
-                "development": {
-                    "overrides": {
-                        "feature_c": {"enabled": True}
-                    }
-                },
-                "production": {
-                    "overrides": {
-                        "feature_b": {"enabled": False}
-                    }
-                },
+                "development": {"overrides": {"feature_c": {"enabled": True}}},
+                "production": {"overrides": {"feature_b": {"enabled": False}}},
             },
             "dependency_validation": {
                 "strict": True,
@@ -246,7 +238,9 @@ class TestFeatureFlagManager(unittest.TestCase):
                 yaml.dump(self.test_config, f)
 
             manager = FeatureFlagManager(
-                config_path=config_path, environment="production", tenant_id="test-tenant"
+                config_path=config_path,
+                environment="production",
+                tenant_id="test-tenant",
             )
 
             exported = manager.export_config()
@@ -266,9 +260,7 @@ class TestFeatureFlagManager(unittest.TestCase):
                     "requires": [],
                 }
             },
-            "rollouts": {
-                "test_feature": {"strategy": "percentage", "percentage": 50}
-            },
+            "rollouts": {"test_feature": {"strategy": "percentage", "percentage": 50}},
         }
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -277,9 +269,7 @@ class TestFeatureFlagManager(unittest.TestCase):
                 yaml.dump(config, f)
 
             # With tenant_id that hashes to < 50, feature should be enabled
-            manager = FeatureFlagManager(
-                config_path=config_path, tenant_id="tenant1"
-            )
+            manager = FeatureFlagManager(config_path=config_path, tenant_id="tenant1")
 
             # Result depends on hash, but should be deterministic
             result = manager.is_enabled("test_feature")
@@ -309,15 +299,11 @@ class TestFeatureFlagManager(unittest.TestCase):
                 yaml.dump(config, f)
 
             # Allowed tenant
-            manager1 = FeatureFlagManager(
-                config_path=config_path, tenant_id="tenant1"
-            )
+            manager1 = FeatureFlagManager(config_path=config_path, tenant_id="tenant1")
             self.assertTrue(manager1.is_enabled("test_feature"))
 
             # Not allowed tenant
-            manager2 = FeatureFlagManager(
-                config_path=config_path, tenant_id="tenant3"
-            )
+            manager2 = FeatureFlagManager(config_path=config_path, tenant_id="tenant3")
             self.assertFalse(manager2.is_enabled("test_feature"))
 
 

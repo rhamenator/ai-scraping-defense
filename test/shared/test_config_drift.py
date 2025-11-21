@@ -117,8 +117,12 @@ class TestConfigDrift(unittest.TestCase):
             drift = ConfigDrift(baseline_dir=Path(tmpdir))
 
             # Save multiple baselines
-            drift.save_baseline(self.base_config, environment="production", version="1.0.0")
-            drift.save_baseline(self.base_config, environment="production", version="1.1.0")
+            drift.save_baseline(
+                self.base_config, environment="production", version="1.0.0"
+            )
+            drift.save_baseline(
+                self.base_config, environment="production", version="1.1.0"
+            )
 
             # Load latest (should be 1.1.0 due to sorting)
             loaded = drift.load_baseline(environment="production")
@@ -238,8 +242,12 @@ class TestConfigDrift(unittest.TestCase):
             drift = ConfigDrift(baseline_dir=Path(tmpdir))
 
             # Save baselines for different environments
-            drift.save_baseline(self.base_config, environment="production", version="1.0.0")
-            drift.save_baseline(self.base_config, environment="staging", version="1.0.0")
+            drift.save_baseline(
+                self.base_config, environment="production", version="1.0.0"
+            )
+            drift.save_baseline(
+                self.base_config, environment="staging", version="1.0.0"
+            )
 
             # List all baselines
             all_baselines = drift.list_baselines()
