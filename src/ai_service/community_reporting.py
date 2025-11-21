@@ -5,6 +5,8 @@ import os
 from typing import Dict
 
 import httpx
+import redis
+
 
 from src.shared.config import CONFIG
 from src.shared.utils import LOG_DIR, log_event
@@ -28,6 +30,32 @@ COMMUNITY_BLOCKLIST_API_KEY = CONFIG.COMMUNITY_BLOCKLIST_API_KEY
 COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = CONFIG.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT
 
 COMMUNITY_REPORT_LOG_FILE = os.path.join(LOG_DIR, "community_report.log")
+
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+REDIS_DB = int(os.environ.get("REDIS_DB", 0))
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
+REPORTING_EVENT_CHANNEL = "reporting_events"
+
+redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, password=REDIS_PASSWORD, decode_responses=True)
+
+
+async def subscribe_reporting_events():
+    pubsub = redis_client.pubsub()
+    pubsub.subscribe(REPORTING_EVENT_CHANNEL)
+    for message in pubsub.listen():
+        if message['type'] == 'message':
+            event_data = eval(message['data'].decode('utf-8'))  # Use eval cautiously; consider JSON parsing
+            await handle_reporting_event(event_data)
+
+async def handle_reporting_event(event_data):
+    ip = event_data.get("ip")
+    reason = event_data.get("reason")
+    details = event_data.get("details")
+    if ip and reason and details:
+        await report_ip_to_community(ip, reason, details)
+    else:
+        logger.warning(f"Invalid reporting event: {event_data}")
 
 
 async def report_ip_to_community(ip: str, reason: str, details: Dict) -> bool:
@@ -132,3 +160,11 @@ async def report_ip_to_community(ip: str, reason: str, details: Dict) -> bool:
         logger.error("Unexpected error reporting IP %s: %s", ip, e)
         increment_counter_metric(COMMUNITY_REPORTS_ERRORS_UNEXPECTED)
         return False
+
+
+async def main():
+    # Start the Redis subscriber task as a background task
+    asyncio.create_task(subscribe_reporting_events())
+
+if __name__ == "__main__":
+    asyncio.run(main())
