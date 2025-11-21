@@ -59,7 +59,7 @@ def ensure_directory(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def backup(args: argparse.Namespace) -> None:
+def backup(args: argparse.Namespace) -> Path:
     timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
     destination = Path(args.destination or DEFAULT_BACKUP_DIR) / timestamp
     ensure_directory(destination)
@@ -115,6 +115,7 @@ def backup(args: argparse.Namespace) -> None:
             )
         )
     LOG.info("Backup complete")
+    return destination
 
 
 def restore(args: argparse.Namespace) -> None:
@@ -155,17 +156,15 @@ def disaster_recovery_drill(args: argparse.Namespace) -> None:
         kube_context=args.kube_context,
         execute=args.execute,
     )
-    backup(backup_args)
+    backup_path = backup(backup_args)
     restore(
         argparse.Namespace(
-            source=args.drill_backup_dir,
+            source=str(backup_path),
             postgres_url=args.postgres_url,
             redis_url=args.redis_url,
             redis_data_dir=args.redis_data_dir,
             redis_host=args.redis_host,
             execute=args.execute,
-            redis_data_dir=args.redis_data_dir,
-            redis_host=args.redis_host,
         )
     )
     LOG.info("Drill completed")

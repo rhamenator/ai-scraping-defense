@@ -8,6 +8,8 @@ on:
       ref:
         description: "Git ref to run against"
         required: false
+  pull_request:
+    branches: [ "main" ]
 permissions:
   contents: read
 concurrency:
@@ -31,7 +33,7 @@ jobs:
           if [ -f pyproject.toml ]; then pip install .; fi
           if [ -f setup.py ]; then pip install -e .; fi
           pip install pytest pytest-cov
-          pytest -q .
+          pytest -q test/
       - name: Rust tests
         if: hashFiles('**/Cargo.toml') != ''
         run: |
@@ -93,7 +95,7 @@ jobs:
           if (Test-Path pyproject.toml) { pip install . }
           if (Test-Path setup.py) { pip install -e . }
           pip install pytest pytest-cov
-          pytest -q .
+          pytest -q test/
       - name: Node tests (Windows)
         shell: pwsh
         run: |
@@ -120,7 +122,7 @@ jobs:
           if [ -f pyproject.toml ]; then pip3 install .; fi
           if [ -f setup.py ]; then pip3 install -e .; fi
           pip3 install pytest pytest-cov
-          pytest -q .
+          pytest -q test/
       - name: Node tests (macOS)
         run: |
           if [ -f package-lock.json ]; then npm ci --ignore-scripts || npm i; else npm i; fi

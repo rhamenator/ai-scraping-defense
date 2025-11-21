@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "u0DV89iMTE4=",
+  "dgSpecHash": "6vCwyw0fRCE=",
   "success": true,
-  "projectFilePath": "D:\\ai-scraping-defense\\iis\\DefenseModule\\DefenseModule.csproj",
+  "projectFilePath": "E:\\ai-scraping-defense\\iis\\DefenseModule\\DefenseModule.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\wyurd\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\5.0.0\\microsoft.bcl.asyncinterfaces.5.0.0.nupkg.sha512",
     "C:\\Users\\wyurd\\.nuget\\packages\\pipelines.sockets.unofficial\\2.2.2\\pipelines.sockets.unofficial.2.2.2.nupkg.sha512",
