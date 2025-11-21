@@ -8,14 +8,21 @@ import urllib.request
 import urllib.error
 import re
 import sqlite3
-from datetime import datetime
+
+from pr_claims import (
+    CLAIMS_DEFAULT_PATH,
+    detect_claim_conflicts,
+    load_claims,
+    normalize_file_path,
+    record_claim,
+    release_claims,
+)
 
 # Configuration
 PROBLEMS_DIR = "."
 API_KEY = os.environ.get("GEMINI_API_KEY")
 DB_FILE = "problem_file_map.db"
 JSON_FILE = "problem_file_map.json"
-CLAIMS_DEFAULT_PATH = os.path.join("automation", "pr_file_claims.json")
 
 def call_gemini(prompt):
     """Calls Gemini API to generate content."""
@@ -132,74 +139,6 @@ def get_file_content(filepath):
     return None
 
 
-def normalize_file_path(path):
-    clean_path = path.replace(" (Proposed)", "").strip()
-    clean_path = clean_path.split(':')[0].strip()
-    if clean_path.startswith('/') and ':' in clean_path:
-        clean_path = clean_path.lstrip('/')
-    clean_path = os.path.normpath(clean_path)
-    return clean_path.replace("\\", "/")
-
-
-def load_claims(path):
-    if not path:
-        return {}
-    if not os.path.exists(path):
-        return {}
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        if isinstance(data, dict):
-            return data
-    except Exception as exc:
-        print(f"Failed to load claims file {path}: {exc}")
-    return {}
-
-
-def save_claims(path, claims):
-    if not path:
-        return
-    directory = os.path.dirname(path)
-    if directory:
-        os.makedirs(directory, exist_ok=True)
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(claims, f, indent=2, sort_keys=True)
-
-
-def detect_claim_conflicts(claims, target_files):
-    conflicts = []
-    target_set = set(target_files)
-    for branch, entry in claims.items():
-        claimed_files = set(entry.get("files", []))
-        overlap = sorted(target_set & claimed_files)
-        if overlap:
-            conflicts.append({
-                "branch": branch,
-                "issue": entry.get("issue"),
-                "files": overlap
-            })
-    return conflicts
-
-
-def record_claim(claims, path, branch, issue_number, files):
-    claims[branch] = {
-        "issue": issue_number,
-        "files": sorted(set(files)),
-        "timestamp": datetime.utcnow().isoformat(timespec='seconds') + "Z"
-    }
-    save_claims(path, claims)
-    print(f"  Recorded file claims for branch {branch}.")
-
-
-def release_claims(claims, path, branches):
-    modified = False
-    for branch in branches:
-        if branch in claims:
-            del claims[branch]
-            print(f"Released claims for branch {branch}.")
-            modified = True
-    if modified:
-        save_claims(path, claims)
 
 def generate_fix_and_metadata(title, description, fix_prompt, file_contents):
     prompt = f"""
@@ -429,9 +368,7 @@ def main():
     claims = load_claims(args.claims_file)
 
     if args.release_branch:
-        release_claims(claims, args.claims_file, args.release_branch)
-        # Reload to reflect persisted state and avoid duplicate release output later in the run.
-        claims = load_claims(args.claims_file)
+        claims = release_claims(claims, args.claims_file, args.release_branch)
 
     # Fetch issues
     if args.issue_number:
@@ -536,9 +473,13 @@ def main():
             pr_number, branch_name = create_pr(issue, fix_data, metadata, dry_run=False)
 
             if pr_number:
-                record_claim(claims, args.claims_file, branch_name, issue['number'], normalized_targets)
-                # Update in-memory claims to avoid duplicate assignments within same run.
-                claims = load_claims(args.claims_file)
+                claims = record_claim(
+                    claims,
+                    args.claims_file,
+                    branch_name,
+                    issue['number'],
+                    normalized_targets,
+                )
 
             if args.smoke_test:
                 print("\nSmoke test complete. Stopping.")
