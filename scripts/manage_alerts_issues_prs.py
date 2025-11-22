@@ -45,8 +45,8 @@ class AlertManager:
     def __init__(self, owner: str, repo: str, token: str, dry_run: bool = False):
         self.owner = owner
         self.repo = repo
-        # Store a masked version for logging/display, never log the actual token
-        self._token_prefix = token[:7] if len(token) > 7 else "***"
+        # Don't store the token at all to prevent any possibility of exposure
+        # Token is only used immediately in initialization
         self.dry_run = dry_run
         self.gh = Github(token)
         self.repository = self.gh.get_repo(f"{owner}/{repo}")
@@ -76,8 +76,10 @@ class AlertManager:
     def _sanitize_message(self, message: str) -> str:
         """Sanitize message to remove any potential sensitive data like tokens."""
         import re
-        # Pattern to match GitHub tokens (ghp_, gho_, ghs_, ghu_, etc.)
-        token_pattern = r'gh[pousr]_[A-Za-z0-9_]{36,255}'
+        # Pattern to match GitHub tokens with specific format:
+        # ghp_ (personal), gho_ (OAuth), ghs_ (server), ghu_ (user), ghr_ (refresh) + exactly 36 chars
+        # Use word boundary to ensure we match complete tokens
+        token_pattern = r'\bgh[pousr]_[A-Za-z0-9]{36}\b'
         message = re.sub(token_pattern, '[REDACTED_TOKEN]', message)
         # Pattern to match Bearer tokens and other authorization headers
         auth_pattern = r'(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+'
@@ -648,8 +650,10 @@ class AlertManager:
 def _sanitize_message_standalone(message: str) -> str:
     """Standalone function to sanitize messages (for use before manager is created)."""
     import re
-    # Pattern to match GitHub tokens (ghp_, gho_, ghs_, ghu_, etc.)
-    token_pattern = r'gh[pousr]_[A-Za-z0-9_]{36,255}'
+    # Pattern to match GitHub tokens with specific format:
+    # ghp_ (personal), gho_ (OAuth), ghs_ (server), ghu_ (user), ghr_ (refresh) + exactly 36 chars
+    # Use word boundary to ensure we match complete tokens
+    token_pattern = r'\bgh[pousr]_[A-Za-z0-9]{36}\b'
     message = re.sub(token_pattern, '[REDACTED_TOKEN]', message)
     # Pattern to match Bearer tokens and other authorization headers
     auth_pattern = r'(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+'
