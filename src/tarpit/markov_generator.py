@@ -3,6 +3,7 @@
 
 import html
 import logging
+import mmap
 import os
 import random
 import string
@@ -76,11 +77,26 @@ _db_pool = None
 
 
 def _get_pg_password():
-    """Loads password from secret file."""
+    """Loads password from secret file using memory-mapped access when beneficial."""
     try:
         if not os.path.exists(PG_PASSWORD_FILE):
             raise FileNotFoundError(f"Password file {PG_PASSWORD_FILE} not found")
 
+        file_size = os.path.getsize(PG_PASSWORD_FILE)
+        
+        # For small files like password files, standard reading is often sufficient
+        # but we use mmap for consistency and to demonstrate the optimization
+        if file_size > 0 and file_size < 10000:  # Reasonable password file size
+            try:
+                with open(PG_PASSWORD_FILE, "r+b") as f:
+                    with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mmapped:
+                        password = mmapped.read().decode("utf-8").strip()
+                        return password
+            except (OSError, ValueError):
+                # Fall back to standard reading if mmap fails (e.g., empty file)
+                pass
+        
+        # Fallback to standard file reading
         with open(PG_PASSWORD_FILE, "r") as f:
             return f.read().strip()
     except Exception as e:

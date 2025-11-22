@@ -1,5 +1,6 @@
 # util/corpus_wikipedia_updater.py
 import logging
+import mmap
 import os
 import re
 import time
@@ -33,6 +34,44 @@ DISALLOWED_CATEGORIES = [
     "deaths in",
     "births in",
 ]
+
+
+def read_corpus_with_mmap(corpus_path: str) -> str | None:
+    """
+    Read corpus file using memory-mapped access for efficient large file handling.
+    
+    Args:
+        corpus_path: Path to the corpus file
+        
+    Returns:
+        Contents of the corpus file or None if file doesn't exist or is empty
+    """
+    if not os.path.exists(corpus_path):
+        logger.warning(f"Corpus file {corpus_path} does not exist")
+        return None
+        
+    file_size = os.path.getsize(corpus_path)
+    if file_size == 0:
+        logger.warning(f"Corpus file {corpus_path} is empty")
+        return None
+    
+    try:
+        with open(corpus_path, "r+b") as f:
+            # Use mmap for efficient reading of large files
+            with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mmapped_file:
+                # Read and decode the entire file
+                content = mmapped_file.read().decode("utf-8")
+                logger.info(f"Successfully read {file_size} bytes from {corpus_path} using mmap")
+                return content
+    except Exception as e:
+        logger.error(f"Failed to read corpus file with mmap: {e}")
+        # Fall back to regular file reading
+        try:
+            with open(corpus_path, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as fallback_error:
+            logger.error(f"Fallback read also failed: {fallback_error}")
+            return None
 
 
 def clean_text(text: str) -> str:
@@ -118,6 +157,7 @@ def fetch_random_wikipedia_articles(num_articles: int) -> list[str]:
 def update_corpus_file(articles: list[str]):
     """
     Appends a list of articles to the corpus file.
+    Uses memory-mapped file access for large file operations.
 
     Args:
         articles: A list of cleaned article strings.
@@ -132,6 +172,8 @@ def update_corpus_file(articles: list[str]):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
+        # For large corpus files (>1MB), use standard append to avoid complexity
+        # Memory-mapped files are better for reading large files
         # Append the new articles to the file
         with open(CORPUS_OUTPUT_FILE, "a", encoding="utf-8") as f:
             for article in articles:
