@@ -91,6 +91,12 @@ kubectl apply -f (Join-Path $K8sDir "nginx-deployment.yaml")
 Write-Host "Nginx Ingress Proxy applied."
 Write-Host ""
 
+# Step 8: Apply health check and resilience testing components
+Write-Host "Step 8: Applying Health Check and Resilience Testing Components..." -ForegroundColor Cyan
+kubectl apply -f (Join-Path $K8sDir "healthcheck-deployment.yaml") # Ensure you have this file
+Write-Host "Health Check and Resilience Testing Components applied."
+Write-Host ""
+
 Write-Host "--- Deployment Complete ---" -ForegroundColor Green
 Write-Host "To monitor the status of your pods, run:"
 Write-Host "kubectl get pods -n $Namespace -w"
