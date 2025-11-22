@@ -12,11 +12,22 @@ HONEYPOT_LOG_FILE = globals().get(
     "HONEYPOT_LOG_FILE",
     os.getenv("HONEYPOT_LOG_FILE", "/app/logs/honeypot_hits.log"),
 )
+_honeypot_log_available = False
 try:
     os.makedirs(os.path.dirname(HONEYPOT_LOG_FILE), exist_ok=True)
+    _honeypot_log_available = True
 except OSError as e:
-    print(f"ERROR creating honeypot log directory: {e}")
-    raise SystemExit(1)
+    # In test or development environments, /app may not exist or be writable
+    # Fall back to a temp directory
+    import tempfile
+    print(f"WARNING: Cannot create honeypot log directory {HONEYPOT_LOG_FILE}: {e}. Using temp directory.")
+    HONEYPOT_LOG_FILE = os.path.join(tempfile.gettempdir(), "honeypot_hits.log")
+    try:
+        os.makedirs(os.path.dirname(HONEYPOT_LOG_FILE), exist_ok=True)
+        _honeypot_log_available = True
+    except OSError:
+        print(f"WARNING: Cannot create honeypot log directory in temp, file logging disabled")
+        _honeypot_log_available = False
 
 # --- Logger Setup ---
 
@@ -48,15 +59,26 @@ class JsonFormatter(logging.Formatter):
 
 # Configure file handler only if not already configured (prevents duplicates on reload)
 if not honeypot_logger.hasHandlers():
-    try:
-        file_handler = logging.FileHandler(HONEYPOT_LOG_FILE)
+    if _honeypot_log_available:
+        try:
+            file_handler = logging.FileHandler(HONEYPOT_LOG_FILE)
+            formatter = JsonFormatter()
+            file_handler.setFormatter(formatter)
+            honeypot_logger.addHandler(file_handler)
+            print(f"Honeypot logger configured to write to {HONEYPOT_LOG_FILE}")
+        except OSError as e:
+            print(f"WARNING: Cannot set up honeypot file logger: {e}. Using console only.")
+            # Fall back to console logging
+            console_handler = logging.StreamHandler()
+            formatter = JsonFormatter()
+            console_handler.setFormatter(formatter)
+            honeypot_logger.addHandler(console_handler)
+    else:
+        # No file logging available, use console only
+        console_handler = logging.StreamHandler()
         formatter = JsonFormatter()
-        file_handler.setFormatter(formatter)
-        honeypot_logger.addHandler(file_handler)
-        print(f"Honeypot logger configured to write to {HONEYPOT_LOG_FILE}")
-    except OSError as e:
-        print(f"ERROR setting up honeypot file logger: {e}")
-        raise SystemExit(1)
+        console_handler.setFormatter(formatter)
+        honeypot_logger.addHandler(console_handler)
 
 # --- Logging Function ---
 

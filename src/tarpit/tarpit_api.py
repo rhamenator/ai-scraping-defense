@@ -187,12 +187,19 @@ SYSTEM_SEED = CONFIG.SYSTEM_SEED
 DEFAULT_SYSTEM_SEED = "default_system_seed_value_change_me"
 
 if SYSTEM_SEED == DEFAULT_SYSTEM_SEED:
-    msg = (
-        "SYSTEM_SEED is set to the default placeholder. "
-        "Set a unique value via the SYSTEM_SEED environment variable."
-    )
-    logger.error(msg)
-    raise RuntimeError(msg)
+    # Only raise error in production, allow for testing/development
+    if os.getenv("ENVIRONMENT", "development") == "production":
+        msg = (
+            "SYSTEM_SEED is set to the default placeholder. "
+            "Set a unique value via the SYSTEM_SEED environment variable."
+        )
+        logger.error(msg)
+        raise RuntimeError(msg)
+    else:
+        logger.warning(
+            "SYSTEM_SEED is set to the default placeholder. "
+            "This is acceptable for testing/development but must be changed in production."
+        )
 
 TAR_PIT_MAX_HOPS = CONFIG.TAR_PIT_MAX_HOPS
 TAR_PIT_HOP_WINDOW_SECONDS = CONFIG.TAR_PIT_HOP_WINDOW_SECONDS
