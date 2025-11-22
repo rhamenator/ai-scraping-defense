@@ -486,6 +486,42 @@ After installing the tools, you can run a basic stress test using the provided s
 
 The optional scripts `scripts/linux/security_scan.sh` and `scripts/windows/security_scan.ps1` automate tools such as **Nmap**, **Nikto**, and **Trivy** to perform vulnerability checks. Install these dependencies and run them with the appropriate privileges so network scans can complete. See [docs/security_scan.md](docs/security_scan.md) for more details. **Use these scripts only on systems you own or have permission to test.**
 
+## Security Alert Management
+
+The `scripts/manage_alerts_issues_prs.py` script helps manage security alerts, issues, and pull requests by identifying and consolidating duplicates, diagnosing error-state alerts, and keeping your repository organized.
+
+**Quick Start:**
+
+```bash
+# Install dependencies
+pip install requests PyGithub
+
+# Run in dry-run mode (no changes)
+export GITHUB_TOKEN="your_github_token"
+./scripts/run_alert_management.sh
+
+# Or run directly with Python
+python scripts/manage_alerts_issues_prs.py \
+  --owner rhamenator \
+  --repo ai-scraping-defense \
+  --dry-run
+```
+
+**What it does:**
+- ✅ Consolidates duplicate security alerts (code scanning, secret scanning, Dependabot)
+- ✅ Closes duplicate issues and PRs with superseding notes
+- ✅ Diagnoses and suggests fixes for error-state alerts
+- ✅ Generates comprehensive reports of all actions
+
+The script intelligently groups items by their essential properties (problem description, not file paths or IDs), ensuring that duplicate alerts affecting different files are properly consolidated. All closed items receive notes referencing the primary item.
+
+**Documentation:**
+- **Quick Start:** [QUICK_START_ALERT_MANAGEMENT.md](QUICK_START_ALERT_MANAGEMENT.md)
+- **Detailed Guide:** [docs/alert_management_guide.md](docs/alert_management_guide.md)
+- **Technical Docs:** [scripts/ALERT_MANAGEMENT_README.md](scripts/ALERT_MANAGEMENT_README.md)
+
+You can also run this automatically via GitHub Actions (see `.github/workflows/manage-alerts.yml`).
+
 ## Monitoring Stack
 
 Docker Compose includes a small Prometheus and Grafana setup. Prometheus scrapes

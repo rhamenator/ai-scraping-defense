@@ -132,6 +132,9 @@ archives/
 chats/
 old/
 
+# Alert management reports
+alert_management_report_*.txt
+
 # Temporary files
 *~
 *.bak
