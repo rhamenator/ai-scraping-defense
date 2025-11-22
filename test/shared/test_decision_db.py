@@ -102,24 +102,30 @@ class TestRecordDecision(unittest.TestCase):
         self.assertEqual(tid, "tenantX")
 
     def test_directory_creation_failure(self):
+        """Test that directory creation failure falls back to temp directory."""
         error = OSError("Permission denied")
         with patch("os.makedirs", side_effect=error) as mock_makedirs, patch(
-            "logging.error"
-        ) as mock_log_error, patch.dict(
+            "logging.warning"
+        ) as mock_log_warning, patch.dict(
             os.environ, {"DECISIONS_DB_PATH": self.temp_db}
         ):
+            # Should now fallback to temp and still raise error
             with self.assertRaises(RuntimeError) as cm:
                 importlib.reload(decision_db)
 
-        mock_makedirs.assert_called_once_with(
+        # Should be called twice: once for original path, once for temp
+        self.assertEqual(mock_makedirs.call_count, 2)
+        # First call should be for the original directory
+        mock_makedirs.assert_any_call(
             os.path.dirname(self.temp_db), exist_ok=True
         )
-        mock_log_error.assert_called_once_with(
-            "Failed to create directory for decision DB: %s", error
-        )
-        self.assertEqual(
+        # Should have warned about the fallback
+        self.assertTrue(mock_log_warning.called)
+        self.assertIn("Cannot create decision DB", str(mock_log_warning.call_args))
+        # Should still raise error after both attempts fail
+        self.assertIn(
+            "Failed to create directory for decision DB",
             str(cm.exception),
-            f"Failed to create directory for decision DB: {error}",
         )
 
 
