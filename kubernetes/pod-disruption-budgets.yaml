@@ -1,0 +1,87 @@
+# kubernetes/pod-disruption-budgets.yaml
+# Pod Disruption Budgets to ensure high availability during voluntary disruptions
+# Following Kubernetes best practices for service availability
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nginx-proxy-pdb
+  namespace: ai-defense
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: nginx-proxy
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-pdb
+  namespace: ai-defense
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: redis
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-pdb
+  namespace: ai-defense
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: postgres
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: escalation-engine-pdb
+  namespace: ai-defense
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: escalation-engine
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: tarpit-api-pdb
+  namespace: ai-defense
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: tarpit-api
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ai-service-pdb
+  namespace: ai-defense
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: ai-service
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: admin-ui-pdb
+  namespace: ai-defense
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: admin-ui

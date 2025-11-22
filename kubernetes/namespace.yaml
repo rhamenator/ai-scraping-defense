@@ -6,3 +6,9 @@ kind: Namespace
 metadata:
   # The name of the namespace.
   name: ai-defense
+  labels:
+    # Pod Security Standards enforcement
+    # Using 'baseline' as some pods require elevated privileges (fail2ban, suricata)
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
