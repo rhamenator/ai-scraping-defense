@@ -57,6 +57,10 @@ evaluate>=0.4,<1.0
 ollama~=0.6
 llama-cpp-python~=0.3
 
+# --- Optional: Alert Management Script ---
+# Uncomment if you want to run scripts/manage_alerts_issues_prs.py
+# PyGithub~=2.8
+
 # --- Development and Testing Dependencies ---
 freezegun~=1.5
 maturin>=1.5,<2.0

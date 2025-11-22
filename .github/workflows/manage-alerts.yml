@@ -1,0 +1,95 @@
+name: Manage Security Alerts and Issues
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run in dry-run mode (no changes will be made)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+  schedule:
+    # Run weekly on Sunday at midnight UTC
+    - cron: '0 0 * * 0'
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  security-events: write
+
+jobs:
+  manage-alerts:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install requests PyGithub
+      
+      - name: Run alert management script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DRY_RUN_FLAG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ] || [ "${{ github.event_name }}" = "schedule" ]; then
+            DRY_RUN_FLAG="--dry-run"
+            echo "Running in DRY RUN mode"
+          else
+            echo "Running in LIVE mode - changes will be made"
+          fi
+          
+          python scripts/manage_alerts_issues_prs.py \
+            --owner ${{ github.repository_owner }} \
+            --repo ${{ github.event.repository.name }} \
+            $DRY_RUN_FLAG
+      
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alert-management-report-${{ github.run_number }}
+          path: alert_management_report_*.txt
+          retention-days: 30
+      
+      - name: Comment on workflow run
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportFiles = fs.readdirSync('.').filter(f => f.startsWith('alert_management_report_'));
+            
+            if (reportFiles.length > 0) {
+              const report = fs.readFileSync(reportFiles[0], 'utf8');
+              const statsSection = report.split('STATISTICS:')[1]?.split('ACTIONS LOG:')[0] || 'No statistics available';
+              
+              const comment = `## Alert Management Report
+              
+**Mode**: ${{ github.event.inputs.dry_run == 'true' && 'DRY RUN' || 'LIVE' }}
+**Workflow Run**: ${{ github.run_number }}
+
+### Statistics
+\`\`\`
+${statsSection.trim()}
+\`\`\`
+
+Full report available in workflow artifacts.
+              `;
+              
+              // Note: This would need to be connected to an issue or PR
+              // For now, it just prepares the comment
+              console.log(comment);
+            }
