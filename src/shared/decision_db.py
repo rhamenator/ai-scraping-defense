@@ -21,7 +21,10 @@ except OSError as e:
     # In test or development environments, /app may not exist or be writable
     # Fall back to a temp directory
     import tempfile
-    logging.warning("Cannot create decision DB in %s: %s. Using temp directory.", DB_PATH, e)
+
+    logging.warning(
+        "Cannot create decision DB in %s: %s. Using temp directory.", DB_PATH, e
+    )
     DB_PATH = os.path.join(tempfile.gettempdir(), "decisions.db")
     try:
         os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)

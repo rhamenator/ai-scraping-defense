@@ -9,18 +9,22 @@ import re
 from typing import Dict, Optional
 
 import httpx
-from fastapi import HTTPException, Request, Path as FastAPIPath
+from fastapi import HTTPException
+from fastapi import Path as FastAPIPath
+from fastapi import Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field, validator
 
 # The direct 'redis' import is no longer needed as the client handles it.
 from redis.exceptions import RedisError
 
+
 # --- Pydantic Models for Input Validation ---
 class TarpitPathValidator(BaseModel):
     """Validates tarpit path parameters."""
+
     path: str = Field(default="", max_length=2048, description="Request path")
-    
+
     @validator("path")
     def sanitize_path(cls, v):
         """Sanitize path to prevent injection attacks."""
@@ -38,6 +42,7 @@ class TarpitPathValidator(BaseModel):
 
 class EscalationMetadata(BaseModel):
     """Validates metadata sent to escalation engine."""
+
     timestamp: str = Field(..., description="ISO timestamp")
     ip: str = Field(..., max_length=45, description="Client IP address")
     user_agent: str = Field(default="unknown", max_length=500)
@@ -46,7 +51,7 @@ class EscalationMetadata(BaseModel):
     path: str = Field(..., max_length=2048)
     headers: Dict[str, str] = Field(default_factory=dict)
     source: str = Field(default="tarpit_api", max_length=50)
-    
+
     @validator("ip")
     def validate_ip(cls, v):
         """Basic IP validation."""
@@ -57,7 +62,7 @@ class EscalationMetadata(BaseModel):
         if len(v) > 45:  # Max length for IPv6
             raise ValueError("Invalid IP format")
         return v
-    
+
     @validator("method")
     def validate_method(cls, v):
         """Validate HTTP method."""
@@ -66,7 +71,7 @@ class EscalationMetadata(BaseModel):
         if v not in allowed_methods:
             return "GET"  # Default to GET for invalid methods
         return v
-    
+
     @validator("headers")
     def sanitize_headers(cls, v):
         """Sanitize header values."""
@@ -350,7 +355,7 @@ async def tarpit_handler(request: Request, path: str = ""):
     except Exception as e:
         logger.warning(f"Invalid path parameter: {e}")
         raise HTTPException(status_code=400, detail="Invalid path")
-    
+
     if not ENABLE_TARPIT_CATCH_ALL and path:
         raise HTTPException(status_code=404)
     client_ip = request.client.host if request.client else "unknown"
@@ -418,7 +423,7 @@ async def tarpit_handler(request: Request, path: str = ""):
     timestamp_iso = (
         datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     )
-    
+
     # Validate metadata before sending to escalation engine
     try:
         metadata = EscalationMetadata(
@@ -429,7 +434,7 @@ async def tarpit_handler(request: Request, path: str = ""):
             method=http_method,
             path=requested_path,
             headers=dict(request.headers),
-            source="tarpit_api"
+            source="tarpit_api",
         )
         metadata_dict = metadata.dict()
     except Exception as e:
@@ -445,7 +450,7 @@ async def tarpit_handler(request: Request, path: str = ""):
             "headers": {},
             "source": "tarpit_api",
         }
-    
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(

@@ -116,9 +116,7 @@ class TestRecordDecision(unittest.TestCase):
         # Should be called twice: once for original path, once for temp
         self.assertEqual(mock_makedirs.call_count, 2)
         # First call should be for the original directory
-        mock_makedirs.assert_any_call(
-            os.path.dirname(self.temp_db), exist_ok=True
-        )
+        mock_makedirs.assert_any_call(os.path.dirname(self.temp_db), exist_ok=True)
         # Should have warned about the fallback
         self.assertTrue(mock_log_warning.called)
         self.assertIn("Cannot create decision DB", str(mock_log_warning.call_args))

@@ -16,12 +16,15 @@ except OSError as e:
     # In test or development environments, /app may not exist or be writable
     # Fall back to a temp directory or disable file logging
     import tempfile
+
     LOG_PATH = os.path.join(tempfile.gettempdir(), "audit.log")
     try:
         os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
         _audit_log_available = True
     except OSError:
-        logging.warning("Cannot create audit log directory, audit logging to file disabled: %s", e)
+        logging.warning(
+            "Cannot create audit log directory, audit logging to file disabled: %s", e
+        )
         _audit_log_available = False
 
 logger = logging.getLogger("audit")
@@ -39,7 +42,9 @@ if not logger.handlers:
             logger.addHandler(handler)
             logger.setLevel(logging.INFO)
         except OSError as e:
-            logging.warning("Cannot set up audit file logger, using console only: %s", e)
+            logging.warning(
+                "Cannot set up audit file logger, using console only: %s", e
+            )
             # Fall back to console logging
             handler = logging.StreamHandler()
             formatter = logging.Formatter("%(asctime)s %(message)s")

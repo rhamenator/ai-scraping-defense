@@ -20,13 +20,18 @@ except OSError as e:
     # In test or development environments, /app may not exist or be writable
     # Fall back to a temp directory
     import tempfile
-    print(f"WARNING: Cannot create honeypot log directory {HONEYPOT_LOG_FILE}: {e}. Using temp directory.")
+
+    print(
+        f"WARNING: Cannot create honeypot log directory {HONEYPOT_LOG_FILE}: {e}. Using temp directory."
+    )
     HONEYPOT_LOG_FILE = os.path.join(tempfile.gettempdir(), "honeypot_hits.log")
     try:
         os.makedirs(os.path.dirname(HONEYPOT_LOG_FILE), exist_ok=True)
         _honeypot_log_available = True
     except OSError:
-        print(f"WARNING: Cannot create honeypot log directory in temp, file logging disabled")
+        print(
+            "WARNING: Cannot create honeypot log directory in temp, file logging disabled"
+        )
         _honeypot_log_available = False
 
 # --- Logger Setup ---
@@ -67,7 +72,9 @@ if not honeypot_logger.hasHandlers():
             honeypot_logger.addHandler(file_handler)
             print(f"Honeypot logger configured to write to {HONEYPOT_LOG_FILE}")
         except OSError as e:
-            print(f"WARNING: Cannot set up honeypot file logger: {e}. Using console only.")
+            print(
+                f"WARNING: Cannot set up honeypot file logger: {e}. Using console only."
+            )
             # Fall back to console logging
             console_handler = logging.StreamHandler()
             formatter = JsonFormatter()

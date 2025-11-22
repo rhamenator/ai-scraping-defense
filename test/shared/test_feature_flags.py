@@ -194,7 +194,9 @@ class TestFeatureFlagManager(unittest.TestCase):
                 yaml.dump(self.test_config, f)
 
             # Use development environment where feature_b is enabled
-            manager = FeatureFlagManager(config_path=config_path, environment="development")
+            manager = FeatureFlagManager(
+                config_path=config_path, environment="development"
+            )
 
             # Disable feature_a, which should also disable feature_b
             self.assertTrue(manager.is_enabled("feature_a"))
@@ -225,7 +227,9 @@ class TestFeatureFlagManager(unittest.TestCase):
                 yaml.dump(self.test_config, f)
 
             # Use development environment where feature_b is enabled and feature_c is also enabled
-            manager = FeatureFlagManager(config_path=config_path, environment="development")
+            manager = FeatureFlagManager(
+                config_path=config_path, environment="development"
+            )
 
             enabled = manager.get_enabled_features()
             self.assertIn("feature_a", enabled)

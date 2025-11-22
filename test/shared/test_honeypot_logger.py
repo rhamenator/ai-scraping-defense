@@ -189,7 +189,9 @@ class TestHoneypotLoggerSetup(unittest.TestCase):
         # Should be called twice: once for original path, once for temp
         self.assertGreaterEqual(mock_makedirs.call_count, 1)
         # Should warn about the fallback
-        self.assertTrue(any("WARNING" in str(call) for call in mock_print.call_args_list))
+        self.assertTrue(
+            any("WARNING" in str(call) for call in mock_print.call_args_list)
+        )
 
     @patch("logging.getLogger")
     @patch("os.makedirs")

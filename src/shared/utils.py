@@ -22,7 +22,10 @@ except OSError as e:  # pragma: no cover - catastrophic failure
     # In test or development environments, /app may not exist or be writable
     # Fall back to a temp directory
     import tempfile
-    logger.warning("Cannot create log directory %s: %s. Using temp directory.", LOG_DIR, e)
+
+    logger.warning(
+        "Cannot create log directory %s: %s. Using temp directory.", LOG_DIR, e
+    )
     LOG_DIR = tempfile.gettempdir()
     ERROR_LOG_FILE = os.path.join(LOG_DIR, "aiservice_errors.log")
     try:
@@ -89,7 +92,9 @@ def _get_event_logger(log_file: str) -> logging.Logger:
             logger_inst.propagate = False
         except OSError as e:
             # Fall back to console logging if file logging fails
-            logger.warning("Cannot create event log file %s: %s. Using console.", log_file, e)
+            logger.warning(
+                "Cannot create event log file %s: %s. Using console.", log_file, e
+            )
             handler = logging.StreamHandler()
             formatter = logging.Formatter("%(message)s")
             handler.setFormatter(formatter)
