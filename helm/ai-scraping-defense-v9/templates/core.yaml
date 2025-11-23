@@ -18,7 +18,9 @@ spec:
         app.kubernetes.io/name: {{ include "asd.fullname" . }}
         app.kubernetes.io/component: core
     spec:
-      imagePullSecrets: {{ toYaml .Values.global.imagePullSecrets | nindent 6 }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 6 }}
+      {{- end }}
       containers:
         - name: core
           image: {{ .Values.services.core.image | quote }}
