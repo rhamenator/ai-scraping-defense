@@ -2,10 +2,10 @@
 // The compiler auto-vectorizes random number generation and string operations
 // when compiled with target-cpu=native and SSE/AVX flags
 
-use pyo3::prelude::*;
 use postgres::{Client, NoTls};
-use rand::prelude::*;
+use pyo3::prelude::*;
 use rand::distributions::WeightedIndex;
+use rand::prelude::*;
 use std::env;
 use std::fs;
 
@@ -20,15 +20,22 @@ fn get_connection() -> Result<Client, postgres::Error> {
     let db = env::var("PG_DBNAME").unwrap_or_else(|_| "markovdb".into());
     let user = env::var("PG_USER").unwrap_or_else(|_| "markovuser".into());
     let password = get_pg_password().unwrap_or_default();
-    let conn_str = format!("host={} port={} dbname={} user={} password={}", host, port, db, user, password);
+    let conn_str = format!(
+        "host={} port={} dbname={} user={} password={}",
+        host, port, db, user, password
+    );
     Client::connect(&conn_str, NoTls)
 }
 
 fn get_word_id(client: &mut Client, word: &str) -> i32 {
-    if word.is_empty() { return 1; }
+    if word.is_empty() {
+        return 1;
+    }
     if let Ok(row) = client.query_opt("SELECT id FROM markov_words WHERE word = $1", &[&word]) {
         row.map(|r| r.get::<usize, i32>(0)).unwrap_or(1)
-    } else { 1 }
+    } else {
+        1
+    }
 }
 
 fn get_next_word_from_db(client: &mut Client, w1: i32, w2: i32) -> Option<String> {
@@ -46,7 +53,7 @@ fn get_next_word_from_db(client: &mut Client, w1: i32, w2: i32) -> Option<String
                 rng.gen_range(0..words.len())
             };
             Some(words[idx].clone())
-        },
+        }
         _ => None,
     }
 }
@@ -75,9 +82,10 @@ fn generate_markov_text_from_db(sentences: usize) -> String {
                     result.push_str(&current_para.join(" "));
                     result.push_str("</p>\n");
                     current_para.clear();
-                    w1 = 1; w2 = 1;
+                    w1 = 1;
+                    w2 = 1;
                 }
-            },
+            }
             _ => {
                 if !current_para.is_empty() {
                     result.push_str("<p>");
@@ -85,8 +93,11 @@ fn generate_markov_text_from_db(sentences: usize) -> String {
                     result.push_str(".</p>\n");
                     current_para.clear();
                 }
-                w1 = 1; w2 = 1;
-                if word_count >= max_words/2 { break; }
+                w1 = 1;
+                w2 = 1;
+                if word_count >= max_words / 2 {
+                    break;
+                }
             }
         }
     }
@@ -95,12 +106,20 @@ fn generate_markov_text_from_db(sentences: usize) -> String {
         result.push_str(&current_para.join(" "));
         result.push_str(".</p>\n");
     }
-    if result.is_empty() { "<p>Could not generate content.</p>".into() } else { result }
+    if result.is_empty() {
+        "<p>Could not generate content.</p>".into()
+    } else {
+        result
+    }
 }
 
 fn rand_string(len: usize) -> String {
     use rand::distributions::Alphanumeric;
-    thread_rng().sample_iter(&Alphanumeric).take(len).map(char::from).collect()
+    thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(len)
+        .map(char::from)
+        .collect()
 }
 
 /// Generate fake links with pre-allocated capacity for better performance.
@@ -111,13 +130,15 @@ fn generate_fake_links(count: usize, depth: usize) -> Vec<String> {
     for _ in 0..count {
         let link_type = ["page", "js", "data", "css"][rng.gen_range(0..4)];
         let num_dirs = rng.gen_range(0..=depth);
-        let dirs: Vec<String> = (0..num_dirs).map(|_| rand_string(rng.gen_range(5..=8))).collect();
+        let dirs: Vec<String> = (0..num_dirs)
+            .map(|_| rand_string(rng.gen_range(5..=8)))
+            .collect();
         let filename_base = rand_string(10);
         let (ext, prefix) = match link_type {
             "page" => (".html", "/page/"),
             "js" => (".js", "/js/"),
             "data" => (if rng.gen_bool(0.5) { ".json" } else { ".xml" }, "/data/"),
-            _ => (".css", "/styles/")
+            _ => (".css", "/styles/"),
         };
         let mut full = String::from("/tarpit");
         full.push_str(prefix);
@@ -134,11 +155,23 @@ fn generate_fake_links(count: usize, depth: usize) -> Vec<String> {
 
 fn generate_page() -> String {
     let content = generate_markov_text_from_db(15);
-    let links = generate_fake_links(7,3);
+    let links = generate_fake_links(7, 3);
     let mut link_html = String::from("<ul>\n");
     for link in &links {
-        let mut text = link.split('/').last().unwrap_or("link").split('.').next().unwrap_or("link").replace('_', " ").replace('-', " ");
-        if text.is_empty() { text = "Resource Link".into(); }
+        let text_base = link
+            .split('/')
+            .next_back()
+            .unwrap_or("link")
+            .split('.')
+            .next()
+            .unwrap_or("link");
+        let mut text = text_base
+            .chars()
+            .map(|c| if c == '_' || c == '-' { ' ' } else { c })
+            .collect::<String>();
+        if text.is_empty() {
+            text = "Resource Link".into();
+        }
         let safe = html_escape::encode_text(&text);
         link_html.push_str(&format!("    <li><a href=\"{}\">{}</a></li>\n", link, safe));
     }
@@ -158,4 +191,3 @@ fn tarpit_rs(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(generate_dynamic_tarpit_page, m)?)?;
     Ok(())
 }
-
