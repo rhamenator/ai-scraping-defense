@@ -66,15 +66,23 @@ def is_localhost(hostname: str) -> bool:
         return False
 
     hostname_lower = hostname.lower()
+
+    # Check for exact localhost match
+    if hostname_lower == 'localhost':
+        return True
+
+    # Check for 127.x.x.x addresses (IPv4 loopback range)
+    if hostname_lower.startswith('127.') and hostname_lower.replace('.', '').replace(':', '').isdigit():
+        return True
+
+    # Check for other localhost patterns
     localhost_patterns = [
-        'localhost',
-        '127.',  # Catches 127.0.0.1 and other 127.x.x.x addresses
         '::1',    # IPv6 localhost
         '0.0.0.0',
         '[::]',   # IPv6 all interfaces
     ]
 
-    return any(hostname_lower.startswith(pattern) for pattern in localhost_patterns)
+    return hostname_lower in localhost_patterns
 
 
 def validate_url(

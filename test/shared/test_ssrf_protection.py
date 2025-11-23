@@ -61,6 +61,7 @@ class TestIsLocalhost(unittest.TestCase):
         self.assertFalse(is_localhost("example.com"))
         self.assertFalse(is_localhost("192.168.1.1"))
         self.assertFalse(is_localhost("8.8.8.8"))
+        self.assertFalse(is_localhost("127example.com"))
 
     def test_empty_string(self):
         """Test that empty string returns False."""
