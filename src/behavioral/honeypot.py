@@ -90,7 +90,10 @@ class SessionTracker:
 
 
 def _seq_features(seq: List[str]) -> List[float]:
-    return [len(seq), len(set(seq))]
+    # adding frequency of the 'auth' and 'admin' substring in the paths of the sequence
+    auth_count = sum(1 for s in seq if 'auth' in s)
+    admin_count = sum(1 for s in seq if 'admin' in s)
+    return [len(seq), len(set(seq)), auth_count, admin_count]
 
 
 def train_behavior_model(sequences: Dict[str, List[str]], labels: Dict[str, int]):

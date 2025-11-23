@@ -19,16 +19,38 @@ router = APIRouter()
 ADMIN_UI_ROLE = os.getenv("ADMIN_UI_ROLE", "admin")
 
 
+# Placeholder function for biometric authentication.  Replace with actual
+# biometric verification logic.
+async def verify_biometrics(username: str, biometric_data: str) -> bool:
+    """Placeholder for biometric verification.
+
+    Args:
+        username: The username attempting to authenticate.
+        biometric_data: The biometric data to verify.
+
+    Returns:
+        True if the biometric data is valid for the user, False otherwise.
+    """
+    # In a real implementation, this would involve communication with a
+    # biometric authentication service.
+    # Consider security best practices for storing and handling biometric data.
+    return True  # Simulate successful biometric verification
+
+
 def require_auth(
     request: Request = None,
     credentials: HTTPBasicCredentials = Depends(security),
     x_2fa_code: str | None = Header(None, alias="X-2FA-Code"),
     x_2fa_token: str | None = Header(None, alias="X-2FA-Token"),
+    x_biometric_data: str | None = Header(None, alias="X-Biometric-Data"),
     client_ip: str | None = None,
 ) -> str:
     """Validate HTTP Basic credentials and optional 2FA."""
     from . import webauthn
 
+    # Identity Operations Automation can be integrated here.
+    # This might involve dynamically adjusting authentication requirements based on
+    # user behavior, device posture, and other risk factors.
     rate_limit = int(os.getenv("ADMIN_UI_RATE_LIMIT", "5"))
     rate_window = int(os.getenv("ADMIN_UI_RATE_LIMIT_WINDOW", "60"))
     if client_ip is None:
@@ -76,6 +98,29 @@ def require_auth(
             detail="Invalid 2FA token",
             headers=headers,
         )
+
+    # Biometric Authentication Step
+    if x_biometric_data:
+        try:
+            # Simulate biometric verification
+            if not await verify_biometrics(credentials.username, x_biometric_data):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid biometric data",
+                    headers=headers,
+                )
+            # Track successful biometric authentication. In real application the
+            # metrics will be implemented here.
+            print(f"Biometric authentication successful for user: {credentials.username}")
+            return credentials.username  # Biometric authentication successful
+        except Exception as e:
+            # Handle exceptions during biometric verification
+            print(f"Biometric verification error: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Biometric verification error",
+                headers=headers,
+            )
 
     totp_secret = os.getenv("ADMIN_UI_2FA_SECRET") or get_secret(
         "ADMIN_UI_2FA_SECRET_FILE"
