@@ -6,6 +6,8 @@ from urllib.parse import urlparse, urlunparse
 
 import requests
 
+from src.shared.ssrf_protection import SSRFProtectionError, validate_url
+
 # --- Kubernetes Library Check ---
 # We only check for the library's existence here to set a flag.
 # The actual imports will happen inside the functions that need them.
@@ -64,16 +66,16 @@ def fetch_robots_txt(
         logger.error(f"Invalid URL provided: {url}")
         return get_default_robots_txt()
 
-    if parsed_url.scheme not in ("http", "https"):
-        logger.error("URL scheme must be 'http' or 'https'.")
-        return get_default_robots_txt()
-    if not parsed_url.netloc:
-        logger.error("URL must include a host (netloc).")
-        return get_default_robots_txt()
-
-    hostname = parsed_url.hostname or ""
-    if allowed_hosts is not None and hostname not in allowed_hosts:
-        logger.error(f"Host '{hostname}' not in allowlist.")
+    # Use centralized SSRF protection
+    try:
+        validate_url(
+            url,
+            allowed_schemes=['http', 'https'],
+            allowed_domains=allowed_hosts,
+            block_private_ips=True,
+        )
+    except SSRFProtectionError as e:
+        logger.error(f"SSRF protection blocked robots.txt fetch from {url}: {e}")
         return get_default_robots_txt()
 
     robots_url = urlunparse(
