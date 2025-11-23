@@ -52,7 +52,7 @@ jobs:
                   exit 1
                 fi
               }
-              cargo clippy --manifest-path "$crate/Cargo.toml" --all-targets --all-features -D warnings
+              cargo clippy --manifest-path "$crate/Cargo.toml" --all-targets --all-features -- -D warnings
               cargo fmt --manifest-path "$crate/Cargo.toml" -- --check
             fi
           done
