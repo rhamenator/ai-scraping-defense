@@ -79,18 +79,18 @@ jobs:
               const report = fs.readFileSync(reportFiles[0], 'utf8');
               const statsSection = report.split('STATISTICS:')[1]?.split('ACTIONS LOG:')[0] || 'No statistics available';
               
-              const comment = `## Alert Management Report
+              const dryRun = '${{ github.event.inputs.dry_run }}' === 'true';
+              const runNumber = '${{ github.run_number }}';
               
-**Mode**: ${{ github.event.inputs.dry_run == 'true' && 'DRY RUN' || 'LIVE' }}
-**Workflow Run**: ${{ github.run_number }}
-
-### Statistics
-\`\`\`
-${statsSection.trim()}
-\`\`\`
-
-Full report available in workflow artifacts.
-              `;
+              const modeText = dryRun ? 'DRY RUN' : 'LIVE';
+              const comment = '## Alert Management Report\n\n' +
+                '**Mode**: ' + modeText + '\n' +
+                '**Workflow Run**: ' + runNumber + '\n\n' +
+                '### Statistics\n' +
+                '```\n' +
+                statsSection.trim() + '\n' +
+                '```\n\n' +
+                'Full report available in workflow artifacts.\n';
               
               // Note: This would need to be connected to an issue or PR
               // For now, it just prepares the comment
