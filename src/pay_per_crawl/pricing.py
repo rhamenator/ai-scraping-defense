@@ -3,15 +3,22 @@ from __future__ import annotations
 import logging
 from typing import Dict
 
-import yaml
+from src.util.secure_xml_parser import safe_yaml_load_file
 
 
 def load_pricing(path: str) -> Dict[str, float]:
+    """Load pricing configuration from a YAML file using secure parsing.
+    
+    Args:
+        path: Path to the YAML pricing configuration file
+        
+    Returns:
+        Dictionary mapping path prefixes to pricing values
+    """
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
+        data = safe_yaml_load_file(path) or {}
         return {str(k): float(v) for k, v in data.items()}
-    except (OSError, yaml.YAMLError) as exc:
+    except (OSError, Exception) as exc:
         logging.warning("Failed to load pricing from %s: %s", path, exc)
         return {}
 
