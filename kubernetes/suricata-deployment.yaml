@@ -13,14 +13,34 @@ spec:
     metadata:
       labels:
         app: suricata
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/suricata: runtime/default
     spec:
+      securityContext:
+        runAsNonRoot: false  # suricata requires root for packet capture
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: suricata
         image: jasonish/suricata:latest
         imagePullPolicy: IfNotPresent
         securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           capabilities:
-            add: ["NET_ADMIN", "NET_RAW"]
+            drop:
+              - ALL
+            add:
+              - NET_ADMIN
+              - NET_RAW
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
         args: ["-c", "/etc/suricata/suricata.yaml", "-i", "eth0"]
         volumeMounts:
         - name: suricata-config

@@ -13,14 +13,34 @@ spec:
     metadata:
       labels:
         app: fail2ban
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/fail2ban: runtime/default
     spec:
+      securityContext:
+        runAsNonRoot: false  # fail2ban requires root for iptables
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: fail2ban
         image: crazymax/fail2ban:latest
         imagePullPolicy: Always
         securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false  # fail2ban needs to write state
           capabilities:
-            add: ["NET_ADMIN", "NET_RAW"]
+            drop:
+              - ALL
+            add:
+              - NET_ADMIN
+              - NET_RAW
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
         volumeMounts:
         - name: nginx-logs
           mountPath: /var/log/nginx

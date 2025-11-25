@@ -99,6 +99,56 @@ else
     echo "masscan not installed. Skipping quick sweep."
 fi
 
+echo "=== 11. Container Runtime Security Scan (if Docker image provided) ==="
+if [[ -n "$IMAGE" ]]; then
+    echo "  Scanning container image: $IMAGE"
+    
+    # Grype vulnerability scanner
+    if command -v grype >/dev/null 2>&1; then
+        echo "  Running Grype vulnerability scan..."
+        grype "$IMAGE" -o json > "reports/grype_$(echo $IMAGE | tr '/:' '_').json"
+    else
+        echo "  grype not installed. Skipping Grype scan."
+    fi
+    
+    # Snyk container scan
+    if command -v snyk >/dev/null 2>&1; then
+        echo "  Running Snyk container scan..."
+        snyk container test "$IMAGE" --json > "reports/snyk_$(echo $IMAGE | tr '/:' '_').json" || true
+    else
+        echo "  snyk not installed. Skipping Snyk scan."
+    fi
+    
+    # Docker Bench Security for runtime configuration
+    if command -v docker-bench-security >/dev/null 2>&1; then
+        echo "  Running Docker Bench Security..."
+        docker-bench-security > "reports/docker_bench_${TARGET}.txt"
+    else
+        echo "  docker-bench-security not installed."
+        echo "  Install: git clone https://github.com/docker/docker-bench-security.git"
+    fi
+    
+    # Dive for layer analysis
+    if command -v dive >/dev/null 2>&1; then
+        echo "  Analyzing image layers with Dive..."
+        dive "$IMAGE" --ci --lowestEfficiency=0.9 > "reports/dive_$(echo $IMAGE | tr '/:' '_').txt" || true
+    else
+        echo "  dive not installed. Skipping layer analysis."
+    fi
+fi
+
+echo "=== 12. Container Runtime Monitoring Setup ==="
+echo "  For production runtime security, deploy one of these tools:"
+echo "  - Falco: Runtime threat detection using eBPF"
+echo "    helm install falco falcosecurity/falco --namespace falco --create-namespace"
+echo "  - Tracee: Runtime security and forensics using eBPF"
+echo "    docker run --rm -it --pid=host --cgroupns=host --privileged aquasec/tracee:latest"
+echo "  - Tetragon: eBPF-based security observability and runtime enforcement"
+echo "    kubectl apply -f https://raw.githubusercontent.com/cilium/tetragon/main/install/kubernetes/tetragon.yaml"
+echo "  - Sysdig: Commercial solution with comprehensive runtime protection"
+echo ""
+echo "  See docs/container_runtime_security.md for detailed setup instructions."
+
 echo "=== 11. Gobuster Directory Scan ==="
 if command -v gobuster >/dev/null 2>&1; then
     gobuster dir -u "$WEB_URL" -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt \
