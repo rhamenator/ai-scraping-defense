@@ -215,4 +215,77 @@ else
     echo "pip-audit not installed. Skipping Python dependency audit."
 fi
 
+echo "=== 26. Nuclei Vulnerability Scanner ==="
+if command -v nuclei >/dev/null 2>&1; then
+    nuclei -u "$WEB_URL" -o "reports/nuclei_$(echo $WEB_URL | tr '/:' '_').txt" -silent
+else
+    echo "nuclei not installed. Skipping Nuclei scan."
+fi
+
+echo "=== 27. Feroxbuster Advanced Web Fuzzer ==="
+if command -v feroxbuster >/dev/null 2>&1; then
+    feroxbuster -u "$WEB_URL" -w /usr/share/seclists/Discovery/Web-Content/common.txt \
+        -o "reports/feroxbuster_$(echo $WEB_URL | tr '/:' '_').txt" --quiet || true
+else
+    echo "feroxbuster not installed. Skipping advanced fuzzing."
+fi
+
+echo "=== 28. Katana Web Crawler ==="
+if command -v katana >/dev/null 2>&1; then
+    katana -u "$WEB_URL" -o "reports/katana_$(echo $WEB_URL | tr '/:' '_').txt" -silent || true
+else
+    echo "katana not installed. Skipping web crawling."
+fi
+
+echo "=== 29. HTTPX HTTP Toolkit ==="
+if command -v httpx >/dev/null 2>&1; then
+    echo "$WEB_URL" | httpx -silent -tech-detect -status-code -title \
+        -o "reports/httpx_$(echo $WEB_URL | tr '/:' '_').txt" || true
+else
+    echo "httpx not installed. Skipping HTTP analysis."
+fi
+
+echo "=== 30. Dalfox XSS Scanner ==="
+if command -v dalfox >/dev/null 2>&1; then
+    dalfox url "$WEB_URL" -o "reports/dalfox_$(echo $WEB_URL | tr '/:' '_').txt" --silence || true
+else
+    echo "dalfox not installed. Skipping XSS scanning."
+fi
+
+echo "=== 31. Amass Subdomain/Asset Discovery ==="
+if command -v amass >/dev/null 2>&1; then
+    amass enum -passive -d "$TARGET" -o "reports/amass_${TARGET}.txt" || true
+else
+    echo "amass not installed. Skipping subdomain discovery."
+fi
+
+echo "=== 32. Semgrep Code Security Analysis ==="
+if command -v semgrep >/dev/null 2>&1 && [[ -d "$CODE_DIR" ]]; then
+    semgrep --config=auto "$CODE_DIR" --json -o "reports/semgrep_$(basename $CODE_DIR).json" || true
+else
+    echo "semgrep not installed or no code directory. Skipping semgrep scan."
+fi
+
+echo "=== 33. Snyk Security Testing ==="
+if command -v snyk >/dev/null 2>&1 && [[ -d "$CODE_DIR" ]]; then
+    cd "$CODE_DIR" && snyk test --json-file-output="$(pwd)/reports/snyk_$(basename $CODE_DIR).json" || true
+    cd - >/dev/null
+else
+    echo "snyk not installed or no code directory. Skipping Snyk scan."
+fi
+
+echo "=== 34. Safety Python Package Scanner ==="
+if command -v safety >/dev/null 2>&1; then
+    safety check --json -o "reports/safety_check.json" || true
+else
+    echo "safety not installed. Skipping Safety scan."
+fi
+
+echo "=== 35. Syft SBOM Generator ==="
+if command -v syft >/dev/null 2>&1 && [[ -n "$IMAGE" ]]; then
+    syft "$IMAGE" -o json > "reports/syft_$(echo $IMAGE | tr '/:' '_').json" || true
+else
+    echo "syft not installed or no image specified. Skipping SBOM generation."
+fi
+
 echo "Reports saved in the 'reports' directory. Review them for potential issues." 

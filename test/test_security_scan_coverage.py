@@ -146,16 +146,23 @@ STACK_COMPONENTS = [
 # Security categories that should be covered
 SECURITY_CATEGORIES = {
     "network_scanning": ["nmap", "masscan"],
-    "web_vulnerabilities": ["nikto", "zap", "gobuster", "ffuf", "wfuzz"],
+    "web_vulnerabilities": ["nikto", "zap", "gobuster", "ffuf", "wfuzz", "feroxbuster"],
     "ssl_tls": ["sslyze", "testssl.sh"],
-    "container_security": ["trivy", "grype"],
-    "code_analysis": ["bandit", "gitleaks"],
+    "container_security": ["trivy", "grype", "syft"],
+    "code_analysis": ["bandit", "gitleaks", "semgrep"],
     "sql_injection": ["sqlmap"],
-    "dependency_scanning": ["pip-audit"],
-    "fingerprinting": ["whatweb"],
+    "dependency_scanning": ["pip-audit", "safety", "snyk"],
+    "fingerprinting": ["whatweb", "httpx"],
     "malware_scanning": ["clamscan"],
     "rootkit_detection": ["rkhunter", "chkrootkit"],
     "system_audit": ["lynis"],
+    "api_security": ["api_security_test.sh", "schemathesis"],
+    "llm_security": ["llm_prompt_injection_test.sh"],
+    "vulnerability_scanning": ["nuclei"],
+    "xss_detection": ["dalfox"],
+    "subdomain_enumeration": ["amass", "sublist3r"],
+    "web_crawling": ["katana"],
+    "ai_analysis": ["ai_driven_security_test.py"],
 }
 
 
@@ -206,11 +213,25 @@ class TestSecurityScanCoverage:
     def test_all_security_tools_covered(self):
         """Verify that security_scan.sh includes all major security tool categories."""
         scan_script = _read_security_scan_sh()
+        scripts_dir = PROJECT_ROOT / "scripts/linux"
         missing_categories = []
 
         for category, tools in SECURITY_CATEGORIES.items():
             # Check if at least one tool from each category is present
-            category_covered = any(tool in scan_script for tool in tools)
+            # Either in scan_script or as standalone script
+            category_covered = False
+            
+            for tool in tools:
+                # Check in main scan script
+                if tool in scan_script:
+                    category_covered = True
+                    break
+                # Check for standalone script
+                script_path = scripts_dir / tool
+                if script_path.exists():
+                    category_covered = True
+                    break
+            
             if not category_covered:
                 missing_categories.append(
                     f"{category} (expected: {', '.join(tools)})"
@@ -580,3 +601,233 @@ class TestSecurityScanRecommendations:
         assert (
             category_coverage >= 70.0
         ), f"Security category coverage ({category_coverage:.1f}%) below 70% threshold"
+
+
+class TestEnhancedSecurityTools:
+    """Test enhanced security scanning capabilities."""
+
+    def test_api_security_test_script_exists(self):
+        """Verify that api_security_test.sh exists and is executable."""
+        script_path = PROJECT_ROOT / "scripts/linux/api_security_test.sh"
+        assert script_path.exists(), "api_security_test.sh not found"
+        assert script_path.stat().st_mode & (
+            stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        ), "api_security_test.sh not executable"
+
+    def test_llm_prompt_injection_script_exists(self):
+        """Verify that llm_prompt_injection_test.sh exists and is executable."""
+        script_path = PROJECT_ROOT / "scripts/linux/llm_prompt_injection_test.sh"
+        assert script_path.exists(), "llm_prompt_injection_test.sh not found"
+        assert script_path.stat().st_mode & (
+            stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        ), "llm_prompt_injection_test.sh not executable"
+
+    def test_ai_driven_security_script_exists(self):
+        """Verify that ai_driven_security_test.py exists and is executable."""
+        script_path = PROJECT_ROOT / "scripts/linux/ai_driven_security_test.py"
+        assert script_path.exists(), "ai_driven_security_test.py not found"
+        assert script_path.stat().st_mode & (
+            stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        ), "ai_driven_security_test.py not executable"
+
+    def test_api_security_script_has_comprehensive_tests(self):
+        """Verify API security script tests multiple attack vectors."""
+        script_path = PROJECT_ROOT / "scripts/linux/api_security_test.sh"
+        script_content = script_path.read_text()
+
+        # Check for key API security tests
+        required_tests = [
+            "Authentication Testing",
+            "Injection Testing",
+            "Rate Limiting Testing",
+            "CORS Testing",
+            "HTTP Method Testing",
+            "Parameter Fuzzing",
+            "Security Headers Testing",
+        ]
+
+        for test in required_tests:
+            assert (
+                test in script_content
+            ), f"API security test missing: {test}"
+
+    def test_llm_injection_script_has_diverse_payloads(self):
+        """Verify LLM prompt injection script has diverse attack payloads."""
+        script_path = PROJECT_ROOT / "scripts/linux/llm_prompt_injection_test.sh"
+        script_content = script_path.read_text()
+
+        # Check for different attack categories
+        attack_categories = [
+            "Ignore previous instructions",
+            "Jailbreak",
+            "Context manipulation",
+            "Token extraction",
+            "Role manipulation",
+            "Data exfiltration",
+            "Command injection",
+        ]
+
+        found_categories = 0
+        for category in attack_categories:
+            if category.lower() in script_content.lower():
+                found_categories += 1
+
+        assert (
+            found_categories >= 5
+        ), f"LLM injection script should cover at least 5 attack categories, found {found_categories}"
+
+    def test_ai_security_script_supports_multiple_providers(self):
+        """Verify AI-driven security test supports multiple AI providers."""
+        script_path = PROJECT_ROOT / "scripts/linux/ai_driven_security_test.py"
+        script_content = script_path.read_text()
+
+        # Check for AI provider support
+        providers = ["openai", "anthropic", "local"]
+
+        for provider in providers:
+            assert (
+                provider in script_content
+            ), f"AI security script missing support for {provider}"
+
+    def test_enhanced_tools_in_security_scan(self):
+        """Verify enhanced security tools are in security_scan.sh."""
+        scan_script = _read_security_scan_sh()
+
+        # New tools that should be included
+        enhanced_tools = [
+            "nuclei",
+            "feroxbuster",
+            "katana",
+            "httpx",
+            "dalfox",
+            "amass",
+            "semgrep",
+            "syft",
+        ]
+
+        missing_tools = []
+        for tool in enhanced_tools:
+            if tool not in scan_script:
+                missing_tools.append(tool)
+
+        assert (
+            not missing_tools
+        ), f"Enhanced tools missing from security_scan.sh: {', '.join(missing_tools)}"
+
+    def test_security_setup_installs_new_tools(self):
+        """Verify security_setup.sh installs new enhanced tools."""
+        setup_script = (PROJECT_ROOT / "scripts/linux/security_setup.sh").read_text()
+
+        # New tools that should be in setup
+        new_tools = [
+            "nuclei",
+            "feroxbuster",
+            "katana",
+            "httpx",
+            "dalfox",
+            "amass",
+            "semgrep",
+            "syft",
+        ]
+
+        missing_tools = []
+        for tool in new_tools:
+            if tool.lower() not in setup_script.lower():
+                missing_tools.append(tool)
+
+        # Allow some tools to be missing (optional installations)
+        assert (
+            len(missing_tools) <= 2
+        ), f"Too many new tools missing from security_setup.sh: {', '.join(missing_tools)}"
+
+
+class TestLLMSecurityAutomation:
+    """Test LLM security automation capabilities."""
+
+    def test_llm_injection_tests_cover_owasp_llm_top_10(self):
+        """Verify LLM injection tests cover OWASP LLM Top 10 concerns."""
+        script_path = PROJECT_ROOT / "scripts/linux/llm_prompt_injection_test.sh"
+        script_content = script_path.read_text()
+
+        # OWASP LLM Top 10 related patterns
+        owasp_concerns = [
+            "prompt injection",  # LLM01
+            "data leakage",  # LLM06
+            "system prompt",  # LLM01
+            "sensitive information",  # LLM06
+        ]
+
+        found_concerns = []
+        for concern in owasp_concerns:
+            if concern.lower() in script_content.lower():
+                found_concerns.append(concern)
+
+        assert (
+            len(found_concerns) >= 3
+        ), f"LLM tests should cover OWASP LLM Top 10, found {len(found_concerns)}/4"
+
+    def test_llm_tests_check_for_data_exfiltration(self):
+        """Verify LLM tests check for data exfiltration attempts."""
+        script_path = PROJECT_ROOT / "scripts/linux/llm_prompt_injection_test.sh"
+        script_content = script_path.read_text()
+
+        # Data exfiltration patterns
+        exfiltration_checks = [
+            "password",
+            "secret",
+            "api_key",
+            "token",
+            "credential",
+        ]
+
+        found_checks = 0
+        for check in exfiltration_checks:
+            if check in script_content:
+                found_checks += 1
+
+        assert (
+            found_checks >= 3
+        ), f"LLM tests should check for data exfiltration, found {found_checks}/5 patterns"
+
+
+class TestAPISecurityAutomation:
+    """Test API security automation capabilities."""
+
+    def test_api_tests_cover_owasp_api_top_10(self):
+        """Verify API tests cover OWASP API Security Top 10."""
+        script_path = PROJECT_ROOT / "scripts/linux/api_security_test.sh"
+        script_content = script_path.read_text()
+
+        # OWASP API Top 10 2023 patterns
+        api_concerns = [
+            "authentication",  # API1: Broken Object Level Authorization
+            "injection",  # API3: Broken Object Property Level Authorization / Injection
+            "rate limit",  # API4: Unrestricted Resource Consumption
+            "mass assignment",  # API6: Unrestricted Access to Sensitive Business Flows
+            "security headers",  # API8: Security Misconfiguration
+        ]
+
+        found_concerns = 0
+        for concern in api_concerns:
+            if concern.lower() in script_content.lower():
+                found_concerns += 1
+
+        assert (
+            found_concerns >= 4
+        ), f"API tests should cover OWASP API Top 10, found {found_concerns}/5"
+
+    def test_api_tests_validate_authentication(self):
+        """Verify API tests validate authentication mechanisms."""
+        script_path = PROJECT_ROOT / "scripts/linux/api_security_test.sh"
+        script_content = script_path.read_text()
+
+        auth_tests = [
+            "without auth",
+            "invalid token",
+            "Authorization",
+        ]
+
+        for test in auth_tests:
+            assert (
+                test in script_content
+            ), f"API security missing authentication test: {test}"
