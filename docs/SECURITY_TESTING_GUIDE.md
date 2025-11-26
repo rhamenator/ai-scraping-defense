@@ -366,4 +366,4 @@ For security concerns or questions:
 
 ---
 
-*Last updated: 2025-11-26*
+*This guide is maintained as part of the security testing infrastructure.*

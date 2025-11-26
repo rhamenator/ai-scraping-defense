@@ -401,7 +401,13 @@ class TestStackSpecificSecurityConcerns:
         # but we should at least document the concern
         print(
             f"\nNote: Found {len(llm_related_files)} LLM-related test files. "
-            "Manual testing for prompt injection recommended."
+            "Manual testing for prompt injection recommended.\n"
+            "Suggested manual tests:\n"
+            "  - Attempt prompt injection in escalation_engine\n"
+            "  - Test for data leakage through LLM responses\n"
+            "  - Try context manipulation attacks\n"
+            "  - Verify rate limiting on LLM API calls\n"
+            "See docs/SECURITY_TESTING_GUIDE.md for more details."
         )
 
     def test_redis_authentication_in_compose(self):
