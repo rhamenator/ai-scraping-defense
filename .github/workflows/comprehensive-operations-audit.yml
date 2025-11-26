@@ -244,7 +244,7 @@ jobs:
 
       # External Dependencies Analysis
       - name: Analyze External Dependencies
-        if: ${{ github.event.inputs.check_external_deps == 'true' }}
+        if: ${{ inputs.check_external_deps == 'true' }}
         run: |
           echo "Analyzing external dependencies..."
 
