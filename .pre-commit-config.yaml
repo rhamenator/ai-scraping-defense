@@ -1,4 +1,5 @@
 repos:
+  # Code Formatting
   - repo: https://github.com/psf/black
     rev: 24.4.2
     hooks:
@@ -9,11 +10,44 @@ repos:
     hooks:
       - id: isort
         language_version: python3
+  
+  # Code Quality
   - repo: https://github.com/pycqa/flake8
     rev: 7.0.0
     hooks:
       - id: flake8
         language_version: python3
+  
+  # Security: Secret Detection (Shift-Left)
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.2
+    hooks:
+      - id: gitleaks
+        name: Detect secrets
+        description: Detect hardcoded secrets using Gitleaks
+        entry: gitleaks protect --verbose --redact --staged
+        language: golang
+        pass_filenames: false
+  
+  # Security: Python Security Scanning (Shift-Left)
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.8
+    hooks:
+      - id: bandit
+        name: Bandit security scan
+        args: ['-c', 'pyproject.toml', '-ll', '-r', 'src/', 'scripts/']
+        additional_dependencies: ['bandit[toml]']
+        language_version: python3
+  
+  # Security: Dependency Scanning (Shift-Left)
+  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
+    rev: v1.3.3
+    hooks:
+      - id: python-safety-dependencies-check
+        name: Safety dependency scan
+        files: requirements.*\.txt$
+  
+  # General Hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
@@ -21,3 +55,11 @@ repos:
         args: ["--fix=lf"]
       - id: end-of-file-fixer
       - id: trailing-whitespace
+      - id: check-yaml
+        args: ['--unsafe']
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: detect-private-key
+        name: Detect private keys
