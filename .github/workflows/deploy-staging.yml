@@ -27,6 +27,9 @@ jobs:
     environment: staging
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
       - name: Login GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u ${{ github.actor }} --password-stdin
       - name: Build & push images (only where Dockerfile exists)
@@ -37,7 +40,10 @@ jobs:
           : > images.txt
           for svc in "${!svc_map[@]}"; do dir="${svc_map[$svc]}"; if [ -f "$dir/Dockerfile" ]; then
               image="$REGISTRY/${{ github.repository_owner }}/$svc:$TAG"
-              docker build -t "$image" "$dir"; docker push "$image"; echo "$svc=$image" >> images.txt
+              docker build -t "$image" "$dir"
+              echo "Scanning $image for vulnerabilities..."
+              trivy image --severity CRITICAL,HIGH --exit-code 0 "$image"
+              docker push "$image"; echo "$svc=$image" >> images.txt
             else echo "Skip $svc: $dir/Dockerfile not found"; fi
           done; cat images.txt || true
       - id: auth
