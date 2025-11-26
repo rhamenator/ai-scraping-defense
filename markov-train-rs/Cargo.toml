@@ -12,3 +12,4 @@ crate-type = ["cdylib", "rlib"]
 pyo3 = { version = "0.27.1", features = ["extension-module"] }
 postgres = "0.19"
 regex = "1"
+memmap2 = "0.9"
