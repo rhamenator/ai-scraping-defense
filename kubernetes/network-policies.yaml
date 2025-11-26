@@ -1,0 +1,431 @@
+# kubernetes/network-policies.yaml
+# Network policies implementing defense-in-depth security
+# Following CIS Benchmark 5.3 - Network Policies and CNI
+
+---
+# Default deny all ingress and egress traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: ai-defense
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+# Allow DNS resolution for all pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: ai-defense
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+
+---
+# NGINX proxy ingress from external and egress to backend services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nginx-proxy-policy
+  namespace: ai-defense
+spec:
+  podSelector:
+    matchLabels:
+      app: nginx-proxy
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow external traffic on HTTP/HTTPS
+  - ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+  egress:
+  # Allow egress to backend services
+  - to:
+    - podSelector:
+        matchLabels:
+          app: escalation-engine
+    ports:
+    - protocol: TCP
+      port: 8003
+  - to:
+    - podSelector:
+        matchLabels:
+          app: tarpit-api
+    ports:
+    - protocol: TCP
+      port: 8001
+  - to:
+    - podSelector:
+        matchLabels:
+          app: ai-service
+    ports:
+    - protocol: TCP
+      port: 5001
+  - to:
+    - podSelector:
+        matchLabels:
+          app: admin-ui
+    ports:
+    - protocol: TCP
+      port: 5002
+  # Allow egress to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+
+---
+# Redis - only accept connections from authorized services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-policy
+  namespace: ai-defense
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow from nginx-proxy
+  - from:
+    - podSelector:
+        matchLabels:
+          app: nginx-proxy
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow from escalation-engine
+  - from:
+    - podSelector:
+        matchLabels:
+          app: escalation-engine
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow from tarpit-api
+  - from:
+    - podSelector:
+        matchLabels:
+          app: tarpit-api
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow from ai-service
+  - from:
+    - podSelector:
+        matchLabels:
+          app: ai-service
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow from admin-ui
+  - from:
+    - podSelector:
+        matchLabels:
+          app: admin-ui
+    ports:
+    - protocol: TCP
+      port: 6379
+  egress: []  # Redis doesn't need egress
+
+---
+# PostgreSQL - only accept connections from authorized services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-policy
+  namespace: ai-defense
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow from escalation-engine
+  - from:
+    - podSelector:
+        matchLabels:
+          app: escalation-engine
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow from tarpit-api
+  - from:
+    - podSelector:
+        matchLabels:
+          app: tarpit-api
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow from admin-ui
+  - from:
+    - podSelector:
+        matchLabels:
+          app: admin-ui
+    ports:
+    - protocol: TCP
+      port: 5432
+  egress: []  # PostgreSQL doesn't need egress
+
+---
+# Escalation Engine service policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: escalation-engine-policy
+  namespace: ai-defense
+spec:
+  podSelector:
+    matchLabels:
+      app: escalation-engine
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow from nginx-proxy
+  - from:
+    - podSelector:
+        matchLabels:
+          app: nginx-proxy
+    ports:
+    - protocol: TCP
+      port: 8003
+  egress:
+  # Allow to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow to PostgreSQL
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow to external LLM APIs (OpenAI, Anthropic, etc.)
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+
+---
+# Tarpit API service policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tarpit-api-policy
+  namespace: ai-defense
+spec:
+  podSelector:
+    matchLabels:
+      app: tarpit-api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow from nginx-proxy
+  - from:
+    - podSelector:
+        matchLabels:
+          app: nginx-proxy
+    ports:
+    - protocol: TCP
+      port: 8001
+  egress:
+  # Allow to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow to PostgreSQL
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+
+---
+# AI Service policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ai-service-policy
+  namespace: ai-defense
+spec:
+  podSelector:
+    matchLabels:
+      app: ai-service
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow from nginx-proxy
+  - from:
+    - podSelector:
+        matchLabels:
+          app: nginx-proxy
+    ports:
+    - protocol: TCP
+      port: 5001
+  egress:
+  # Allow to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow to external webhook endpoints
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+
+---
+# Admin UI service policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: admin-ui-policy
+  namespace: ai-defense
+spec:
+  podSelector:
+    matchLabels:
+      app: admin-ui
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow from nginx-proxy
+  - from:
+    - podSelector:
+        matchLabels:
+          app: nginx-proxy
+    ports:
+    - protocol: TCP
+      port: 5002
+  egress:
+  # Allow to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow to PostgreSQL
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+
+---
+# Fail2ban and Suricata need elevated network access
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fail2ban-policy
+  namespace: ai-defense
+spec:
+  podSelector:
+    matchLabels:
+      app: fail2ban
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress: []
+  egress:
+  # Allow all egress for iptables management
+  - to:
+    - namespaceSelector: {}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: suricata-policy
+  namespace: ai-defense
+spec:
+  podSelector:
+    matchLabels:
+      app: suricata
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow packet capture
+  - {}
+  egress:
+  # Allow all egress for IDS monitoring
+  - {}
+
+---
+# CronJobs - allow egress to Kubernetes API and external sources
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cronjob-policy
+  namespace: ai-defense
+spec:
+  podSelector:
+    matchLabels:
+      role: cronjob
+  policyTypes:
+  - Egress
+  egress:
+  # Allow to Kubernetes API server
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow external HTTPS for fetching rules
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
