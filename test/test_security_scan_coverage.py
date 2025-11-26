@@ -12,9 +12,8 @@ This test evaluates:
 from __future__ import annotations
 
 import re
-import subprocess
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import List
 
 import pytest
 import yaml
