@@ -7,12 +7,30 @@ The AI Scraping Defense stack now includes advanced security testing capabilitie
 - **Comprehensive API Security Testing**
 - **AI-Driven Security Analysis**
 - **35+ Security Tools** (up from 25)
+- **Cross-Platform Support** (Linux, Windows, macOS)
+
+## Cross-Platform Support
+
+All security testing scripts are available for multiple platforms:
+
+| Script | Linux | Windows | macOS |
+|--------|-------|---------|-------|
+| security_scan | `scripts/linux/security_scan.sh` | `scripts/windows/security_scan.ps1` | `scripts/macos/security_scan.zsh` |
+| security_setup | `scripts/linux/security_setup.sh` | `scripts/windows/security_setup.ps1` | `scripts/macos/security_setup.zsh` |
+| llm_prompt_injection_test | `scripts/linux/llm_prompt_injection_test.sh` | `scripts/windows/llm_prompt_injection_test.ps1` | `scripts/macos/llm_prompt_injection_test.zsh` |
+| api_security_test | `scripts/linux/api_security_test.sh` | `scripts/windows/api_security_test.ps1` | `scripts/macos/api_security_test.zsh` |
+| ai_driven_security_test | `scripts/linux/ai_driven_security_test.py` | `scripts/windows/ai_driven_security_test.py` | `scripts/macos/ai_driven_security_test.py` |
+
+**Note**: The Python script (`ai_driven_security_test.py`) is cross-platform and works identically on all systems.
 
 ## New Capabilities
 
 ### 1. LLM Prompt Injection Testing 🆕
 
-**Script**: `scripts/linux/llm_prompt_injection_test.sh`
+**Scripts**: 
+- Linux: `scripts/linux/llm_prompt_injection_test.sh`
+- Windows: `scripts/windows/llm_prompt_injection_test.ps1`
+- macOS: `scripts/macos/llm_prompt_injection_test.zsh`
 
 Automated testing for LLM security vulnerabilities including:
 - **Prompt Injection**: "Ignore all previous instructions..."
@@ -26,10 +44,15 @@ Automated testing for LLM security vulnerabilities including:
 
 **Usage:**
 ```bash
-# Test escalation engine for prompt injection
+# Linux/macOS
 ./scripts/linux/llm_prompt_injection_test.sh \
   http://localhost:5001/api/escalate \
   "your-jwt-token"
+
+# Windows PowerShell
+.\scripts\windows\llm_prompt_injection_test.ps1 `
+  -ApiEndpoint "http://localhost:5001/api/escalate" `
+  -AuthToken "your-jwt-token"
 
 # Results saved in reports/llm/
 ```
@@ -42,7 +65,10 @@ Automated testing for LLM security vulnerabilities including:
 
 ### 2. API Security Testing 🆕
 
-**Script**: `scripts/linux/api_security_test.sh`
+**Scripts**:
+- Linux: `scripts/linux/api_security_test.sh`
+- Windows: `scripts/windows/api_security_test.ps1`
+- macOS: `scripts/macos/api_security_test.zsh`
 
 Comprehensive API security validation:
 - **Authentication Testing**: No auth, invalid tokens, broken auth
