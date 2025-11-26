@@ -12,8 +12,8 @@ This test evaluates:
 from __future__ import annotations
 
 import re
+import stat
 from pathlib import Path
-from typing import List
 
 import pytest
 import yaml
@@ -28,9 +28,9 @@ class StackComponent:
     def __init__(
         self,
         name: str,
-        ports: List[int],
+        ports: list[int],
         technology: str,
-        security_concerns: List[str],
+        security_concerns: list[str],
     ):
         self.name = name
         self.ports = ports
@@ -184,13 +184,19 @@ class TestSecurityScanCoverage:
         """Verify that security_scan.sh exists and is executable."""
         script_path = PROJECT_ROOT / "scripts/linux/security_scan.sh"
         assert script_path.exists(), "security_scan.sh not found"
-        assert script_path.stat().st_mode & 0o111, "security_scan.sh not executable"
+        # Check if any execute bit is set (owner, group, or other)
+        assert script_path.stat().st_mode & (
+            stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        ), "security_scan.sh not executable"
 
     def test_security_setup_script_exists(self):
         """Verify that security_setup.sh exists and is executable."""
         script_path = PROJECT_ROOT / "scripts/linux/security_setup.sh"
         assert script_path.exists(), "security_setup.sh not found"
-        assert script_path.stat().st_mode & 0o111, "security_setup.sh not executable"
+        # Check if any execute bit is set (owner, group, or other)
+        assert script_path.stat().st_mode & (
+            stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        ), "security_setup.sh not executable"
 
     def test_static_security_checks_exists(self):
         """Verify that run_static_security_checks.py exists."""
