@@ -94,7 +94,12 @@ kubectl apply -f "$K8S_DIR/nginx-deployment.yaml"
 echo "Nginx Ingress Proxy applied."
 echo ""
 
+# Step 8: Apply health check and resilience testing components
+echo "Step 8: Applying Health Check and Resilience Testing Components..."
+kubectl apply -f "$K8S_DIR/healthcheck-deployment.yaml" # Ensure you have this file
+echo "Health Check and Resilience Testing Components applied."
+echo ""
+
 echo "--- Deployment Complete ---"
 echo "To monitor the status of your pods, run:"
 echo "kubectl get pods -n $NAMESPACE -w"
-
