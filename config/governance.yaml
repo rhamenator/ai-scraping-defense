@@ -1,0 +1,12 @@
+policies:
+  data_retention:
+    description: Data retention policy.
+    max_age: 365  # days
+    severity: high
+
+  access_control:
+    description: Access control policy.
+    allowed_roles:
+      - admin
+      - operator
+    severity: critical
