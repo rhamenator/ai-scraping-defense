@@ -63,3 +63,4 @@ Run the capacity review weekly:
 * Expand synthetic monitoring to cover all public endpoints.
 * Track error budgets derived from the SLO table and integrate with the product
   roadmap.
+* Regularly run the comprehensive operations audit to identify areas for improvement and track operational maturity.  Address findings in the product roadmap.
