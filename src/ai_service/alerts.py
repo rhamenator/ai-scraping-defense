@@ -1,410 +1,269 @@
-import asyncio
-import json
+"""Alert notification system for AI scraping detection."""
+
 import logging
-import os
-import pprint
 import smtplib
-import ssl
 from email.mime.text import MIMEText
-from functools import lru_cache
-from typing import TYPE_CHECKING, Optional
-
-import httpx
-import redis.asyncio as redis
-
-from src.shared.config import CONFIG
-from src.shared.utils import LOG_DIR, log_error, log_event
-
-try:
-    from src.shared.http_alert import HttpAlertSender
-    from src.shared.slack_alert import SlackAlertSender
-
-    ALERT_ABSTRACTIONS_AVAILABLE = True
-except ImportError:  # pragma: no cover - fallback when optional deps missing
-    ALERT_ABSTRACTIONS_AVAILABLE = False
-
-if TYPE_CHECKING:  # pragma: no cover - type checking only
-    from .main import WebhookEvent
+from email.mime.multipart import MIMEMultipart
+from typing import Dict, List, Optional
+from datetime import datetime
+import os
 
 logger = logging.getLogger(__name__)
 
-ALERT_LOG_FILE = os.path.join(LOG_DIR, "alert_events.log")
 
-ALERT_METHOD = CONFIG.ALERT_METHOD
-ALERT_GENERIC_WEBHOOK_URL = CONFIG.ALERT_GENERIC_WEBHOOK_URL
-ALERT_SLACK_WEBHOOK_URL = CONFIG.ALERT_SLACK_WEBHOOK_URL
-ALERT_SMTP_HOST = CONFIG.ALERT_SMTP_HOST
-ALERT_SMTP_PORT = CONFIG.ALERT_SMTP_PORT
-ALERT_SMTP_USER = CONFIG.ALERT_SMTP_USER
-ALERT_SMTP_PASSWORD_FILE = CONFIG.ALERT_SMTP_PASSWORD_FILE
-ALERT_SMTP_USE_TLS = CONFIG.ALERT_SMTP_USE_TLS
-ALERT_EMAIL_FROM = CONFIG.ALERT_EMAIL_FROM
-ALERT_EMAIL_TO = CONFIG.ALERT_EMAIL_TO
-ALERT_MIN_REASON_SEVERITY = CONFIG.ALERT_MIN_REASON_SEVERITY
+class AlertManager:
+    """Manages alert notifications for detected AI scraping activities."""
 
-REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
-REDIS_DB = int(os.environ.get("REDIS_DB", 0))
-REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
-ANOMALY_EVENT_CHANNEL = "anomaly_events"
+    def __init__(
+        self,
+        smtp_host: Optional[str] = None,
+        smtp_port: Optional[int] = None,
+        smtp_user: Optional[str] = None,
+        smtp_password: Optional[str] = None,
+        from_email: Optional[str] = None,
+        alert_recipients: Optional[List[str]] = None,
+    ):
+        """
+        Initialize the AlertManager.
 
-
-# ---------------------------------------------------------------------------
-# SMTP password loader
-# ---------------------------------------------------------------------------
-
-
-@lru_cache()
-def _load_smtp_password() -> Optional[str]:
-    try:
-        with open(ALERT_SMTP_PASSWORD_FILE, "r", encoding="utf-8") as f:
-            value = f.read().strip()
-            return value or None
-    except FileNotFoundError as e:
-        logger.warning("SMTP password file not found at %s: %s", ALERT_SMTP_PASSWORD_FILE, e)
-    except PermissionError as e:
-        logger.error(
-            "Permission denied reading SMTP password file at %s: %s",
-            ALERT_SMTP_PASSWORD_FILE,
-            e,
+        Args:
+            smtp_host: SMTP server hostname
+            smtp_port: SMTP server port
+            smtp_user: SMTP username
+            smtp_password: SMTP password
+            from_email: Email address to send alerts from
+            alert_recipients: List of email addresses to receive alerts
+        """
+        self.smtp_host = smtp_host or os.getenv("SMTP_HOST", "localhost")
+        self.smtp_port = smtp_port or int(os.getenv("SMTP_PORT", "587"))
+        self.smtp_user = smtp_user or os.getenv("SMTP_USER", "")
+        self.smtp_password = smtp_password or os.getenv("SMTP_PASSWORD", "")
+        self.from_email = from_email or os.getenv("ALERT_FROM_EMAIL", "alerts@example.com")
+        self.alert_recipients = alert_recipients or self._parse_recipients(
+            os.getenv("ALERT_RECIPIENTS", "")
         )
-    except OSError as e:
-        logger.error(
-            "OS error reading SMTP password file at %s: %s",
-            ALERT_SMTP_PASSWORD_FILE,
-            e,
-        )
-    except Exception as e:  # pragma: no cover - unexpected
-        logger.error(
-            "Unexpected error loading SMTP password from %s: %s",
-            ALERT_SMTP_PASSWORD_FILE,
-            e,
-        )
-    return None
 
+    @staticmethod
+    def _parse_recipients(recipients_str: str) -> List[str]:
+        """Parse comma-separated recipient email addresses."""
+        if not recipients_str:
+            return []
+        return [email.strip() for email in recipients_str.split(",") if email.strip()]
 
-# ---------------------------------------------------------------------------
-# Alerting implementations
-# ---------------------------------------------------------------------------
+    def send_alert(
+        self,
+        subject: str,
+        body: str,
+        alert_level: str = "INFO",
+        detection_data: Optional[Dict] = None,
+    ) -> bool:
+        """
+        Send an alert email.
 
+        Args:
+            subject: Email subject
+            body: Email body content
+            alert_level: Alert severity level (INFO, WARNING, CRITICAL)
+            detection_data: Optional dictionary containing detection details
 
-async def send_generic_webhook_alert(event_data: "WebhookEvent") -> None:
-    """Send generic webhook alert using the layered alert abstraction."""
-    if not ALERT_GENERIC_WEBHOOK_URL:
-        return
+        Returns:
+            bool: True if alert was sent successfully, False otherwise
+        """
+        if not self.alert_recipients:
+            logger.warning("No alert recipients configured, skipping alert")
+            return False
 
-    ip = event_data.details.get("ip", "N/A")
-
-    if ALERT_ABSTRACTIONS_AVAILABLE:
         try:
-            generic_sender = HttpAlertSender(webhook_url=ALERT_GENERIC_WEBHOOK_URL, timeout=10.0)
-            alert_data = {
-                "alert_type": "AI_DEFENSE_BLOCK",
-                "reason": event_data.reason,
-                "timestamp": str(event_data.timestamp_utc),
-                "ip_address": ip,
-                "user_agent": event_data.details.get("user_agent", "N/A"),
-                "details": event_data.details,
-            }
-            success = await generic_sender.send_alert(alert_data)
-            if success:
-                log_event(
-                    ALERT_LOG_FILE,
-                    "ALERT_SENT_WEBHOOK",
-                    {"reason": event_data.reason, "ip": ip},
+            message = self._create_message(subject, body, alert_level, detection_data)
+            self._send_email(message)
+            logger.info("Alert sent successfully: %s", subject)
+            return True
+        except Exception as e:
+            logger.error("Failed to send alert: %s", e, exc_info=True)
+            return False
+
+    def _create_message(
+        self,
+        subject: str,
+        body: str,
+        alert_level: str,
+        detection_data: Optional[Dict],
+    ) -> MIMEMultipart:
+        """Create the email message."""
+        message = MIMEMultipart("alternative")
+        message["Subject"] = f"[{alert_level}] {subject}"
+        message["From"] = self.from_email
+        message["To"] = ", ".join(self.alert_recipients)
+
+        # Create plain text and HTML versions
+        text_body = self._format_text_body(body, detection_data)
+        html_body = self._format_html_body(body, alert_level, detection_data)
+
+        message.attach(MIMEText(text_body, "plain"))
+        message.attach(MIMEText(html_body, "html"))
+
+        return message
+
+    def _format_text_body(self, body: str, detection_data: Optional[Dict]) -> str:
+        """Format plain text email body."""
+        text_parts = [body]
+
+        if detection_data:
+            text_parts.append("\n\nDetection Details:")
+            text_parts.append("-" * 40)
+            for key, value in detection_data.items():
+                text_parts.append(f"{key}: {value}")
+
+        text_parts.append(f"\n\nTimestamp: {datetime.utcnow().isoformat()}")
+        return "\n".join(text_parts)
+
+    def _format_html_body(
+        self, body: str, alert_level: str, detection_data: Optional[Dict]
+    ) -> str:
+        """Format HTML email body."""
+        level_colors = {
+            "INFO": "#3498db",
+            "WARNING": "#f39c12",
+            "CRITICAL": "#e74c3c",
+        }
+        color = level_colors.get(alert_level, "#3498db")
+
+        html_parts = [
+            "<html><body>",
+            f'<div style="font-family: Arial, sans-serif; max-width: 600px;">',
+            f'<div style="background-color: {color}; color: white; padding: 15px; border-radius: 5px;">',
+            f"<h2>{alert_level} Alert</h2>",
+            "</div>",
+            f'<div style="padding: 20px; background-color: #f8f9fa; margin-top: 10px;">',
+            f"<p>{body}</p>",
+        ]
+
+        if detection_data:
+            html_parts.append("<h3>Detection Details</h3>")
+            html_parts.append("<table style='width: 100%; border-collapse: collapse;'>")
+            for key, value in detection_data.items():
+                html_parts.append(
+                    f"<tr style='border-bottom: 1px solid #dee2e6;'>"
+                    f"<td style='padding: 8px; font-weight: bold;'>{key}</td>"
+                    f"<td style='padding: 8px;'>{value}</td></tr>"
                 )
-            else:
-                log_error(
-                    f"Failed to send generic webhook alert for IP {ip} using new alert system"
-                )
-        except Exception as e:  # pragma: no cover - fallback path
-            log_error(
-                f"Error using new generic alert system for IP {ip}, falling back to legacy",
-                e,
-            )
-            await _send_generic_webhook_alert_legacy(event_data)
-    else:
-        await _send_generic_webhook_alert_legacy(event_data)
+            html_parts.append("</table>")
 
-
-async def _send_generic_webhook_alert_legacy(event_data: "WebhookEvent") -> None:
-    if not ALERT_GENERIC_WEBHOOK_URL:
-        return
-
-    ip = event_data.details.get("ip", "N/A")
-    logger.info("Sending generic webhook alert (legacy) for IP: %s", ip)
-    payload = {
-        "alert_type": "AI_DEFENSE_BLOCK",
-        "reason": event_data.reason,
-        "timestamp": str(event_data.timestamp_utc),
-        "ip_address": ip,
-        "user_agent": event_data.details.get("user_agent", "N/A"),
-        "details": event_data.details,
-    }
-    try:
-        json_payload = json.loads(json.dumps(payload, default=str))
-        async with httpx.AsyncClient() as client:
-            response = await client.post(ALERT_GENERIC_WEBHOOK_URL, json=json_payload, timeout=10.0)
-            response.raise_for_status()
-            logger.info("Generic webhook alert sent successfully for IP %s.", ip)
-            log_event(
-                ALERT_LOG_FILE,
-                "ALERT_SENT_WEBHOOK",
-                {"reason": event_data.reason, "ip": ip},
-            )
-    except json.JSONDecodeError as e:
-        log_error(f"Failed to serialize generic webhook payload for IP {ip}", e)
-    except httpx.RequestError as e:
-        log_error(
-            f"Failed to send generic webhook alert to {ALERT_GENERIC_WEBHOOK_URL} for IP {ip}",
-            e,
+        html_parts.append(
+            f"<p style='margin-top: 20px; color: #6c757d; font-size: 0.9em;'>"
+            f"Timestamp: {datetime.utcnow().isoformat()}</p>"
         )
-    except httpx.HTTPStatusError as e:
-        log_error(
-            f"Generic webhook alert failed for IP {ip} with status {e.response.status_code}",
-            e,
-        )
-    except Exception as e:  # pragma: no cover - unexpected
-        log_error(f"Unexpected error sending generic webhook alert for IP {ip}", e)
+        html_parts.append("</div></div></body></html>")
 
+        return "".join(html_parts)
 
-async def send_slack_alert(event_data: "WebhookEvent") -> None:
-    if not ALERT_SLACK_WEBHOOK_URL:
-        return
-
-    ip = event_data.details.get("ip", "N/A")
-    reason = event_data.reason
-
-    if ALERT_ABSTRACTIONS_AVAILABLE:
-        try:
-            slack_sender = SlackAlertSender(webhook_url=ALERT_SLACK_WEBHOOK_URL, timeout=10.0)
-            alert_data = {
-                "reason": reason,
-                "event_type": event_data.event_type,
-                "ip_address": ip,
-                "user_agent": event_data.details.get("user_agent", "N/A"),
-                "timestamp": str(event_data.timestamp_utc),
-            }
-            success = await slack_sender.send_slack_alert(alert_data)
-            if success:
-                log_event(
-                    ALERT_LOG_FILE,
-                    "ALERT_SENT_SLACK",
-                    {"reason": reason, "ip": ip},
-                )
-            else:
-                log_error(f"Failed to send Slack alert for IP {ip} using new alert system")
-        except Exception as e:  # pragma: no cover - fallback path
-            log_error(
-                f"Error using new Slack alert system for IP {ip}, falling back to legacy",
-                e,
-            )
-            await _send_slack_alert_legacy(event_data)
-    else:
-        await _send_slack_alert_legacy(event_data)
-
-
-async def _send_slack_alert_legacy(event_data: "WebhookEvent") -> None:
-    if not ALERT_SLACK_WEBHOOK_URL:
-        return
-
-    ip = event_data.details.get("ip", "N/A")
-    ua = event_data.details.get("user_agent", "N/A")
-    reason = event_data.reason
-
-    logger.info("Sending Slack alert (legacy) for IP: %s", ip)
-    message = (
-        ":shield: *AI Defense Alert*\n> *Reason:* {reason}\n> *IP Address:* `{ip}`\n"
-        f"> *User Agent:* `{ua}`\n> *Timestamp (UTC):* {event_data.timestamp_utc}"
-    )
-    payload = {"text": message}
-    headers = {"Content-Type": "application/json"}
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(ALERT_SLACK_WEBHOOK_URL, headers=headers, json=payload)
-            response.raise_for_status()
-        logger.info("Slack alert sent successfully for IP %s.", ip)
-        log_event(ALERT_LOG_FILE, "ALERT_SENT_SLACK", {"reason": reason, "ip": ip})
-    except httpx.HTTPError as e:
-        log_error(f"Failed to send Slack alert to {ALERT_SLACK_WEBHOOK_URL} for IP {ip}", e)
-    except Exception as e:  # pragma: no cover - unexpected
-        log_error(f"Unexpected error sending Slack alert for IP {ip}", e)
-
-
-async def send_smtp_alert(event_data: "WebhookEvent") -> None:
-    if not ALERT_EMAIL_TO or not ALERT_SMTP_HOST or not ALERT_EMAIL_FROM:
-        log_error("SMTP alert config missing.")
-        return
-
-    ip = event_data.details.get("ip", "N/A")
-    ua = event_data.details.get("user_agent", "N/A")
-    reason = event_data.reason
-
-    logger.info("Sending SMTP alert for IP: %s to %s", ip, ALERT_EMAIL_TO)
-    subject = f"[AI Defense Alert] Suspicious Activity Detected - {reason}"
-    body = f"""Suspicious activity detected:
-Reason: {reason}
-Timestamp (UTC): {event_data.timestamp_utc}
-IP Address: {ip}
-User Agent: {ua}
-Details: {pprint.pformat(event_data.details)}
----
-IP added to blocklist (TTL: {CONFIG.BLOCKLIST_TTL_SECONDS}s). Logs in {LOG_DIR}.
-"""
-    msg = MIMEText(body, "plain", "utf-8")
-    msg["Subject"] = subject
-    msg["From"] = ALERT_EMAIL_FROM
-    msg["To"] = ALERT_EMAIL_TO
-
-    def smtp_send_sync() -> None:
+    def _send_email(self, message: MIMEMultipart) -> None:
+        """Send the email message via SMTP."""
         smtp_conn = None
         try:
-            if ALERT_SMTP_PORT == 465:
-                smtp_conn = smtplib.SMTP_SSL(
-                    str(ALERT_SMTP_HOST),
-                    ALERT_SMTP_PORT,
-                    timeout=15,
-                    context=ssl.create_default_context(),
-                )
+            # Connect to SMTP server
+            if self.smtp_port == 465:
+                smtp_conn = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port)
             else:
-                smtp_conn = smtplib.SMTP(str(ALERT_SMTP_HOST), ALERT_SMTP_PORT, timeout=15)
-            if ALERT_SMTP_USE_TLS and ALERT_SMTP_PORT != 465:
-                smtp_conn.starttls(context=ssl.create_default_context())
-            if ALERT_SMTP_USER:
-                smtp_password = _load_smtp_password()
-                if smtp_password:
-                    smtp_conn.login(ALERT_SMTP_USER, smtp_password)
-                else:
-                    logger.warning(
-                        "SMTP authentication skipped: ALERT_SMTP_USER is set but no password was provided. "
-                        "Check SMTP configuration."
-                    )
-            from_addr = ALERT_EMAIL_FROM if ALERT_EMAIL_FROM else ""
-            to_addrs = ALERT_EMAIL_TO.split(",") if ALERT_EMAIL_TO else []
-            smtp_conn.sendmail(from_addr, to_addrs, msg.as_string())
-            logger.info("SMTP alert sent for IP %s to %s.", ip, ALERT_EMAIL_TO)
-            log_event(
-                ALERT_LOG_FILE,
-                "ALERT_SENT_SMTP",
-                {"reason": reason, "ip": ip, "to": ALERT_EMAIL_TO},
-            )
-        except smtplib.SMTPException as e:
-            log_error(f"SMTP error for IP {ip} (Host: {ALERT_SMTP_HOST})", e)
-        except Exception as e:  # pragma: no cover - unexpected
-            log_error(f"Unexpected SMTP error for IP {ip}", e)
+                smtp_conn = smtplib.SMTP(self.smtp_host, self.smtp_port)
+                if self.smtp_port == 587:
+                    smtp_conn.starttls()
+
+            # Authenticate if credentials are provided
+            if self.smtp_user and self.smtp_password:
+                smtp_conn.login(self.smtp_user, self.smtp_password)
+
+            # Send the email
+            smtp_conn.send_message(message)
+
         finally:
+            # Clean up SMTP connection
             if smtp_conn:
                 try:
                     smtp_conn.quit()
-                except Exception:  # pragma: no cover - cleanup failure
-                    pass
+                except Exception as e:  # pragma: no cover - cleanup failure
+                    logger.debug("Failed to quit SMTP connection: %s", e)
 
-    try:
-        await asyncio.to_thread(smtp_send_sync)
-    except Exception as e:  # pragma: no cover - unexpected
-        log_error(f"Error executing SMTP send thread for IP {ip}", e)
+    def send_detection_alert(
+        self,
+        ip_address: str,
+        user_agent: str,
+        confidence_score: float,
+        request_path: str,
+        detection_reason: str,
+    ) -> bool:
+        """
+        Send an alert for AI scraping detection.
 
+        Args:
+            ip_address: IP address of the detected scraper
+            user_agent: User agent string
+            confidence_score: Detection confidence score (0-1)
+            request_path: Request path that triggered detection
+            detection_reason: Reason for detection
 
-async def send_alert(event_data: "WebhookEvent") -> None:
-    severity_map = {
-        "High Heuristic": 1,
-        "Local LLM": 2,
-        "External API": 3,
-        "High Combined": 1,
-        "Honeypot_Hit": 2,
-        "IP Reputation": 1,
-    }
-    reason_key = event_data.reason.split("(")[0].strip()
-    event_severity = severity_map.get(reason_key, 0)
-    min_severity_reason = ALERT_MIN_REASON_SEVERITY.split(" ")[0].strip()
-    min_severity = severity_map.get(min_severity_reason, 1)
-    if event_severity < min_severity:
-        logger.debug(
-            "Skipping alert for IP %s. Severity %s < Min %s",
-            event_data.details.get("ip"),
-            event_severity,
-            min_severity,
+        Returns:
+            bool: True if alert was sent successfully
+        """
+        alert_level = "CRITICAL" if confidence_score >= 0.9 else "WARNING"
+
+        subject = f"AI Scraping Detected from {ip_address}"
+        body = (
+            f"Potential AI scraping activity has been detected.\n\n"
+            f"The system has identified suspicious activity that matches "
+            f"known AI scraping patterns with a confidence score of "
+            f"{confidence_score:.2%}."
         )
-        return
 
-    logger.info(
-        "Dispatching alert for IP %s via method: %s (Severity: %s)",
-        event_data.details.get("ip"),
-        ALERT_METHOD,
-        event_severity,
-    )
-    if ALERT_METHOD == "webhook":
-        await send_generic_webhook_alert(event_data)
-    elif ALERT_METHOD == "slack":
-        await send_slack_alert(event_data)
-    elif ALERT_METHOD == "smtp":
-        await send_smtp_alert(event_data)
-    elif ALERT_METHOD != "none":
-        log_error(f"Alert method '{ALERT_METHOD}' invalid.")
+        detection_data = {
+            "IP Address": ip_address,
+            "User Agent": user_agent,
+            "Confidence Score": f"{confidence_score:.2%}",
+            "Request Path": request_path,
+            "Detection Reason": detection_reason,
+        }
 
+        return self.send_alert(subject, body, alert_level, detection_data)
 
-# ---------------------------------------------------------------------------
-# Redis Event-Driven Operations
-# ---------------------------------------------------------------------------
+    def send_rate_limit_alert(
+        self, ip_address: str, request_count: int, time_window: int
+    ) -> bool:
+        """
+        Send an alert for rate limit violations.
 
+        Args:
+            ip_address: IP address exceeding rate limits
+            request_count: Number of requests in the time window
+            time_window: Time window in seconds
 
-async def get_redis_client():
-    """Create and return an async Redis client."""
-    return redis.Redis(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        db=REDIS_DB,
-        password=REDIS_PASSWORD,
-        decode_responses=True,
-    )
+        Returns:
+            bool: True if alert was sent successfully
+        """
+        subject = f"Rate Limit Exceeded by {ip_address}"
+        body = (
+            f"An IP address has exceeded the configured rate limits.\n\n"
+            f"This may indicate aggressive scraping or a denial of service attempt."
+        )
 
+        detection_data = {
+            "IP Address": ip_address,
+            "Request Count": str(request_count),
+            "Time Window": f"{time_window} seconds",
+            "Average Rate": f"{request_count / time_window:.2f} requests/second",
+        }
 
-async def subscribe_anomaly_events():
-    """Subscribe to anomaly events from Redis Pub/Sub."""
-    redis_client = await get_redis_client()
-    try:
-        pubsub = redis_client.pubsub()
-        await pubsub.subscribe(ANOMALY_EVENT_CHANNEL)
-        async for message in pubsub.listen():
-            if message["type"] == "message":
-                try:
-                    event_data = json.loads(message["data"])
-                    await handle_anomaly_event(event_data)
-                except json.JSONDecodeError as e:
-                    logger.error("Failed to decode anomaly event: %s", e)
-                except Exception as e:
-                    logger.error("Error handling anomaly event: %s", e)
-    finally:
-        await redis_client.aclose()
+        return self.send_alert(subject, body, "WARNING", detection_data)
 
+    def send_system_alert(self, message: str, alert_level: str = "INFO") -> bool:
+        """
+        Send a general system alert.
 
-async def handle_anomaly_event(event_data):
-    """
-    Process anomaly detection events from Redis Pub/Sub.
+        Args:
+            message: Alert message
+            alert_level: Alert severity level
 
-    This function receives high-score anomaly events and can trigger
-    alerts or other defensive actions. Currently logs events; extend
-    as needed to integrate with alerting or blocking systems.
-
-    Args:
-        event_data: Dictionary with 'anomaly_score' and 'features' keys
-
-    Example implementation:
-        anomaly_score = event_data.get('anomaly_score', 0)
-        if anomaly_score > 0.9:
-            event_data['reason'] = f"Critical Anomaly Score: {anomaly_score:.2f}"
-            await send_alert(event_data)
-    """
-    logger.info("Received anomaly event: %s", event_data)
-    # TODO: Implement alerting logic based on anomaly score and features
-
-
-async def main():
-    """Main entry point for the Redis subscriber."""
-    # Await the Redis subscriber task to keep the event loop running
-    await subscribe_anomaly_events()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+        Returns:
+            bool: True if alert was sent successfully
+        """
+        subject = "AI Scraping Defense System Alert"
+        return self.send_alert(subject, message, alert_level)
