@@ -86,6 +86,7 @@ jobs:
         if: hashFiles('helm/**') != ''
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4
       - name: Helm/K8s lint
+        if: hashFiles('helm/**') != ''
         run: |
           curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tar.gz
           sudo tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin
