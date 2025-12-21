@@ -1,370 +1,469 @@
 """
-Escalation engine for AI scraping defense.
+Escalation Engine for AI Scraping Defense
 
-This module contains the core logic for detecting and responding to AI scraping attempts.
+This module implements a sophisticated threat detection and response system
+that monitors incoming requests and escalates defensive measures based on
+detected scraping patterns and behavioral anomalies.
 """
 
+import time
 import logging
+import hashlib
+from collections import defaultdict, deque
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple, Set
+from dataclasses import dataclass, field
+import json
 import re
-from datetime import datetime
-from typing import Dict, List, Optional, Set
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class ThreatMetrics:
+    """Metrics for threat detection and scoring."""
+    request_count: int = 0
+    error_rate: float = 0.0
+    pattern_violations: int = 0
+    timing_anomalies: int = 0
+    content_hash_diversity: float = 0.0
+    user_agent_changes: int = 0
+    last_request_time: float = 0.0
+    first_request_time: float = 0.0
+    blocked_attempts: int = 0
+    challenge_failures: int = 0
+    suspicious_patterns: Set[str] = field(default_factory=set)
+    request_timestamps: deque = field(default_factory=lambda: deque(maxlen=100))
+    accessed_paths: Set[str] = field(default_factory=set)
+    referer_domains: Set[str] = field(default_factory=set)
+    
+
+@dataclass
+class EscalationLevel:
+    """Defines an escalation level with its thresholds and responses."""
+    level: int
+    name: str
+    threat_score_threshold: float
+    response_actions: List[str]
+    rate_limit_factor: float = 1.0
+    challenge_difficulty: str = "none"
+    block_duration: int = 0  # seconds
+    
+
 class EscalationEngine:
     """
-    Engine for escalating responses to detected AI scraping attempts.
+    Manages threat detection and escalation of defensive measures.
     
-    This class analyzes request patterns and determines appropriate responses
-    based on various signals including user agent, request frequency, and behavior.
+    The engine monitors request patterns, maintains threat scores for
+    IP addresses and identifiers, and escalates responses based on
+    detected scraping behavior.
     """
     
-    # Known AI scraper user agents
-    AI_USER_AGENTS = {
-        'GPTBot',
-        'ChatGPT-User',
-        'Google-Extended',
-        'anthropic-ai',
-        'Claude-Web',
-        'ClaudeBot',
-        'cohere-ai',
-        'Omgilibot',
-        'Diffbot',
-        'Bytespider',
-        'PerplexityBot',
-        'YouBot',
-    }
-    
-    # Suspicious patterns in user agents
-    SUSPICIOUS_PATTERNS = [
-        r'bot',
-        r'crawler',
-        r'spider',
-        r'scraper',
-        r'python-requests',
-        r'curl',
-        r'wget',
-        r'http\.client',
-        r'scrapy',
-        r'beautifulsoup',
+    # Escalation levels configuration
+    ESCALATION_LEVELS = [
+        EscalationLevel(
+            level=0,
+            name="normal",
+            threat_score_threshold=0.0,
+            response_actions=["allow"],
+            rate_limit_factor=1.0,
+            challenge_difficulty="none"
+        ),
+        EscalationLevel(
+            level=1,
+            name="suspicious",
+            threat_score_threshold=30.0,
+            response_actions=["log", "monitor"],
+            rate_limit_factor=0.8,
+            challenge_difficulty="none"
+        ),
+        EscalationLevel(
+            level=2,
+            name="elevated",
+            threat_score_threshold=50.0,
+            response_actions=["log", "challenge_easy"],
+            rate_limit_factor=0.5,
+            challenge_difficulty="easy"
+        ),
+        EscalationLevel(
+            level=3,
+            name="high",
+            threat_score_threshold=70.0,
+            response_actions=["log", "challenge_medium", "rate_limit"],
+            rate_limit_factor=0.3,
+            challenge_difficulty="medium",
+            block_duration=300  # 5 minutes
+        ),
+        EscalationLevel(
+            level=4,
+            name="critical",
+            threat_score_threshold=90.0,
+            response_actions=["log", "challenge_hard", "strict_rate_limit"],
+            rate_limit_factor=0.1,
+            challenge_difficulty="hard",
+            block_duration=900  # 15 minutes
+        ),
+        EscalationLevel(
+            level=5,
+            name="blocked",
+            threat_score_threshold=100.0,
+            response_actions=["block", "alert"],
+            rate_limit_factor=0.0,
+            challenge_difficulty="impossible",
+            block_duration=3600  # 1 hour
+        ),
     ]
     
-    # Disallowed paths that should not be accessed by scrapers
-    DISALLOWED_PATHS = {
-        '/admin',
-        '/api/internal',
-        '/private',
-        '/user/settings',
+    # Threat scoring weights
+    SCORE_WEIGHTS = {
+        'high_request_rate': 15.0,
+        'timing_pattern': 10.0,
+        'error_rate': 8.0,
+        'user_agent_rotation': 12.0,
+        'path_enumeration': 10.0,
+        'challenge_failure': 20.0,
+        'blocked_attempt': 25.0,
+        'suspicious_pattern': 5.0,
+        'low_content_diversity': 8.0,
+        'missing_referer': 3.0,
+        'suspicious_referer': 7.0,
+    }
+    
+    # Pattern detection thresholds
+    THRESHOLDS = {
+        'requests_per_minute': 60,
+        'requests_per_hour': 500,
+        'error_rate_threshold': 0.3,
+        'timing_variance_threshold': 0.1,
+        'unique_paths_threshold': 50,
+        'min_request_interval': 0.1,  # seconds
+        'max_user_agent_changes': 3,
     }
     
     def __init__(self, config: Optional[Dict] = None):
         """
-        Initialize the escalation engine.
+        Initialize the Escalation Engine.
         
         Args:
             config: Optional configuration dictionary
         """
         self.config = config or {}
-        self.request_history: Dict[str, List[datetime]] = {}
-        self.blocked_ips: Set[str] = set()
-        self.warning_ips: Set[str] = set()
+        self.threat_metrics: Dict[str, ThreatMetrics] = defaultdict(ThreatMetrics)
+        self.threat_scores: Dict[str, float] = defaultdict(float)
+        self.escalation_states: Dict[str, EscalationLevel] = {}
+        self.blocked_until: Dict[str, float] = {}
+        self.request_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
         
+        # Pattern detection
+        self.known_scraper_patterns = self._load_scraper_patterns()
+        self.whitelist: Set[str] = set(self.config.get('whitelist', []))
+        self.blacklist: Set[str] = set(self.config.get('blacklist', []))
+        
+        logger.info("Escalation Engine initialized with %d levels", 
+                   len(self.ESCALATION_LEVELS))
+    
+    def _load_scraper_patterns(self) -> List[re.Pattern]:
+        """Load known scraper patterns for detection."""
+        patterns = [
+            r'bot|crawler|spider|scraper',
+            r'curl|wget|python-requests',
+            r'headless|phantom|selenium',
+            r'scrapy|beautifulsoup',
+            r'automated|script',
+        ]
+        return [re.compile(p, re.IGNORECASE) for p in patterns]
+    
     def analyze_request(self, request_data: Dict) -> Dict:
         """
-        Analyze a request and determine the appropriate response level.
+        Analyze an incoming request and determine threat level.
         
         Args:
-            request_data: Dictionary containing request information including:
+            request_data: Dictionary containing request information
+                - ip: Client IP address
                 - user_agent: User agent string
-                - ip_address: Client IP address
                 - path: Request path
-                - referer: Referer header
                 - timestamp: Request timestamp
+                - referer: Referer header
+                - status_code: Response status code (if available)
                 
         Returns:
-            Dictionary containing:
-                - threat_level: 0-100 threat score
-                - action: Recommended action (allow, warn, block)
-                - reasons: List of detection reasons
+            Dictionary containing analysis results and recommended actions
         """
-        threat_level = 0
-        reasons = []
+        ip = request_data.get('ip', 'unknown')
         
-        user_agent = request_data.get('user_agent', '')
-        ip_address = request_data.get('ip_address', '')
+        # Check whitelist/blacklist
+        if ip in self.whitelist:
+            return self._create_response(ip, 0, "whitelisted")
+        if ip in self.blacklist:
+            return self._create_response(ip, 5, "blacklisted")
+        
+        # Check if currently blocked
+        if self._is_blocked(ip):
+            return self._create_response(ip, 5, "currently_blocked")
+        
+        # Update metrics
+        self._update_metrics(ip, request_data)
+        
+        # Calculate threat score
+        threat_score = self._calculate_threat_score(ip, request_data)
+        self.threat_scores[ip] = threat_score
+        
+        # Determine escalation level
+        escalation_level = self._determine_escalation_level(threat_score)
+        self.escalation_states[ip] = escalation_level
+        
+        # Check if we should block
+        if escalation_level.block_duration > 0:
+            self.blocked_until[ip] = time.time() + escalation_level.block_duration
+        
+        logger.info("Request from %s analyzed: threat_score=%.2f, level=%s",
+                   ip, threat_score, escalation_level.name)
+        
+        return self._create_response(ip, escalation_level.level, "analyzed")
+    
+    def _update_metrics(self, ip: str, request_data: Dict):
+        """Update threat metrics for the given IP."""
+        metrics = self.threat_metrics[ip]
+        current_time = time.time()
+        
+        # Update basic counters
+        metrics.request_count += 1
+        metrics.last_request_time = current_time
+        if metrics.first_request_time == 0.0:
+            metrics.first_request_time = current_time
+        
+        # Track timestamps
+        metrics.request_timestamps.append(current_time)
+        
+        # Track paths
         path = request_data.get('path', '')
+        if path:
+            metrics.accessed_paths.add(path)
         
-        # Check if IP is already blocked
-        if ip_address in self.blocked_ips:
-            return {
-                'threat_level': 100,
-                'action': 'block',
-                'reasons': ['IP previously blocked']
-            }
+        # Track referer domains
+        referer = request_data.get('referer', '')
+        if referer:
+            try:
+                domain = urlparse(referer).netloc
+                if domain:
+                    metrics.referer_domains.add(domain)
+            except Exception as e:
+                logger.warning('Error parsing referer: %s', e)
         
-        # Check for known AI scrapers
-        if self._is_ai_scraper(user_agent):
-            threat_level += 40
-            reasons.append('Known AI scraper user agent detected')
+        # Track error rate
+        status_code = request_data.get('status_code', 200)
+        if status_code >= 400:
+            # Simple moving average for error rate
+            metrics.error_rate = (metrics.error_rate * 0.9) + 0.1
+        else:
+            metrics.error_rate = metrics.error_rate * 0.95
+        
+        # Check for timing patterns
+        if len(metrics.request_timestamps) >= 10:
+            intervals = [
+                metrics.request_timestamps[i] - metrics.request_timestamps[i-1]
+                for i in range(1, len(metrics.request_timestamps))
+            ]
+            avg_interval = sum(intervals) / len(intervals)
+            variance = sum((x - avg_interval) ** 2 for x in intervals) / len(intervals)
+            
+            if variance < self.THRESHOLDS['timing_variance_threshold']:
+                metrics.timing_anomalies += 1
         
         # Check for suspicious patterns
-        if self._has_suspicious_patterns(user_agent):
-            threat_level += 30
-            reasons.append('Suspicious user agent pattern detected')
+        user_agent = request_data.get('user_agent', '')
+        for pattern in self.known_scraper_patterns:
+            if pattern.search(user_agent):
+                metrics.suspicious_patterns.add(pattern.pattern)
+    
+    def _calculate_threat_score(self, ip: str, request_data: Dict) -> float:
+        """Calculate the threat score for an IP address."""
+        metrics = self.threat_metrics[ip]
+        score = 0.0
+        current_time = time.time()
         
-        # Check request frequency
-        frequency_score = self._check_request_frequency(ip_address, request_data.get('timestamp'))
-        if frequency_score > 0:
-            threat_level += frequency_score
-            reasons.append(f'High request frequency detected (score: {frequency_score})')
+        # High request rate
+        if len(metrics.request_timestamps) >= 2:
+            time_window = current_time - metrics.request_timestamps[0]
+            if time_window > 0:
+                rate_per_minute = len(metrics.request_timestamps) / (time_window / 60)
+                if rate_per_minute > self.THRESHOLDS['requests_per_minute']:
+                    score += self.SCORE_WEIGHTS['high_request_rate']
         
-        # Check for disallowed path access
-        if self._is_disallowed_path(path):
-            threat_level += 30
-            reasons.append('Access to disallowed path')
+        # Timing patterns (too regular = bot)
+        if metrics.timing_anomalies > 3:
+            score += self.SCORE_WEIGHTS['timing_pattern']
         
-        # Check referer header
-        referer_score = self._analyze_referer(request_data.get('referer', ''), request_data.get('host', ''))
-        if referer_score > 0:
-            threat_level += referer_score
-            reasons.append('Suspicious or missing referer header')
+        # High error rate
+        if metrics.error_rate > self.THRESHOLDS['error_rate_threshold']:
+            score += self.SCORE_WEIGHTS['error_rate']
         
-        # Determine action based on threat level
-        if threat_level >= 70:
-            action = 'block'
-            self.blocked_ips.add(ip_address)
-        elif threat_level >= 40:
-            action = 'warn'
-            self.warning_ips.add(ip_address)
-        else:
-            action = 'allow'
+        # Path enumeration
+        if len(metrics.accessed_paths) > self.THRESHOLDS['unique_paths_threshold']:
+            score += self.SCORE_WEIGHTS['path_enumeration']
+        
+        # User agent rotation
+        if metrics.user_agent_changes > self.THRESHOLDS['max_user_agent_changes']:
+            score += self.SCORE_WEIGHTS['user_agent_rotation']
+        
+        # Challenge failures
+        if metrics.challenge_failures > 0:
+            score += self.SCORE_WEIGHTS['challenge_failure'] * metrics.challenge_failures
+        
+        # Blocked attempts
+        if metrics.blocked_attempts > 0:
+            score += self.SCORE_WEIGHTS['blocked_attempt'] * min(metrics.blocked_attempts, 3)
+        
+        # Suspicious patterns
+        score += len(metrics.suspicious_patterns) * self.SCORE_WEIGHTS['suspicious_pattern']
+        
+        # Missing or suspicious referer
+        referer = request_data.get('referer', '')
+        if not referer and metrics.request_count > 5:
+            score += self.SCORE_WEIGHTS['missing_referer']
+        
+        # Cap the score at 100
+        return min(score, 100.0)
+    
+    def _determine_escalation_level(self, threat_score: float) -> EscalationLevel:
+        """Determine the appropriate escalation level based on threat score."""
+        for level in reversed(self.ESCALATION_LEVELS):
+            if threat_score >= level.threat_score_threshold:
+                return level
+        return self.ESCALATION_LEVELS[0]
+    
+    def _is_blocked(self, ip: str) -> bool:
+        """Check if an IP is currently blocked."""
+        if ip in self.blocked_until:
+            if time.time() < self.blocked_until[ip]:
+                self.threat_metrics[ip].blocked_attempts += 1
+                return True
+            else:
+                # Block expired
+                del self.blocked_until[ip]
+        return False
+    
+    def _create_response(self, ip: str, level: int, reason: str) -> Dict:
+        """Create a response dictionary with escalation information."""
+        escalation_level = None
+        for lvl in self.ESCALATION_LEVELS:
+            if lvl.level == level:
+                escalation_level = lvl
+                break
+        
+        if escalation_level is None:
+            escalation_level = self.ESCALATION_LEVELS[0]
+        
+        metrics = self.threat_metrics[ip]
         
         return {
-            'threat_level': min(threat_level, 100),
-            'action': action,
-            'reasons': reasons
+            'ip': ip,
+            'threat_score': self.threat_scores.get(ip, 0.0),
+            'escalation_level': level,
+            'escalation_name': escalation_level.name,
+            'actions': escalation_level.response_actions,
+            'rate_limit_factor': escalation_level.rate_limit_factor,
+            'challenge_difficulty': escalation_level.challenge_difficulty,
+            'blocked': level >= 5,
+            'blocked_until': self.blocked_until.get(ip, 0),
+            'reason': reason,
+            'metrics': {
+                'request_count': metrics.request_count,
+                'error_rate': metrics.error_rate,
+                'timing_anomalies': metrics.timing_anomalies,
+                'accessed_paths': len(metrics.accessed_paths),
+                'suspicious_patterns': len(metrics.suspicious_patterns),
+            }
         }
     
-    def _is_ai_scraper(self, user_agent: str) -> bool:
-        """
-        Check if user agent matches known AI scrapers.
-        
-        Args:
-            user_agent: User agent string
-            
-        Returns:
-            True if matches known AI scraper
-        """
-        if not user_agent:
-            return False
-        
-        user_agent_lower = user_agent.lower()
-        return any(bot.lower() in user_agent_lower for bot in self.AI_USER_AGENTS)
+    def record_challenge_result(self, ip: str, success: bool):
+        """Record the result of a challenge."""
+        metrics = self.threat_metrics[ip]
+        if not success:
+            metrics.challenge_failures += 1
+            # Increase threat score on challenge failure
+            current_score = self.threat_scores.get(ip, 0.0)
+            self.threat_scores[ip] = min(current_score + 15.0, 100.0)
+            logger.warning("Challenge failed for %s, threat score increased to %.2f",
+                         ip, self.threat_scores[ip])
     
-    def _has_suspicious_patterns(self, user_agent: str) -> bool:
-        """
-        Check if user agent contains suspicious patterns.
-        
-        Args:
-            user_agent: User agent string
-            
-        Returns:
-            True if suspicious patterns found
-        """
-        if not user_agent:
-            return True  # Empty user agent is suspicious
-        
-        user_agent_lower = user_agent.lower()
-        return any(re.search(pattern, user_agent_lower) for pattern in self.SUSPICIOUS_PATTERNS)
+    def get_current_state(self, ip: str) -> Dict:
+        """Get the current escalation state for an IP."""
+        if ip in self.escalation_states:
+            level = self.escalation_states[ip]
+            return self._create_response(ip, level.level, "current_state")
+        return self._create_response(ip, 0, "no_state")
     
-    def _check_request_frequency(self, ip_address: str, timestamp: Optional[datetime] = None) -> int:
-        """
-        Check request frequency for an IP address.
-        
-        Args:
-            ip_address: Client IP address
-            timestamp: Request timestamp (defaults to now)
-            
-        Returns:
-            Threat score based on frequency (0-30)
-        """
-        if timestamp is None:
-            timestamp = datetime.now()
-        
-        # Initialize history for new IPs
-        if ip_address not in self.request_history:
-            self.request_history[ip_address] = []
-        
-        # Add current request
-        self.request_history[ip_address].append(timestamp)
-        
-        # Clean old requests (older than 1 minute)
-        cutoff = timestamp.timestamp() - 60
-        self.request_history[ip_address] = [
-            ts for ts in self.request_history[ip_address]
-            if ts.timestamp() > cutoff
-        ]
-        
-        # Calculate score based on request count
-        request_count = len(self.request_history[ip_address])
-        
-        if request_count > 100:
-            return 30
-        elif request_count > 50:
-            return 20
-        elif request_count > 20:
-            return 10
-        
-        return 0
+    def reset_ip(self, ip: str):
+        """Reset all metrics and state for an IP address."""
+        if ip in self.threat_metrics:
+            del self.threat_metrics[ip]
+        if ip in self.threat_scores:
+            del self.threat_scores[ip]
+        if ip in self.escalation_states:
+            del self.escalation_states[ip]
+        if ip in self.blocked_until:
+            del self.blocked_until[ip]
+        logger.info("Reset state for IP: %s", ip)
     
-    def _is_disallowed_path(self, path: str) -> bool:
-        """
-        Check if path is in the disallowed list.
-        
-        Args:
-            path: Request path
-            
-        Returns:
-            True if path is disallowed
-        """
-        if not path:
-            return False
-        
-        # Check exact matches
-        if path in self.DISALLOWED_PATHS:
-            return True
-        
-        # Check prefix matches
-        try:
-            return any(path.startswith(disallowed) for disallowed in self.DISALLOWED_PATHS)
-        except Exception as e:
-            logger.debug('Error checking disallowed path: %s', e)
-            return False
+    def add_to_whitelist(self, ip: str):
+        """Add an IP to the whitelist."""
+        self.whitelist.add(ip)
+        self.reset_ip(ip)
+        logger.info("Added %s to whitelist", ip)
     
-    def _analyze_referer(self, referer: str, host: str) -> int:
-        """
-        Analyze referer header for suspicious patterns.
-        
-        Args:
-            referer: Referer header value
-            host: Request host
-            
-        Returns:
-            Threat score (0-20)
-        """
-        # Missing referer is somewhat suspicious
-        if not referer:
-            return 10
-        
-        # Check if referer is from same domain
-        try:
-            referer_domain = urlparse(referer).netloc
-            if referer_domain and referer_domain != host:
-                return 15
-        except Exception as e:
-            logger.debug('Error parsing referer URL: %s', e)
-            return 10
-        
-        return 0
+    def add_to_blacklist(self, ip: str):
+        """Add an IP to the blacklist."""
+        self.blacklist.add(ip)
+        logger.info("Added %s to blacklist", ip)
     
-    def get_escalation_response(self, action: str, threat_level: int) -> Dict:
-        """
-        Get the appropriate HTTP response for an escalation action.
-        
-        Args:
-            action: Action to take (allow, warn, block)
-            threat_level: Threat level score
-            
-        Returns:
-            Dictionary containing response details
-        """
-        if action == 'block':
-            return {
-                'status_code': 403,
-                'message': 'Access denied',
-                'headers': {
-                    'X-Threat-Level': str(threat_level),
-                    'X-Action': 'blocked'
-                }
-            }
-        elif action == 'warn':
-            return {
-                'status_code': 200,
-                'message': 'Warning: Suspicious activity detected',
-                'headers': {
-                    'X-Threat-Level': str(threat_level),
-                    'X-Action': 'warned',
-                    'X-Warning': 'Your activity appears suspicious. Continued abuse will result in blocking.'
-                }
-            }
-        else:
-            return {
-                'status_code': 200,
-                'message': 'OK',
-                'headers': {
-                    'X-Threat-Level': str(threat_level),
-                    'X-Action': 'allowed'
-                }
-            }
+    def remove_from_whitelist(self, ip: str):
+        """Remove an IP from the whitelist."""
+        self.whitelist.discard(ip)
+        logger.info("Removed %s from whitelist", ip)
     
-    def reset_ip_status(self, ip_address: str):
-        """
-        Reset the status for an IP address.
-        
-        Args:
-            ip_address: IP address to reset
-        """
-        self.blocked_ips.discard(ip_address)
-        self.warning_ips.discard(ip_address)
-        if ip_address in self.request_history:
-            del self.request_history[ip_address]
+    def remove_from_blacklist(self, ip: str):
+        """Remove an IP from the blacklist."""
+        self.blacklist.discard(ip)
+        logger.info("Removed %s from blacklist", ip)
     
     def get_statistics(self) -> Dict:
-        """
-        Get current statistics about the escalation engine.
+        """Get overall statistics about the escalation engine."""
+        total_ips = len(self.threat_metrics)
         
-        Returns:
-            Dictionary containing statistics
-        """
+        level_counts = defaultdict(int)
+        for ip, state in self.escalation_states.items():
+            level_counts[state.name] += 1
+        
+        total_requests = sum(m.request_count for m in self.threat_metrics.values())
+        total_blocked = len(self.blocked_until)
+        
         return {
-            'blocked_ips': len(self.blocked_ips),
-            'warning_ips': len(self.warning_ips),
-            'tracked_ips': len(self.request_history),
-            'total_requests_tracked': sum(len(requests) for requests in self.request_history.values())
+            'total_tracked_ips': total_ips,
+            'total_requests': total_requests,
+            'currently_blocked': total_blocked,
+            'whitelisted': len(self.whitelist),
+            'blacklisted': len(self.blacklist),
+            'escalation_levels': dict(level_counts),
+            'average_threat_score': (
+                sum(self.threat_scores.values()) / len(self.threat_scores)
+                if self.threat_scores else 0.0
+            ),
         }
-
-
-def extract_features(request_data: Dict) -> Dict:
-    """
-    Extract features from request data for analysis.
     
-    Args:
-        request_data: Raw request data
+    def cleanup_old_data(self, max_age_hours: int = 24):
+        """Clean up old tracking data to prevent memory bloat."""
+        current_time = time.time()
+        max_age_seconds = max_age_hours * 3600
         
-    Returns:
-        Dictionary of extracted features
-    """
-    features = {}
-    
-    # Extract user agent features
-    user_agent = request_data.get('user_agent', '')
-    features['user_agent_length'] = len(user_agent)
-    features['has_user_agent'] = bool(user_agent)
-    
-    # Extract path features
-    path = request_data.get('path', '')
-    features['path_length'] = len(path)
-    features['path_depth'] = path.count('/')
-    
-    # Extract timestamp features
-    try:
-        timestamp = request_data.get('timestamp')
-        if timestamp:
-            features['hour_of_day'] = timestamp.hour
-            features['day_of_week'] = timestamp.weekday()
-    except Exception as e:
-        logger.debug('Error extracting timestamp features: %s', e)
-    
-    return features
+        ips_to_remove = []
+        for ip, metrics in self.threat_metrics.items():
+            if current_time - metrics.last_request_time > max_age_seconds:
+                ips_to_remove.append(ip)
+        
+        for ip in ips_to_remove:
+            self.reset_ip(ip)
+        
+        logger.info("Cleaned up %d old IP records", len(ips_to_remove))
+        return len(ips_to_remove)
