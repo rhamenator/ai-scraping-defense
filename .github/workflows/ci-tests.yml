@@ -70,6 +70,8 @@ jobs:
       - name: Validate NGINX configs (syntax only)
         if: hashFiles('nginx/*.conf') != '' || hashFiles('nginx/**/*.conf') != ''
         run: docker run --rm -v "$PWD/nginx:/etc/nginx:ro" nginx:stable nginx -t -c /etc/nginx/nginx.conf
+      - name: Set up Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4
       - name: Helm/K8s lint
         run: |
           curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tar.gz
