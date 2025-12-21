@@ -122,8 +122,9 @@ class GDPRComplianceManager:
         try:
             # Log to file using structured logging
             from .utils import log_event as log_event_to_file
+
             log_event_to_file(GDPR_AUDIT_LOG_FILE, event_type, data)
-            
+
             # Also store in Redis for quick access
             if self.redis_conn:
                 event_data = json.dumps(
@@ -329,20 +330,23 @@ class GDPRComplianceManager:
                 request_data["status"] = "failed"
                 request_data["notes"] = str(e)
                 self.redis_conn.set(key, json.dumps(request_data))
-            except Exception:
-                pass
+            except Exception as redis_err:
+                logger.error(
+                    f"Failed to update deletion request status in Redis: {redis_err}"
+                )
             return False
 
-    def _delete_user_data(
-        self, user_id: str, data_categories: List[str]
-    ) -> None:
+    def _delete_user_data(self, user_id: str, data_categories: List[str]) -> None:
         """Delete user data from Redis."""
         if not self.redis_conn:
             return
 
         try:
             # Delete consent records
-            if "authentication" in data_categories or "behavioral_data" in data_categories:
+            if (
+                "authentication" in data_categories
+                or "behavioral_data" in data_categories
+            ):
                 pattern = f"{self.consent_key_prefix}:{user_id}:*"
                 for key in self.redis_conn.scan_iter(match=pattern):
                     self.redis_conn.delete(key)
@@ -360,7 +364,9 @@ class GDPRComplianceManager:
                 for key in self.redis_conn.scan_iter(match=behavioral_pattern):
                     self.redis_conn.delete(key)
 
-            logger.info(f"Deleted data for user {user_id}, categories: {data_categories}")
+            logger.info(
+                f"Deleted data for user {user_id}, categories: {data_categories}"
+            )
         except RedisError as e:
             logger.error(f"Redis error deleting user data: {e}")
             raise
@@ -427,7 +433,9 @@ class GDPRComplianceManager:
         try:
             # Count consent records
             consent_pattern = f"{self.consent_key_prefix}:*"
-            consent_count = sum(1 for _ in self.redis_conn.scan_iter(match=consent_pattern))
+            consent_count = sum(
+                1 for _ in self.redis_conn.scan_iter(match=consent_pattern)
+            )
             report["statistics"]["total_consent_records"] = consent_count
 
             # Count deletion requests
@@ -451,11 +459,11 @@ class GDPRComplianceManager:
 
     async def cleanup_expired_data(self) -> int:
         """Clean up data older than retention period.
-        
+
         This method should be called periodically (e.g., daily) to remove
         data that has exceeded the retention period. The implementation
         scans through stored data and removes records based on timestamps.
-        
+
         Returns:
             Number of records deleted
         """
@@ -464,13 +472,19 @@ class GDPRComplianceManager:
 
         deleted_count = 0
         cutoff_timestamp = (
-            datetime.datetime.now(datetime.timezone.utc)
-            - datetime.timedelta(days=GDPR_DATA_RETENTION_DAYS)
-        ).isoformat().replace("+00:00", "Z")
+            (
+                datetime.datetime.now(datetime.timezone.utc)
+                - datetime.timedelta(days=GDPR_DATA_RETENTION_DAYS)
+            )
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
 
         try:
-            logger.info(f"Running GDPR data cleanup for data older than {cutoff_timestamp}")
-            
+            logger.info(
+                f"Running GDPR data cleanup for data older than {cutoff_timestamp}"
+            )
+
             # Clean up expired consent records
             consent_pattern = f"{self.consent_key_prefix}:*"
             for key in self.redis_conn.scan_iter(match=consent_pattern):
@@ -485,14 +499,14 @@ class GDPRComplianceManager:
                 except (json.JSONDecodeError, ValueError) as e:
                     logger.warning(f"Failed to parse consent data for key {key}: {e}")
                     continue
-            
+
             # Clean up old audit log entries (keep only recent ones)
             # Keep last GDPR_AUDIT_LOG_MAX_ENTRIES as configured in _log_gdpr_event
             current_length = self.redis_conn.llen(self.audit_key)
             if current_length > GDPR_AUDIT_LOG_MAX_ENTRIES:
                 self.redis_conn.ltrim(self.audit_key, 0, GDPR_AUDIT_LOG_MAX_ENTRIES - 1)
                 deleted_count += current_length - GDPR_AUDIT_LOG_MAX_ENTRIES
-            
+
             logger.info(f"GDPR cleanup completed: deleted {deleted_count} records")
         except RedisError as e:
             logger.error(f"Redis error during data cleanup: {e}")
