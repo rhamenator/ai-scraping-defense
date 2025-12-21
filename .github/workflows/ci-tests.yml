@@ -39,18 +39,30 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
           set -e
-          cargo test --all --locked 2>locked.log || {
-            if grep -q "Cargo.lock needs to be updated" locked.log || grep -q "which is not allowed due to --locked" locked.log; then
-              echo "Falling back to unlocked dependencies due to lock file error."
-              cargo test --all
-            else
-              echo "cargo test --all --locked failed for a reason other than lock file issues."
-              cat locked.log
-              exit 1
-            fi
-          }
-          cargo clippy --all-targets --all-features -D warnings
-          cargo fmt --all -- --check
+          if [ -f "Cargo.toml" ]; then
+            cargo test --all --locked 2>locked.log || {
+              if grep -q "Cargo.lock needs to be updated" locked.log || grep -q "which is not allowed due to --locked" locked.log; then
+                echo "Falling back to unlocked dependencies due to lock file error."
+                cargo test --all
+              else
+                echo "cargo test --all --locked failed for a reason other than lock file issues."
+                cat locked.log
+                exit 1
+              fi
+            }
+            cargo clippy --all-targets --all-features -D warnings
+            cargo fmt --all -- --check
+          else
+            echo "No Cargo.toml found in root, skipping cargo test --all"
+            # Test individual Rust projects if they exist
+            for cargo_file in */Cargo.toml; do
+              if [ -f "$cargo_file" ]; then
+                dir=$(dirname "$cargo_file")
+                echo "Testing Rust project in $dir"
+                (cd "$dir" && cargo test --locked) || cargo test -p "$(basename "$dir")"
+              fi
+            done
+          fi
       - name: Node tests
         if: hashFiles('**/package.json') != ''
         run: |
@@ -120,11 +132,13 @@ jobs:
         with: { fetch-depth: 0 }
       - name: Python tests (macOS)
         run: |
-          python3 -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip3 install -r requirements.txt; fi
-          if [ -f pyproject.toml ]; then pip3 install .; fi
-          if [ -f setup.py ]; then pip3 install -e .; fi
-          pip3 install pytest pytest-cov
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f pyproject.toml ]; then pip install .; fi
+          if [ -f setup.py ]; then pip install -e .; fi
+          pip install pytest pytest-cov
           pytest -q test/
       - name: Node tests (macOS)
         run: |

@@ -17,11 +17,6 @@ def main() -> None:
         action="store_true",
         help="Print the TOTP secret to stdout (use with caution).",
     )
-    args = parser.parse_args()
-
-    secret = pyotp.random_base32()
-    issuer = "AI Scraping Defense"
-    uri = pyotp.TOTP(secret).provisioning_uri(
     parser.add_argument(
         "--admin-email",
         type=str,
