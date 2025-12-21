@@ -1,469 +1,1298 @@
-"""
-Escalation Engine for AI Scraping Defense
-
-This module implements a sophisticated threat detection and response system
-that monitors incoming requests and escalates defensive measures based on
-detected scraping patterns and behavioral anomalies.
-"""
-
-import time
-import logging
+# escalation/escalation_engine.py
+import asyncio
+import datetime
 import hashlib
-from collections import defaultdict, deque
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Set
-from dataclasses import dataclass, field
+import ipaddress
 import json
+import logging
+import os
 import re
-from urllib.parse import urlparse, parse_qs
+import sys
+import time
+from typing import Any, Dict, Optional, Union
+from urllib.parse import urlparse
 
+import httpx
+import numpy as np
+from fastapi import Depends, HTTPException, Request, Response
+from pydantic import BaseModel, Field, ValidationError
+
+from src.shared.config import tenant_key
+from src.shared.middleware import create_app
+from src.shared.observability import (
+    HealthCheckResult,
+    register_health_check,
+    trace_span,
+)
+
+# GeoIP
+try:
+    import geoip2.database
+
+    GEOIP_AVAILABLE = True
+except Exception:
+    geoip2 = None
+    GEOIP_AVAILABLE = False
+
+from src.shared.authz import require_jwt, verify_jwt_from_request
+from src.shared.config import CONFIG
+from src.shared.decision_db import record_decision
+
+# --- Refactored Imports ---
+from src.shared.model_provider import get_model_adapter
+from src.shared.redis_client import get_redis_connection
+from src.shared.request_utils import read_json_body
+
+# --- Setup Logging ---
 logger = logging.getLogger(__name__)
 
+try:
+    from frequency_rs import get_realtime_frequency_features as rs_get_freq
 
-@dataclass
-class ThreatMetrics:
-    """Metrics for threat detection and scoring."""
-    request_count: int = 0
-    error_rate: float = 0.0
-    pattern_violations: int = 0
-    timing_anomalies: int = 0
-    content_hash_diversity: float = 0.0
-    user_agent_changes: int = 0
-    last_request_time: float = 0.0
-    first_request_time: float = 0.0
-    blocked_attempts: int = 0
-    challenge_failures: int = 0
-    suspicious_patterns: Set[str] = field(default_factory=set)
-    request_timestamps: deque = field(default_factory=lambda: deque(maxlen=100))
-    accessed_paths: Set[str] = field(default_factory=set)
-    referer_domains: Set[str] = field(default_factory=set)
-    
+    FREQUENCY_RS_AVAILABLE = True
+    logger.info("frequency_rs module loaded successfully.")
+except Exception as e:
+    FREQUENCY_RS_AVAILABLE = False
+    logger.warning(f"Could not import frequency_rs: {e}. Using Python fallback.")
 
-@dataclass
-class EscalationLevel:
-    """Defines an escalation level with its thresholds and responses."""
-    level: int
-    name: str
-    threat_score_threshold: float
-    response_actions: List[str]
-    rate_limit_factor: float = 1.0
-    challenge_difficulty: str = "none"
-    block_duration: int = 0  # seconds
-    
+# --- Metrics Import (Preserved from your original file) ---
+try:
+    from .metrics_escalation import (
+        BOTS_DETECTED_EXTERNAL_API,
+        BOTS_DETECTED_HIGH_SCORE,
+        BOTS_DETECTED_IP_REPUTATION,
+        BOTS_DETECTED_LOCAL_LLM,
+        CAPTCHA_CHALLENGES_TRIGGERED,
+        ESCALATION_REQUESTS_RECEIVED,
+        ESCALATION_WEBHOOK_ERRORS_REQUEST,
+        ESCALATION_WEBHOOK_ERRORS_UNEXPECTED,
+        ESCALATION_WEBHOOKS_SENT,
+        EXTERNAL_API_CHECKS_RUN,
+        EXTERNAL_API_ERRORS_REQUEST,
+        EXTERNAL_API_ERRORS_RESPONSE_DECODE,
+        EXTERNAL_API_ERRORS_TIMEOUT,
+        EXTERNAL_API_ERRORS_UNEXPECTED,
+        EXTERNAL_API_ERRORS_UNEXPECTED_RESPONSE,
+        EXTERNAL_API_SUCCESS,
+        FREQUENCY_ANALYSES_PERFORMED,
+        HEURISTIC_CHECKS_RUN,
+        HUMANS_DETECTED_EXTERNAL_API,
+        HUMANS_DETECTED_LOCAL_LLM,
+        HUMANS_DETECTED_LOW_SCORE,
+        IP_REPUTATION_CHECKS_RUN,
+        IP_REPUTATION_ERRORS_REQUEST,
+        IP_REPUTATION_ERRORS_RESPONSE_DECODE,
+        IP_REPUTATION_ERRORS_TIMEOUT,
+        IP_REPUTATION_ERRORS_UNEXPECTED,
+        IP_REPUTATION_MALICIOUS,
+        IP_REPUTATION_SUCCESS,
+        LOCAL_LLM_CHECKS_RUN,
+        LOCAL_LLM_ERRORS_REQUEST,
+        LOCAL_LLM_ERRORS_RESPONSE_DECODE,
+        LOCAL_LLM_ERRORS_TIMEOUT,
+        LOCAL_LLM_ERRORS_UNEXPECTED,
+        LOCAL_LLM_ERRORS_UNEXPECTED_RESPONSE,
+        MODEL_VERSION_INFO,
+        REDIS_ERRORS_FREQUENCY,
+        RF_MODEL_ERRORS,
+        RF_MODEL_PREDICTIONS,
+        SCORE_ADJUSTED_IP_REPUTATION,
+        get_metrics,
+        increment_counter_metric,
+    )
 
-class EscalationEngine:
-    """
-    Manages threat detection and escalation of defensive measures.
-    
-    The engine monitors request patterns, maintains threat scores for
-    IP addresses and identifiers, and escalates responses based on
-    detected scraping behavior.
-    """
-    
-    # Escalation levels configuration
-    ESCALATION_LEVELS = [
-        EscalationLevel(
-            level=0,
-            name="normal",
-            threat_score_threshold=0.0,
-            response_actions=["allow"],
-            rate_limit_factor=1.0,
-            challenge_difficulty="none"
-        ),
-        EscalationLevel(
-            level=1,
-            name="suspicious",
-            threat_score_threshold=30.0,
-            response_actions=["log", "monitor"],
-            rate_limit_factor=0.8,
-            challenge_difficulty="none"
-        ),
-        EscalationLevel(
-            level=2,
-            name="elevated",
-            threat_score_threshold=50.0,
-            response_actions=["log", "challenge_easy"],
-            rate_limit_factor=0.5,
-            challenge_difficulty="easy"
-        ),
-        EscalationLevel(
-            level=3,
-            name="high",
-            threat_score_threshold=70.0,
-            response_actions=["log", "challenge_medium", "rate_limit"],
-            rate_limit_factor=0.3,
-            challenge_difficulty="medium",
-            block_duration=300  # 5 minutes
-        ),
-        EscalationLevel(
-            level=4,
-            name="critical",
-            threat_score_threshold=90.0,
-            response_actions=["log", "challenge_hard", "strict_rate_limit"],
-            rate_limit_factor=0.1,
-            challenge_difficulty="hard",
-            block_duration=900  # 15 minutes
-        ),
-        EscalationLevel(
-            level=5,
-            name="blocked",
-            threat_score_threshold=100.0,
-            response_actions=["block", "alert"],
-            rate_limit_factor=0.0,
-            challenge_difficulty="impossible",
-            block_duration=3600  # 1 hour
-        ),
-    ]
-    
-    # Threat scoring weights
-    SCORE_WEIGHTS = {
-        'high_request_rate': 15.0,
-        'timing_pattern': 10.0,
-        'error_rate': 8.0,
-        'user_agent_rotation': 12.0,
-        'path_enumeration': 10.0,
-        'challenge_failure': 20.0,
-        'blocked_attempt': 25.0,
-        'suspicious_pattern': 5.0,
-        'low_content_diversity': 8.0,
-        'missing_referer': 3.0,
-        'suspicious_referer': 7.0,
-    }
-    
-    # Pattern detection thresholds
-    THRESHOLDS = {
-        'requests_per_minute': 60,
-        'requests_per_hour': 500,
-        'error_rate_threshold': 0.3,
-        'timing_variance_threshold': 0.1,
-        'unique_paths_threshold': 50,
-        'min_request_interval': 0.1,  # seconds
-        'max_user_agent_changes': 3,
-    }
-    
-    def __init__(self, config: Optional[Dict] = None):
-        """
-        Initialize the Escalation Engine.
-        
-        Args:
-            config: Optional configuration dictionary
-        """
-        self.config = config or {}
-        self.threat_metrics: Dict[str, ThreatMetrics] = defaultdict(ThreatMetrics)
-        self.threat_scores: Dict[str, float] = defaultdict(float)
-        self.escalation_states: Dict[str, EscalationLevel] = {}
-        self.blocked_until: Dict[str, float] = {}
-        self.request_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
-        
-        # Pattern detection
-        self.known_scraper_patterns = self._load_scraper_patterns()
-        self.whitelist: Set[str] = set(self.config.get('whitelist', []))
-        self.blacklist: Set[str] = set(self.config.get('blacklist', []))
-        
-        logger.info("Escalation Engine initialized with %d levels", 
-                   len(self.ESCALATION_LEVELS))
-    
-    def _load_scraper_patterns(self) -> List[re.Pattern]:
-        """Load known scraper patterns for detection."""
-        patterns = [
-            r'bot|crawler|spider|scraper',
-            r'curl|wget|python-requests',
-            r'headless|phantom|selenium',
-            r'scrapy|beautifulsoup',
-            r'automated|script',
-        ]
-        return [re.compile(p, re.IGNORECASE) for p in patterns]
-    
-    def analyze_request(self, request_data: Dict) -> Dict:
-        """
-        Analyze an incoming request and determine threat level.
-        
-        Args:
-            request_data: Dictionary containing request information
-                - ip: Client IP address
-                - user_agent: User agent string
-                - path: Request path
-                - timestamp: Request timestamp
-                - referer: Referer header
-                - status_code: Response status code (if available)
-                
-        Returns:
-            Dictionary containing analysis results and recommended actions
-        """
-        ip = request_data.get('ip', 'unknown')
-        
-        # Check whitelist/blacklist
-        if ip in self.whitelist:
-            return self._create_response(ip, 0, "whitelisted")
-        if ip in self.blacklist:
-            return self._create_response(ip, 5, "blacklisted")
-        
-        # Check if currently blocked
-        if self._is_blocked(ip):
-            return self._create_response(ip, 5, "currently_blocked")
-        
-        # Update metrics
-        self._update_metrics(ip, request_data)
-        
-        # Calculate threat score
-        threat_score = self._calculate_threat_score(ip, request_data)
-        self.threat_scores[ip] = threat_score
-        
-        # Determine escalation level
-        escalation_level = self._determine_escalation_level(threat_score)
-        self.escalation_states[ip] = escalation_level
-        
-        # Check if we should block
-        if escalation_level.block_duration > 0:
-            self.blocked_until[ip] = time.time() + escalation_level.block_duration
-        
-        logger.info("Request from %s analyzed: threat_score=%.2f, level=%s",
-                   ip, threat_score, escalation_level.name)
-        
-        return self._create_response(ip, escalation_level.level, "analyzed")
-    
-    def _update_metrics(self, ip: str, request_data: Dict):
-        """Update threat metrics for the given IP."""
-        metrics = self.threat_metrics[ip]
-        current_time = time.time()
-        
-        # Update basic counters
-        metrics.request_count += 1
-        metrics.last_request_time = current_time
-        if metrics.first_request_time == 0.0:
-            metrics.first_request_time = current_time
-        
-        # Track timestamps
-        metrics.request_timestamps.append(current_time)
-        
-        # Track paths
-        path = request_data.get('path', '')
-        if path:
-            metrics.accessed_paths.add(path)
-        
-        # Track referer domains
-        referer = request_data.get('referer', '')
-        if referer:
-            try:
-                domain = urlparse(referer).netloc
-                if domain:
-                    metrics.referer_domains.add(domain)
-            except Exception as e:
-                logger.warning('Error parsing referer: %s', e)
-        
-        # Track error rate
-        status_code = request_data.get('status_code', 200)
-        if status_code >= 400:
-            # Simple moving average for error rate
-            metrics.error_rate = (metrics.error_rate * 0.9) + 0.1
-        else:
-            metrics.error_rate = metrics.error_rate * 0.95
-        
-        # Check for timing patterns
-        if len(metrics.request_timestamps) >= 10:
-            intervals = [
-                metrics.request_timestamps[i] - metrics.request_timestamps[i-1]
-                for i in range(1, len(metrics.request_timestamps))
-            ]
-            avg_interval = sum(intervals) / len(intervals)
-            variance = sum((x - avg_interval) ** 2 for x in intervals) / len(intervals)
-            
-            if variance < self.THRESHOLDS['timing_variance_threshold']:
-                metrics.timing_anomalies += 1
-        
-        # Check for suspicious patterns
-        user_agent = request_data.get('user_agent', '')
-        for pattern in self.known_scraper_patterns:
-            if pattern.search(user_agent):
-                metrics.suspicious_patterns.add(pattern.pattern)
-    
-    def _calculate_threat_score(self, ip: str, request_data: Dict) -> float:
-        """Calculate the threat score for an IP address."""
-        metrics = self.threat_metrics[ip]
-        score = 0.0
-        current_time = time.time()
-        
-        # High request rate
-        if len(metrics.request_timestamps) >= 2:
-            time_window = current_time - metrics.request_timestamps[0]
-            if time_window > 0:
-                rate_per_minute = len(metrics.request_timestamps) / (time_window / 60)
-                if rate_per_minute > self.THRESHOLDS['requests_per_minute']:
-                    score += self.SCORE_WEIGHTS['high_request_rate']
-        
-        # Timing patterns (too regular = bot)
-        if metrics.timing_anomalies > 3:
-            score += self.SCORE_WEIGHTS['timing_pattern']
-        
-        # High error rate
-        if metrics.error_rate > self.THRESHOLDS['error_rate_threshold']:
-            score += self.SCORE_WEIGHTS['error_rate']
-        
-        # Path enumeration
-        if len(metrics.accessed_paths) > self.THRESHOLDS['unique_paths_threshold']:
-            score += self.SCORE_WEIGHTS['path_enumeration']
-        
-        # User agent rotation
-        if metrics.user_agent_changes > self.THRESHOLDS['max_user_agent_changes']:
-            score += self.SCORE_WEIGHTS['user_agent_rotation']
-        
-        # Challenge failures
-        if metrics.challenge_failures > 0:
-            score += self.SCORE_WEIGHTS['challenge_failure'] * metrics.challenge_failures
-        
-        # Blocked attempts
-        if metrics.blocked_attempts > 0:
-            score += self.SCORE_WEIGHTS['blocked_attempt'] * min(metrics.blocked_attempts, 3)
-        
-        # Suspicious patterns
-        score += len(metrics.suspicious_patterns) * self.SCORE_WEIGHTS['suspicious_pattern']
-        
-        # Missing or suspicious referer
-        referer = request_data.get('referer', '')
-        if not referer and metrics.request_count > 5:
-            score += self.SCORE_WEIGHTS['missing_referer']
-        
-        # Cap the score at 100
-        return min(score, 100.0)
-    
-    def _determine_escalation_level(self, threat_score: float) -> EscalationLevel:
-        """Determine the appropriate escalation level based on threat score."""
-        for level in reversed(self.ESCALATION_LEVELS):
-            if threat_score >= level.threat_score_threshold:
-                return level
-        return self.ESCALATION_LEVELS[0]
-    
-    def _is_blocked(self, ip: str) -> bool:
-        """Check if an IP is currently blocked."""
-        if ip in self.blocked_until:
-            if time.time() < self.blocked_until[ip]:
-                self.threat_metrics[ip].blocked_attempts += 1
-                return True
-            else:
-                # Block expired
-                del self.blocked_until[ip]
+    METRICS_SYSTEM_AVAILABLE = True
+    logger.info(
+        "Metrics system (prometheus client style) imported successfully by Escalation Engine."
+    )
+except ImportError:
+    logger.warning(
+        "Could not import specific metrics or helpers from metrics.py. Metric incrementation will be no-op."
+    )
+
+    def increment_counter_metric(metric_instance, labels=None):
+        pass
+
+    def get_metrics() -> bytes:
+        return b"# Metrics unavailable\n"
+
+    class DummyCounter:
+        def inc(self, amount=1):
+            pass
+
+    # Define all required metric objects as dummies
+    REDIS_ERRORS_FREQUENCY = DummyCounter()
+    IP_REPUTATION_CHECKS_RUN = DummyCounter()
+    IP_REPUTATION_SUCCESS = DummyCounter()
+    IP_REPUTATION_MALICIOUS = DummyCounter()
+    IP_REPUTATION_ERRORS_TIMEOUT = DummyCounter()
+    IP_REPUTATION_ERRORS_REQUEST = DummyCounter()
+    IP_REPUTATION_ERRORS_RESPONSE_DECODE = DummyCounter()
+    IP_REPUTATION_ERRORS_UNEXPECTED = DummyCounter()
+    HEURISTIC_CHECKS_RUN = DummyCounter()
+    FREQUENCY_ANALYSES_PERFORMED = DummyCounter()
+    RF_MODEL_PREDICTIONS = DummyCounter()
+    RF_MODEL_ERRORS = DummyCounter()
+    SCORE_ADJUSTED_IP_REPUTATION = DummyCounter()
+    LOCAL_LLM_CHECKS_RUN = DummyCounter()
+    LOCAL_LLM_ERRORS_UNEXPECTED_RESPONSE = DummyCounter()
+    LOCAL_LLM_ERRORS_TIMEOUT = DummyCounter()
+    LOCAL_LLM_ERRORS_REQUEST = DummyCounter()
+    LOCAL_LLM_ERRORS_RESPONSE_DECODE = DummyCounter()
+    LOCAL_LLM_ERRORS_UNEXPECTED = DummyCounter()
+    EXTERNAL_API_CHECKS_RUN = DummyCounter()
+    EXTERNAL_API_SUCCESS = DummyCounter()
+    EXTERNAL_API_ERRORS_UNEXPECTED_RESPONSE = DummyCounter()
+    EXTERNAL_API_ERRORS_TIMEOUT = DummyCounter()
+    EXTERNAL_API_ERRORS_REQUEST = DummyCounter()
+    EXTERNAL_API_ERRORS_RESPONSE_DECODE = DummyCounter()
+    EXTERNAL_API_ERRORS_UNEXPECTED = DummyCounter()
+    ESCALATION_WEBHOOKS_SENT = DummyCounter()
+    ESCALATION_WEBHOOK_ERRORS_REQUEST = DummyCounter()
+    ESCALATION_WEBHOOK_ERRORS_UNEXPECTED = DummyCounter()
+    CAPTCHA_CHALLENGES_TRIGGERED = DummyCounter()
+    ESCALATION_REQUESTS_RECEIVED = DummyCounter()
+    BOTS_DETECTED_IP_REPUTATION = DummyCounter()
+    BOTS_DETECTED_HIGH_SCORE = DummyCounter()
+    HUMANS_DETECTED_LOW_SCORE = DummyCounter()
+    BOTS_DETECTED_LOCAL_LLM = DummyCounter()
+    HUMANS_DETECTED_LOCAL_LLM = DummyCounter()
+    BOTS_DETECTED_EXTERNAL_API = DummyCounter()
+    HUMANS_DETECTED_EXTERNAL_API = DummyCounter()
+    MODEL_VERSION_INFO = DummyCounter()
+    METRICS_SYSTEM_AVAILABLE = False
+
+# --- Configuration (Preserved) ---
+ESCALATION_THRESHOLD = CONFIG.ESCALATION_THRESHOLD
+LOG_LEVEL = CONFIG.LOG_LEVEL
+ESCALATION_API_KEY = CONFIG.ESCALATION_API_KEY
+
+
+def _current_api_key() -> str | None:
+    return ESCALATION_API_KEY or os.getenv("ESCALATION_API_KEY")
+
+
+try:
+    from user_agents import parse as ua_parse
+
+    UA_PARSER_AVAILABLE = True
+except ImportError:
+    ua_parse = None
+    UA_PARSER_AVAILABLE = False
+    logger.warning("user-agents library not found. Detailed UA parsing disabled.")
+
+WEBHOOK_URL = CONFIG.ESCALATION_WEBHOOK_URL
+APPROVED_WEBHOOK_DOMAINS = set(CONFIG.ESCALATION_WEBHOOK_ALLOWED_DOMAINS)
+PROMPT_ROUTER_HOST = CONFIG.PROMPT_ROUTER_HOST
+PROMPT_ROUTER_PORT = CONFIG.PROMPT_ROUTER_PORT
+LOCAL_LLM_API_URL = f"http://{PROMPT_ROUTER_HOST}:{PROMPT_ROUTER_PORT}/route"
+LOCAL_LLM_MODEL = CONFIG.LOCAL_LLM_MODEL
+LOCAL_LLM_TIMEOUT = CONFIG.LOCAL_LLM_TIMEOUT
+EXTERNAL_API_URL = CONFIG.EXTERNAL_API_URL
+EXTERNAL_API_TIMEOUT = CONFIG.EXTERNAL_API_TIMEOUT
+ENABLE_LOCAL_LLM_CLASSIFICATION = CONFIG.ENABLE_LOCAL_LLM_CLASSIFICATION
+ENABLE_EXTERNAL_API_CLASSIFICATION = CONFIG.ENABLE_EXTERNAL_API_CLASSIFICATION
+
+ENABLE_IP_REPUTATION = CONFIG.ENABLE_IP_REPUTATION
+IP_REPUTATION_API_URL = CONFIG.IP_REPUTATION_API_URL
+IP_REPUTATION_TIMEOUT = CONFIG.IP_REPUTATION_TIMEOUT
+IP_REPUTATION_MALICIOUS_SCORE_BONUS = CONFIG.IP_REPUTATION_MALICIOUS_SCORE_BONUS
+IP_REPUTATION_MIN_MALICIOUS_THRESHOLD = CONFIG.IP_REPUTATION_MIN_MALICIOUS_THRESHOLD
+
+ENABLE_CAPTCHA_TRIGGER = CONFIG.ENABLE_CAPTCHA_TRIGGER
+CAPTCHA_SCORE_THRESHOLD_LOW = CONFIG.CAPTCHA_SCORE_THRESHOLD_LOW
+CAPTCHA_SCORE_THRESHOLD_HIGH = CONFIG.CAPTCHA_SCORE_THRESHOLD_HIGH
+CAPTCHA_VERIFICATION_URL = CONFIG.CAPTCHA_VERIFICATION_URL
+CAPTCHA_SECRET = CONFIG.CAPTCHA_SECRET
+CAPTCHA_SUCCESS_LOG = CONFIG.CAPTCHA_SUCCESS_LOG
+
+ROBOTS_TXT_PATH = CONFIG.TRAINING_ROBOTS_TXT_PATH
+
+REDIS_DB_FREQUENCY = CONFIG.REDIS_DB_FREQUENCY
+FREQUENCY_WINDOW_SECONDS = CONFIG.FREQUENCY_WINDOW_SECONDS
+FREQUENCY_KEY_PREFIX = os.getenv("FREQUENCY_KEY_PREFIX") or tenant_key("freq:")
+FREQUENCY_TRACKING_TTL = FREQUENCY_WINDOW_SECONDS + 60
+
+# Browser fingerprint tracking configuration
+REDIS_DB_FINGERPRINTS = CONFIG.REDIS_DB_FINGERPRINTS
+FINGERPRINT_WINDOW_SECONDS = CONFIG.FINGERPRINT_WINDOW_SECONDS
+FINGERPRINT_REUSE_THRESHOLD = CONFIG.FINGERPRINT_REUSE_THRESHOLD
+
+# GeoIP database path
+GEOIP_DB_PATH = os.getenv("GEOIP_DB_PATH", "/app/GeoLite2-Country.mmdb")
+
+# Anomaly detection configuration
+ANOMALY_MODEL_PATH = CONFIG.ANOMALY_MODEL_PATH
+ANOMALY_THRESHOLD = CONFIG.ANOMALY_THRESHOLD
+anomaly_detector = None
+if ANOMALY_MODEL_PATH:
+    try:
+        from src.shared.anomaly_detector import AnomalyDetector
+
+        anomaly_detector = AnomalyDetector(ANOMALY_MODEL_PATH)
+        if anomaly_detector.model:
+            logger.info(f"Anomaly detector loaded from {ANOMALY_MODEL_PATH}")
+    except Exception as e:  # pragma: no cover - unexpected
+        logger.error(f"Failed to initialize anomaly detector: {e}")
+
+# --- Plugin System ---
+from src.plugins import load_plugins
+
+ENABLE_PLUGINS = os.getenv("ENABLE_PLUGINS", "true").lower() == "true"
+PLUGINS = load_plugins() if ENABLE_PLUGINS else []
+
+
+def reload_plugins(allowed: list[str]) -> list[str]:
+    """Reload plugins with the provided allowed list."""
+    global PLUGINS
+    os.environ["ALLOWED_PLUGINS"] = ",".join(allowed)
+    PLUGINS = load_plugins(allowed)
+    return [getattr(p, "__name__", "unknown") for p in PLUGINS]
+
+
+HEURISTIC_THRESHOLD_LOW = 0.3
+HEURISTIC_THRESHOLD_MEDIUM = 0.6
+HEURISTIC_THRESHOLD_HIGH = 0.8
+
+KNOWN_BAD_UAS_ENV = CONFIG.KNOWN_BAD_UAS
+KNOWN_BAD_UAS = [ua.strip() for ua in KNOWN_BAD_UAS_ENV.split(",") if ua.strip()]
+KNOWN_BENIGN_CRAWLERS_UAS_ENV = CONFIG.KNOWN_BENIGN_CRAWLERS_UAS
+KNOWN_BENIGN_CRAWLERS_UAS = [
+    ua.strip() for ua in KNOWN_BENIGN_CRAWLERS_UAS_ENV.split(",") if ua.strip()
+]
+
+
+# --- Load Secrets ---
+EXTERNAL_API_KEY = CONFIG.EXTERNAL_API_KEY
+IP_REPUTATION_API_KEY = CONFIG.IP_REPUTATION_API_KEY
+
+# Retry configuration for model adapters
+MODEL_ADAPTER_RETRIES = int(os.getenv("MODEL_ADAPTER_RETRIES", 3))
+MODEL_ADAPTER_RETRY_DELAY = float(os.getenv("MODEL_ADAPTER_RETRY_DELAY", 1.0))
+
+# --- Setup Clients & Load Resources ---
+# The manual joblib loading and redis pool have been replaced by these abstractions.
+model_adapter = None
+MODEL_LOADED = False
+try:
+    model_adapter = get_model_adapter(
+        retries=MODEL_ADAPTER_RETRIES, delay=MODEL_ADAPTER_RETRY_DELAY
+    )
+    if model_adapter and model_adapter.model:
+        MODEL_LOADED = True
+        logger.info(f"Model adapter '{os.getenv('MODEL_TYPE')}' loaded successfully.")
+        if METRICS_SYSTEM_AVAILABLE and CONFIG.MODEL_VERSION:
+            MODEL_VERSION_INFO.labels(version=CONFIG.MODEL_VERSION).set(1)
+    else:
+        logger.warning(
+            "Model adapter failed to initialize or load model. Heuristic scoring only."
+        )
+except Exception as e:
+    logger.error(f"CRITICAL: Unhandled exception during model loading: {e}")
+
+local_llm_adapter = None
+external_api_adapter = None
+try:
+    if LOCAL_LLM_API_URL and LOCAL_LLM_MODEL:
+        local_llm_adapter = get_model_adapter(
+            model_uri=f"local-llm://{LOCAL_LLM_API_URL}",
+            config={"model": LOCAL_LLM_MODEL, "timeout": LOCAL_LLM_TIMEOUT},
+            retries=MODEL_ADAPTER_RETRIES,
+            delay=MODEL_ADAPTER_RETRY_DELAY,
+        )
+    if EXTERNAL_API_URL:
+        external_api_adapter = get_model_adapter(
+            model_uri=f"external-api://{EXTERNAL_API_URL}",
+            config={"api_key": EXTERNAL_API_KEY, "timeout": EXTERNAL_API_TIMEOUT},
+            retries=MODEL_ADAPTER_RETRIES,
+            delay=MODEL_ADAPTER_RETRY_DELAY,
+        )
+except Exception as e:
+    logger.error(f"Error initializing LLM adapters: {e}")
+
+redis_client_freq = get_redis_connection(db_number=REDIS_DB_FREQUENCY)
+FREQUENCY_TRACKING_ENABLED = bool(redis_client_freq)
+
+redis_client_fingerprints = get_redis_connection(db_number=REDIS_DB_FINGERPRINTS)
+FINGERPRINT_TRACKING_ENABLED = bool(redis_client_fingerprints)
+
+# Robots.txt loading (Preserved)
+disallowed_paths = set()
+
+
+def load_robots_txt(path):
+    global disallowed_paths
+    disallowed_paths = set()
+    try:
+        current_ua_is_star = False
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                line = line.strip().lower()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("user-agent:"):
+                    ua_spec = line.split(":", 1)[1].strip()
+                    current_ua_is_star = ua_spec == "*"
+                elif line.startswith("disallow:") and current_ua_is_star:
+                    rule = line.split(":", 1)[1].strip()
+                    if rule and rule != "/":
+                        disallowed_paths.add(rule)
+    except FileNotFoundError:
+        logger.warning(f"robots.txt not found at {path}.")
+    except Exception as e:
+        logger.error(f"Error loading robots.txt from {path}: {e}")
+
+
+def is_path_disallowed(path):
+    if not path or not disallowed_paths:
         return False
-    
-    def _create_response(self, ip: str, level: int, reason: str) -> Dict:
-        """Create a response dictionary with escalation information."""
-        escalation_level = None
-        for lvl in self.ESCALATION_LEVELS:
-            if lvl.level == level:
-                escalation_level = lvl
-                break
-        
-        if escalation_level is None:
-            escalation_level = self.ESCALATION_LEVELS[0]
-        
-        metrics = self.threat_metrics[ip]
-        
-        return {
-            'ip': ip,
-            'threat_score': self.threat_scores.get(ip, 0.0),
-            'escalation_level': level,
-            'escalation_name': escalation_level.name,
-            'actions': escalation_level.response_actions,
-            'rate_limit_factor': escalation_level.rate_limit_factor,
-            'challenge_difficulty': escalation_level.challenge_difficulty,
-            'blocked': level >= 5,
-            'blocked_until': self.blocked_until.get(ip, 0),
-            'reason': reason,
-            'metrics': {
-                'request_count': metrics.request_count,
-                'error_rate': metrics.error_rate,
-                'timing_anomalies': metrics.timing_anomalies,
-                'accessed_paths': len(metrics.accessed_paths),
-                'suspicious_patterns': len(metrics.suspicious_patterns),
+    try:
+        for disallowed in disallowed_paths:
+            if disallowed and path.startswith(disallowed):
+                return True
+    except Exception:
+        pass
+    return False
+
+
+# --- GeoIP Lookup ---
+_geoip_reader = None
+
+
+def get_country_code(ip: str) -> str:
+    """Return ISO country code for IP using GeoIP database."""
+    global _geoip_reader
+    if not GEOIP_AVAILABLE or not ip:
+        return ""  # empty string if unavailable
+    if _geoip_reader is None:
+        try:
+            _geoip_reader = geoip2.database.Reader(GEOIP_DB_PATH)
+        except Exception as e:
+            logger.error(f"Failed to load GeoIP DB: {e}")
+            return ""
+    try:
+        resp = _geoip_reader.country(ip)
+        return resp.country.iso_code or ""
+    except Exception:
+        return ""
+
+
+load_robots_txt(ROBOTS_TXT_PATH)
+
+
+# --- Feature Extraction Logic (Preserved) ---
+def extract_features(
+    log_entry_dict: Dict[str, Any], freq_features: Dict[str, Any]
+) -> Dict[str, Any]:
+    features: Dict[str, Any] = {}
+    if not isinstance(log_entry_dict, dict):
+        return features
+    ua_string = log_entry_dict.get("user_agent", "") or ""
+    referer = log_entry_dict.get("referer", "") or ""
+    path = log_entry_dict.get("path", "") or ""
+    ip_addr = log_entry_dict.get("ip", "") or ""
+
+    features["country_code"] = get_country_code(ip_addr)
+
+    features["ua_length"] = len(ua_string)
+    features["status_code"] = log_entry_dict.get("status", 0)
+    features["bytes_sent"] = log_entry_dict.get("bytes", 0)
+    features["http_method"] = log_entry_dict.get("method", "UNKNOWN")
+    features["path_depth"] = path.count("/")
+    features["path_length"] = len(path)
+    features["path_is_root"] = 1 if path == "/" else 0
+    features["path_has_docs"] = 1 if "/docs" in path else 0
+    features["path_is_wp"] = 1 if ("/wp-" in path or "/xmlrpc.php" in path) else 0
+    features["path_disallowed"] = 1 if is_path_disallowed(path) else 0
+
+    ua_lower = ua_string.lower()
+    features["ua_is_known_bad"] = (
+        1 if any(bad in ua_lower for bad in KNOWN_BAD_UAS) else 0
+    )
+    features["ua_is_known_benign_crawler"] = (
+        1 if any(good in ua_lower for good in KNOWN_BENIGN_CRAWLERS_UAS) else 0
+    )
+    features["ua_is_empty"] = 1 if not ua_string else 0
+
+    ua_parse_failed = False
+    if UA_PARSER_AVAILABLE and ua_parse is not None and ua_string:
+        try:
+            parsed_ua = ua_parse(ua_string)
+            features["ua_browser_family"] = parsed_ua.browser.family or "Other"
+            features["ua_os_family"] = parsed_ua.os.family or "Other"
+            features["ua_device_family"] = parsed_ua.device.family or "Other"
+            features["ua_is_mobile"] = 1 if parsed_ua.is_mobile else 0
+            features["ua_is_tablet"] = 1 if parsed_ua.is_tablet else 0
+            features["ua_is_pc"] = 1 if parsed_ua.is_pc else 0
+            features["ua_is_touch"] = 1 if parsed_ua.is_touch_capable else 0
+            features["ua_library_is_bot"] = 1 if parsed_ua.is_bot else 0
+        except Exception:
+            ua_parse_failed = True
+
+    if not UA_PARSER_AVAILABLE or ua_parse_failed:
+        features["ua_browser_family"] = "Unknown"
+        features["ua_os_family"] = "Unknown"
+        features["ua_device_family"] = "Unknown"
+        features["ua_is_mobile"] = 0
+        features["ua_is_tablet"] = 0
+        features["ua_is_pc"] = 0
+        features["ua_is_touch"] = 0
+        features["ua_library_is_bot"] = features["ua_is_known_bad"]
+
+    features["referer_is_empty"] = 1 if not referer else 0
+    features["referer_has_domain"] = 0
+    try:
+        if referer:
+            parsed_referer = urlparse(referer)
+            features["referer_has_domain"] = 1 if parsed_referer.netloc else 0
+    except Exception:
+        pass
+
+    timestamp_val = log_entry_dict.get("timestamp")
+    hour, dow = -1, -1
+    if timestamp_val:
+        try:
+            if isinstance(timestamp_val, str):
+                ts = datetime.datetime.fromisoformat(
+                    timestamp_val.replace("Z", "+00:00")
+                )
+            elif isinstance(timestamp_val, datetime.datetime):
+                ts = timestamp_val
+            else:
+                ts = None
+
+            if ts:
+                hour = ts.hour
+                dow = ts.weekday()
+        except Exception:
+            pass
+    features["hour_of_day"] = hour
+    features["day_of_week"] = dow
+
+    features[f"req_freq_{FREQUENCY_WINDOW_SECONDS}s"] = freq_features.get("count", 0)
+    features["time_since_last_sec"] = freq_features.get("time_since", -1.0)
+    if "fingerprint_reuse_count" in log_entry_dict:
+        features["fingerprint_reuse_count"] = log_entry_dict["fingerprint_reuse_count"]
+    return features
+
+
+# --- Real-time Frequency Calculation ---
+def _get_realtime_frequency_features_py(ip: str) -> dict:
+    features = {"count": 0, "time_since": -1.0}
+    if not FREQUENCY_TRACKING_ENABLED or not ip or not redis_client_freq:
+        return features
+    try:
+        now_unix = time.time()
+        window_start_unix = now_unix - FREQUENCY_WINDOW_SECONDS
+        now_ms_str = f"{now_unix:.6f}"
+        redis_key = f"{FREQUENCY_KEY_PREFIX}{ip}"
+        pipe = redis_client_freq.pipeline()
+        pipe.zremrangebyscore(redis_key, "-inf", f"({window_start_unix}")
+        pipe.zadd(redis_key, {now_ms_str: now_unix})
+        pipe.zcount(redis_key, window_start_unix, now_unix)
+        pipe.zrange(redis_key, -2, -1, withscores=True)
+        pipe.expire(redis_key, FREQUENCY_TRACKING_TTL)
+        results = pipe.execute()
+
+        current_count = (
+            results[2] if len(results) > 2 and isinstance(results[2], int) else 0
+        )
+        features["count"] = max(0, current_count - 1)
+
+        recent_entries = (
+            results[3] if len(results) > 3 and isinstance(results[3], list) else []
+        )
+        if len(recent_entries) > 1:
+            last_ts_score = float(recent_entries[-2][1])
+            time_diff = now_unix - last_ts_score
+            features["time_since"] = round(time_diff, 3)
+        elif len(recent_entries) == 1 and current_count == 1:
+            features["time_since"] = -1.0
+    except Exception as e:
+        logger.warning(f"Redis error during frequency check for IP {ip}: {e}")
+        increment_counter_metric(REDIS_ERRORS_FREQUENCY)
+    return features
+
+
+def get_realtime_frequency_features(ip: str) -> dict:
+    if FREQUENCY_RS_AVAILABLE and FREQUENCY_TRACKING_ENABLED and ip:
+        try:
+            count, time_since = rs_get_freq(
+                ip,
+                REDIS_DB_FREQUENCY,
+                FREQUENCY_WINDOW_SECONDS,
+                FREQUENCY_KEY_PREFIX,
+                FREQUENCY_TRACKING_TTL,
+            )
+            return {"count": int(count), "time_since": float(time_since)}
+        except Exception as e:
+            logger.warning(
+                f"frequency_rs error for IP {ip}: {e}; falling back to Python implementation"
+            )
+            increment_counter_metric(REDIS_ERRORS_FREQUENCY)
+    return _get_realtime_frequency_features_py(ip)
+
+
+# --- Browser Fingerprint Tracking ---
+def compute_browser_fingerprint(metadata: "RequestMetadata") -> str:
+    if getattr(metadata, "fingerprint_id", None):
+        return metadata.fingerprint_id
+    ua = (metadata.user_agent or "").lower()
+    headers = metadata.headers or {}
+    parts = [
+        ua,
+        (headers.get("accept-language") or "").lower(),
+        (headers.get("accept") or "").lower(),
+        (headers.get("sec-ch-ua") or "").lower(),
+        (headers.get("sec-fetch-site") or "").lower(),
+    ]
+    fp_raw = "|".join(parts)
+    return hashlib.sha256(fp_raw.encode("utf-8")).hexdigest()
+
+
+def track_fingerprint(fingerprint: str, ip: str) -> int:
+    if (
+        not FINGERPRINT_TRACKING_ENABLED
+        or not fingerprint
+        or not redis_client_fingerprints
+    ):
+        return 1
+    try:
+        key = tenant_key(f"fp:{fingerprint}")
+        redis_client_fingerprints.sadd(key, ip)
+        redis_client_fingerprints.expire(key, FINGERPRINT_WINDOW_SECONDS)
+        return int(redis_client_fingerprints.scard(key))
+    except Exception as e:
+        logger.error(f"Redis error during fingerprint tracking for IP {ip}: {e}")
+        return 1
+
+
+# --- IP Reputation Check (Preserved) ---
+async def check_ip_reputation(ip: str) -> Optional[Dict[str, Any]]:
+    if not ENABLE_IP_REPUTATION or not IP_REPUTATION_API_URL or not ip:
+        return None
+    increment_counter_metric(IP_REPUTATION_CHECKS_RUN)
+    logger.info(f"Checking IP reputation for {ip} using {IP_REPUTATION_API_URL}")
+    headers = {"Accept": "application/json"}
+    params = {"ipAddress": ip}
+    if IP_REPUTATION_API_KEY:
+        headers["Authorization"] = f"Bearer {IP_REPUTATION_API_KEY}"
+    response = None
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                IP_REPUTATION_API_URL,
+                params=params,
+                headers=headers,
+                timeout=IP_REPUTATION_TIMEOUT,
+            )
+            response.raise_for_status()
+            result = response.json()
+            logger.debug(f"IP Reputation API response for {ip}: {result}")
+            is_malicious = False
+            score_val = result.get("abuseConfidenceScore", 0)
+            score = float(score_val) if score_val is not None else 0.0
+            if score >= IP_REPUTATION_MIN_MALICIOUS_THRESHOLD:
+                is_malicious = True
+            increment_counter_metric(IP_REPUTATION_SUCCESS)
+            if is_malicious:
+                increment_counter_metric(IP_REPUTATION_MALICIOUS)
+            return {
+                "is_malicious": is_malicious,
+                "score": score,
+                "raw_response": result,
             }
+    except httpx.TimeoutException:
+        logger.error(f"Timeout checking IP reputation for {ip}")
+        increment_counter_metric(IP_REPUTATION_ERRORS_TIMEOUT)
+        return None
+    except httpx.RequestError as exc:
+        logger.error(f"Request error checking IP reputation for {ip}: {exc}")
+        increment_counter_metric(IP_REPUTATION_ERRORS_REQUEST)
+        return None
+    except json.JSONDecodeError as exc:
+        resp_text = (
+            response.text[:500]
+            if response is not None and hasattr(response, "text")
+            else "<no response>"
+        )
+        logger.error(f"JSON decode error IP rep for {ip}: {exc} - Resp: {resp_text}")
+        increment_counter_metric(IP_REPUTATION_ERRORS_RESPONSE_DECODE)
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error IP rep for {ip}: {e}")
+        increment_counter_metric(IP_REPUTATION_ERRORS_UNEXPECTED)
+        return None
+
+
+# --- Pydantic Models (Preserved) ---
+class RequestMetadata(BaseModel):
+    timestamp: Union[str, datetime.datetime]
+    ip: str
+    user_agent: Optional[str] = None
+    referer: Optional[str] = None
+    path: Optional[str] = None
+    method: Optional[str] = None
+    headers: Optional[Dict[str, str]] = None
+    fingerprint_id: Optional[str] = None
+    source: str
+
+
+# --- FastAPI App ---
+app = create_app(
+    title="Escalation Engine",
+    description="Analyzes suspicious requests and escalates if necessary.",
+)
+
+
+@register_health_check(app, "redis_frequency", critical=False)
+async def _frequency_health() -> HealthCheckResult:
+    if not redis_client_freq:
+        return HealthCheckResult.degraded({"reason": "frequency redis disabled"})
+    try:
+        redis_client_freq.ping()
+    except Exception as exc:  # pragma: no cover - external dependency
+        return HealthCheckResult.unhealthy({"error": str(exc)})
+    return HealthCheckResult.healthy()
+
+
+@register_health_check(app, "model_adapter", critical=True)
+async def _model_health() -> HealthCheckResult:
+    if not MODEL_LOADED:
+        return HealthCheckResult.degraded({"model_loaded": False})
+    return HealthCheckResult.healthy({"model_loaded": True})
+
+
+# --- Analysis & Classification Functions ---
+def run_heuristic_and_model_analysis(
+    metadata: RequestMetadata, ip_rep_result: Optional[Dict[str, Any]] = None
+) -> float:
+    increment_counter_metric(HEURISTIC_CHECKS_RUN)
+    rule_score = 0.0
+    model_score = 0.5
+    model_used = False
+    final_score = 0.5
+    with trace_span("escalation.frequency_lookup", attributes={"ip": metadata.ip}):
+        frequency_features = get_realtime_frequency_features(metadata.ip)
+    increment_counter_metric(FREQUENCY_ANALYSES_PERFORMED)
+
+    log_entry_dict = metadata.model_dump()
+    if isinstance(log_entry_dict.get("timestamp"), datetime.datetime):
+        log_entry_dict["timestamp"] = log_entry_dict["timestamp"].isoformat()
+
+    ua = (metadata.user_agent or "").lower()
+    path = metadata.path or ""
+    headers = metadata.headers or {}
+    method = (
+        metadata.method
+        or headers.get("x-original-method")
+        or headers.get("method")
+        or "GET"
+    ).upper()
+
+    fingerprint = compute_browser_fingerprint(metadata)
+    fp_count = track_fingerprint(fingerprint, metadata.ip)
+    log_entry_dict["fingerprint_reuse_count"] = fp_count
+    if fp_count > FINGERPRINT_REUSE_THRESHOLD:
+        rule_score += 0.2
+
+    is_known_benign = any(good in ua for good in KNOWN_BENIGN_CRAWLERS_UAS)
+    if any(bad in ua for bad in KNOWN_BAD_UAS) and not is_known_benign:
+        rule_score += 0.7
+    if not metadata.user_agent:
+        rule_score += 0.5
+    if is_path_disallowed(path) and not is_known_benign:
+        rule_score += 0.6
+    if method not in {"GET", "HEAD"}:
+        rule_score += 0.2
+    if "accept-language" not in {k.lower() for k in headers.keys()}:
+        rule_score += 0.1
+    if frequency_features.get("count", 0) > 60:
+        rule_score += 0.3
+    elif frequency_features.get("count", 0) > 30:
+        rule_score += 0.1
+    if (
+        frequency_features.get("time_since", -1.0) != -1.0
+        and frequency_features.get("time_since", -1.0) < 0.3
+    ):
+        rule_score += 0.2
+    if is_known_benign:
+        rule_score -= 0.5
+
+    if PLUGINS:
+        for plugin in PLUGINS:
+            try:
+                delta = plugin(metadata)
+                if isinstance(delta, (int, float)):
+                    rule_score += float(delta)
+            except Exception as e:  # pragma: no cover - plugin error
+                logger.error(
+                    "Plugin %s failed: %s", getattr(plugin, "__name__", "unknown"), e
+                )
+
+    rule_score = max(0.0, min(1.0, rule_score))
+
+    # --- THIS IS THE PRIMARY CHANGE ---
+    # It now uses the model_adapter instead of the direct model_pipeline.
+    features_dict = extract_features(log_entry_dict, frequency_features)
+    if MODEL_LOADED and model_adapter:
+        try:
+            if features_dict:
+                probabilities = model_adapter.predict([features_dict])
+                model_score = probabilities[0][1]
+                model_used = True
+                increment_counter_metric(RF_MODEL_PREDICTIONS)
+            else:
+                logger.warning(
+                    f"Could not extract features for RF model (IP: {metadata.ip})"
+                )
+        except Exception as e:
+            logger.error(f"RF model prediction failed for IP {metadata.ip}: {e}")
+            increment_counter_metric(RF_MODEL_ERRORS)
+
+    anomaly_score = 0.0
+    if anomaly_detector and features_dict:
+        anomaly_score = anomaly_detector.score(features_dict)
+    # --- END OF CHANGE ---
+
+    if model_used:
+        final_score = (0.3 * rule_score) + (0.7 * model_score)
+    else:
+        final_score = rule_score
+
+    if anomaly_score > 0.0:
+        final_score = max(final_score, anomaly_score)
+
+    if ip_rep_result and ip_rep_result.get("is_malicious"):
+        logger.info(f"Adjusting score for malicious IP reputation for {metadata.ip}")
+        final_score += IP_REPUTATION_MALICIOUS_SCORE_BONUS
+        increment_counter_metric(SCORE_ADJUSTED_IP_REPUTATION)
+
+    final_score = max(0.0, min(1.0, final_score))
+    return final_score
+
+
+# --- All other helper functions are preserved as-is ---
+async def classify_with_local_llm_api(metadata: RequestMetadata) -> Optional[bool]:
+    if not local_llm_adapter:
+        return None
+    increment_counter_metric(LOCAL_LLM_CHECKS_RUN)
+    logger.info(
+        f"Attempting classification for IP {metadata.ip} using local LLM API ({LOCAL_LLM_MODEL})..."
+    )
+    safe_metadata = metadata.model_dump()
+    try:
+        result = await asyncio.to_thread(local_llm_adapter.predict, safe_metadata)
+    except Exception as e:
+        logger.error(
+            f"Unexpected error calling local LLM adapter for IP {metadata.ip}: {e}"
+        )
+        increment_counter_metric(LOCAL_LLM_ERRORS_UNEXPECTED)
+        return None
+
+    if not isinstance(result, dict):
+        logger.warning(
+            f"Unexpected local LLM response type for {metadata.ip}: {result}"
+        )
+        increment_counter_metric(LOCAL_LLM_ERRORS_UNEXPECTED_RESPONSE)
+        return None
+
+    if "error" in result:
+        logger.error(f"Local LLM adapter error for IP {metadata.ip}: {result['error']}")
+        increment_counter_metric(LOCAL_LLM_ERRORS_REQUEST)
+        return None
+
+    content = str(result.get("classification", "")).upper()
+    safe_content = content.replace("\n", " ")[:200]
+    logger.info(f"Local LLM API response for {metadata.ip}: '{safe_content}'")
+    if "MALICIOUS_BOT" in content:
+        return True
+    if "HUMAN" in content or "BENIGN_CRAWLER" in content:
+        return False
+    logger.warning(f"Unexpected classification LLM ({metadata.ip}): '{content}'")
+    increment_counter_metric(LOCAL_LLM_ERRORS_UNEXPECTED_RESPONSE)
+    return None
+
+
+async def classify_with_external_api(metadata: RequestMetadata) -> Optional[bool]:
+    if not external_api_adapter:
+        return None
+    increment_counter_metric(EXTERNAL_API_CHECKS_RUN)
+    logger.info(f"Attempting classification for IP {metadata.ip} using External API...")
+    headers_to_send = metadata.headers if metadata.headers is not None else {}
+    external_payload = {
+        "ipAddress": metadata.ip,
+        "userAgent": metadata.user_agent,
+        "referer": metadata.referer,
+        "requestPath": metadata.path,
+        "headers": headers_to_send,
+    }
+
+    try:
+        result = await asyncio.to_thread(external_api_adapter.predict, external_payload)
+    except Exception as e:
+        logger.error(
+            f"Unexpected error calling external API adapter for IP {metadata.ip}: {e}"
+        )
+        increment_counter_metric(EXTERNAL_API_ERRORS_UNEXPECTED)
+        return None
+
+    if not isinstance(result, dict):
+        logger.warning(
+            f"Unexpected external API response type for {metadata.ip}: {result}"
+        )
+        increment_counter_metric(EXTERNAL_API_ERRORS_UNEXPECTED_RESPONSE)
+        return None
+
+    if "error" in result:
+        logger.error(
+            f"External API adapter error for IP {metadata.ip}: {result['error']}"
+        )
+        increment_counter_metric(EXTERNAL_API_ERRORS_REQUEST)
+        return None
+
+    is_bot = result.get("is_bot")
+    logger.info(f"External API response for {metadata.ip}: IsBot={is_bot}")
+    if isinstance(is_bot, bool):
+        increment_counter_metric(EXTERNAL_API_SUCCESS)
+        return is_bot
+    logger.warning(
+        f"Unexpected response external API for {metadata.ip}. Resp: {result}"
+    )
+    increment_counter_metric(EXTERNAL_API_ERRORS_UNEXPECTED_RESPONSE)
+    return None
+
+
+async def forward_to_webhook(payload: Dict[str, Any], reason: str):
+    """Send a prepared webhook payload."""
+    if not WEBHOOK_URL:
+        return
+
+    parsed = urlparse(WEBHOOK_URL)
+    if parsed.scheme != "https":
+        logger.error("Webhook URL must start with https://; skipping forward")
+        increment_counter_metric(ESCALATION_WEBHOOK_ERRORS_REQUEST)
+        return
+
+    if APPROVED_WEBHOOK_DOMAINS and parsed.hostname not in APPROVED_WEBHOOK_DOMAINS:
+        logger.error(
+            "Webhook URL domain '%s' is not approved; skipping forward", parsed.hostname
+        )
+        increment_counter_metric(ESCALATION_WEBHOOK_ERRORS_REQUEST)
+        return
+
+    increment_counter_metric(ESCALATION_WEBHOOKS_SENT)
+    headers = {"Content-Type": "application/json"}
+    try:
+        with trace_span("escalation.forward_webhook", attributes={"reason": reason}):
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    WEBHOOK_URL, headers=headers, json=payload, timeout=10.0
+                )
+                resp.raise_for_status()
+                ip_log = payload.get("details", {}).get("ip", payload.get("ip"))
+                logger.info(f"Webhook forwarded successfully for IP {ip_log}")
+    except httpx.RequestError as exc:
+        logger.error(
+            f"Error forwarding to webhook {WEBHOOK_URL} for IP {payload.get('ip')}: {exc}"
+        )
+        increment_counter_metric(ESCALATION_WEBHOOK_ERRORS_REQUEST)
+    except Exception as e:
+        logger.error(
+            f"Unexpected error during webhook forwarding for IP {payload.get('ip')}: {e}"
+        )
+        increment_counter_metric(ESCALATION_WEBHOOK_ERRORS_UNEXPECTED)
+
+
+def build_webhook_payload(metadata: Dict[str, Any], reason: str) -> Dict[str, Any]:
+    """Create a standard webhook payload from request metadata."""
+    try:
+        serializable = json.loads(json.dumps(metadata, default=str))
+    except Exception as e:
+        logger.error(
+            f"Failed to serialize payload for webhook (IP: {metadata.get('ip')}): {e}"
+        )
+        serializable = {
+            "ip": metadata.get("ip", "unknown"),
+            "error": "Payload serialization failed",
         }
-    
-    def record_challenge_result(self, ip: str, success: bool):
-        """Record the result of a challenge."""
-        metrics = self.threat_metrics[ip]
-        if not success:
-            metrics.challenge_failures += 1
-            # Increase threat score on challenge failure
-            current_score = self.threat_scores.get(ip, 0.0)
-            self.threat_scores[ip] = min(current_score + 15.0, 100.0)
-            logger.warning("Challenge failed for %s, threat score increased to %.2f",
-                         ip, self.threat_scores[ip])
-    
-    def get_current_state(self, ip: str) -> Dict:
-        """Get the current escalation state for an IP."""
-        if ip in self.escalation_states:
-            level = self.escalation_states[ip]
-            return self._create_response(ip, level.level, "current_state")
-        return self._create_response(ip, 0, "no_state")
-    
-    def reset_ip(self, ip: str):
-        """Reset all metrics and state for an IP address."""
-        if ip in self.threat_metrics:
-            del self.threat_metrics[ip]
-        if ip in self.threat_scores:
-            del self.threat_scores[ip]
-        if ip in self.escalation_states:
-            del self.escalation_states[ip]
-        if ip in self.blocked_until:
-            del self.blocked_until[ip]
-        logger.info("Reset state for IP: %s", ip)
-    
-    def add_to_whitelist(self, ip: str):
-        """Add an IP to the whitelist."""
-        self.whitelist.add(ip)
-        self.reset_ip(ip)
-        logger.info("Added %s to whitelist", ip)
-    
-    def add_to_blacklist(self, ip: str):
-        """Add an IP to the blacklist."""
-        self.blacklist.add(ip)
-        logger.info("Added %s to blacklist", ip)
-    
-    def remove_from_whitelist(self, ip: str):
-        """Remove an IP from the whitelist."""
-        self.whitelist.discard(ip)
-        logger.info("Removed %s from whitelist", ip)
-    
-    def remove_from_blacklist(self, ip: str):
-        """Remove an IP from the blacklist."""
-        self.blacklist.discard(ip)
-        logger.info("Removed %s from blacklist", ip)
-    
-    def get_statistics(self) -> Dict:
-        """Get overall statistics about the escalation engine."""
-        total_ips = len(self.threat_metrics)
-        
-        level_counts = defaultdict(int)
-        for ip, state in self.escalation_states.items():
-            level_counts[state.name] += 1
-        
-        total_requests = sum(m.request_count for m in self.threat_metrics.values())
-        total_blocked = len(self.blocked_until)
-        
-        return {
-            'total_tracked_ips': total_ips,
-            'total_requests': total_requests,
-            'currently_blocked': total_blocked,
-            'whitelisted': len(self.whitelist),
-            'blacklisted': len(self.blacklist),
-            'escalation_levels': dict(level_counts),
-            'average_threat_score': (
-                sum(self.threat_scores.values()) / len(self.threat_scores)
-                if self.threat_scores else 0.0
-            ),
-        }
-    
-    def cleanup_old_data(self, max_age_hours: int = 24):
-        """Clean up old tracking data to prevent memory bloat."""
-        current_time = time.time()
-        max_age_seconds = max_age_hours * 3600
-        
-        ips_to_remove = []
-        for ip, metrics in self.threat_metrics.items():
-            if current_time - metrics.last_request_time > max_age_seconds:
-                ips_to_remove.append(ip)
-        
-        for ip in ips_to_remove:
-            self.reset_ip(ip)
-        
-        logger.info("Cleaned up %d old IP records", len(ips_to_remove))
-        return len(ips_to_remove)
+    return {
+        "event_type": "suspicious_activity_detected",
+        "reason": reason,
+        "timestamp_utc": datetime.datetime.now(datetime.timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),
+        "details": serializable,
+    }
+
+
+async def trigger_captcha_challenge(metadata: RequestMetadata) -> bool:
+    """Verify a reCAPTCHA token if provided and log the outcome."""
+    increment_counter_metric(CAPTCHA_CHALLENGES_TRIGGERED)
+    token = None
+    if metadata.headers:
+        token = metadata.headers.get("x-captcha-token")
+    if not token:
+        logger.info(f"CAPTCHA challenge issued for IP {metadata.ip}; awaiting token")
+        return False
+    if not CAPTCHA_SECRET:
+        logger.error("CAPTCHA secret not configured")
+        return False
+    verify_payload = {
+        "secret": CAPTCHA_SECRET,
+        "response": token,
+        "remoteip": metadata.ip,
+    }
+    url = CAPTCHA_VERIFICATION_URL or "https://www.google.com/recaptcha/api/siteverify"
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, data=verify_payload, timeout=10.0)
+            resp.raise_for_status()
+            result = resp.json()
+            success = bool(result.get("success"))
+    except Exception as e:
+        logger.error(f"Error verifying CAPTCHA for IP {metadata.ip}: {e}")
+        return False
+    if success:
+        try:
+            os.makedirs(os.path.dirname(CAPTCHA_SUCCESS_LOG), exist_ok=True)
+            with open(CAPTCHA_SUCCESS_LOG, "a") as f:
+                f.write(
+                    f"{datetime.datetime.now(datetime.timezone.utc).isoformat()},{metadata.ip}\n"
+                )
+        except Exception as e:
+            logger.error(f"Failed to log CAPTCHA success: {e}")
+        logger.info(f"CAPTCHA verified for IP {metadata.ip}")
+    else:
+        logger.info(f"CAPTCHA failed for IP {metadata.ip}")
+    return success
+
+
+# --- API Endpoint (/escalate) (Preserved) ---
+@app.post("/escalate")
+async def handle_escalation(
+    metadata_req: RequestMetadata,
+    request: Request,
+    _jwt=Depends(
+        require_jwt(required_roles=["escalate:write", "engine:invoke"], optional=True)
+    ),
+):
+    client_ip = request.client.host if request.client else "unknown"
+    # Allow legacy API key if configured and provided (dual auth path)
+    api_key = request.headers.get("X-API-Key")
+    configured_key = _current_api_key()
+    if configured_key:
+        if api_key == configured_key:
+            pass  # Authorized via API key
+        else:
+            # If API key missing/invalid, JWT dependency above must be valid
+            # The dependency will have already rejected unauthorized requests.
+            if not _jwt:
+                logger.warning(f"Unauthorized escalation attempt from {client_ip}")
+                raise HTTPException(status_code=401, detail="Unauthorized")
+    else:
+        if not _jwt:
+            logger.warning(f"Unauthorized escalation attempt from {client_ip}")
+            raise HTTPException(status_code=401, detail="Unauthorized")
+    increment_counter_metric(ESCALATION_REQUESTS_RECEIVED)
+    ip_under_test = metadata_req.ip
+    try:
+        ipaddress.ip_address(ip_under_test)
+    except ValueError:
+        logger.warning(f"Invalid IP provided to escalation endpoint: {ip_under_test}")
+        raise HTTPException(status_code=400, detail="Invalid IP address")
+    action_taken = "analysis_complete"
+    is_bot_decision: Optional[bool] = None
+    final_score = -1.0
+
+    try:
+        # Launch asynchronous checks concurrently
+        tasks = []
+        ip_rep_task = local_llm_task = external_api_task = None
+
+        if ENABLE_IP_REPUTATION:
+            ip_rep_task = asyncio.create_task(check_ip_reputation(ip_under_test))
+            tasks.append(ip_rep_task)
+        if ENABLE_LOCAL_LLM_CLASSIFICATION:
+            local_llm_task = asyncio.create_task(
+                classify_with_local_llm_api(metadata_req)
+            )
+            tasks.append(local_llm_task)
+        if ENABLE_EXTERNAL_API_CLASSIFICATION:
+            external_api_task = asyncio.create_task(
+                classify_with_external_api(metadata_req)
+            )
+            tasks.append(external_api_task)
+
+        # Calculate heuristic/model score while async tasks run
+        base_score = run_heuristic_and_model_analysis(metadata_req, None)
+
+        ip_rep_result = None
+        local_llm_result = None
+        external_api_result = None
+
+        if tasks:
+            max_timeout = (
+                max(
+                    IP_REPUTATION_TIMEOUT if ip_rep_task else 0,
+                    LOCAL_LLM_TIMEOUT if local_llm_task else 0,
+                    EXTERNAL_API_TIMEOUT if external_api_task else 0,
+                )
+                + 1.0
+            )
+            try:
+                results = await asyncio.wait_for(
+                    asyncio.gather(*tasks, return_exceptions=True), timeout=max_timeout
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"Timeout waiting for async checks for IP {ip_under_test}")
+                for t in tasks:
+                    t.cancel()
+                results = [None] * len(tasks)
+
+            idx = 0
+            if ip_rep_task:
+                res = results[idx]
+                idx += 1
+                if isinstance(res, Exception):
+                    logger.error(f"IP reputation task error for {ip_under_test}: {res}")
+                else:
+                    ip_rep_result = res
+            if local_llm_task:
+                res = results[idx]
+                idx += 1
+                if isinstance(res, Exception):
+                    logger.error(f"Local LLM task error for {ip_under_test}: {res}")
+                else:
+                    local_llm_result = res
+            if external_api_task:
+                res = results[idx]
+                idx += 1
+                if isinstance(res, Exception):
+                    logger.error(f"External API task error for {ip_under_test}: {res}")
+                else:
+                    external_api_result = res
+
+        # Fallback to external API if local classification failed
+        if (
+            local_llm_task
+            and local_llm_result is None
+            and external_api_adapter
+            and external_api_task is None
+        ):
+            logger.info(f"Falling back to cloud API for IP {ip_under_test}")
+            try:
+                external_api_result = await classify_with_external_api(metadata_req)
+            except Exception as e:
+                logger.error(f"Fallback external API error for {ip_under_test}: {e}")
+
+        # Adjust score with IP reputation if malicious
+        final_score = base_score
+        if ip_rep_result and ip_rep_result.get("is_malicious"):
+            logger.info(
+                f"IP {ip_under_test} flagged by IP Reputation. Escalating directly."
+            )
+            increment_counter_metric(BOTS_DETECTED_IP_REPUTATION)
+            increment_counter_metric(SCORE_ADJUSTED_IP_REPUTATION)
+            action_taken = "webhook_triggered_ip_reputation"
+            is_bot_decision = True
+            final_score = min(
+                1.0, max(0.0, final_score + IP_REPUTATION_MALICIOUS_SCORE_BONUS)
+            )
+            payload = build_webhook_payload(
+                metadata_req.model_dump(mode="json"),
+                f"IP Reputation Malicious (Score: {ip_rep_result.get('score', 'N/A')})",
+            )
+            await forward_to_webhook(payload, "IP Reputation Malicious")
+
+        if is_bot_decision is None:
+            final_score = min(1.0, max(0.0, final_score))
+
+            if final_score >= HEURISTIC_THRESHOLD_HIGH:
+                is_bot_decision = True
+                action_taken = "webhook_triggered_high_score"
+                increment_counter_metric(BOTS_DETECTED_HIGH_SCORE)
+                payload = build_webhook_payload(
+                    metadata_req.model_dump(mode="json"),
+                    f"High Combined Score ({final_score:.3f})",
+                )
+                await forward_to_webhook(payload, "High Combined Score")
+            elif final_score < CAPTCHA_SCORE_THRESHOLD_LOW:
+                is_bot_decision = False
+                action_taken = "classified_human_low_score"
+                increment_counter_metric(HUMANS_DETECTED_LOW_SCORE)
+            elif (
+                ENABLE_CAPTCHA_TRIGGER
+                and CAPTCHA_SCORE_THRESHOLD_LOW
+                <= final_score
+                < CAPTCHA_SCORE_THRESHOLD_HIGH
+            ):
+                await trigger_captcha_challenge(metadata_req)
+                action_taken = "captcha_triggered"
+                is_bot_decision = None
+            else:
+                logger.info(
+                    f"IP {ip_under_test} requires deeper check (Score: {final_score:.3f})."
+                )
+                if local_llm_result is True:
+                    is_bot_decision = True
+                    action_taken = "webhook_triggered_local_llm"
+                    increment_counter_metric(BOTS_DETECTED_LOCAL_LLM)
+                    payload = build_webhook_payload(
+                        metadata_req.model_dump(mode="json"),
+                        "Local LLM Classification",
+                    )
+                    await forward_to_webhook(payload, "Local LLM Classification")
+                elif local_llm_result is False:
+                    is_bot_decision = False
+                    action_taken = "classified_human_local_llm"
+                    increment_counter_metric(HUMANS_DETECTED_LOCAL_LLM)
+                else:
+                    action_taken = "local_llm_inconclusive"
+                    if external_api_task is not None or external_api_result is not None:
+                        if external_api_result is True:
+                            is_bot_decision = True
+                            action_taken = "webhook_triggered_external_api"
+                            increment_counter_metric(BOTS_DETECTED_EXTERNAL_API)
+                            payload = build_webhook_payload(
+                                metadata_req.model_dump(mode="json"),
+                                "External API Classification",
+                            )
+                            await forward_to_webhook(
+                                payload, "External API Classification"
+                            )
+                        elif external_api_result is False:
+                            is_bot_decision = False
+                            action_taken = "classified_human_external_api"
+                            increment_counter_metric(HUMANS_DETECTED_EXTERNAL_API)
+                        else:
+                            action_taken = "external_api_inconclusive"
+
+    except ValidationError as e:
+        logger.error(f"Invalid request payload received from {client_ip}: {e.errors()}")
+        raise HTTPException(status_code=422, detail=f"Invalid payload: {e.errors()}")
+    except Exception as e:
+        logger.error(f"Unexpected error during escalation for IP {ip_under_test}: {e}")
+        action_taken = "internal_server_error"
+        is_bot_decision = None
+        final_score = -1.0
+        return Response(
+            content=json.dumps({"status": "error", "detail": "Internal server error"}),
+            status_code=500,
+            media_type="application/json",
+        )
+
+    timestamp = (
+        datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    )
+    try:
+        record_decision(
+            ip_under_test,
+            metadata_req.source,
+            final_score,
+            is_bot_decision,
+            action_taken,
+            timestamp,
+        )
+    except Exception as e:
+        logger.error(f"Failed to record decision for IP {ip_under_test}: {e}")
+
+    log_msg = f"IP={ip_under_test}, Source={metadata_req.source}, Score={final_score:.3f}, Decision={is_bot_decision}, Action={action_taken}"
+    if ip_rep_result:
+        log_msg += f", IPRepMalicious={ip_rep_result.get('is_malicious')}, IPRepScore={ip_rep_result.get('score')}"
+    logger.info(f"Escalation Complete: {log_msg}")
+    return {
+        "status": "processed",
+        "action": action_taken,
+        "is_bot_decision": is_bot_decision,
+        "score": round(final_score, 3),
+    }
+
+
+# --- Metrics Endpoint (Preserved) ---
+@app.get("/metrics")
+async def get_metrics_endpoint_escalation():
+    if not METRICS_SYSTEM_AVAILABLE:
+        return Response(
+            content=b"# Metrics system unavailable in escalation_engine\n",
+            media_type="text/plain; version=0.0.4",
+        )
+    try:
+        prometheus_metrics_bytes = get_metrics()
+        return Response(
+            content=prometheus_metrics_bytes, media_type="text/plain; version=0.0.4"
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving metrics: {e}")
+        return Response(
+            content=b"# Error retrieving metrics\n",
+            media_type="text/plain; version=0.0.4",
+            status_code=500,
+        )
+
+
+@app.post("/admin/reload_plugins")
+async def admin_reload_plugins(
+    request: Request,
+    _jwt=Depends(require_jwt(required_roles=["admin", "engine:admin"])),
+):
+    configured_key = _current_api_key()
+    if configured_key and request.headers.get("X-API-Key") != configured_key:
+        # Accept legacy API key; otherwise, JWT dependency covers authz
+        if not _jwt:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+    data = await read_json_body(request)
+    allowed = data.get("allowed_plugins")
+    if not isinstance(allowed, list):
+        raise HTTPException(status_code=400, detail="Invalid allowed_plugins")
+    names = reload_plugins(allowed)
+    return {"status": "reloaded", "plugins": names}
+
+
+# --- Main (Preserved) ---
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
+    import uvicorn
+
+    port = CONFIG.ESCALATION_ENGINE_PORT
+    workers = int(os.getenv("UVICORN_WORKERS", 2))
+    log_level = CONFIG.LOG_LEVEL.lower()
+
+    logger.info("--- Escalation Engine Starting ---")
+    if MODEL_LOADED:
+        logger.info(f"Loaded Model Adapter Type: {os.getenv('MODEL_TYPE')}")
+    else:
+        logger.warning(f"Model NOT loaded. Using rule-based heuristics only.")
+    if FREQUENCY_TRACKING_ENABLED:
+        logger.info(f"Redis Frequency Tracking Enabled (DB: {REDIS_DB_FREQUENCY})")
+    else:
+        logger.warning(f"Redis Frequency Tracking DISABLED.")
+    if not disallowed_paths:
+        logger.warning(f"No robots.txt rules loaded from {ROBOTS_TXT_PATH}.")
+    logger.info(
+        f"Prompt router configured: {'Yes (' + str(LOCAL_LLM_API_URL) + ')' if LOCAL_LLM_API_URL else 'No'}"
+    )
+    logger.info(
+        f"External Classification API configured: {'Yes' if EXTERNAL_API_URL else 'No'}"
+    )
+    logger.info(
+        f"IP Reputation Check Enabled: {ENABLE_IP_REPUTATION} ({'URL Set' if IP_REPUTATION_API_URL else 'URL Not Set'})"
+    )
+    logger.info(
+        f"CAPTCHA Trigger Enabled: {ENABLE_CAPTCHA_TRIGGER} (Low: {CAPTCHA_SCORE_THRESHOLD_LOW}, High: {CAPTCHA_SCORE_THRESHOLD_HIGH})"
+    )
+    logger.info(
+        f"Webhook URL configured: {'Yes (' + str(WEBHOOK_URL) + ')' if WEBHOOK_URL else 'No'}"
+    )
+    logger.info("---------------------------------")
+    logger.info(f"Starting Escalation Engine on port {port}")
+    uvicorn.run(
+        "src.escalation.escalation_engine:app",
+        host=os.getenv("ESCALATION_HOST", "127.0.0.1"),
+        port=port,
+        workers=workers,
+        log_level=log_level,
+        reload=False,
+    )
