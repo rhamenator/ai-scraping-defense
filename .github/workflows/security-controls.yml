@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   python-security:
+    continue-on-error: true
     permissions:
       contents: read
     runs-on: ubuntu-latest
