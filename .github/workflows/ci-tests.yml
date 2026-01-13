@@ -167,7 +167,6 @@ jobs:
           if [ -f package-lock.json ]; then npm ci --ignore-scripts || npm i; else npm i; fi
           if npm run | grep -q " test"; then npm test --silent; else echo "No npm test script"; fi
       - name: Run macOS helper scripts (best-effort)
-        shell: zsh
         run: |
           [ -f "./scripts/macos/setup.zsh" ] && zsh ./scripts/macos/setup.zsh || true
           [ -f "./scripts/macos/test.zsh" ] && zsh ./scripts/macos/test.zsh || true
