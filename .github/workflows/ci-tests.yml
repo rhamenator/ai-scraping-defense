@@ -121,6 +121,7 @@ jobs:
           python -m pip install pytest pytest-cov
           pytest -q test/
       - name: Node tests (Windows)
+        if: hashFiles('**/package.json') != ''
         shell: pwsh
         run: |
           if (Test-Path package-lock.json) { npm ci --ignore-scripts } else { npm i }
@@ -144,10 +145,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install libpq (pg_config)
+      - name: Install libpq (pg_config) and libomp
         if: hashFiles('requirements.txt') != ''
         run: |
           brew install libpq
+          brew install libomp
           echo "$(brew --prefix libpq)/bin" >> "$GITHUB_PATH"
       - name: Python tests (macOS)
         run: |
