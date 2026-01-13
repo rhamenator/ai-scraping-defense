@@ -75,7 +75,7 @@ jobs:
         if: hashFiles('**/*.sh') != ''
         run: |
           sudo apt-get update && sudo apt-get install -y shellcheck
-          (shopt -s globstar nullglob; for f in **/*.sh; do shellcheck "$f"; done)
+          (shopt -s globstar nullglob; for f in **/*.sh; do shellcheck -x "$f"; done)
       - name: Lint Lua
         if: hashFiles('**/*.lua') != ''
         run: |
