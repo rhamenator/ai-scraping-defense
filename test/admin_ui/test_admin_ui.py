@@ -115,9 +115,8 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
     def test_load_recent_block_events_streaming(self):
         """Ensure _load_recent_block_events reads only the last N lines."""
-        with tempfile.NamedTemporaryFile(
-            mode="w+", encoding="utf-8", delete=True
-        ) as tmp:
+        tmp = tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False)
+        try:
             for i in range(10):
                 tmp.write(
                     json.dumps(
@@ -129,12 +128,14 @@ class TestAdminUIComprehensive(unittest.TestCase):
                     )
                     + "\n"
                 )
-            tmp.flush()
+            tmp.close()
             with patch("src.admin_ui.blocklist.BLOCK_LOG_FILE", tmp.name):
                 events = blocklist._load_recent_block_events(limit=5)
             self.assertEqual(len(events), 5)
             self.assertEqual(events[0]["ip"], "1.1.1.5")
             self.assertEqual(events[-1]["ip"], "1.1.1.9")
+        finally:
+            os.unlink(tmp.name)
 
     @patch("src.admin_ui.metrics._get_metrics_dict_func")
     def test_metrics_endpoint_success(self, mock_get_metrics_dict):

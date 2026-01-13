@@ -119,6 +119,9 @@ cython_debug/
 !.vscode/extensions.json
 *.code-workspace
 
+# VS Code local history
+.history/
+
 # Local Logs and Archives
 logs/
 *.log
