@@ -5,7 +5,8 @@ gunicorn~=23.0
 jinja2>=3.1.6,<4.0
 
 # Data and Database
-psycopg2~=2.9
+psycopg2~=2.9; platform_system != "Darwin"
+psycopg2-binary~=2.9; platform_system == "Darwin"
 redis~=6.4
 
 # Machine Learning and Data Analysis
@@ -55,7 +56,7 @@ evaluate>=0.4,<1.0
 
 # Local LLM Libraries
 ollama~=0.6
-llama-cpp-python~=0.3
+llama-cpp-python~=0.3; platform_system == "Linux" and platform_machine == "x86_64"
 
 # --- Optional: Alert Management Script ---
 # Uncomment if you want to run scripts/manage_alerts_issues_prs.py
