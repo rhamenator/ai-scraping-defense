@@ -25,6 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
         with: { fetch-depth: 0 }
+      - name: Set up Python
+        if: hashFiles('**/*.py') != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - name: Set up Rust toolchain
         if: hashFiles('**/Cargo.toml') != ''
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -99,14 +104,21 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
         with: { fetch-depth: 0 }
+      - name: Set up Python
+        if: hashFiles('**/*.py') != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - name: Python tests (Windows)
         shell: pwsh
         run: |
-          pip install --upgrade pip
-          if (Test-Path requirements.txt) { pip install -r requirements.txt }
-          if (Test-Path pyproject.toml) { pip install . }
-          if (Test-Path setup.py) { pip install -e . }
-          pip install pytest pytest-cov
+          python -m venv .venv
+          . .\.venv\Scripts\Activate.ps1
+          python -m pip install --upgrade pip
+          if (Test-Path requirements.txt) { python -m pip install -r requirements.txt }
+          if (Test-Path pyproject.toml) { python -m pip install . }
+          if (Test-Path setup.py) { python -m pip install -e . }
+          python -m pip install pytest pytest-cov
           pytest -q test/
       - name: Node tests (Windows)
         shell: pwsh
@@ -127,13 +139,20 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
         with: { fetch-depth: 0 }
+      - name: Set up Python
+        if: hashFiles('**/*.py') != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - name: Python tests (macOS)
         run: |
-          python3 -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip3 install -r requirements.txt; fi
-          if [ -f pyproject.toml ]; then pip3 install .; fi
-          if [ -f setup.py ]; then pip3 install -e .; fi
-          pip3 install pytest pytest-cov
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
+          if [ -f pyproject.toml ]; then python -m pip install .; fi
+          if [ -f setup.py ]; then python -m pip install -e .; fi
+          python -m pip install pytest pytest-cov
           pytest -q test/
       - name: Node tests (macOS)
         run: |
