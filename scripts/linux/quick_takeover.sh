@@ -56,7 +56,7 @@ case "$PROXY" in
     echo "Usage: $0 [apache|nginx]"
     exit 1
     ;;
-fi
+esac
 
 echo "Stack is now serving on port 80 via $PROXY."
 
