@@ -9,11 +9,11 @@ on:
         description: "Git ref to run against"
         required: false
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ (github.event_name == 'workflow_dispatch' && (inputs.environment || github.ref)) || github.ref }}
   cancel-in-progress: true
 jobs:
   tests-linux:
@@ -25,6 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
         with: { fetch-depth: 0 }
+      - name: Set up Rust toolchain
+        if: hashFiles('**/Cargo.toml') != ''
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt, clippy
       - name: Python tests
         if: hashFiles('**/*.py') != ''
         run: |
@@ -75,6 +80,8 @@ jobs:
       - name: Validate NGINX configs (syntax only)
         if: hashFiles('nginx/*.conf') != '' || hashFiles('nginx/**/*.conf') != ''
         run: docker run --rm -v "$PWD/nginx:/etc/nginx:ro" nginx:stable nginx -t -c /etc/nginx/nginx.conf
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
       - name: Helm/K8s lint
         run: |
           curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tar.gz
