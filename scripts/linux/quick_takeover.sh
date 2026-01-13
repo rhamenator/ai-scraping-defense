@@ -14,6 +14,7 @@ if [ "$(uname -s)" != "Linux" ]; then
 fi
 
 # Helpers
+# shellcheck source=lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
 echo "=== AI Scraping Defense: Server Takeover ==="

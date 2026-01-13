@@ -162,6 +162,7 @@ jobs:
           python -m pip install pytest pytest-cov
           pytest -q test/
       - name: Node tests (macOS)
+        if: hashFiles('**/package.json') != ''
         run: |
           if [ -f package-lock.json ]; then npm ci --ignore-scripts || npm i; else npm i; fi
           if npm run | grep -q " test"; then npm test --silent; else echo "No npm test script"; fi

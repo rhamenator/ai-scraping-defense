@@ -26,6 +26,7 @@ fi
 
 # Start the AI Scraping Defense stack
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
 source "$SCRIPT_DIR/lib.sh"
 $(compose) up --build -d
 

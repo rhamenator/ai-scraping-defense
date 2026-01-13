@@ -47,6 +47,7 @@ HTML
 fi
 
 # Start the AI Scraping Defense stack
+# shellcheck source=lib.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 $(compose) up --build -d
 
