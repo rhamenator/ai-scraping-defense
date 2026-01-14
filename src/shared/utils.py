@@ -162,9 +162,7 @@ def log_event(log_file: str, event_type: str, data: dict) -> None:
 
 def inject_failure(probability: float) -> None:
     """Simulates a failure based on the given probability."""
-    if (
-        random.random() < probability
-    ):  # nosec B311 - non-crypto randomness for test fault injection
+    if random.random() < probability:  # nosec B311 - test fault injection
         log_error("Simulating failure for resilience testing.")
         time.sleep(1)  # Simulate some work before failing
         raise Exception("Injected failure for resilience testing")

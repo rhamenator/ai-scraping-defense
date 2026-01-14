@@ -14,6 +14,11 @@ class TestUtils(unittest.TestCase):
         try:
             import os
 
+            logger_inst = utils._event_loggers.pop(self.log_file, None)
+            if logger_inst:
+                for handler in list(logger_inst.handlers):
+                    handler.close()
+                    logger_inst.removeHandler(handler)
             os.remove(self.log_file)
         except FileNotFoundError:
             pass
