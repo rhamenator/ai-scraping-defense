@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import os
 from contextlib import asynccontextmanager
 from json import JSONDecodeError
@@ -20,6 +21,8 @@ from src.shared.observability import (
     trace_span,
 )
 from src.shared.redis_client import get_redis_connection
+
+logger = logging.getLogger(__name__)
 
 # Redis-backed storage of metrics per installation with TTLs
 METRICS_TTL = 60
@@ -74,6 +77,7 @@ async def _redis_health() -> HealthCheckResult:
     except RedisError as exc:  # pragma: no cover - network IO
         return HealthCheckResult.unhealthy({"error": str(exc)})
     return HealthCheckResult.healthy()
+
 
 API_KEY = os.getenv("CLOUD_DASHBOARD_API_KEY")
 
@@ -134,9 +138,9 @@ async def push_metrics(payload: Dict[str, Any], request: Request):
     for ws in sockets:
         try:
             await ws.send_json(metrics)
-        except Exception:
+        except Exception as e:
             # best-effort fanout
-            pass
+            logger.warning(f"WebSocket send_json failed during metrics fanout: {e}")
     return {"status": "ok"}
 
 
@@ -148,7 +152,8 @@ async def get_metrics(installation_id: str):
     key = tenant_key(f"cloud:install:{installation_id}")
     try:
         with trace_span(
-            "cloud_dashboard.get_metrics", attributes={"installation_id": installation_id}
+            "cloud_dashboard.get_metrics",
+            attributes={"installation_id": installation_id},
         ):
             raw = redis_conn.get(key)
     except RedisError:
