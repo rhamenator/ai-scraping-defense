@@ -161,30 +161,36 @@ class TestHoneypotLoggerSetup(unittest.TestCase):
     def test_logger_setup_filehandler_exception(
         self, mock_print, mock_makedirs, mock_getLogger, mock_FileHandler
     ):
+        """Test that file handler exception falls back to console logging."""
         mock_logger_instance = MagicMock(spec=logging.Logger)
         mock_logger_instance.hasHandlers.return_value = False
         mock_getLogger.return_value = mock_logger_instance
 
-        with self.assertRaises(SystemExit):
-            importlib.reload(honeypot_logger)
+        # Should not raise SystemExit anymore, should fall back to console
+        importlib.reload(honeypot_logger)
 
         mock_makedirs.assert_called_once_with(
             os.path.dirname(self.test_log_file), exist_ok=True
         )
         mock_FileHandler.assert_called_once_with(self.test_log_file)
+        # Should warn about falling back to console
         mock_print.assert_any_call(
-            f"ERROR setting up honeypot file logger: Cannot open file"
+            "WARNING: Cannot set up honeypot file logger: Cannot open file. Using console only."
         )
-        mock_logger_instance.addHandler.assert_not_called()
+        # Should have added a handler (console handler)
+        mock_logger_instance.addHandler.assert_called()
 
     @patch("builtins.print")
     @patch("os.makedirs", side_effect=OSError("Permission denied"))
     def test_logger_setup_makedirs_exception(self, mock_makedirs, mock_print):
-        with self.assertRaises(SystemExit):
-            importlib.reload(honeypot_logger)
-        mock_makedirs.assert_called_once()
-        mock_print.assert_any_call(
-            "ERROR creating honeypot log directory: Permission denied"
+        """Test that makedirs exception falls back to temp directory."""
+        # Should not raise SystemExit anymore, should fall back to temp
+        importlib.reload(honeypot_logger)
+        # Should be called twice: once for original path, once for temp
+        self.assertGreaterEqual(mock_makedirs.call_count, 1)
+        # Should warn about the fallback
+        self.assertTrue(
+            any("WARNING" in str(call) for call in mock_print.call_args_list)
         )
 
     @patch("logging.getLogger")

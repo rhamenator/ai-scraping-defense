@@ -1,6 +1,20 @@
 # Generate-Secrets.ps1 (Updated for Kubernetes)
 #
 # Creates a complete Kubernetes secrets manifest for the entire application stack.
+#
+# SECURITY WARNING:
+# This script is intended for development and testing purposes only.
+# For production deployments:
+#   1. Use a proper secret management solution (HashiCorp Vault, AWS Secrets Manager,
+#      Azure Key Vault, Google Secret Manager, or Kubernetes Secrets with encryption)
+#   2. Enable encryption at rest for all secret storage
+#   3. Implement regular secret rotation schedules
+#   4. Never commit generated secrets to version control
+#   5. Protect exported secret files with strict permissions
+#   6. Delete exported secret files after importing to your secret manager
+#
+# See SECURITY.md for comprehensive secret management guidelines.
+#
 # Optional arguments
 param(
     [string]$ExportPath
@@ -38,7 +52,17 @@ function ConvertTo-Base64 {
     return [System.Convert]::ToBase64String($bytes)
 }
 
-Write-Host "Generating secrets for Kubernetes..."
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+Write-Host "SECURITY WARNING: Development/Testing Only" -ForegroundColor Yellow
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+Write-Host "This script generates secrets for DEVELOPMENT/TESTING only." -ForegroundColor Yellow
+Write-Host "For PRODUCTION, use a proper secret management solution:" -ForegroundColor Yellow
+Write-Host "  • HashiCorp Vault, AWS Secrets Manager, Azure Key Vault" -ForegroundColor Yellow
+Write-Host "  • Enable encryption at rest and implement key rotation" -ForegroundColor Yellow
+Write-Host "  • See SECURITY.md for complete guidelines" -ForegroundColor Yellow
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Generating secrets for Kubernetes..." -ForegroundColor Cyan
 
 # Generate all values
 $postgresPassword = New-RandomPassword
@@ -81,6 +105,11 @@ $mistralApiKey_b64 = ConvertTo-Base64 $mistralApiKey
 
 # Assemble YAML
 $yamlContent = @"
+# WARNING: This file contains generated secrets for DEVELOPMENT/TESTING only
+# DO NOT commit this file to version control (already in .gitignore)
+# For production, use a proper secret management solution
+# See SECURITY.md for guidelines
+---
 apiVersion: v1
 kind: Secret
 metadata:
@@ -164,16 +193,53 @@ if ($ExportPath) {
         EXTERNAL_API_KEY = $externalApiKey
         IP_REPUTATION_API_KEY = $ipReputationApiKey
         COMMUNITY_BLOCKLIST_API_KEY = $communityBlocklistApiKey
+        _security_notice = "IMPORTANT: This file contains sensitive credentials. Delete after importing to your secret manager. Never commit to version control."
     }
+
+    # Security: Create file and set permissions before writing sensitive data
+    New-Item -Path $ExportPath -ItemType File -Force | Out-Null
     $creds | ConvertTo-Json -Depth 1 | Set-Content -Path $ExportPath -Encoding UTF8
-    try { chmod 600 $ExportPath 2>$null } catch {}
-    Write-Host "Credentials exported to: $ExportPath" -ForegroundColor Green
+
+    # Set restrictive file permissions (Windows ACL)
+    try {
+        $acl = Get-Acl $ExportPath
+        $acl.SetAccessRuleProtection($true, $false)
+        $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule($identity, "FullControl", "Allow")
+        $acl.AddAccessRule($accessRule)
+        Set-Acl -Path $ExportPath -AclObject $acl
+        Write-Host "✓ Credentials exported to: $ExportPath (restricted permissions)" -ForegroundColor Green
+    } catch {
+        Write-Host "✓ Credentials exported to: $ExportPath (set permissions manually)" -ForegroundColor Green
+    }
+
+    Write-Host "  ⚠ SECURITY: Import to your secret manager and DELETE this file" -ForegroundColor Yellow
 }
 
 # Do not print any secrets or secret values to stdout.
-Write-Host "Kubernetes secrets manifest file created at: $OutputFile" -ForegroundColor Green
+Write-Host ""
+Write-Host "✓ Kubernetes secrets manifest created: $OutputFile" -ForegroundColor Green
+
 if ($ExportPath) {
-    Write-Host "Credentials were exported to a local file. Keep it secure: $ExportPath" -ForegroundColor Green
+    Write-Host "✓ Credentials exported to: $ExportPath" -ForegroundColor Green
+    Write-Host "  ⚠ Delete this file after importing to your secret manager" -ForegroundColor Yellow
 }
-Write-Host "Apply secrets with: kubectl apply -f $OutputFile" -ForegroundColor Yellow
-Write-Host "List secrets: kubectl get secrets -n ai-defense" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "Next steps:" -ForegroundColor Cyan
+Write-Host "  1. Review generated secrets (do not log or display)" -ForegroundColor Yellow
+Write-Host "  2. Apply to Kubernetes: kubectl apply -f $OutputFile" -ForegroundColor Yellow
+Write-Host "  3. Enable encryption at rest: kubectl get secrets -n ai-defense" -ForegroundColor Yellow
+Write-Host "  4. Set up secret rotation schedule (see SECURITY.md)" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
+Write-Host "✓ Secrets Generation Complete" -ForegroundColor Green
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
+Write-Host "IMPORTANT SECURITY REMINDERS:" -ForegroundColor Yellow
+Write-Host "  • These secrets are for DEVELOPMENT/TESTING only" -ForegroundColor Yellow
+Write-Host "  • DO NOT commit .env, secrets/, or exported JSON to git" -ForegroundColor Yellow
+Write-Host "  • Use proper secret management for production (see SECURITY.md)" -ForegroundColor Yellow
+Write-Host "  • Implement regular secret rotation schedules" -ForegroundColor Yellow
+Write-Host "  • Enable encryption at rest for all secret storage" -ForegroundColor Yellow
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
+Write-Host ""

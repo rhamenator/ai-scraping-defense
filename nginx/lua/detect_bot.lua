@@ -1,3 +1,4 @@
+-- luacheck: globals ngx
 -- anti_scrape/nginx/lua/detect_bot.lua
 -- Bot detection script for NGINX, checks for bad bots and robots.txt violations.
 -- This version is intended for Docker Compose and reads robots.txt from a mounted file.
@@ -54,9 +55,19 @@ local function load_robots_rules()
     file:close()
 
     if #dynamic_disallowed_paths > 0 then
-        ngx.log(ngx.INFO, "detect_bot: Loaded ", #dynamic_disallowed_paths, " disallow rules for * from ", robots_txt_path)
+        ngx.log(
+            ngx.INFO,
+            "detect_bot: Loaded ",
+            #dynamic_disallowed_paths,
+            " disallow rules for * from ",
+            robots_txt_path
+        )
     else
-        ngx.log(ngx.WARN, "detect_bot: No disallow rules for * found or loaded from ", robots_txt_path)
+        ngx.log(
+            ngx.WARN,
+            "detect_bot: No disallow rules for * found or loaded from ",
+            robots_txt_path
+        )
     end
 end
 
@@ -153,9 +164,15 @@ local function pick_backend()
   return backend_hosts[idx]
 end
 
-ngx.log(ngx.DEBUG, "[BOT CHECK] IP: ", sanitize_for_log(remote_addr),
-       ", UA: ", sanitize_for_log(user_agent),
-       ", URI: ", sanitize_for_log(request_uri))
+ngx.log(
+  ngx.DEBUG,
+  "[BOT CHECK] IP: ",
+  sanitize_for_log(remote_addr),
+  ", UA: ",
+  sanitize_for_log(user_agent),
+  ", URI: ",
+  sanitize_for_log(request_uri)
+)
 
 -- 1. Check if it's a known benign bot
 local is_benign, benign_pattern = contains_string(user_agent, benign_bots)
@@ -163,10 +180,27 @@ local is_benign, benign_pattern = contains_string(user_agent, benign_bots)
 if is_benign then
   -- 2. If benign, check if it's accessing a disallowed path from loaded robots.txt
   if is_path_disallowed(request_uri, dynamic_disallowed_paths) then
-    ngx.log(ngx.WARN, "[TAR PIT TRIGGER] Benign bot (", benign_pattern, ") accessed disallowed path: ", request_uri, " IP: ", remote_addr)
+    ngx.log(
+      ngx.WARN,
+      "[TAR PIT TRIGGER] Benign bot (",
+      benign_pattern,
+      ") accessed disallowed path: ",
+      request_uri,
+      " IP: ",
+      remote_addr
+    )
     return ngx.exec("/api/tarpit") -- Send rule-violating benign bots to tarpit
   else
-    ngx.log(ngx.INFO, "[BENIGN BOT ALLOWED] IP: ", remote_addr, ", UA: ", user_agent, " (Matched: ", benign_pattern, ")")
+    ngx.log(
+      ngx.INFO,
+      "[BENIGN BOT ALLOWED] IP: ",
+      remote_addr,
+      ", UA: ",
+      user_agent,
+      " (Matched: ",
+      benign_pattern,
+      ")"
+    )
     local chosen = pick_backend()
     if chosen then
         ngx.var.lua_proxy_pass_upstream = chosen
@@ -211,29 +245,54 @@ if accept_header and string.lower(accept_header) == "*/*" then -- Check if accep
   table.insert(reasons, "AcceptWildcard")
 end
 
-if not referer_header and request_uri ~= "/" and not string.match(request_uri, "%.(css|js|png|jpg|jpeg|gif|woff|woff2|ico)$") then
-    suspicion_score = suspicion_score + 0.05
-    table.insert(reasons, "MissingRefererNonAsset")
+if not referer_header
+  and request_uri ~= "/"
+  and not string.match(request_uri, "%.(css|js|png|jpg|jpeg|gif|woff|woff2|ico)$")
+then
+  suspicion_score = suspicion_score + 0.05
+  table.insert(reasons, "MissingRefererNonAsset")
 end
 
-if request_method ~= "GET" and request_method ~= "POST" and request_method ~= "HEAD" and request_method ~= "OPTIONS" then
-    suspicion_score = suspicion_score + 0.2
-    table.insert(reasons, "UncommonMethod("..request_method..")")
+if request_method ~= "GET"
+  and request_method ~= "POST"
+  and request_method ~= "HEAD"
+  and request_method ~= "OPTIONS"
+then
+  suspicion_score = suspicion_score + 0.2
+  table.insert(reasons, "UncommonMethod(" .. request_method .. ")")
 end
 
 -- 4. Decision for non-benign bots
 if suspicion_score >= 0.7 then -- Adjust threshold as needed
   local reason_str = table.concat(reasons, ",")
-  ngx.log(ngx.WARN, "[TAR PIT TRIGGER: High Heuristic Score] Score: ", string.format("%.2f", suspicion_score), ", IP: ", remote_addr, ", UA: ", user_agent, ", Reasons: ", reason_str)
+  ngx.log(
+    ngx.WARN,
+    "[TAR PIT TRIGGER: High Heuristic Score] Score: ",
+    string.format("%.2f", suspicion_score),
+    ", IP: ",
+    remote_addr,
+    ", UA: ",
+    user_agent,
+    ", Reasons: ",
+    reason_str
+  )
   forward_metadata(reason_str)
   return ngx.exec("/api/tarpit")
 else
   -- Request passed bot checks or low suspicion score
-  ngx.log(ngx.DEBUG, "[REQUEST ALLOWED] Score: ", string.format("%.2f", suspicion_score), ", IP: ", remote_addr, ", UA: ", user_agent)
-   local chosen = pick_backend()
-   if chosen then
-        ngx.var.lua_proxy_pass_upstream = chosen
-        return ngx.OK -- Signal to Nginx to use this upstream
-    end
+  ngx.log(
+    ngx.DEBUG,
+    "[REQUEST ALLOWED] Score: ",
+    string.format("%.2f", suspicion_score),
+    ", IP: ",
+    remote_addr,
+    ", UA: ",
+    user_agent
+  )
+  local chosen = pick_backend()
+  if chosen then
+    ngx.var.lua_proxy_pass_upstream = chosen
+    return ngx.OK -- Signal to Nginx to use this upstream
+  end
   return -- Allow request
 end

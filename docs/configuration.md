@@ -2,6 +2,57 @@
 
 This page documents all environment variables consumed by the Python services. Defaults come from `src/shared/config.py` unless noted.
 
+## HashiCorp Vault Configuration
+
+The system supports HashiCorp Vault for enhanced secret management with multiple authentication methods and automatic rotation.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `VAULT_ADDR` | *(none)* | Vault server address (e.g., `http://vault:8200`) |
+| `VAULT_TOKEN` | *(none)* | Vault authentication token |
+| `VAULT_NAMESPACE` | *(none)* | Vault namespace (for Enterprise) |
+| `VAULT_ROLE_ID` | *(none)* | AppRole role ID for authentication |
+| `VAULT_SECRET_ID` | *(none)* | AppRole secret ID for authentication |
+| `VAULT_KUBERNETES_ROLE` | *(none)* | Kubernetes role for authentication in K8s |
+| `VAULT_KUBERNETES_JWT_PATH` | `/var/run/secrets/kubernetes.io/serviceaccount/token` | Path to Kubernetes service account JWT |
+| `VAULT_MOUNT_POINT` | `secret` | KV v2 secrets engine mount point |
+| `VAULT_VERIFY_TLS` | `true` | Verify TLS certificates for Vault connections |
+| `VAULT_TIMEOUT` | `30` | Timeout in seconds for Vault operations |
+
+### Vault Secret Path Format
+
+Secrets can reference Vault paths using the `_VAULT_PATH` suffix:
+
+```bash
+# Instead of setting REDIS_PASSWORD_FILE, use:
+REDIS_PASSWORD_FILE_VAULT_PATH=secret/data/ai-defense/database/redis
+
+# The system will:
+# 1. Try to read from Vault using vault_client
+# 2. Fall back to file-based secrets if Vault is unavailable
+# 3. Extract the 'value' key from the secret data
+```
+
+### Authentication Methods
+
+The Vault client tries authentication methods in this order:
+
+1. **Token Authentication** - Uses `VAULT_TOKEN`
+2. **AppRole Authentication** - Uses `VAULT_ROLE_ID` and `VAULT_SECRET_ID`
+3. **Kubernetes Authentication** - Uses `VAULT_KUBERNETES_ROLE` and JWT from service account
+
+### Secret Rotation
+
+The system includes automated secret rotation capabilities:
+
+- **Rotation Policies**: Define per-secret rotation schedules (e.g., 90 days)
+- **Pre/Post Hooks**: Execute custom logic before/after rotation
+- **Version Management**: Automatic cleanup of old secret versions
+- **Compliance Monitoring**: Track secret age and compliance status
+- **Prometheus Metrics**: Monitor secret operations and health
+
+See `src/security/secret_rotation.py` for rotation service implementation.
+
 ## Service Hosts
 
 | Variable | Default | Service |

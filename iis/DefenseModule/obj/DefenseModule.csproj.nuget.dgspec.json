@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\ai-scraping-defense\\iis\\DefenseModule\\DefenseModule.csproj": {}
+    "E:\\ai-scraping-defense\\iis\\DefenseModule\\DefenseModule.csproj": {}
   },
   "projects": {
-    "D:\\ai-scraping-defense\\iis\\DefenseModule\\DefenseModule.csproj": {
+    "E:\\ai-scraping-defense\\iis\\DefenseModule\\DefenseModule.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\ai-scraping-defense\\iis\\DefenseModule\\DefenseModule.csproj",
+        "projectUniqueName": "E:\\ai-scraping-defense\\iis\\DefenseModule\\DefenseModule.csproj",
         "projectName": "DefenseModule",
-        "projectPath": "D:\\ai-scraping-defense\\iis\\DefenseModule\\DefenseModule.csproj",
+        "projectPath": "E:\\ai-scraping-defense\\iis\\DefenseModule\\DefenseModule.csproj",
         "packagesPath": "C:\\Users\\wyurd\\.nuget\\packages\\",
-        "outputPath": "D:\\ai-scraping-defense\\iis\\DefenseModule\\obj\\",
+        "outputPath": "E:\\ai-scraping-defense\\iis\\DefenseModule\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -45,7 +45,7 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.300"
+        "SdkAnalysisLevel": "10.0.100"
       },
       "frameworks": {
         "net462": {
@@ -56,7 +56,7 @@
               "version": "[2.6.66, )"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.304\\RuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.100\\RuntimeIdentifierGraph.json"
         }
       }
     }
