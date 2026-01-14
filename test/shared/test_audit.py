@@ -25,8 +25,11 @@ class TestAuditLogging(unittest.TestCase):
                     audit.logger.removeHandler(h)
                 importlib.reload(audit)
                 audit.log_event("user", "action", {"foo": "bar"})
-            with open(log_file) as f:
+            with open(log_file, encoding="utf-8") as f:
                 line = f.read().strip()
+            for h in list(audit.logger.handlers):
+                audit.logger.removeHandler(h)
+                h.close()
         self.assertIn('user\taction\t{"foo": "bar"}', line)
 
     def test_log_event_masks_sensitive_data(self):
@@ -44,8 +47,11 @@ class TestAuditLogging(unittest.TestCase):
                     "action",
                     {"ip": "192.168.0.1", "api_key": "ABC123", "password": "secret"},
                 )
-            with open(log_file) as f:
+            with open(log_file, encoding="utf-8") as f:
                 line = f.read()
+            for h in list(audit.logger.handlers):
+                audit.logger.removeHandler(h)
+                h.close()
         assert "192.168.0.1" not in line
         assert "ABC123" not in line
         assert "secret" not in line
