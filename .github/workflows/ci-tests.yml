@@ -46,6 +46,8 @@ jobs:
           pytest -q test/
       - name: Rust tests
         if: hashFiles('**/Cargo.toml') != ''
+        env:
+          RUSTFLAGS: "-C target-cpu=generic -C target-feature=-avx,-avx2"
         run: |
           sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
           set -e
