@@ -17,6 +17,7 @@ fi
 
 # Determine the Docker network created by quick_takeover
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/linux/lib.sh
 source "$SCRIPT_DIR/lib.sh"
 NETWORK_NAME=$(defense_network || echo "")
 if [ -z "$NETWORK_NAME" ]; then

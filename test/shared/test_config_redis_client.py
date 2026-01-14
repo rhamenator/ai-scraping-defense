@@ -36,6 +36,64 @@ class TestGetSecret(unittest.TestCase):
             self.assertEqual(config.get_secret("MY_SECRET_FILE"), "secret_value")
             mock_get.assert_called_once()
 
+    def test_secret_no_vault_addr_falls_back_to_file(self):
+        """Test that without VAULT_ADDR, system falls back to file-based secrets."""
+        with patch.dict(
+            os.environ, {"MY_SECRET_FILE": "/tmp/secret"}, clear=True
+        ), patch("os.path.exists", return_value=True), patch(
+            "builtins.open", mock_open(read_data="file_secret")
+        ):
+            self.assertEqual(config.get_secret("MY_SECRET_FILE"), "file_secret")
+
+    def test_secret_vault_failure_falls_back_to_file(self):
+        """Test that when Vault fails, system falls back to file-based secrets."""
+        env = {
+            "VAULT_ADDR": "http://vault:8200",
+            "VAULT_TOKEN": "token",
+            "MY_SECRET_FILE_VAULT_PATH": "secret/data/myapp/mysecret",
+            "MY_SECRET_FILE": "/tmp/secret",
+        }
+        with patch.dict(os.environ, env), patch(
+            "os.path.exists", return_value=True
+        ), patch("builtins.open", mock_open(read_data="file_fallback")), patch(
+            "requests.get"
+        ) as mock_get:
+            # Vault request fails
+            mock_get.side_effect = Exception("Vault connection error")
+            # Should fall back to file
+            self.assertEqual(config.get_secret("MY_SECRET_FILE"), "file_fallback")
+
+    def test_secret_vault_unavailable_returns_none_no_file(self):
+        """Test that when Vault is unavailable and no file exists, returns None."""
+        env = {
+            "MY_SECRET_FILE_VAULT_PATH": "secret/data/myapp/mysecret",
+        }
+        with patch.dict(os.environ, env, clear=True), patch(
+            "os.path.exists", return_value=False
+        ):
+            # No VAULT_ADDR, no file - should return None
+            self.assertIsNone(config.get_secret("MY_SECRET_FILE"))
+
+    def test_secret_vault_returns_none_falls_back_to_file(self):
+        """Test that when Vault returns None, system falls back to file."""
+        env = {
+            "VAULT_ADDR": "http://vault:8200",
+            "VAULT_TOKEN": "token",
+            "MY_SECRET_FILE_VAULT_PATH": "secret/data/myapp/mysecret",
+            "MY_SECRET_FILE": "/tmp/secret",
+        }
+        with patch.dict(os.environ, env), patch(
+            "os.path.exists", return_value=True
+        ), patch("builtins.open", mock_open(read_data="file_secret")), patch(
+            "requests.get"
+        ) as mock_get:
+            # Vault returns 404
+            mock_resp = MagicMock()
+            mock_resp.ok = False
+            mock_get.return_value.__enter__.return_value = mock_resp
+            # Should fall back to file
+            self.assertEqual(config.get_secret("MY_SECRET_FILE"), "file_secret")
+
 
 class TestGetConfig(unittest.TestCase):
     def test_get_config_returns_env_overrides(self):
