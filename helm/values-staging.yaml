@@ -25,6 +25,13 @@ redis:
   image: redis:7-alpine
   persistence: { enabled: false }
 
+vault:
+  enabled: false
+  address: http://vault:8200
+  authMethod: kubernetes
+  role: ai-defense-staging
+  secretPath: secret/data/ai-defense/staging
+
 services:
   core:
     enabled: true

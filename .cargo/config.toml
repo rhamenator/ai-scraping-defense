@@ -1,0 +1,36 @@
+# Cargo configuration for SIMD optimization
+# This enables SIMD instructions (SSE, AVX, AVX2) for improved performance
+
+[build]
+# Enable SIMD optimizations for x86_64 targets
+# target-cpu=native enables all SIMD features available on the build machine
+rustflags = [
+    "-C", "target-cpu=native",
+    "-C", "opt-level=3",
+]
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = [
+    "-C", "target-cpu=native",
+    "-C", "opt-level=3",
+    # Enable specific SIMD features for x86_64
+    "-C", "target-feature=+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+avx,+avx2",
+]
+
+[target.x86_64-apple-darwin]
+rustflags = [
+    "-C", "target-cpu=native",
+    "-C", "opt-level=3",
+]
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = [
+    "-C", "target-cpu=native",
+    "-C", "opt-level=3",
+]
+
+# Profile for release builds with maximum SIMD optimization
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

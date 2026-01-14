@@ -1,4 +1,6 @@
-use jszip_rs::{generate_realistic_filename, create_fake_js_zip, rand_string, generate_file_content};
+use jszip_rs::{
+    create_fake_js_zip, generate_file_content, generate_realistic_filename, rand_string,
+};
 use std::path::PathBuf;
 
 #[test]
@@ -22,6 +24,8 @@ fn filename_has_js_extension() {
 #[test]
 fn zip_file_created() {
     let dir = tempfile::tempdir().unwrap();
-    let path = create_fake_js_zip(1, Some(dir.path().to_string_lossy().to_string())).unwrap().unwrap();
+    let path = create_fake_js_zip(1, Some(dir.path().to_string_lossy().to_string()))
+        .unwrap()
+        .unwrap();
     assert!(PathBuf::from(&path).exists());
 }
