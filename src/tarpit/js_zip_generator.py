@@ -1,18 +1,18 @@
 # tarpit/js_zip_generator.py
 # Generates a ZIP archive containing fake JavaScript files for honeypot purposes.
 
-import zipfile
-import os
-import random
-import string
 import datetime
 import logging
+import os
+import secrets
+import string
+import zipfile
 
 logger = logging.getLogger(__name__)
 
 try:
-    from jszip_rs import generate_realistic_filename as rs_generate_filename
     from jszip_rs import create_fake_js_zip as rs_create_zip
+    from jszip_rs import generate_realistic_filename as rs_generate_filename
 
     RUST_ENABLED = True
     logger.info("jszip_rs module loaded; using Rust implementation where possible.")
@@ -49,6 +49,21 @@ FILENAME_PREFIXES = [
 FILENAME_SUFFIXES = ["_min", "_pack", "_bundle", "_lib", "_core", ""]
 FILENAME_EXT = ".js"
 
+_ALPHANUM = string.ascii_lowercase + string.digits
+
+
+def _rand_choice(options):
+    return secrets.choice(options)
+
+
+def _rand_int(min_value: int, max_value: int) -> int:
+    return min_value + secrets.randbelow(max_value - min_value + 1)
+
+
+def _rand_string(length: int, chars: str) -> str:
+    return "".join(secrets.choice(chars) for _ in range(length))
+
+
 # --- Helper Functions ---
 
 
@@ -58,7 +73,7 @@ def generate_random_string(length):
     chars = (
         string.ascii_letters + string.digits + string.punctuation + " " * 10
     )  # Weight spaces
-    return "".join(random.choice(chars) for _ in range(length))
+    return _rand_string(length, chars)
 
 
 def generate_realistic_filename():
@@ -70,9 +85,9 @@ def generate_realistic_filename():
             logger.warning(
                 f"jszip_rs error generating filename: {e}; using Python fallback"
             )
-    prefix = random.choice(FILENAME_PREFIXES)
-    suffix = random.choice(FILENAME_SUFFIXES)
-    random_hash = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    prefix = _rand_choice(FILENAME_PREFIXES)
+    suffix = _rand_choice(FILENAME_SUFFIXES)
+    random_hash = _rand_string(8, _ALPHANUM)
     return f"{prefix}{suffix}.{random_hash}{FILENAME_EXT}"
 
 
@@ -105,7 +120,7 @@ def create_fake_js_zip(
         with zipfile.ZipFile(zip_filename, "w", zipfile.ZIP_DEFLATED) as zipf:
             for i in range(num_files):
                 fake_filename = generate_realistic_filename()
-                file_size_bytes = random.randint(
+                file_size_bytes = _rand_int(
                     MIN_FILE_SIZE_KB * 1024, MAX_FILE_SIZE_KB * 1024
                 )
 
@@ -114,30 +129,30 @@ def create_fake_js_zip(
                 content += f"// Generated: {datetime.datetime.now().isoformat()}\n\n"
                 content += "(function() {\n"
                 # Add some pseudo-random variables and functions
-                num_vars = random.randint(5, 20)
+                num_vars = _rand_int(5, 20)
                 for _ in range(num_vars):
-                    var_name = "".join(
-                        random.choices(string.ascii_lowercase, k=random.randint(4, 10))
-                    )
-                    var_value = random.choice(
+                    var_name = _rand_string(_rand_int(4, 10), string.ascii_lowercase)
+                    var_value = _rand_choice(
                         [
                             "null",
                             "true",
                             "false",
                             "[]",
                             "{}",
-                            f'"{generate_random_string(random.randint(10, 30))}"',
-                            str(random.randint(0, 1000)),
+                            f'"{generate_random_string(_rand_int(10, 30))}"',
+                            str(_rand_int(0, 1000)),
                         ]
                     )
                     content += f"  var {var_name} = {var_value};\n"
 
-                num_funcs = random.randint(2, 8)
+                num_funcs = _rand_int(2, 8)
                 for _ in range(num_funcs):
-                    func_name = "".join(
-                        random.choices(string.ascii_lowercase, k=random.randint(6, 15))
+                    func_name = _rand_string(_rand_int(6, 15), string.ascii_lowercase)
+                    content += (
+                        "  function "
+                        f"{func_name}() {{ /* {generate_random_string(_rand_int(50, 150))} */ "
+                        f"return {_rand_choice(['null', 'true', 'false'])}; }}\n"
                     )
-                    content += f"  function {func_name}() {{ /* {generate_random_string(random.randint(50, 150))} */ return {random.choice(['null', 'true', 'false'])}; }}\n"
 
                 # Fill remaining size with random comments/strings to approximate size
                 current_size = len(content.encode("utf-8"))
@@ -168,9 +183,7 @@ def create_fake_js_zip(
                     with open(nested_path, "rb") as nf:
                         zipf.writestr(nested_name, nf.read())
 
-        logger.info(
-            f"Successfully created {zip_filename} with {num_files} fake files."
-        )
+        logger.info(f"Successfully created {zip_filename} with {num_files} fake files.")
         return zip_filename
 
     except Exception as e:

@@ -1,10 +1,11 @@
 import logging
 import os
-import subprocess
+import subprocess  # nosec B404
 from typing import Optional
-from urllib.parse import urlparse
 
 import requests
+
+from src.shared.ssrf_protection import SSRFProtectionError, validate_url
 
 from ..waf_manager import NGINX_RELOAD_CMD, reload_waf_rules
 from .config import ALLOWED_RULES_DOMAINS, CRS_DOWNLOAD_URL, MODSEC_DIR, RULES_URL
@@ -26,16 +27,19 @@ def fetch_rules(url: str, allowed_domains: Optional[list[str]] = None) -> str:
         logger.error("No URL provided to fetch rules.")
         return ""
 
-    if not url.startswith("https://"):
-        logger.error("Rules URL must start with 'https://': %s", url)
-        return ""
-
     domains = allowed_domains if allowed_domains is not None else ALLOWED_RULES_DOMAINS
-    if domains:
-        hostname = urlparse(url).hostname
-        if hostname not in domains:
-            logger.error("Rules URL host %s not in allowlist.", hostname)
-            return ""
+
+    # Use centralized SSRF protection
+    try:
+        validate_url(
+            url,
+            allowed_domains=domains if domains else None,
+            require_https=True,
+            block_private_ips=True,
+        )
+    except SSRFProtectionError as e:
+        logger.error("SSRF protection blocked rules fetch from %s: %s", url, e)
+        return ""
 
     try:
         response = requests.get(url, timeout=15)
@@ -57,7 +61,7 @@ def _run_as_script() -> bool:
         if not success:
             return False
         try:
-            subprocess.run(NGINX_RELOAD_CMD, check=True)
+            subprocess.run(NGINX_RELOAD_CMD, check=True)  # nosec B603
         except subprocess.CalledProcessError as exc:
             logger.error("Failed to reload Nginx after CRS install: %s", exc)
             return False
