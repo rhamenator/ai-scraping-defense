@@ -1,6 +1,7 @@
 name: security-controls
 
 on:
+  workflow_dispatch:
   push:
     branches: ["main", "develop", "security/*"]
   pull_request:
