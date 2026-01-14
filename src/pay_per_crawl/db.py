@@ -7,19 +7,6 @@ DB_PATH = os.environ.get("CRAWLER_DB_PATH", "crawler_registry.db")
 _CONNECTION: sqlite3.Connection | None = None
 _DB_PATH = DB_PATH
 
-_SENSITIVE_FIELDS = {"token", "password", "secret", "api_key", "key"}
-
-
-def _split_sensitive_fields(data: dict) -> tuple[list[str], list[str]]:
-    safe_keys: list[str] = []
-    redacted_keys: list[str] = []
-    for key in data:
-        if key.lower() in _SENSITIVE_FIELDS:
-            redacted_keys.append(key)
-        else:
-            safe_keys.append(key)
-    return safe_keys, redacted_keys
-
 
 def log_to_blockchain(action: str, data: dict) -> None:
     """Placeholder for logging actions to a blockchain.
@@ -33,11 +20,8 @@ def log_to_blockchain(action: str, data: dict) -> None:
     # contract = w3.eth.contract(address='...', abi=...)  # Replace with your contract
     # tx_hash = contract.functions.logAction(action, str(data)).transact({'from': w3.eth.accounts[0]})
     # print(f'Transaction hash: {tx_hash.hex()}')
-    safe_keys, redacted_keys = _split_sensitive_fields(data)
-    print(
-        "[Blockchain] Logging action: "
-        f"{action} with fields: {safe_keys}; redacted fields: {redacted_keys}"
-    )
+    del data  # avoid logging or leaking payload details
+    print(f"[Blockchain] Logging action: {action} with payload redacted")
 
 
 def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
