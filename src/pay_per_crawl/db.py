@@ -107,3 +107,42 @@ def charge(token: str, amount: float) -> bool:
     conn.commit()
     log_to_blockchain("charge", {"token": token, "amount": amount})
     return True
+
+
+def delete_crawler(token: str) -> bool:
+    """Delete crawler data (GDPR right to be forgotten).
+
+    This implements the GDPR right to erasure by removing all
+    crawler registration data associated with the given token.
+
+    Args:
+        token: The crawler token to delete
+
+    Returns:
+        True if data was deleted, False if token not found
+    """
+    conn = _get_conn()
+    cur = conn.execute("DELETE FROM crawlers WHERE token=?", (token,))
+    conn.commit()
+    return cur.rowcount > 0
+
+
+def anonymize_crawler(token: str) -> bool:
+    """Anonymize crawler data while preserving financial records.
+
+    This is useful when deletion is not possible due to legal
+    retention requirements for financial transactions.
+
+    Args:
+        token: The crawler token to anonymize
+
+    Returns:
+        True if data was anonymized, False if token not found
+    """
+    conn = _get_conn()
+    cur = conn.execute(
+        "UPDATE crawlers SET name=?, purpose=? WHERE token=?",
+        ("[REDACTED]", "[REDACTED]", token),
+    )
+    conn.commit()
+    return cur.rowcount > 0

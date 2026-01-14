@@ -18,8 +18,19 @@ DB_PATH = os.getenv(
 try:
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 except OSError as e:
-    logging.error("Failed to create directory for decision DB: %s", e)
-    raise RuntimeError(f"Failed to create directory for decision DB: {e}") from e
+    # In test or development environments, /app may not exist or be writable
+    # Fall back to a temp directory
+    import tempfile
+
+    logging.warning(
+        "Cannot create decision DB in %s: %s. Using temp directory.", DB_PATH, e
+    )
+    DB_PATH = os.path.join(tempfile.gettempdir(), "decisions.db")
+    try:
+        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    except OSError as e2:
+        logging.error("Failed to create directory for decision DB: %s", e2)
+        raise RuntimeError(f"Failed to create directory for decision DB: {e2}") from e2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS decisions (

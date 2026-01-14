@@ -14,15 +14,14 @@
 name: Codacy Security Scan
 
 on:
-  workflow_dispatch: # Allows manual triggering of the workflow from the GitHub UI
-  # Uncomment the lines below to enable automatic runs on push or pull request events
-  # push:
-  #   branches: [ "main" ]
-  # pull_request:
-  #   # The branches below must be a subset of the branches above
-  #   branches: [ "main" ]
-  # schedule:
-  #   - cron: '31 7 * * 4'
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ "main" ]
+  schedule:
+    - cron: '32 21 * * 4'
 
 permissions:
   contents: read
@@ -38,11 +37,11 @@ jobs:
     steps:
       # Checkout the repository to the GitHub Actions runner
       - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        uses: actions/checkout@v4
 
       # Execute Codacy Analysis CLI and generate a SARIF output with the security issues identified during the analysis
       - name: Run Codacy Analysis CLI
-        uses: codacy/codacy-analysis-cli-action@562ee3e92b8e92df8b67e0a5ff8aa8e261919c08
+        uses: codacy/codacy-analysis-cli-action@d840f886c4bd4edc059706d09c6a1586111c540b
         with:
           # Check https://github.com/codacy/codacy-analysis-cli#project-token to get your project token from your Codacy repository
           # You can also omit the token and run the tools that support default configurations
@@ -50,6 +49,7 @@ jobs:
           verbose: true
           output: results.sarif
           format: sarif
+          tool: bandit
           # Adjust severity of non-security issues
           gh-code-scanning-compat: true
           # Force 0 exit code to allow SARIF file generation
@@ -58,6 +58,8 @@ jobs:
 
       # Upload the SARIF file generated in the previous step
       - name: Upload SARIF results file
-        uses: github/codeql-action/upload-sarif@528ca598d956c91826bd742262cdfc5d02b77710
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('results.sarif') != ''
+        continue-on-error: true
         with:
           sarif_file: results.sarif
