@@ -1,6 +1,13 @@
 name: security-controls
 
 on:
+  workflow_dispatch:
+    inputs:
+      audit_kubernetes:
+        description: Run the optional Kubernetes dependency audit
+        required: false
+        type: boolean
+        default: false
   push:
     branches: ["main", "develop", "security/*"]
   pull_request:
@@ -37,6 +44,24 @@ jobs:
       - name: Dependency audit
         run: |
           pip-audit
+
+  kubernetes-dependency-audit:
+    if: github.event_name == 'workflow_dispatch' && inputs.audit_kubernetes
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit
+      - name: Audit Kubernetes dependencies
+        run: |
+          pip-audit -r requirements-kubernetes.txt
 
   container-scan:
     permissions:

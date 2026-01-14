@@ -350,8 +350,9 @@ def is_path_disallowed(path):
         for disallowed in disallowed_paths:
             if disallowed and path.startswith(disallowed):
                 return True
-    except Exception as e:
-        logger.warning(f"Error checking if path is disallowed: {e}")
+    except Exception as exc:
+        logger.debug("Failed to check disallowed path %s: %s", path, exc)
+        return False
     return False
 
 
@@ -445,8 +446,8 @@ def extract_features(
         if referer:
             parsed_referer = urlparse(referer)
             features["referer_has_domain"] = 1 if parsed_referer.netloc else 0
-    except Exception as e:
-        logger.debug(f"Error parsing referer '{referer}': {e}")
+    except Exception as exc:
+        logger.debug("Failed to parse referer %s: %s", referer, exc)
 
     timestamp_val = log_entry_dict.get("timestamp")
     hour, dow = -1, -1
@@ -464,8 +465,8 @@ def extract_features(
             if ts:
                 hour = ts.hour
                 dow = ts.weekday()
-        except Exception as e:
-            logger.debug(f"Error parsing timestamp '{timestamp_val}': {e}")
+        except Exception as exc:
+            logger.debug("Failed to parse timestamp %s: %s", timestamp_val, exc)
     features["hour_of_day"] = hour
     features["day_of_week"] = dow
 
