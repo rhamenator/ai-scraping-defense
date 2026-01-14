@@ -42,6 +42,7 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           if [ -f pyproject.toml ]; then pip install .; fi
           if [ -f setup.py ]; then pip install -e .; fi
+          pip install kubernetes
           pip install pytest pytest-cov
           pytest -q test/
       - name: Rust tests
@@ -120,6 +121,7 @@ jobs:
           if (Test-Path requirements.txt) { python -m pip install -r requirements.txt }
           if (Test-Path pyproject.toml) { python -m pip install . }
           if (Test-Path setup.py) { python -m pip install -e . }
+          python -m pip install kubernetes
           python -m pip install pytest pytest-cov
           pytest -q test/
       - name: Node tests (Windows)
@@ -161,6 +163,7 @@ jobs:
           if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
           if [ -f pyproject.toml ]; then python -m pip install .; fi
           if [ -f setup.py ]; then python -m pip install -e .; fi
+          python -m pip install kubernetes
           python -m pip install pytest pytest-cov
           pytest -q test/
       - name: Node tests (macOS)
