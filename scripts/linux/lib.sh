@@ -41,7 +41,8 @@ defense_network() {
 # Wait for a container to become healthy or a port to respond
 wait_for_container_healthy() {
   local name="$1" timeout="${2:-60}"
-  local start=$(date +%s)
+  local start
+  start=$(date +%s)
   while :; do
     local status
     status=$(docker inspect -f '{{.State.Health.Status}}' "$name" 2>/dev/null || true)
@@ -50,7 +51,8 @@ wait_for_container_healthy() {
     if [ -z "$status" ] || [ "$status" = "<no value>" ]; then
       return 0
     fi
-    local now=$(date +%s)
+    local now
+    now=$(date +%s)
     if [ $((now-start)) -ge "$timeout" ]; then
       echo "Timeout waiting for $name to be healthy" >&2
       return 1
@@ -62,12 +64,14 @@ wait_for_container_healthy() {
 # Wait for MariaDB inside a container
 wait_for_mariadb() {
   local name="$1" timeout="${2:-60}"
-  local start=$(date +%s)
+  local start
+  start=$(date +%s)
   while :; do
     if docker exec "$name" sh -lc "mysqladmin ping -h 127.0.0.1 -uroot -pexample --silent" >/dev/null 2>&1; then
       return 0
     fi
-    local now=$(date +%s)
+    local now
+    now=$(date +%s)
     if [ $((now-start)) -ge "$timeout" ]; then
       echo "Timeout waiting for MariaDB in $name" >&2
       return 1
