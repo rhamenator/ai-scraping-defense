@@ -11,6 +11,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import sys
 import time
 from dataclasses import dataclass
@@ -24,6 +25,7 @@ DEFAULT_OWNER = "rhamenator"
 DEFAULT_REPO = "ai-scraping-defense"
 REQUEST_TIMEOUT = 30
 RATE_LIMIT_SLEEP = 0.25
+MILESTONE_PREFIX_RE = re.compile(r"^\s*(\d+)\.\s*(.+)$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -34,11 +36,19 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_ASSIGNMENTS,
         help="Path to JSON produced by categorize_issues_by_milestone.py",
     )
-    parser.add_argument("--owner", type=str, default=None, help="GitHub repository owner")
+    parser.add_argument(
+        "--owner", type=str, default=None, help="GitHub repository owner"
+    )
     parser.add_argument("--repo", type=str, default=None, help="GitHub repository name")
-    parser.add_argument("--token", type=str, default=os.environ.get("GITHUB_TOKEN"), help="GitHub token")
-    parser.add_argument("--dry-run", action="store_true", help="Log actions without applying changes")
-    parser.add_argument("--log-level", default="INFO", help="Logging level (default: INFO)")
+    parser.add_argument(
+        "--token", type=str, default=os.environ.get("GITHUB_TOKEN"), help="GitHub token"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Log actions without applying changes"
+    )
+    parser.add_argument(
+        "--log-level", default="INFO", help="Logging level (default: INFO)"
+    )
     parser.add_argument(
         "--strict",
         action="store_true",
@@ -53,6 +63,24 @@ def parse_owner_repo(default_owner: str, default_repo: str) -> tuple[str, str]:
         owner, repo = env_repo.split("/", 1)
         return owner, repo
     return default_owner, default_repo
+
+
+def normalize_milestone_title(title: str) -> str:
+    match = MILESTONE_PREFIX_RE.match(title)
+    if match:
+        return match.group(2).strip()
+    return title.strip()
+
+
+def build_milestone_lookups(
+    milestones: Dict[str, dict]
+) -> tuple[Dict[str, int], Dict[str, list[str]]]:
+    by_title = {title: details["number"] for title, details in milestones.items()}
+    normalized = {}
+    for title in milestones:
+        normalized_title = normalize_milestone_title(title)
+        normalized.setdefault(normalized_title, []).append(title)
+    return by_title, normalized
 
 
 @dataclass
@@ -85,7 +113,9 @@ class GitHubClient:
         page = 1
         while True:
             params = {"state": "all", "per_page": 100, "page": page}
-            response = self.session.get(self._url("issues"), params=params, timeout=REQUEST_TIMEOUT)
+            response = self.session.get(
+                self._url("issues"), params=params, timeout=REQUEST_TIMEOUT
+            )
             if response.status_code == 401:
                 raise RuntimeError("GitHub authentication failed when listing issues.")
             response.raise_for_status()
@@ -112,7 +142,9 @@ class GitHubClient:
             if "next" not in response.links:
                 break
             page += 1
-        logging.info("Fetched %d issues from GitHub (excluding PRs).", len(issues_by_title))
+        logging.info(
+            "Fetched %d issues from GitHub (excluding PRs).", len(issues_by_title)
+        )
         return issues_by_title
 
     def fetch_milestones(self) -> Dict[str, dict]:
@@ -120,7 +152,9 @@ class GitHubClient:
         page = 1
         while True:
             params = {"state": "all", "per_page": 100, "page": page}
-            response = self.session.get(self._url("milestones"), params=params, timeout=REQUEST_TIMEOUT)
+            response = self.session.get(
+                self._url("milestones"), params=params, timeout=REQUEST_TIMEOUT
+            )
             response.raise_for_status()
             payload = response.json()
             if not payload:
@@ -133,7 +167,9 @@ class GitHubClient:
         logging.info("Fetched %d milestones from GitHub.", len(milestones))
         return milestones
 
-    def update_issue_milestone(self, issue_number: int, milestone_number: int, dry_run: bool = False) -> None:
+    def update_issue_milestone(
+        self, issue_number: int, milestone_number: int, dry_run: bool = False
+    ) -> None:
         if dry_run:
             logging.info(
                 "[dry-run] Would update issue #%s milestone to #%s.",
@@ -171,13 +207,18 @@ def load_assignments(path: Path) -> Iterable[dict]:
         if not isinstance(entry, dict):
             raise ValueError("Each assignment entry must be an object.")
         if "issue_id" not in entry or "milestone" not in entry:
-            raise ValueError("Each assignment entry must include 'issue_id' and 'milestone'.")
+            raise ValueError(
+                "Each assignment entry must include 'issue_id' and 'milestone'."
+            )
         yield entry
 
 
 def main() -> int:
     args = parse_args()
-    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO), format="%(message)s")
+    logging.basicConfig(
+        level=getattr(logging, args.log_level.upper(), logging.INFO),
+        format="%(message)s",
+    )
 
     if not args.token:
         logging.error("GITHUB_TOKEN is required for GitHub API access.")
@@ -196,9 +237,7 @@ def main() -> int:
     issues = client.fetch_issues()
     milestones = client.fetch_milestones()
 
-    milestone_title_to_number = {
-        title: details["number"] for title, details in milestones.items()
-    }
+    milestone_title_to_number, normalized_titles = build_milestone_lookups(milestones)
 
     updates = 0
     skipped_missing_milestone = 0
@@ -218,10 +257,29 @@ def main() -> int:
             target_number = None
         else:
             target_number = milestone_title_to_number.get(target_milestone_title)
+            if target_number is None:
+                normalized_target = normalize_milestone_title(target_milestone_title)
+                candidates = normalized_titles.get(normalized_target, [])
+                if len(candidates) == 1:
+                    resolved = candidates[0]
+                    target_number = milestone_title_to_number[resolved]
+                    logging.info(
+                        "Resolved milestone '%s' to '%s'.",
+                        target_milestone_title,
+                        resolved,
+                    )
+                elif len(candidates) > 1:
+                    logging.warning(
+                        "Milestone '%s' matches multiple prefixed milestones: %s",
+                        target_milestone_title,
+                        ", ".join(sorted(candidates)),
+                    )
 
         if target_number is None and target_milestone_title != "Untriaged":
             skipped_missing_milestone += 1
-            message = f"Milestone '{target_milestone_title}' not found for issue '{title}'."
+            message = (
+                f"Milestone '{target_milestone_title}' not found for issue '{title}'."
+            )
             if args.strict:
                 logging.error(message)
                 return 1
@@ -229,7 +287,6 @@ def main() -> int:
             continue
 
         current_title = issue.milestone_title
-        current_number = issue.milestone_number
 
         if target_milestone_title == current_title:
             already_matching += 1
@@ -246,7 +303,9 @@ def main() -> int:
         if target_milestone_title == "Untriaged":
             client.clear_issue_milestone(issue.number, dry_run=args.dry_run)
         else:
-            client.update_issue_milestone(issue.number, target_number, dry_run=args.dry_run)
+            client.update_issue_milestone(
+                issue.number, target_number, dry_run=args.dry_run
+            )
 
         updates += 1
         if not args.dry_run:
@@ -255,9 +314,14 @@ def main() -> int:
     logging.info("Processed %d assignments.", len(assignments))
     logging.info("%d updates applied, %d already matched.", updates, already_matching)
     if skipped_missing_issue:
-        logging.info("%d assignments skipped due to missing issues.", skipped_missing_issue)
+        logging.info(
+            "%d assignments skipped due to missing issues.", skipped_missing_issue
+        )
     if skipped_missing_milestone:
-        logging.info("%d assignments skipped due to missing milestones.", skipped_missing_milestone)
+        logging.info(
+            "%d assignments skipped due to missing milestones.",
+            skipped_missing_milestone,
+        )
 
     if args.dry_run:
         logging.info("Dry run mode; no GitHub issues were modified.")
