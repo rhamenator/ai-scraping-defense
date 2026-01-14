@@ -15,6 +15,19 @@ mkdir -p nginx/errors
 mkdir -p nginx/certs
 # The kubernetes directory should already exist if you cloned the repo.
 
+if command -v openssl >/dev/null 2>&1; then
+  if [[ ! -f nginx/certs/tls.key || ! -f nginx/certs/tls.crt ]]; then
+    echo "Generating a self-signed TLS certificate for local HTTPS..."
+    openssl req -x509 -nodes -newkey rsa:2048 -days 3650 \
+      -keyout nginx/certs/tls.key \
+      -out nginx/certs/tls.crt \
+      -subj "/CN=localhost"
+    chmod 600 nginx/certs/tls.key
+  fi
+else
+  echo "OpenSSL not found; skipping TLS certificate generation."
+fi
+
 echo "Creating placeholder secret files in ./secrets/ (REMEMBER TO FILL THESE WITH ACTUAL VALUES):"
 touch ./secrets/pg_password.txt
 touch ./secrets/redis_password.txt # Optional, if you use Redis auth
@@ -22,6 +35,9 @@ touch ./secrets/smtp_password.txt
 touch ./secrets/external_api_key.txt
 touch ./secrets/ip_reputation_api_key.txt
 touch ./secrets/community_blocklist_api_key.txt
+# Lock down secrets on local dev machines.
+chmod 700 ./secrets
+chmod 600 ./secrets/*.txt
 # For Kubernetes, SYSTEM_SEED is directly in secrets.yaml data, not a file.
 # For Docker Compose, you might set SYSTEM_SEED in .env or a secrets file if you adapt it.
 

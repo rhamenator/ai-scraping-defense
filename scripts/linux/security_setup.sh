@@ -50,10 +50,62 @@ curl -fsSL -o "$TMP_DIR/grype_checksums.txt" \
 tar -xz -C /usr/local/bin -f "$TMP_DIR/$GRYPE_TAR" grype
 rm "$TMP_DIR/$GRYPE_TAR" "$TMP_DIR/grype_checksums.txt"
 
-pip install bandit sslyze sublist3r pip-audit
+# Nuclei
+echo "Installing Nuclei..."
+go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest || true
+cp ~/go/bin/nuclei /usr/local/bin/ 2>/dev/null || echo "Note: nuclei not in ~/go/bin, may need manual PATH setup"
+
+# Feroxbuster
+FEROX_VERSION=$(curl -s https://api.github.com/repos/epi052/feroxbuster/releases/latest \
+  | jq -r '.tag_name' | sed 's/^v//')
+FEROX_TAR="feroxbuster_${FEROX_VERSION}_x86_64-linux.tar.gz"
+curl -fsSL -o "$TMP_DIR/$FEROX_TAR" \
+  "https://github.com/epi052/feroxbuster/releases/download/v${FEROX_VERSION}/x86_64-linux-feroxbuster.tar.gz" || true
+if [[ -f "$TMP_DIR/$FEROX_TAR" ]]; then
+    tar -xz -C /usr/local/bin -f "$TMP_DIR/$FEROX_TAR" feroxbuster 2>/dev/null || true
+fi
+
+# Katana
+echo "Installing Katana..."
+go install github.com/projectdiscovery/katana/cmd/katana@latest || true
+cp ~/go/bin/katana /usr/local/bin/ 2>/dev/null || true
+
+# httpx
+echo "Installing httpx..."
+go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest || true
+cp ~/go/bin/httpx /usr/local/bin/ 2>/dev/null || true
+
+# Dalfox
+echo "Installing Dalfox..."
+go install github.com/hahwul/dalfox/v2@latest || true
+cp ~/go/bin/dalfox /usr/local/bin/ 2>/dev/null || true
+
+# Amass
+echo "Installing Amass..."
+go install -v github.com/owasp-amass/amass/v4/...@master || true
+cp ~/go/bin/amass /usr/local/bin/ 2>/dev/null || true
+
+# Syft SBOM tool
+SYFT_VERSION=$(curl -s https://api.github.com/repos/anchore/syft/releases/latest \
+  | jq -r '.tag_name' | sed 's/^v//')
+curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin || true
+
+# Python security tools
+pip install bandit sslyze sublist3r pip-audit safety semgrep schemathesis
+
+# Snyk CLI (requires account but useful)
+npm install -g snyk 2>/dev/null || echo "Note: npm not available for snyk installation"
+
+# Make new scripts executable
+chmod +x /home/runner/work/ai-scraping-defense/ai-scraping-defense/scripts/linux/api_security_test.sh 2>/dev/null || true
+chmod +x /home/runner/work/ai-scraping-defense/ai-scraping-defense/scripts/linux/llm_prompt_injection_test.sh 2>/dev/null || true
+chmod +x /home/runner/work/ai-scraping-defense/ai-scraping-defense/scripts/linux/ai_driven_security_test.py 2>/dev/null || true
+
 apt-get clean
 
 # Apply security hardening settings from config
 # TODO: Implement bash-based hardening configuration
 echo "Applying security hardening settings..."
 echo "(Currently a placeholder. Implement config loading and applying.)"
+echo "Security tools installation complete!"
+echo "Note: Some Go-based tools may require adding ~/go/bin to PATH"

@@ -54,10 +54,47 @@ curl -fsSL -o "$TMP_DIR/grype_checksums.txt" \
 tar -xz -C "$HOME/.local/bin" -f "$TMP_DIR/$GRYPE_TAR" grype
 rm "$TMP_DIR/$GRYPE_TAR" "$TMP_DIR/grype_checksums.txt"
 
-pip install bandit sslyze sublist3r pip-audit
+# Install Go-based security tools (requires Go to be installed)
+if command -v go >/dev/null 2>&1; then
+    echo "Installing Go-based security tools..."
+    go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+    go install github.com/projectdiscovery/katana/cmd/katana@latest
+    go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
+    go install github.com/hahwul/dalfox/v2@latest
+    go install -v github.com/owasp-amass/amass/v4/...@master
+    
+    # Add Go bin to PATH if not already present
+    if [[ ":$PATH:" != *":$HOME/go/bin:"* ]]; then
+        echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.zshrc
+        export PATH="$PATH:$HOME/go/bin"
+    fi
+else
+    echo "Warning: Go not installed. Skipping Go-based tools (nuclei, katana, httpx, dalfox, amass)."
+    echo "Install Go with: brew install go"
+fi
+
+# Install Feroxbuster via Homebrew
+brew install feroxbuster || echo "feroxbuster installation failed"
+
+# Install Syft SBOM tool
+curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+# Python security tools
+pip install bandit sslyze sublist3r pip-audit safety semgrep schemathesis
+
+# Snyk CLI (requires npm)
+if command -v npm >/dev/null 2>&1; then
+    npm install -g snyk
+else
+    echo "Warning: npm not available. Install Node.js with 'brew install node' to enable Snyk."
+fi
+
 brew cleanup
 
 # Apply security hardening settings from config
 # TODO: Implement Zsh-based hardening configuration
 echo "Applying security hardening settings..."
 echo "(Currently a placeholder. Implement config loading and applying.)"
+echo "Security tools installation complete!"
+echo "Note: Go-based tools are installed to ~/go/bin"
+echo "Make sure ~/go/bin is in your PATH"
