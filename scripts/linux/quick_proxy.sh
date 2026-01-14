@@ -13,6 +13,7 @@ if [ "$(uname -s)" != "Linux" ]; then
 fi
 
 # Helpers
+# shellcheck source=scripts/linux/lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
 echo "=== AI Scraping Defense: Proxy Quick Start ==="

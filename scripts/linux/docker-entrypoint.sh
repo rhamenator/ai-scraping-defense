@@ -35,5 +35,7 @@ else
 fi
 
 # Execute the main command passed to the container (e.g., uvicorn, gunicorn).
-echo "Launching main command: $@"
+printf 'Launching main command:'
+printf ' %q' "$@"
+printf '\n'
 PGPASSWORD="$PGPASSWORD_VALUE" exec "$@"

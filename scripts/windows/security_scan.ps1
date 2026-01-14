@@ -169,4 +169,58 @@ if (Get-Command pip-audit -ErrorAction SilentlyContinue) {
     pip-audit -r requirements.txt -f plain > "reports/pip_audit.txt" || $true
 } else { Write-Warning 'pip-audit not installed. Skipping Python dependency audit.' }
 
+Write-Host '=== 26. Nuclei Vulnerability Scanner ==='
+if (Get-Command nuclei -ErrorAction SilentlyContinue) {
+    nuclei -u $WebUrl -o "reports/nuclei_${SafeWeb}.txt" -silent
+} else { Write-Warning 'nuclei not installed. Skipping Nuclei scan.' }
+
+Write-Host '=== 27. Feroxbuster Advanced Web Fuzzer ==='
+if (Get-Command feroxbuster -ErrorAction SilentlyContinue) {
+    feroxbuster -u $WebUrl -w "$Env:USERPROFILE\seclists\Discovery\Web-Content\common.txt" `
+        -o "reports/feroxbuster_${SafeWeb}.txt" --quiet || $true
+} else { Write-Warning 'feroxbuster not installed. Skipping advanced fuzzing.' }
+
+Write-Host '=== 28. Katana Web Crawler ==='
+if (Get-Command katana -ErrorAction SilentlyContinue) {
+    katana -u $WebUrl -o "reports/katana_${SafeWeb}.txt" -silent || $true
+} else { Write-Warning 'katana not installed. Skipping web crawling.' }
+
+Write-Host '=== 29. HTTPX HTTP Toolkit ==='
+if (Get-Command httpx -ErrorAction SilentlyContinue) {
+    echo $WebUrl | httpx -silent -tech-detect -status-code -title `
+        -o "reports/httpx_${SafeWeb}.txt" || $true
+} else { Write-Warning 'httpx not installed. Skipping HTTP analysis.' }
+
+Write-Host '=== 30. Dalfox XSS Scanner ==='
+if (Get-Command dalfox -ErrorAction SilentlyContinue) {
+    dalfox url $WebUrl -o "reports/dalfox_${SafeWeb}.txt" --silence || $true
+} else { Write-Warning 'dalfox not installed. Skipping XSS scanning.' }
+
+Write-Host '=== 31. Amass Subdomain/Asset Discovery ==='
+if (Get-Command amass -ErrorAction SilentlyContinue) {
+    amass enum -passive -d $Target -o "reports/amass_${SafeTarget}.txt" || $true
+} else { Write-Warning 'amass not installed. Skipping subdomain discovery.' }
+
+Write-Host '=== 32. Semgrep Code Security Analysis ==='
+if ((Get-Command semgrep -ErrorAction SilentlyContinue) -and (Test-Path $CodeDir)) {
+    semgrep --config=auto $CodeDir --json -o "reports/semgrep_$(Split-Path $CodeDir -Leaf).json" || $true
+} else { Write-Warning 'semgrep not installed or no code directory. Skipping semgrep scan.' }
+
+Write-Host '=== 33. Snyk Security Testing ==='
+if ((Get-Command snyk -ErrorAction SilentlyContinue) -and (Test-Path $CodeDir)) {
+    Push-Location $CodeDir
+    snyk test --json-file-output="$(Get-Location)\reports\snyk_$(Split-Path $CodeDir -Leaf).json" || $true
+    Pop-Location
+} else { Write-Warning 'snyk not installed or no code directory. Skipping Snyk scan.' }
+
+Write-Host '=== 34. Safety Python Package Scanner ==='
+if (Get-Command safety -ErrorAction SilentlyContinue) {
+    safety check --json -o "reports/safety_check.json" || $true
+} else { Write-Warning 'safety not installed. Skipping Safety scan.' }
+
+Write-Host '=== 35. Syft SBOM Generator ==='
+if ($DockerImage -and (Get-Command syft -ErrorAction SilentlyContinue)) {
+    syft $DockerImage -o json > "reports/syft_${SafeImage}.json" || $true
+} else { Write-Warning 'syft not installed or no image specified. Skipping SBOM generation.' }
+
 Write-Host "Reports saved in the 'reports' directory. Review them for potential issues." -ForegroundColor Green
