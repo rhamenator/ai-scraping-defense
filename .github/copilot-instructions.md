@@ -1,6 +1,6 @@
 # GitHub Copilot Instructions for AI Scraping Defense
 
-This repository contains a sophisticated, multi-layered defense system against AI-powered web scrapers and malicious bots. These instructions help GitHub Copilot coding agent understand the project structure, workflows, and best practices.
+This repository contains a sophisticated, multi-layered defense system against AI-powered web scrapers and malicious bots. These instructions help GitHub Copilot coding agent understand the project[...]
 
 ## Project Overview
 
@@ -81,9 +81,9 @@ pre-commit run --files <file1> [file2 ...]
 ```
 
 The project uses:
-- **black**: Python code formatting (line length 100)
+- **black**: Python code formatting (respects the max line length configured in the repository)
 - **isort**: Import sorting
-- **flake8**: Python linting (see `.flake8` for configuration)
+- **flake8**: Python linting (see `.flake8` for configuration including max line length)
 
 Configuration files:
 - `.flake8` - Flake8 settings
@@ -136,7 +136,7 @@ docker-compose down
 ### Python Code
 
 1. **Follow PEP 8** with these specifics:
-   - Line length: 100 characters (configured in `.flake8`)
+   - Line length: Use the max line length configured in the repository's tooling (see `.flake8`, `pyproject.toml` (if present), or formatter-specific configs). Do not assume or hard-code a specif[...]
    - Use type hints for function signatures
    - Docstrings for public functions and classes
 
@@ -180,7 +180,7 @@ docker-compose down
 
 ### ML Model Integration
 
-- Models should implement the adapter pattern (see `src/escalation/ml_adapter.py`)
+- Models should implement the adapter pattern (see `src/shared/model_provider.py`)
 - Support for: OpenAI, Anthropic, Google GenAI, Cohere, Mistral
 - Always handle API rate limits and errors gracefully
 - Cache predictions when appropriate (use Redis)
@@ -188,7 +188,7 @@ docker-compose down
 ### Payment Gateway Integration
 
 - Multiple gateways supported: Stripe, PayPal, Braintree, Square, Adyen, Authorize.Net
-- Follow existing gateway patterns in `src/pay_per_crawl/gateways/`
+- Follow existing gateway patterns in `src/pay_per_crawl/payment_gateway.py`
 - Never log full payment details
 - Audit all payment operations
 
@@ -292,6 +292,27 @@ When making changes:
 - Implement audit logging for sensitive operations
 - Set proper CORS and CSP headers
 - Follow zero-trust principles
+
+### Secret Management and HashiCorp Vault
+
+- HashiCorp Vault or any other paid vault service **must be strictly optional** for this project.
+- All secret retrieval paths **must continue to work without Vault** using existing file- and env-based mechanisms.
+- Behavior requirements:
+  - If `VAULT_ADDR` is **not** set:
+    - Do **not** attempt to create or use a Vault client.
+    - Default to legacy secret-loading behavior with no functional regression.
+  - If Vault is configured but unavailable or misconfigured (DNS/TLS/auth/timeouts/bad path/etc.):
+    - Log a clear warning (and, where appropriate, a metric).
+    - **Do not** cause services to fail to start in default/local deployments.
+    - Cleanly fall back to the legacy secret-loading mechanism.
+- Implementation guidelines:
+  - Wrap all Vault access in helpers (e.g., `get_vault_client`, `_fetch_vault_secret`, `_VAULT_PATH` handling) that **always** handle errors and return `None` on failure rather than raising.
+  - Never make Vault a hard runtime dependency for local development or simple deployments.
+  - Preserve backward compatibility for existing env/file-based configuration.
+- Testing requirements:
+  - Add tests that run with **no** Vault-related env vars and verify normal behavior.
+  - Add tests that simulate Vault connection/auth failures and verify clean fallback to legacy behavior.
+  - Avoid tests that assume Vault is reachable from the CI environment.
 
 ## Additional Resources
 
