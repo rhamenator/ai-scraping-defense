@@ -51,7 +51,7 @@ jobs:
           go install honnef.co/go/tools/cmd/staticcheck@latest
 
           # Additional quality tools
-          pip3 install --user prospector complexity-report
+          pip3 install --user prospector
           npm install -g complexity-report plato
 
       - name: Create Reports Directory
