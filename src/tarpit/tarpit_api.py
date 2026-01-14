@@ -6,17 +6,28 @@ import logging
 import os
 import random
 import re
-from typing import Dict, Optional
+import secrets
+from typing import Dict
 
 import httpx
-from fastapi import HTTPException
-from fastapi import Path as FastAPIPath
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field, validator
 
 # The direct 'redis' import is no longer needed as the client handles it.
 from redis.exceptions import RedisError
+
+from src.shared.config import CONFIG, tenant_key
+from src.shared.middleware import create_app
+from src.shared.observability import (
+    HealthCheckResult,
+    ObservabilitySettings,
+    register_health_check,
+    trace_span,
+)
+from src.shared.redis_client import get_redis_connection
+
+from .bad_api_generator import register_bad_endpoints
 
 
 # --- Pydantic Models for Input Validation ---
@@ -88,20 +99,6 @@ class EscalationMetadata(BaseModel):
             sanitized[k] = cleaned
         return sanitized
 
-
-# --- Setup Logging ---
-# Preserved from your original file.
-from src.shared.config import CONFIG, tenant_key
-from src.shared.middleware import create_app
-from src.shared.observability import (
-    HealthCheckResult,
-    ObservabilitySettings,
-    register_health_check,
-    trace_span,
-)
-from src.shared.redis_client import get_redis_connection
-
-from .bad_api_generator import register_bad_endpoints
 
 logger = logging.getLogger(__name__)
 
@@ -296,11 +293,18 @@ async def _redis_health() -> HealthCheckResult:
 
 
 # --- Helper Functions (Preserved from your original file) ---
+def _random_delay(min_delay: float, max_delay: float) -> float:
+    if max_delay <= min_delay:
+        return min_delay
+    scale = 1_000_000
+    return min_delay + (secrets.randbelow(scale) / scale) * (max_delay - min_delay)
+
+
 async def slow_stream_content(content: str):
     lines = content.split("\n")
     for line in lines:
         yield line + "\n"
-        delay = random.uniform(MIN_STREAM_DELAY_SEC, MAX_STREAM_DELAY_SEC)
+        delay = _random_delay(MIN_STREAM_DELAY_SEC, MAX_STREAM_DELAY_SEC)
         await asyncio.sleep(delay)
 
 
@@ -489,7 +493,7 @@ async def tarpit_handler(request: Request, path: str = ""):
             path_bytes = requested_path.encode("utf-8")
             path_hash = hashlib.sha256(path_bytes).hexdigest()
             combined_seed = f"{SYSTEM_SEED}-{path_hash}"
-            rng = random.Random()
+            rng = random.Random()  # nosec B311
             rng.seed(combined_seed)
             logger.debug(f"Seeded RNG for path '{requested_path}' with combined seed.")
             content = generate_dynamic_tarpit_page(rng)

@@ -37,7 +37,7 @@ def send_alert_to_escalation(event: Dict[str, Any]) -> bool:
     """Forward a Suricata alert to the escalation engine."""
     payload = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "ip": event.get("src_ip", "0.0.0.0"),
+        "ip": event.get("src_ip", "unknown"),
         "source": "suricata",
         "path": None,
         "method": None,
