@@ -1,11 +1,12 @@
 # Web Frameworks and Servers
 fastapi>=0.110,<0.121
-uvicorn[standard]~=0.27
+uvicorn[standard]~=0.38
 gunicorn~=23.0
 jinja2>=3.1.6,<4.0
 
 # Data and Database
-psycopg2~=2.9
+psycopg2~=2.9; platform_system != "Darwin"
+psycopg2-binary~=2.9; platform_system == "Darwin"
 redis~=6.4
 
 # Machine Learning and Data Analysis
@@ -20,13 +21,12 @@ geoip2~=5.1
 pyotp~=2.9
 qrcode~=8.2
 webauthn~=2.7
-tenacity~=8.2
+tenacity>=8.2.3,<9.0.0
 bcrypt~=5.0
 
 # HTTP and Web Scraping
 httpx~=0.28
 requests>=2.32.4,<3
-urllib3>=2.5.0,<3
 wikipedia~=1.4
 python-multipart~=0.0.20
 cachetools~=5.3
@@ -34,8 +34,8 @@ prometheus-client~=0.22
 PyJWT~=2.10
 PyYAML~=6.0
 
-# Kubernetes
-kubernetes~=34.1
+# Secret Management
+hvac~=2.3
 
 # LLM and AI Libraries
 openai>=1.17,<2.0
@@ -45,14 +45,18 @@ anthropic>=0.25,<1.0
 google-genai>=1.0,<2.0
 cohere>=5.3,<6.0
 mistralai>=0.1.4,<2.0
-model-context-protocol>=0.1.0,<1.0
+mcp>=1.23.0,<2
 transformers>=4.38,<5.0
 datasets>=2.18,<5.0
 evaluate>=0.4,<1.0
 
 # Local LLM Libraries
-ollama~=0.5
-llama-cpp-python~=0.3
+ollama~=0.6
+llama-cpp-python~=0.3; platform_system == "Linux" and platform_machine == "x86_64"
+
+# --- Optional: Alert Management Script ---
+# Uncomment if you want to run scripts/manage_alerts_issues_prs.py
+# PyGithub~=2.8
 
 # --- Development and Testing Dependencies ---
 freezegun~=1.5

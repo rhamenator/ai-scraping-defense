@@ -236,15 +236,32 @@ async def settings_page(
     """Renders the system settings page with a CSRF token."""
     if not csrf_token:
         csrf_token = secrets.token_urlsafe(16)
+    
+    # Get GDPR compliance report
+    gdpr_report = {}
+    try:
+        from src.shared.gdpr import get_gdpr_manager
+        gdpr = get_gdpr_manager()
+        gdpr_report = gdpr.generate_compliance_report()
+    except Exception as e:
+        logger.warning(f"Failed to generate GDPR report: {e}")
+    
     current_settings = {
         "Model URI": os.getenv("MODEL_URI", "Not Set"),
         "LOG_LEVEL": _get_runtime_setting("LOG_LEVEL"),
         "ESCALATION_ENDPOINT": _get_runtime_setting("ESCALATION_ENDPOINT"),
+        "GDPR_ENABLED": os.getenv("GDPR_ENABLED", "true"),
+        "GDPR_DPO_EMAIL": os.getenv("GDPR_DPO_EMAIL", "dpo@example.com"),
+        "GDPR_DATA_RETENTION_DAYS": os.getenv("GDPR_DATA_RETENTION_DAYS", "365"),
     }
     response = templates.TemplateResponse(
         request,
         "settings.html",
-        {"settings": current_settings, "csrf_token": csrf_token},
+        {
+            "settings": current_settings,
+            "csrf_token": csrf_token,
+            "gdpr_report": gdpr_report,
+        },
     )
     response.set_cookie(
         "csrf_token",
@@ -338,6 +355,73 @@ async def update_plugins(request: Request, user: str = Depends(require_admin)):
         logger.error("Failed to notify escalation engine", exc_info=exc)
     log_event(user, "update_plugins", {"plugins": selected})
     return RedirectResponse("/plugins", status_code=302)
+
+
+@app.post("/gdpr/deletion-request")
+async def gdpr_deletion_request(request: Request, user: str = Depends(require_admin)):
+    """Handle GDPR data deletion request."""
+    from src.shared.gdpr import get_gdpr_manager
+    
+    # Allowed characters for user_id validation
+    ALLOWED_USER_ID_CHARS = "-_"
+    MAX_USER_ID_LENGTH = 255
+    
+    form = await request.form()
+    user_id = form.get("user_id", "").strip()
+    email = form.get("email", "").strip()
+    
+    # Validate user_id
+    if not user_id:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "user_id is required"}
+        )
+    
+    # Basic validation: alphanumeric, dashes, underscores only
+    if not all(c.isalnum() or c in ALLOWED_USER_ID_CHARS for c in user_id):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "user_id contains invalid characters"}
+        )
+    
+    # Limit length to prevent abuse
+    if len(user_id) > MAX_USER_ID_LENGTH:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "user_id is too long"}
+        )
+    
+    gdpr = get_gdpr_manager()
+    deletion_request = gdpr.request_data_deletion(user_id=user_id, email=email or None)
+    
+    log_event(
+        user,
+        "gdpr_deletion_request",
+        {
+            "user_id": user_id,
+            "email": email or "none",
+            "request_id": deletion_request.request_id
+        },
+    )
+    
+    return JSONResponse(
+        content={
+            "request_id": deletion_request.request_id,
+            "status": "pending",
+            "message": "Data deletion request submitted successfully"
+        }
+    )
+
+
+@app.get("/gdpr/compliance-report")
+async def gdpr_compliance_report(request: Request, user: str = Depends(require_auth)):
+    """Generate and return GDPR compliance report."""
+    from src.shared.gdpr import get_gdpr_manager
+    
+    gdpr = get_gdpr_manager()
+    report = gdpr.generate_compliance_report()
+    
+    return JSONResponse(content=report)
 
 
 if __name__ == "__main__":

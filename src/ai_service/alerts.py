@@ -10,8 +10,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Optional
 
 import httpx
-import redis
-
+import redis.asyncio as redis
 
 from src.shared.config import CONFIG
 from src.shared.utils import LOG_DIR, log_error, log_event
@@ -48,25 +47,6 @@ REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 REDIS_DB = int(os.environ.get("REDIS_DB", 0))
 REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 ANOMALY_EVENT_CHANNEL = "anomaly_events"
-
-redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, password=REDIS_PASSWORD, decode_responses=True)
-
-async def subscribe_anomaly_events():
-    pubsub = redis_client.pubsub()
-    pubsub.subscribe(ANOMALY_EVENT_CHANNEL)
-    for message in pubsub.listen():
-        if message['type'] == 'message':
-            event_data = eval(message['data'].decode('utf-8'))  # Use eval cautiously; consider JSON parsing
-            await handle_anomaly_event(event_data)
-
-async def handle_anomaly_event(event_data):
-    logging.info(f"Received anomaly event: {event_data}")
-    # Process the anomaly event here. Example:
-    # You might decide to trigger alerts or take other actions based on the anomaly score and features.
-    # This is a placeholder; implement your logic here.
-    #Example of alerting
-    #event_data['reason'] = f"High Anomaly Score: {event_data['anomaly_score']:.2f}"
-    #await send_alert(event_data)
 
 
 # ---------------------------------------------------------------------------
@@ -333,8 +313,8 @@ IP added to blocklist (TTL: {CONFIG.BLOCKLIST_TTL_SECONDS}s). Logs in {LOG_DIR}.
             if smtp_conn:
                 try:
                     smtp_conn.quit()
-                except Exception:  # pragma: no cover - cleanup failure
-                    pass
+                except Exception as e:  # pragma: no cover - cleanup failure
+                    logger.error(f"Error quitting SMTP connection: {e}")
 
     try:
         await asyncio.to_thread(smtp_send_sync)
@@ -380,9 +360,67 @@ async def send_alert(event_data: "WebhookEvent") -> None:
         log_error(f"Alert method '{ALERT_METHOD}' invalid.")
 
 
+# ---------------------------------------------------------------------------
+# Redis Event-Driven Operations
+# ---------------------------------------------------------------------------
+
+
+async def get_redis_client():
+    """Create and return an async Redis client."""
+    return redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        password=REDIS_PASSWORD,
+        decode_responses=True,
+    )
+
+
+async def subscribe_anomaly_events():
+    """Subscribe to anomaly events from Redis Pub/Sub."""
+    redis_client = await get_redis_client()
+    try:
+        pubsub = redis_client.pubsub()
+        await pubsub.subscribe(ANOMALY_EVENT_CHANNEL)
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                try:
+                    event_data = json.loads(message["data"])
+                    await handle_anomaly_event(event_data)
+                except json.JSONDecodeError as e:
+                    logger.error("Failed to decode anomaly event: %s", e)
+                except Exception as e:
+                    logger.error("Error handling anomaly event: %s", e)
+    finally:
+        await redis_client.aclose()
+
+
+async def handle_anomaly_event(event_data):
+    """
+    Process anomaly detection events from Redis Pub/Sub.
+
+    This function receives high-score anomaly events and can trigger
+    alerts or other defensive actions. Currently logs events; extend
+    as needed to integrate with alerting or blocking systems.
+
+    Args:
+        event_data: Dictionary with 'anomaly_score' and 'features' keys
+
+    Example implementation:
+        anomaly_score = event_data.get('anomaly_score', 0)
+        if anomaly_score > 0.9:
+            event_data['reason'] = f"Critical Anomaly Score: {anomaly_score:.2f}"
+            await send_alert(event_data)
+    """
+    logger.info("Received anomaly event: %s", event_data)
+    # TODO: Implement alerting logic based on anomaly score and features
+
+
 async def main():
-        # Start the Redis subscriber task as a background task
-    asyncio.create_task(subscribe_anomaly_events())
+    """Main entry point for the Redis subscriber."""
+    # Await the Redis subscriber task to keep the event loop running
+    await subscribe_anomaly_events()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
