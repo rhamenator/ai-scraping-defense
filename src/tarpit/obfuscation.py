@@ -1,6 +1,6 @@
 # Utilities for generating obfuscated assets
 import base64
-import random
+import secrets
 import string
 
 
@@ -31,7 +31,11 @@ def generate_obfuscated_js() -> str:
 
 def generate_fingerprinting_script() -> str:
     """Return a script that captures detailed browser information."""
-    names = ["".join(random.choices(string.ascii_lowercase, k=6)) for _ in range(14)]
+
+    def _random_name(length: int = 6) -> str:
+        return "".join(secrets.choice(string.ascii_lowercase) for _ in range(length))
+
+    names = [_random_name() for _ in range(14)]
     (
         ua,
         res,
