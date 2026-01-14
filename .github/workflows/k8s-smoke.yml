@@ -49,29 +49,16 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           python - <<'PY'
-          import importlib.util
           import os
-          import pathlib
-
-          from kubernetes import config
-          module_path = pathlib.Path("src/util/rules_fetcher/kubernetes.py").resolve()
-          spec = importlib.util.spec_from_file_location(
-            "rules_fetcher_kubernetes",
-            module_path,
-          )
-          module = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(module)
-          get_kubernetes_api = module.get_kubernetes_api
+          from kubernetes import client, config
 
           kubeconfig = os.environ.get("KUBECONFIG")
           if kubeconfig:
             config.load_kube_config(config_file=kubeconfig)
           else:
             config.load_kube_config()
-          api = get_kubernetes_api()
-          if api is None:
-            raise SystemExit("Kubernetes client not available.")
 
+          api = client.CoreV1Api()
           namespaces = api.list_namespace()
           print("Namespace count:", len(namespaces.items))
           print("First namespace:", namespaces.items[0].metadata.name)
