@@ -1,0 +1,63 @@
+name: k8s-smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      install_full_requirements:
+        description: Install requirements-kubernetes.txt instead of only kubernetes
+        required: false
+        type: boolean
+        default: false
+      python_version:
+        description: Python version to use
+        required: false
+        type: string
+        default: "3.11"
+
+permissions:
+  contents: read
+
+jobs:
+  kind-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: asd-smoke
+          wait: 120s
+      - name: Cluster sanity check
+        run: |
+          kubectl cluster-info
+          kubectl get nodes -o wide
+      - name: Install kubernetes client only
+        if: ${{ !inputs.install_full_requirements }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install kubernetes
+      - name: Install optional Kubernetes requirements
+        if: ${{ inputs.install_full_requirements }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-kubernetes.txt -c constraints.txt
+      - name: Python Kubernetes smoke test
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python - <<'PY'
+          from kubernetes import config
+          from src.util.rules_fetcher.kubernetes import get_kubernetes_api
+
+          config.load_kube_config()
+          api = get_kubernetes_api()
+          if api is None:
+            raise SystemExit("Kubernetes client not available.")
+
+          namespaces = api.list_namespace()
+          print("Namespace count:", len(namespaces.items))
+          print("First namespace:", namespaces.items[0].metadata.name)
+          PY

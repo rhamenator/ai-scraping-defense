@@ -268,6 +268,10 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     To audit the optional Kubernetes dependency set in CI, run the
     `security-controls` workflow manually and set `audit_kubernetes=true`.
 
+    To run an optional Kubernetes smoke test in CI (with kind on GitHub
+    runners), trigger the `k8s-smoke` workflow. It creates a throwaway
+    cluster, verifies connectivity, and exercises the Kubernetes client.
+
     *On Linux or macOS:*
 
     ```bash
@@ -286,6 +290,13 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     The local setup scripts lock down the `secrets/` directory (Unix chmod or
     Windows ACLs). If you store secrets elsewhere, you can leave these files
     empty or remove them after testing.
+
+    Local secrets hygiene checklist:
+    - Use full-disk encryption (LUKS, FileVault, BitLocker) on machines that
+      store secrets files.
+    - Exclude `secrets/` from any cloud sync or backup tools.
+    - Prefer a secrets manager (Vault, Docker secrets, or Kubernetes secrets)
+      for production deployments.
 
     *On Linux or macOS:*
 
