@@ -1,0 +1,48 @@
+name: Actions Pin Audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - name: Scan workflows for unpinned actions
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          workflow_dir = pathlib.Path(".github/workflows")
+          uses_re = re.compile(r"^\\s*uses:\\s*([^\\s#]+)")
+          sha_re = re.compile(r"^[0-9a-fA-F]{40}$")
+          issues = []
+
+          for path in sorted(workflow_dir.glob("*.yml")):
+            for lineno, line in enumerate(path.read_text().splitlines(), start=1):
+              match = uses_re.match(line)
+              if not match:
+                continue
+              uses = match.group(1)
+              if uses.startswith("./") or uses.startswith("docker://"):
+                continue
+              if "@" not in uses:
+                issues.append((path, lineno, uses))
+                continue
+              ref = uses.split("@", 1)[1]
+              if not sha_re.fullmatch(ref):
+                issues.append((path, lineno, uses))
+
+          if issues:
+            print("Unpinned GitHub Actions references found:")
+            for path, lineno, uses in issues:
+              print(f"- {path}:{lineno}: {uses}")
+            sys.exit(1)
+
+          print("All GitHub Actions references are pinned to SHAs.")
+          PY

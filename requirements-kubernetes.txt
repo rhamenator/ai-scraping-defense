@@ -1,0 +1,5 @@
+# Optional Kubernetes support.
+# Note: The official kubernetes client currently requires urllib3<2.4.0,
+# which carries known CVEs. Use only if you accept that trade-off.
+-r requirements.txt
+kubernetes~=34.1

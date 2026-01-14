@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   cleanup-preview:
+    if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER && secrets.GCP_SERVICE_ACCOUNT && secrets.GCP_PROJECT && secrets.GKE_CLUSTER && secrets.GCP_REGION }}
     runs-on: ubuntu-latest
     steps:
       - id: auth

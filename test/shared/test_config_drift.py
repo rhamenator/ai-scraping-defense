@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.util.config_drift import ConfigDrift
+from src.shared.config_drift import ConfigDrift
 
 
 class TestConfigDrift(unittest.TestCase):
