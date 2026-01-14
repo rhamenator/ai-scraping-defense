@@ -1,0 +1,51 @@
+name: Update Requirements Lock
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install pip-tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pip-tools
+
+      - name: Regenerate requirements.lock
+        env:
+          PIP_DISABLE_PIP_VERSION_CHECK: "1"
+          PIP_DEFAULT_TIMEOUT: "120"
+          PIP_RETRY: "5"
+        run: |
+          python -m piptools compile \
+            --upgrade-package mcp \
+            --output-file requirements.lock \
+            requirements.txt
+
+      - name: Commit updated lockfile
+        run: |
+          if git diff --quiet -- requirements.lock; then
+            echo "No lockfile changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add requirements.lock
+          git commit -m "Update requirements.lock"
+          git push
