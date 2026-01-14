@@ -2,6 +2,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
+import gc
 from typing import Dict, Optional
 
 from src.pay_per_crawl import db
@@ -23,6 +24,7 @@ class TestCrawlerDB(unittest.TestCase):
                 conn.close()
             finally:
                 db._CONNECTION = None
+        gc.collect()
         self.tmpdir.cleanup()
         os.environ.pop("CRAWLER_DB_PATH", None)
 

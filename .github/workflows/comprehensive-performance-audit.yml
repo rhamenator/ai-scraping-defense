@@ -211,7 +211,7 @@ jobs:
 
       # Memory Profiling (if enabled)
       - name: Run Memory Analysis
-        if: ${{ github.event.inputs.memory_analysis == 'true' }}
+        if: ${{ inputs.memory_analysis == 'true' }}
         run: |
           echo "Running memory analysis..."
 

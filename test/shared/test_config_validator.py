@@ -84,16 +84,22 @@ class TestConfigLoader(unittest.TestCase):
             loader = ConfigLoader(strict=False)
             config = loader.load_from_env(env)
 
-            # Passwords should be loaded but masked
-            self.assertEqual(config.redis.password, "***MASKED***")
-            self.assertEqual(config.postgres.password, "***MASKED***")
+            # Passwords should be loaded (accessible for use)
+            self.assertEqual(config.redis.password, "redis_secret_123")
+            self.assertEqual(config.postgres.password, "postgres_secret_456")
+
+            # But should be masked in repr
+            repr_str = repr(config.redis)
+            self.assertIn("***MASKED***", repr_str)
+            self.assertNotIn("redis_secret_123", repr_str)
 
     def test_strict_mode_with_invalid_config(self):
         """Test strict mode raises error on invalid configuration."""
-        env = {"MODEL_URI": "invalid"}
+        # Use empty MODEL_URI which violates min_length=1 constraint
+        env = {"MODEL_URI": ""}
 
         loader = ConfigLoader(strict=True)
-        # Should raise error due to missing required ports
+        # Should raise error due to validation failure
         with self.assertRaises(ConfigValidationError):
             loader.load_from_env(env)
 

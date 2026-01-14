@@ -30,5 +30,7 @@ jobs:
 
       - name: Upload DevSkim scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('devskim-results.sarif') != ''
+        continue-on-error: true
         with:
           sarif_file: devskim-results.sarif

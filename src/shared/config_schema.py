@@ -4,13 +4,9 @@ import os
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    field_validator,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+MASKED_VALUE = "***MASKED***"
 
 
 class Environment(str, Enum):
@@ -92,7 +88,7 @@ class RedisConfig(BaseModel):
         """Custom repr to mask password."""
         data = self.model_dump()
         if data.get("password"):
-            data["password"] = "***MASKED***"
+            data["password"] = MASKED_VALUE
         return f"RedisConfig({data})"
 
 
@@ -109,7 +105,7 @@ class PostgresConfig(BaseModel):
         """Custom repr to mask password."""
         data = self.model_dump()
         if data.get("password"):
-            data["password"] = "***MASKED***"
+            data["password"] = MASKED_VALUE
         return f"PostgresConfig({data})"
 
 
