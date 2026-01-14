@@ -265,6 +265,9 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     has known CVEs. Use the Kubernetes requirements only if you accept that
     trade-off until upstream loosens the constraint.
 
+    To audit the optional Kubernetes dependency set in CI, run the
+    `security-controls` workflow manually and set `audit_kubernetes=true`.
+
     *On Linux or macOS:*
 
     ```bash
@@ -279,6 +282,10 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
 
 4. **Generate Secrets:**
     Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console. When run with `--update-env` (as in the interactive setup), the script also updates `.env` and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose.
+
+    The local setup scripts lock down the `secrets/` directory (Unix chmod or
+    Windows ACLs). If you store secrets elsewhere, you can leave these files
+    empty or remove them after testing.
 
     *On Linux or macOS:*
 

@@ -29,6 +29,19 @@ if (-not (Test-Path $certPath) -or -not (Test-Path $keyPath)) {
 $secretFiles = @('pg_password.txt','redis_password.txt','smtp_password.txt','external_api_key.txt','ip_reputation_api_key.txt','community_blocklist_api_key.txt')
 foreach ($f in $secretFiles) { New-Item -ItemType File -Path (Join-Path 'secrets' $f) -Force | Out-Null }
 
+if (Test-Path 'secrets') {
+    $icacls = Get-Command icacls -ErrorAction SilentlyContinue
+    if ($icacls) {
+        try {
+            & $icacls.Path 'secrets' /inheritance:r /grant:r "$env:USERNAME:(OI)(CI)F" | Out-Null
+        } catch {
+            Write-Warning "Unable to set ACLs for the secrets directory: $($_.Exception.Message)"
+        }
+    } else {
+        Write-Warning 'icacls not found; skipping ACL hardening for secrets.'
+    }
+}
+
 Write-Host '---------------------------------------------------------------------'
 Write-Host 'IMPORTANT REMINDERS:'
 Write-Host "1. Place your actual 'robots.txt' into the './config/' directory."

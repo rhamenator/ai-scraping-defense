@@ -35,6 +35,9 @@ touch ./secrets/smtp_password.txt
 touch ./secrets/external_api_key.txt
 touch ./secrets/ip_reputation_api_key.txt
 touch ./secrets/community_blocklist_api_key.txt
+# Lock down secrets on local dev machines.
+chmod 700 ./secrets
+chmod 600 ./secrets/*.txt
 # For Kubernetes, SYSTEM_SEED is directly in secrets.yaml data, not a file.
 # For Docker Compose, you might set SYSTEM_SEED in .env or a secrets file if you adapt it.
 
