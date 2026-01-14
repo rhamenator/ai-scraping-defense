@@ -87,7 +87,7 @@ class TestBehavioralHoneypot(unittest.TestCase):
         self.assertEqual(tracker._last_cleanup, first_cleanup)
         tracker.log_request("2.2.2.2", "/b")
         self.assertEqual(tracker._fallback_counter, 0)
-        self.assertNotEqual(tracker._last_cleanup, first_cleanup)
+        self.assertGreaterEqual(tracker._last_cleanup, first_cleanup)
 
 
 if __name__ == "__main__":

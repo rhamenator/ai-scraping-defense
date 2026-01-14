@@ -170,10 +170,11 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["X-Test"], "valuewithcontrols")
 
     def test_import_fails_with_default_seed(self):
-        """Importing with the placeholder seed should raise an error."""
+        """Importing with the placeholder seed should raise an error in production."""
         code = (
             "import os\n"
             f"os.environ['SYSTEM_SEED']={repr(DEFAULT_SYSTEM_SEED)}\n"
+            "os.environ['ENVIRONMENT']='production'\n"
             "import src.tarpit.tarpit_api\n"
         )
         env = {

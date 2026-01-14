@@ -24,7 +24,7 @@ class LinkFlyweight:
 
 
 def generate_labyrinth_page(seed: str, depth: int = 5) -> str:
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # nosec B311
     links = []
     for i in range(depth):
         token = hashlib.sha256(f"{seed}-{i}".encode()).hexdigest()[:8]
