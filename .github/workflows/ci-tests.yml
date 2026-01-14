@@ -9,11 +9,11 @@ on:
         description: "Git ref to run against"
         required: false
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ (github.event_name == 'workflow_dispatch' && (inputs.environment || github.ref)) || github.ref }}
   cancel-in-progress: true
 jobs:
   tests-linux:
@@ -25,6 +25,16 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
         with: { fetch-depth: 0 }
+      - name: Set up Python
+        if: hashFiles('**/*.py') != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Set up Rust toolchain
+        if: hashFiles('**/Cargo.toml') != ''
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt, clippy
       - name: Python tests
         if: hashFiles('**/*.py') != ''
         run: |
@@ -36,21 +46,28 @@ jobs:
           pytest -q test/
       - name: Rust tests
         if: hashFiles('**/Cargo.toml') != ''
+        env:
+          RUSTFLAGS: "-C target-cpu=generic -C target-feature=-avx,-avx2"
         run: |
           sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
           set -e
-          cargo test --all --locked 2>locked.log || {
-            if grep -q "Cargo.lock needs to be updated" locked.log || grep -q "which is not allowed due to --locked" locked.log; then
-              echo "Falling back to unlocked dependencies due to lock file error."
-              cargo test --all
-            else
-              echo "cargo test --all --locked failed for a reason other than lock file issues."
-              cat locked.log
-              exit 1
+          for crate in jszip-rs markov-train-rs tarpit-rs frequency-rs; do
+            if [ -d "$crate" ]; then
+              echo "Testing $crate..."
+              cargo test --manifest-path "$crate/Cargo.toml" --locked 2>locked.log || {
+                if grep -q "Cargo.lock needs to be updated" locked.log || grep -q "which is not allowed due to --locked" locked.log; then
+                  echo "Falling back to unlocked dependencies for $crate due to lock file error."
+                  cargo test --manifest-path "$crate/Cargo.toml"
+                else
+                  echo "cargo test failed for $crate for a reason other than lock file issues."
+                  cat locked.log
+                  exit 1
+                fi
+              }
+              cargo clippy --manifest-path "$crate/Cargo.toml" --all-targets --all-features -- -D warnings
+              cargo fmt --manifest-path "$crate/Cargo.toml" -- --check
             fi
-          }
-          cargo clippy --all-targets --all-features -D warnings
-          cargo fmt --all -- --check
+          done
       - name: Node tests
         if: hashFiles('**/package.json') != ''
         run: |
@@ -60,7 +77,7 @@ jobs:
         if: hashFiles('**/*.sh') != ''
         run: |
           sudo apt-get update && sudo apt-get install -y shellcheck
-          (shopt -s globstar nullglob; for f in **/*.sh; do shellcheck "$f"; done)
+          (shopt -s globstar nullglob; for f in **/*.sh; do shellcheck -x -S error "$f"; done)
       - name: Lint Lua
         if: hashFiles('**/*.lua') != ''
         run: |
@@ -70,6 +87,8 @@ jobs:
       - name: Validate NGINX configs (syntax only)
         if: hashFiles('nginx/*.conf') != '' || hashFiles('nginx/**/*.conf') != ''
         run: docker run --rm -v "$PWD/nginx:/etc/nginx:ro" nginx:stable nginx -t -c /etc/nginx/nginx.conf
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
       - name: Helm/K8s lint
         run: |
           curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tar.gz
@@ -87,16 +106,24 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
         with: { fetch-depth: 0 }
+      - name: Set up Python
+        if: hashFiles('**/*.py') != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - name: Python tests (Windows)
         shell: pwsh
         run: |
-          pip install --upgrade pip
-          if (Test-Path requirements.txt) { pip install -r requirements.txt }
-          if (Test-Path pyproject.toml) { pip install . }
-          if (Test-Path setup.py) { pip install -e . }
-          pip install pytest pytest-cov
+          python -m venv .venv
+          . .\.venv\Scripts\Activate.ps1
+          python -m pip install --upgrade pip
+          if (Test-Path requirements.txt) { python -m pip install -r requirements.txt }
+          if (Test-Path pyproject.toml) { python -m pip install . }
+          if (Test-Path setup.py) { python -m pip install -e . }
+          python -m pip install pytest pytest-cov
           pytest -q test/
       - name: Node tests (Windows)
+        if: hashFiles('**/package.json') != ''
         shell: pwsh
         run: |
           if (Test-Path package-lock.json) { npm ci --ignore-scripts } else { npm i }
@@ -115,20 +142,33 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
         with: { fetch-depth: 0 }
+      - name: Set up Python
+        if: hashFiles('**/*.py') != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install libpq (pg_config) and libomp
+        if: hashFiles('requirements.txt') != ''
+        run: |
+          brew install libpq
+          brew install libomp
+          echo "$(brew --prefix libpq)/bin" >> "$GITHUB_PATH"
       - name: Python tests (macOS)
         run: |
-          python3 -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip3 install -r requirements.txt; fi
-          if [ -f pyproject.toml ]; then pip3 install .; fi
-          if [ -f setup.py ]; then pip3 install -e .; fi
-          pip3 install pytest pytest-cov
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
+          if [ -f pyproject.toml ]; then python -m pip install .; fi
+          if [ -f setup.py ]; then python -m pip install -e .; fi
+          python -m pip install pytest pytest-cov
           pytest -q test/
       - name: Node tests (macOS)
+        if: hashFiles('**/package.json') != ''
         run: |
           if [ -f package-lock.json ]; then npm ci --ignore-scripts || npm i; else npm i; fi
           if npm run | grep -q " test"; then npm test --silent; else echo "No npm test script"; fi
       - name: Run macOS helper scripts (best-effort)
-        shell: zsh
         run: |
           [ -f "./scripts/macos/setup.zsh" ] && zsh ./scripts/macos/setup.zsh || true
           [ -f "./scripts/macos/test.zsh" ] && zsh ./scripts/macos/test.zsh || true

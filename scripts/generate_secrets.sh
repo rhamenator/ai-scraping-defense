@@ -74,6 +74,7 @@ store_in_vault() {
   
   # Read existing secret to merge with new value
   local existing_data=""
+  local existing_response
   existing_response=$(curl -s -H "X-Vault-Token: ${vault_token}" "${url}" || echo "")
   if [ -n "$existing_response" ]; then
     existing_data=$(echo "$existing_response" | jq -r '.data.data // {}' 2>/dev/null || echo "{}")
@@ -82,16 +83,19 @@ store_in_vault() {
   fi
 
   # Merge new key-value with existing data
-  local merged_data=$(echo "$existing_data" | jq --arg key "$key" --arg value "$value" '. + {($key): $value}')
+  local merged_data
+  merged_data=$(echo "$existing_data" | jq --arg key "$key" --arg value "$value" '. + {($key): $value}')
   
   # Write to Vault
-  local response=$(curl -s -w "\n%{http_code}" -X POST \
+  local response
+  response=$(curl -s -w "\n%{http_code}" -X POST \
     -H "X-Vault-Token: ${vault_token}" \
     -H "Content-Type: application/json" \
     -d "{\"data\": $merged_data}" \
     "${url}")
   
-  local http_code=$(echo "$response" | tail -n1)
+  local http_code
+  http_code=$(echo "$response" | tail -n1)
   
   if [ "$http_code" = "200" ] || [ "$http_code" = "204" ]; then
     echo -e "${GREEN}✓${NC} Stored ${path}:${key} in Vault"
