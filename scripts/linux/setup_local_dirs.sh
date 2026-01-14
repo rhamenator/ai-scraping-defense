@@ -16,6 +16,19 @@ mkdir -p nginx/errors
 mkdir -p nginx/certs
 # The kubernetes directory should already exist if you cloned the repo.
 
+if command -v openssl >/dev/null 2>&1; then
+    if [[ ! -f nginx/certs/tls.key || ! -f nginx/certs/tls.crt ]]; then
+        echo "Generating a self-signed TLS certificate for local HTTPS..."
+        openssl req -x509 -nodes -newkey rsa:2048 -days 3650 \
+            -keyout nginx/certs/tls.key \
+            -out nginx/certs/tls.crt \
+            -subj "/CN=localhost"
+        chmod 600 nginx/certs/tls.key
+    fi
+else
+    echo "OpenSSL not found; skipping TLS certificate generation."
+fi
+
 echo "Creating placeholder secret files in ./secrets/ (REMEMBER TO FILL THESE WITH ACTUAL VALUES):"
 touch ./secrets/pg_password.txt
 touch ./secrets/redis_password.txt # Optional, if you use Redis auth

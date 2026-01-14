@@ -31,6 +31,9 @@ MANIFEST
 secrets/
 kubernetes/secrets.yaml
 .htpasswd
+nginx/certs/*.key
+nginx/certs/*.crt
+nginx/certs/*.pem
 
 # PyInstaller
 # Usually these files are written by a python script from a template

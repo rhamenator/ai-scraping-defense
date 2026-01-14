@@ -9,6 +9,22 @@ Write-Host "Creating necessary local directories for AI Scraping Defense Stack..
 $dirs = @('config','data','db','logs','logs/nginx','models','archives','secrets','nginx/errors','nginx/certs')
 foreach ($d in $dirs) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
 
+$certDir = 'nginx/certs'
+$certPath = Join-Path $certDir 'tls.crt'
+$keyPath = Join-Path $certDir 'tls.key'
+if (-not (Test-Path $certPath) -or -not (Test-Path $keyPath)) {
+    $openssl = Get-Command openssl -ErrorAction SilentlyContinue
+    if ($openssl) {
+        Write-Host 'Generating a self-signed TLS certificate for local HTTPS...' -ForegroundColor Cyan
+        & $openssl.Path req -x509 -nodes -newkey rsa:2048 -days 3650 `
+            -keyout $keyPath `
+            -out $certPath `
+            -subj "/CN=localhost"
+    } else {
+        Write-Warning 'OpenSSL not found; skipping TLS certificate generation.'
+    }
+}
+
 # Placeholder secrets
 $secretFiles = @('pg_password.txt','redis_password.txt','smtp_password.txt','external_api_key.txt','ip_reputation_api_key.txt','community_blocklist_api_key.txt')
 foreach ($f in $secretFiles) { New-Item -ItemType File -Path (Join-Path 'secrets' $f) -Force | Out-Null }

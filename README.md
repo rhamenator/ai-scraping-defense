@@ -254,6 +254,17 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     pip install -r requirements.txt -c constraints.txt
     ```
 
+    If you plan to use the Kubernetes integrations, install the optional
+    dependency set instead:
+
+    ```bash
+    pip install -r requirements-kubernetes.txt -c constraints.txt
+    ```
+
+    Note: the Kubernetes client currently requires `urllib3<2.4.0`, which
+    has known CVEs. Use the Kubernetes requirements only if you accept that
+    trade-off until upstream loosens the constraint.
+
     *On Linux or macOS:*
 
     ```bash
@@ -287,6 +298,9 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
 
 5. **Enable HTTPS (Optional):**
     Edit `.env` and set `ENABLE_HTTPS=true` with paths to your certificate and key.
+    The setup scripts generate a self-signed certificate in `nginx/certs/` if
+    one does not exist, which is fine for local testing. Replace it with a
+    trusted certificate before production use.
 
     ```bash
     ENABLE_HTTPS=true

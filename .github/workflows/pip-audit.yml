@@ -42,6 +42,7 @@ jobs:
         run: |
           python -m piptools compile \
             --upgrade-package mcp \
+            --upgrade-package urllib3 \
             --output-file requirements.lock \
             requirements.txt
       - name: Commit updated lockfile
