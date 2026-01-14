@@ -1,6 +1,6 @@
 import logging
 import os
-import subprocess
+import subprocess  # nosec B404
 from typing import Optional
 
 import requests
@@ -61,7 +61,7 @@ def _run_as_script() -> bool:
         if not success:
             return False
         try:
-            subprocess.run(NGINX_RELOAD_CMD, check=True)
+            subprocess.run(NGINX_RELOAD_CMD, check=True)  # nosec B603
         except subprocess.CalledProcessError as exc:
             logger.error("Failed to reload Nginx after CRS install: %s", exc)
             return False

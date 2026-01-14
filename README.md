@@ -254,6 +254,24 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     pip install -r requirements.txt -c constraints.txt
     ```
 
+    If you plan to use the Kubernetes integrations, install the optional
+    dependency set instead:
+
+    ```bash
+    pip install -r requirements-kubernetes.txt -c constraints.txt
+    ```
+
+    Note: the Kubernetes client currently requires `urllib3<2.4.0`, which
+    has known CVEs. Use the Kubernetes requirements only if you accept that
+    trade-off until upstream loosens the constraint.
+
+    To audit the optional Kubernetes dependency set in CI, run the
+    `security-controls` workflow manually and set `audit_kubernetes=true`.
+
+    To run an optional Kubernetes smoke test in CI (with kind on GitHub
+    runners), trigger the `k8s-smoke` workflow. It creates a throwaway
+    cluster, verifies connectivity, and exercises the Kubernetes client.
+
     *On Linux or macOS:*
 
     ```bash
@@ -268,6 +286,17 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
 
 4. **Generate Secrets:**
     Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console. When run with `--update-env` (as in the interactive setup), the script also updates `.env` and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose.
+
+    The local setup scripts lock down the `secrets/` directory (Unix chmod or
+    Windows ACLs). If you store secrets elsewhere, you can leave these files
+    empty or remove them after testing.
+
+    Local secrets hygiene checklist:
+    - Use full-disk encryption (LUKS, FileVault, BitLocker) on machines that
+      store secrets files.
+    - Exclude `secrets/` from any cloud sync or backup tools.
+    - Prefer a secrets manager (Vault, Docker secrets, or Kubernetes secrets)
+      for production deployments.
 
     *On Linux or macOS:*
 
@@ -287,6 +316,9 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
 
 5. **Enable HTTPS (Optional):**
     Edit `.env` and set `ENABLE_HTTPS=true` with paths to your certificate and key.
+    The setup scripts generate a self-signed certificate in `nginx/certs/` if
+    one does not exist, which is fine for local testing. Replace it with a
+    trusted certificate before production use.
 
     ```bash
     ENABLE_HTTPS=true

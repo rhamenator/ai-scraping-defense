@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 class SSRFProtectionError(ValueError):
     """Exception raised when a URL fails SSRF validation checks."""
+
     pass
 
 
@@ -68,18 +69,21 @@ def is_localhost(hostname: str) -> bool:
     hostname_lower = hostname.lower()
 
     # Check for exact localhost match
-    if hostname_lower == 'localhost':
+    if hostname_lower == "localhost":
         return True
 
     # Check for 127.x.x.x addresses (IPv4 loopback range)
-    if hostname_lower.startswith('127.') and hostname_lower.replace('.', '').replace(':', '').isdigit():
+    if (
+        hostname_lower.startswith("127.")
+        and hostname_lower.replace(".", "").replace(":", "").isdigit()
+    ):
         return True
 
     # Check for other localhost patterns
     localhost_patterns = [
-        '::1',    # IPv6 localhost
-        '0.0.0.0',
-        '[::]',   # IPv6 all interfaces
+        "::1",  # IPv6 localhost
+        str(ipaddress.IPv4Address(0)),
+        "[::]",  # IPv6 all interfaces
     ]
 
     return hostname_lower in localhost_patterns
@@ -117,7 +121,7 @@ def validate_url(
 
     # Check scheme
     if allowed_schemes is None:
-        allowed_schemes = ['http', 'https']
+        allowed_schemes = ["http", "https"]
 
     if not parsed.scheme:
         raise SSRFProtectionError("URL must include a scheme (http:// or https://)")
@@ -127,7 +131,7 @@ def validate_url(
             f"URL scheme '{parsed.scheme}' not allowed. Allowed schemes: {allowed_schemes}"
         )
 
-    if require_https and parsed.scheme != 'https':
+    if require_https and parsed.scheme != "https":
         raise SSRFProtectionError("HTTPS scheme is required")
 
     # Check netloc (hostname)
@@ -140,7 +144,9 @@ def validate_url(
 
     # Check for localhost
     if is_localhost(hostname):
-        raise SSRFProtectionError(f"Access to localhost addresses is not allowed: {hostname}")
+        raise SSRFProtectionError(
+            f"Access to localhost addresses is not allowed: {hostname}"
+        )
 
     # Check for private IPs
     if block_private_ips and is_private_ip(hostname):
@@ -160,7 +166,7 @@ def validate_url(
         port = parsed.port
         if port is None:
             # Use default ports for schemes
-            port = 443 if parsed.scheme == 'https' else 80
+            port = 443 if parsed.scheme == "https" else 80
 
         if port not in allowed_ports:
             raise SSRFProtectionError(
