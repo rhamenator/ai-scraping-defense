@@ -85,6 +85,17 @@ jobs:
           sudo apt-get update && sudo apt-get install -y luarocks lua5.4
           sudo luarocks install luacheck
           luacheck .
+      - name: Generate NGINX TLS certs for config test
+        if: hashFiles('nginx/*.conf') != '' || hashFiles('nginx/**/*.conf') != ''
+        run: |
+          mkdir -p nginx/certs
+          if [ ! -f nginx/certs/tls.crt ] || [ ! -f nginx/certs/tls.key ]; then
+            openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+              -keyout nginx/certs/tls.key \
+              -out nginx/certs/tls.crt \
+              -subj "/CN=localhost"
+            chmod 600 nginx/certs/tls.key
+          fi
       - name: Validate NGINX configs (syntax only)
         if: hashFiles('nginx/*.conf') != '' || hashFiles('nginx/**/*.conf') != ''
         run: docker run --rm -v "$PWD/nginx:/etc/nginx:ro" nginx:stable nginx -t -c /etc/nginx/nginx.conf
