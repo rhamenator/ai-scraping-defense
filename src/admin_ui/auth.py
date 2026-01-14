@@ -21,7 +21,7 @@ ADMIN_UI_ROLE = os.getenv("ADMIN_UI_ROLE", "admin")
 
 # Placeholder function for biometric authentication.  Replace with actual
 # biometric verification logic.
-async def verify_biometrics(username: str, biometric_data: str) -> bool:
+def verify_biometrics(username: str, biometric_data: str) -> bool:
     """Placeholder for biometric verification.
 
     Args:
@@ -103,7 +103,7 @@ def require_auth(
     if x_biometric_data:
         try:
             # Simulate biometric verification
-            if not await verify_biometrics(credentials.username, x_biometric_data):
+            if not verify_biometrics(credentials.username, x_biometric_data):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid biometric data",
@@ -111,7 +111,9 @@ def require_auth(
                 )
             # Track successful biometric authentication. In real application the
             # metrics will be implemented here.
-            print(f"Biometric authentication successful for user: {credentials.username}")
+            print(
+                f"Biometric authentication successful for user: {credentials.username}"
+            )
             return credentials.username  # Biometric authentication successful
         except Exception as e:
             # Handle exceptions during biometric verification
