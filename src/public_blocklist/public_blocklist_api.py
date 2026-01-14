@@ -1,4 +1,11 @@
-import fcntl
+from __future__ import annotations
+
+from contextlib import contextmanager
+
+try:  # POSIX-only
+    import fcntl  # type: ignore
+except Exception:  # pragma: no cover
+    fcntl = None
 import json
 import logging
 import os
@@ -64,14 +71,36 @@ def _load_blocklist() -> List[str]:
 
 
 def _save_blocklist(ips: List[str]) -> None:
-    os.makedirs(os.path.dirname(PUBLIC_BLOCKLIST_FILE), exist_ok=True)
+    os.makedirs(os.path.dirname(PUBLIC_BLOCKLIST_FILE) or ".", exist_ok=True)
     with open(PUBLIC_BLOCKLIST_FILE, "a+", encoding="utf-8") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        f.seek(0)
-        f.truncate()
-        json.dump({"ips": ips}, f)
-        f.flush()
-        os.fsync(f.fileno())
+        with _exclusive_lock(f):
+            f.seek(0)
+            f.truncate()
+            json.dump({"ips": ips}, f)
+            f.flush()
+            os.fsync(f.fileno())
+
+
+@contextmanager
+def _exclusive_lock(fileobj):
+    """Best-effort exclusive file lock.
+
+    On Windows, `fcntl` is unavailable and we skip locking. The blocklist API is
+    typically used in a single-process context in tests and local deployments.
+    """
+
+    if fcntl is None:
+        yield
+        return
+
+    fcntl.flock(fileobj, fcntl.LOCK_EX)
+    try:
+        yield
+    finally:
+        try:
+            fcntl.flock(fileobj, fcntl.LOCK_UN)
+        except OSError:  # pragma: no cover
+            pass
 
 
 BLOCKLIST_IPS = set(_load_blocklist())
