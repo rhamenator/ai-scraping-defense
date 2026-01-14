@@ -9,6 +9,15 @@ import urllib.error
 import re
 import sqlite3
 
+from pr_claims import (
+    CLAIMS_DEFAULT_PATH,
+    detect_claim_conflicts,
+    load_claims,
+    normalize_file_path,
+    record_claim,
+    release_claims,
+)
+
 # Configuration
 PROBLEMS_DIR = "."
 API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -129,6 +138,8 @@ def get_file_content(filepath):
         print(f"Error reading file {filepath}: {e}")
     return None
 
+
+
 def generate_fix_and_metadata(title, description, fix_prompt, file_contents):
     prompt = f"""
 You are an expert secure code fixing assistant.
@@ -180,25 +191,46 @@ def fetch_gh_issues(limit=1):
         return []
     return json.loads(result.stdout)
 
+
+def fetch_single_issue(issue_number):
+    print(f"Fetching issue #{issue_number} from GitHub...")
+    cmd = ["gh", "issue", "view", str(issue_number), "--json", "number,title,body"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Failed to fetch issue #{issue_number}: {result.stderr}")
+        return []
+    try:
+        issue = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        print(f"Failed to parse GitHub response: {exc}")
+        return []
+    return [issue]
+
 def parse_affected_files(body):
     files = []
-    # Look for "**Affected Files**:" followed by list items
-    if "**Affected Files**" in body:
-        lines = body.split('\n')
-        in_files_section = False
-        for line in lines:
-            if "**Affected Files**" in line:
-                in_files_section = True
-                continue
-            if in_files_section:
-                if line.strip().startswith('- '):
-                    files.append(line.strip()[2:].strip())
-                elif line.strip() == "" or line.startswith('#') or line.startswith('*'):
-                    # End of section? Maybe.
-                    pass
+    # Look for "Affected/Target Files" sections followed by list items
+    markers = {"**Affected Files**", "**Target Files**", "## Affected Files", "## Target Files"}
+    lines = body.split('\n')
+    in_files_section = False
+    for raw_line in lines:
+        line = raw_line.strip()
+        if any(marker in line for marker in markers):
+            in_files_section = True
+            continue
+        if not in_files_section:
+            continue
+        if not line:
+            # blank line ends section
+            in_files_section = False
+            continue
+        if line.startswith('#') and not line.startswith('- '):
+            in_files_section = False
+            continue
+        if line.startswith('- '):
+            files.append(line[2:].strip())
     return files
 
-def create_pr(issue, fix_data, metadata):
+def create_pr(issue, fix_data, metadata, dry_run=False):
     title = issue['title']
     issue_number = issue['number']
     category = metadata['category']
@@ -209,6 +241,18 @@ def create_pr(issue, fix_data, metadata):
     branch_name = f"fix/issue-{issue_number}-{slug}-{int(time.time())}"
     
     print(f"Preparing PR for Issue #{issue_number}: {title}")
+
+    if dry_run:
+        print("  [Dry Run] Would generate fix content using Gemini API.")
+        print(f"  [Dry Run] Would create branch: {branch_name}")
+        if fix_data and fix_data.get("files"):
+            print("  [Dry Run] Would update the following files:")
+            for path in fix_data["files"].keys():
+                print(f"    - {path}")
+        else:
+            print("  [Dry Run] No file changes detected yet (likely due to skipped LLM call).")
+        print(f"  [Dry Run] Would commit and push branch to origin, then create PR assigning to @me.")
+        return None, branch_name
     
     # Create Branch
     subprocess.run(["git", "checkout", "-b", branch_name], check=True)
@@ -235,7 +279,7 @@ def create_pr(issue, fix_data, metadata):
         print("No files changed. Skipping PR.")
         subprocess.run(["git", "checkout", "-"], check=True)
         subprocess.run(["git", "branch", "-D", branch_name], check=True)
-        return None
+        return None, branch_name
 
     # Commit
     subprocess.run(["git", "commit", "-m", f"Fix: {title} (Issue #{issue_number})"], check=True)
@@ -301,10 +345,10 @@ Fixes #{issue_number}
         if pr_number:
             update_pr_tracking(title, pr_number)
         
-        return pr_number
+        return pr_number, branch_name
     except subprocess.CalledProcessError as e:
         print(f"Failed to create PR: {e}")
-        return None
+        return None, branch_name
     finally:
         # Cleanup
         subprocess.run(["git", "checkout", "-"], check=True)
@@ -312,13 +356,25 @@ Fixes #{issue_number}
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--smoke-test", action="store_true", help="Run for 1 issue from GH")
-    parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--limit", type=int, default=0, help="Maximum number of issues to fetch and process")
+    parser.add_argument("--dry-run", action="store_true", help="Simulate the workflow without creating branches or PRs")
+    parser.add_argument("--issue-number", type=int, help="Process a specific GitHub issue number")
+    parser.add_argument("--claims-file", default=CLAIMS_DEFAULT_PATH, help="Path to file tracking active PR file claims")
+    parser.add_argument("--release-branch", action="append", help="Release file claims for the specified branch. May be passed multiple times.")
     args = parser.parse_args()
     
     limit = 1 if args.smoke_test else (args.limit if args.limit > 0 else 1000)
     
+    claims = load_claims(args.claims_file)
+
+    if args.release_branch:
+        claims = release_claims(claims, args.claims_file, args.release_branch)
+
     # Fetch issues
-    issues = fetch_gh_issues(limit)
+    if args.issue_number:
+        issues = fetch_single_issue(args.issue_number)
+    else:
+        issues = fetch_gh_issues(limit)
     print(f"Fetched {len(issues)} issues to process.")
     
     for issue in issues:
@@ -332,8 +388,12 @@ def main():
             continue
         
         if metadata['pr_created']:
-            print(f"  PR already created: #{metadata['pr_number']}. Skipping.")
-            continue
+            message = f"  PR already created: #{metadata['pr_number']}."
+            if args.dry_run:
+                print(f"{message} Including in dry run output only.")
+            else:
+                print(f"{message} Skipping.")
+                continue
         
         print(f"  Category: {metadata['category']}")
         print(f"  Severity: {metadata['severity']}")
@@ -360,34 +420,73 @@ def main():
         if not file_contents:
             print("  Could not read any affected files. Skipping.")
             continue
-            
+
+        normalized_targets = [normalize_file_path(path) for path in file_contents.keys()]
+        conflicts = detect_claim_conflicts(claims, normalized_targets)
+        if conflicts:
+            print("  File claims conflict with existing automation branches:")
+            for conflict in conflicts:
+                files_list = ", ".join(conflict["files"])
+                issue_ref = conflict.get("issue")
+                issue_text = f"Issue #{issue_ref}" if issue_ref else "Unknown issue"
+                print(f"    - Branch {conflict['branch']} ({issue_text}) => {files_list}")
+            if args.dry_run:
+                print("  [Dry Run] Would skip due to active file claims.")
+            else:
+                print("  Skipping issue due to active file claims.")
+            continue
+
         print(f"  Processing {len(file_contents)} files...")
-            
+
+        if args.dry_run:
+            slug = "".join(c if c.isalnum() else "-" for c in title.lower())[:50]
+            branch_name = f"fix/issue-{issue['number']}-{slug}-{int(time.time())}"
+            print("  [Dry Run] Skipping LLM call and PR creation.")
+            print(f"  [Dry Run] Would create branch: {branch_name}")
+            print("  [Dry Run] Would modify these files:")
+            for path in file_contents.keys():
+                print(f"    - {path}")
+            if metadata['pr_created']:
+                print("  [Dry Run] Note: PR already exists; dry run does not alter tracking state.")
+            if args.smoke_test:
+                print("\nDry run smoke test complete. Stopping.")
+                break
+            continue
+
         # Generate Fix
         print("  Generating fix...")
         try:
             response = generate_fix_and_metadata(
-                title, 
-                issue['body'], 
-                metadata['fix_prompt'], 
+                title,
+                issue['body'],
+                metadata['fix_prompt'],
                 file_contents
             )
             if not response:
                 print("  Failed to get fix from LLM.")
                 continue
-                
+
             response = response.replace("```json", "").replace("```", "").strip()
             fix_data = json.loads(response)
-            
+
             # Create PR
-            pr_number = create_pr(issue, fix_data, metadata)
-            
+            pr_number, branch_name = create_pr(issue, fix_data, metadata, dry_run=False)
+
+            if pr_number:
+                claims = record_claim(
+                    claims,
+                    args.claims_file,
+                    branch_name,
+                    issue['number'],
+                    normalized_targets,
+                )
+
             if args.smoke_test:
                 print("\nSmoke test complete. Stopping.")
                 break
-                
+
             time.sleep(5)
-            
+
         except Exception as e:
             print(f"  Error processing issue: {e}")
             import traceback
