@@ -1,9 +1,9 @@
-"""Shared logging utilities for AI service modules."""
-
 import datetime
 import json
 import logging
 import os
+import random
+import time
 from logging.handlers import RotatingFileHandler
 from typing import Dict, Optional
 
@@ -75,9 +75,22 @@ _event_loggers: Dict[str, logging.Logger] = {}
 
 def _get_event_logger(log_file: str) -> logging.Logger:
     logger_inst = _event_loggers.get(log_file)
+    if logger_inst is not None:
+        for handler in list(logger_inst.handlers):
+            if isinstance(handler, RotatingFileHandler) and not os.path.exists(
+                handler.baseFilename
+            ):
+                handler.close()
+                logger_inst.removeHandler(handler)
+                logger_inst = None
+                break
+        if logger_inst is not None:
+            return logger_inst
     if logger_inst is None:
         try:
-            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+            log_dir = os.path.dirname(log_file)
+            if log_dir:
+                os.makedirs(log_dir, exist_ok=True)
             handler = RotatingFileHandler(
                 log_file,
                 maxBytes=LOG_MAX_BYTES,
@@ -145,3 +158,11 @@ def log_event(log_file: str, event_type: str, data: dict) -> None:
         event_logger.info(json.dumps(log_entry))
     except Exception as e:  # pragma: no cover - logging failure
         log_error(f"Failed to write to log file {log_file}", e)
+
+
+def inject_failure(probability: float) -> None:
+    """Simulates a failure based on the given probability."""
+    if random.random() < probability:  # nosec B311 - test fault injection
+        log_error("Simulating failure for resilience testing.")
+        time.sleep(1)  # Simulate some work before failing
+        raise Exception("Injected failure for resilience testing")
