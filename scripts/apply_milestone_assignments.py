@@ -11,6 +11,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import sys
 import time
 from dataclasses import dataclass
@@ -24,6 +25,7 @@ DEFAULT_OWNER = "rhamenator"
 DEFAULT_REPO = "ai-scraping-defense"
 REQUEST_TIMEOUT = 30
 RATE_LIMIT_SLEEP = 0.25
+MILESTONE_PREFIX_RE = re.compile(r"^\s*(\d+)\.\s*(.+)$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,6 +55,22 @@ def parse_owner_repo(default_owner: str, default_repo: str) -> tuple[str, str]:
         owner, repo = env_repo.split("/", 1)
         return owner, repo
     return default_owner, default_repo
+
+
+def normalize_milestone_title(title: str) -> str:
+    match = MILESTONE_PREFIX_RE.match(title)
+    if match:
+        return match.group(2).strip()
+    return title.strip()
+
+
+def build_milestone_lookups(milestones: Dict[str, dict]) -> tuple[Dict[str, int], Dict[str, list[str]]]:
+    by_title = {title: details["number"] for title, details in milestones.items()}
+    normalized = {}
+    for title in milestones:
+        normalized_title = normalize_milestone_title(title)
+        normalized.setdefault(normalized_title, []).append(title)
+    return by_title, normalized
 
 
 @dataclass
@@ -196,9 +214,7 @@ def main() -> int:
     issues = client.fetch_issues()
     milestones = client.fetch_milestones()
 
-    milestone_title_to_number = {
-        title: details["number"] for title, details in milestones.items()
-    }
+    milestone_title_to_number, normalized_titles = build_milestone_lookups(milestones)
 
     updates = 0
     skipped_missing_milestone = 0
@@ -218,6 +234,19 @@ def main() -> int:
             target_number = None
         else:
             target_number = milestone_title_to_number.get(target_milestone_title)
+            if target_number is None:
+                normalized_target = normalize_milestone_title(target_milestone_title)
+                candidates = normalized_titles.get(normalized_target, [])
+                if len(candidates) == 1:
+                    resolved = candidates[0]
+                    target_number = milestone_title_to_number[resolved]
+                    logging.info("Resolved milestone '%s' to '%s'.", target_milestone_title, resolved)
+                elif len(candidates) > 1:
+                    logging.warning(
+                        "Milestone '%s' matches multiple prefixed milestones: %s",
+                        target_milestone_title,
+                        ", ".join(sorted(candidates)),
+                    )
 
         if target_number is None and target_milestone_title != "Untriaged":
             skipped_missing_milestone += 1

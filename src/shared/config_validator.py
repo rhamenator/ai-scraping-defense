@@ -131,7 +131,7 @@ class ConfigLoader:
 
             logger.info(
                 "Configuration loaded successfully for environment: %s",
-                config.app_env.value,
+                config.app_env,
             )
             return config
 

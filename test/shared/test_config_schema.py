@@ -64,8 +64,12 @@ class TestRedisConfig(unittest.TestCase):
     def test_redis_with_password(self):
         """Test Redis configuration with password masking."""
         config = RedisConfig(password="secret123")
-        # Password should be masked
-        self.assertEqual(config.password, "***MASKED***")
+        # Password should be accessible as-is for actual use
+        self.assertEqual(config.password, "secret123")
+        # But should be masked in repr
+        repr_str = repr(config)
+        self.assertIn("***MASKED***", repr_str)
+        self.assertNotIn("secret123", repr_str)
 
 
 class TestTarpitConfig(unittest.TestCase):

@@ -27,6 +27,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import sqlite3
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -68,6 +69,26 @@ LABEL_TO_MILESTONE = {
 
 # === LOGGER ===
 LOG = logging.getLogger("update_problem_milestones")
+MILESTONE_PREFIX_RE = re.compile(r"^\s*(\d+)\.\s*(.+)$")
+
+
+def normalize_milestone_title(title: str) -> str:
+    match = MILESTONE_PREFIX_RE.match(title)
+    if match:
+        return match.group(2).strip()
+    return title.strip()
+
+
+def extract_milestone_prefix(title: str) -> Optional[str]:
+    match = MILESTONE_PREFIX_RE.match(title)
+    if match:
+        return f"{match.group(1)}."
+    return None
+
+
+def milestone_base_title(title: str) -> str:
+    normalized = normalize_milestone_title(title)
+    return normalized.split(" :: ", 1)[0].strip()
 
 
 @dataclass
@@ -103,6 +124,8 @@ class GitHubMilestoneManager:
         if token:
             self._session.headers["Authorization"] = f"Bearer {token}"
         self._cache: Dict[str, MilestoneInfo] = {}
+        self._normalized_map: Dict[str, str] = {}
+        self._prefix_map: Dict[str, str] = {}
         self._load_existing()
 
     # ------------------------------------------------------------------
@@ -137,6 +160,12 @@ class GitHubMilestoneManager:
                     state=milestone.get("state", "open"),
                 )
                 self._cache[info.title] = info
+                normalized = normalize_milestone_title(info.title)
+                self._normalized_map.setdefault(normalized, info.title)
+                prefix = extract_milestone_prefix(info.title)
+                if prefix:
+                    base = milestone_base_title(info.title)
+                    self._prefix_map.setdefault(base, prefix)
             if "next" not in response.links:
                 break
             page += 1
@@ -145,39 +174,56 @@ class GitHubMilestoneManager:
     # ------------------------------------------------------------------
     def ensure(self, title: str, description: str, parent: Optional[str]) -> MilestoneInfo:
         """Ensure a milestone exists, creating it if necessary."""
-        if title in self._cache:
-            info = self._cache[title]
-            info.parent = parent
+        resolved_parent = self.resolve_title(parent) if parent else None
+        resolved_title = self.resolve_title(title)
+        if resolved_title in self._cache:
+            info = self._cache[resolved_title]
+            info.parent = resolved_parent
             return info
 
         if not self.token or self.dry_run:
-            LOG.info("Skipping GitHub creation for milestone '%s' (dry-run or missing token).", title)
-            info = MilestoneInfo(title=title, number=None, url=None, parent=parent)
-            self._cache[title] = info
+            display_title = self.format_title(title)
+            LOG.info("Skipping GitHub creation for milestone '%s' (dry-run or missing token).", display_title)
+            info = MilestoneInfo(title=display_title, number=None, url=None, parent=resolved_parent)
+            self._cache[display_title] = info
             return info
 
-        payload = {"title": title, "state": "open", "description": description}
+        display_title = self.format_title(title)
+        payload = {"title": display_title, "state": "open", "description": description}
         response = self._session.post(self._repo_url("milestones"), json=payload, timeout=30)
         if response.status_code == 422:
             # A concurrent actor may have created the milestone; refetch cache.
-            LOG.info("Milestone '%s' already exists per GitHub; refreshing cache.", title)
+            LOG.info("Milestone '%s' already exists per GitHub; refreshing cache.", display_title)
             self._load_existing()
-            info = self._cache.get(title)
+            info = self._cache.get(display_title) or self._cache.get(resolved_title)
             if info:
-                info.parent = parent
+                info.parent = resolved_parent
                 return info
-            raise RuntimeError(f"Unable to resolve milestone '{title}' after 422 response.")
+            raise RuntimeError(f"Unable to resolve milestone '{display_title}' after 422 response.")
         response.raise_for_status()
         milestone = response.json()
         info = MilestoneInfo(
             title=milestone["title"],
             number=milestone["number"],
             url=milestone.get("html_url"),
-            parent=parent,
+            parent=resolved_parent,
         )
         self._cache[info.title] = info
         LOG.info("Created GitHub milestone '%s' (#%s).", info.title, info.number)
         return info
+
+    def resolve_title(self, title: str) -> str:
+        normalized = normalize_milestone_title(title)
+        return self._normalized_map.get(normalized, title)
+
+    def format_title(self, title: str) -> str:
+        if extract_milestone_prefix(title):
+            return title
+        base = milestone_base_title(title)
+        prefix = self._prefix_map.get(base)
+        if prefix:
+            return f"{prefix} {title}"
+        return title
 
 
 # === MILESTONE ASSIGNMENT LOGIC ===
@@ -403,12 +449,22 @@ def main() -> int:
     manager = GitHubMilestoneManager(owner=owner, repo=repo, token=args.token, dry_run=args.dry_run)
 
     assigned_infos: Dict[str, MilestoneInfo] = {}
+    resolved_titles: Dict[str, str] = {}
     for title, stats in milestone_stats.items():
         description = BASE_MILESTONES.get(title) or format_description(title, stats)
         info = manager.ensure(title=title, description=description, parent=stats.get("parent"))
-        assigned_infos[title] = info
+        resolved_titles[title] = info.title
+        assigned_infos[info.title] = info
 
     for record in problems.values():
+        raw_title = record.get("milestone")
+        if raw_title:
+            resolved_title = resolved_titles.get(raw_title, manager.resolve_title(raw_title))
+            record["milestone"] = resolved_title
+        parent_title = record.get("milestone_parent")
+        if parent_title:
+            resolved_parent = resolved_titles.get(parent_title, manager.resolve_title(parent_title))
+            record["milestone_parent"] = resolved_parent
         info = assigned_infos.get(record.get("milestone"))
         record["milestone_number"] = info.number if info else None
         record["milestone_url"] = info.url if info else None
