@@ -7,6 +7,16 @@ DB_PATH = os.environ.get("CRAWLER_DB_PATH", "crawler_registry.db")
 _CONNECTION: sqlite3.Connection | None = None
 _DB_PATH = DB_PATH
 
+_SENSITIVE_FIELDS = {"token", "password", "secret", "api_key", "key"}
+
+
+def _redact_sensitive(data: dict) -> dict:
+    return {
+        key: ("[REDACTED]" if key.lower() in _SENSITIVE_FIELDS else value)
+        for key, value in data.items()
+    }
+
+
 def log_to_blockchain(action: str, data: dict) -> None:
     """Placeholder for logging actions to a blockchain.
 
@@ -19,7 +29,8 @@ def log_to_blockchain(action: str, data: dict) -> None:
     # contract = w3.eth.contract(address='...', abi=...)  # Replace with your contract
     # tx_hash = contract.functions.logAction(action, str(data)).transact({'from': w3.eth.accounts[0]})
     # print(f'Transaction hash: {tx_hash.hex()}')
-    print(f"[Blockchain] Logging action: {action} with data: {data}")
+    redacted = _redact_sensitive(data)
+    print(f"[Blockchain] Logging action: {action} with data: {redacted}")
 
 
 def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
@@ -41,7 +52,9 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
         # Attempt to setup blockchain logging (replace with actual logic if needed)
         try:
             # TODO: Add initialization logic for blockchain connection
-            print("Blockchain logging setup initialized.")  # Replace with actual initialization
+            print(
+                "Blockchain logging setup initialized."
+            )  # Replace with actual initialization
         except Exception as e:
             print(f"Failed to initialize blockchain logging: {e}")
     return _CONNECTION
@@ -63,7 +76,10 @@ def register_crawler(name: str, token: str, purpose: str) -> None:
         (token, name, purpose, token),
     )
     conn.commit()
-    log_to_blockchain("register_crawler", {"name": name, "token": token, "purpose": purpose})
+    log_to_blockchain(
+        "register_crawler",
+        {"name": name, "token": token, "purpose": purpose},
+    )
 
 
 def get_crawler(token: str) -> Optional[Dict[str, str]]:
