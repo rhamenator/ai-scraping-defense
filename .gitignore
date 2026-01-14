@@ -121,6 +121,7 @@ cython_debug/
 
 # VS Code local history
 .history/
+.local/
 
 # Local Logs and Archives
 logs/
