@@ -21,12 +21,12 @@ jobs:
   kind-smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
         with:
           python-version: ${{ inputs.python_version }}
       - name: Create kind cluster
-        uses: helm/kind-action@v1.10.0
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde
         with:
           cluster_name: asd-smoke
           wait: 120s
@@ -49,10 +49,16 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           python - <<'PY'
+          import os
+
           from kubernetes import config
           from src.util.rules_fetcher.kubernetes import get_kubernetes_api
 
-          config.load_kube_config()
+          kubeconfig = os.environ.get("KUBECONFIG")
+          if kubeconfig:
+            config.load_kube_config(config_file=kubeconfig)
+          else:
+            config.load_kube_config()
           api = get_kubernetes_api()
           if api is None:
             raise SystemExit("Kubernetes client not available.")
