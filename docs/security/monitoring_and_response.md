@@ -40,16 +40,78 @@ and escalated in production.
 - **API Abuse** – Monitor `/webhook` rate-limit counters and escalate after
   three consecutive denials from unique IPs.
 
+## Secret Management and Rotation
+
+The system now includes comprehensive HashiCorp Vault integration for enhanced secret management:
+
+- **Automated Rotation** – Secret rotation service (`src/security/secret_rotation.py`)
+  automatically rotates secrets based on configurable policies (default: 90 days for
+  most secrets, 180 days for system seed).
+- **Lifecycle Management** – Track secret age, version count, and compliance status.
+  Automatic cleanup of old versions (keeps latest 10 by default).
+- **Compliance Monitoring** – Real-time compliance checks with Prometheus metrics:
+  - `vault_secret_age_days` – Current age of each secret
+  - `vault_secret_compliance_score` – Compliance score (0-100)
+  - `vault_secret_rotation_total` – Count of successful/failed rotations
+  - `vault_secret_version_count` – Number of versions per secret
+- **Audit Logging** – All secret access and rotation operations are logged to
+  `audit.log` with timestamps, paths, and operation status.
+
+### Manual Secret Rotation
+
+When immediate rotation is required (e.g., suspected compromise):
+
+```bash
+# Generate new secrets locally
+./scripts/generate_secrets.sh --update-env --export-path /tmp/secrets.json
+
+# Or store directly in Vault
+./scripts/generate_secrets.sh --vault \
+  --vault-addr https://vault.example.com:8200 \
+  --vault-token $VAULT_TOKEN
+
+# Using Python rotation service
+python -c "
+from src.security.secret_rotation import SecretRotationService, SecretRotationPolicy
+service = SecretRotationService()
+policy = SecretRotationPolicy(
+    name='redis_password',
+    path='database/redis',
+    key_name='password',
+    rotation_period_days=90
+)
+result = service.rotate_secret(policy, force=True)
+print(result)
+"
+```
+
+### Compliance Reports
+
+Generate compliance reports for all secrets:
+
+```bash
+python -c "
+from src.security.secret_compliance import SecretComplianceMonitor, create_default_compliance_policies
+monitor = SecretComplianceMonitor()
+report = monitor.generate_compliance_report(create_default_compliance_policies())
+print(f'Compliant: {report[\"compliant\"]}/{report[\"total_secrets\"]}')
+print(f'Average Score: {report[\"average_score\"]:.1f}')
+"
+```
+
 ## Incident Response Workflow
 
 1. **Detection** – Alerts or analysts raise incidents in the ticketing system.
 2. **Triage** – Duty analyst validates severity, gathers evidence (logs,
    metrics, request samples), and assigns priority.
 3. **Containment** – Depending on incident type:
-   - Secrets leakage → rotate via `scripts/linux/generate_secrets.sh --update-env`
-     and revoke credentials.
-   - Transport/auth issues → deploy hotfix through hardened CI workflow.
-   - Intrusion → block offending IPs using the escalation engine webhook.
+   - **Secrets leakage** → 
+     - Immediately rotate via `./scripts/generate_secrets.sh --vault --update-env`
+     - If using Vault, rotation is tracked and versioned automatically
+     - Revoke old credentials in external systems (databases, APIs)
+     - Check audit logs for unauthorized access: `grep "secret_access" /app/logs/audit.log`
+   - **Transport/auth issues** → deploy hotfix through hardened CI workflow.
+   - **Intrusion** → block offending IPs using the escalation engine webhook.
 4. **Eradication & Recovery** – Apply patches, redeploy containers, and verify
    with automated security tests (`pytest -k security`, `bandit`, `trivy`).
 5. **Post-Incident Review** – Document root cause, control gaps, and follow-up

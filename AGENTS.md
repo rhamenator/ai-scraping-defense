@@ -10,6 +10,7 @@ This repository contains multiple microservices written mostly in Python. Use th
      pre-commit run --files <file1> [file2 ...]
      ```
    - The project uses `black`, `isort`, and `flake8`.
+   - **Important**: Respect the max line length configured in the repository's tooling (e.g., `.flake8`, `pyproject.toml` (if present), or other formatter configs). Do not assume or hard-code a specific numeric limit.
 
 2. **Run Tests**
    - Execute the unit tests when Python code or tests are modified:
