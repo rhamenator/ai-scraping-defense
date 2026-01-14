@@ -61,7 +61,9 @@ def _load_smtp_password() -> Optional[str]:
             value = f.read().strip()
             return value or None
     except FileNotFoundError as e:
-        logger.warning("SMTP password file not found at %s: %s", ALERT_SMTP_PASSWORD_FILE, e)
+        logger.warning(
+            "SMTP password file not found at %s: %s", ALERT_SMTP_PASSWORD_FILE, e
+        )
     except PermissionError as e:
         logger.error(
             "Permission denied reading SMTP password file at %s: %s",
@@ -97,7 +99,9 @@ async def send_generic_webhook_alert(event_data: "WebhookEvent") -> None:
 
     if ALERT_ABSTRACTIONS_AVAILABLE:
         try:
-            generic_sender = HttpAlertSender(webhook_url=ALERT_GENERIC_WEBHOOK_URL, timeout=10.0)
+            generic_sender = HttpAlertSender(
+                webhook_url=ALERT_GENERIC_WEBHOOK_URL, timeout=10.0
+            )
             alert_data = {
                 "alert_type": "AI_DEFENSE_BLOCK",
                 "reason": event_data.reason,
@@ -144,7 +148,9 @@ async def _send_generic_webhook_alert_legacy(event_data: "WebhookEvent") -> None
     try:
         json_payload = json.loads(json.dumps(payload, default=str))
         async with httpx.AsyncClient() as client:
-            response = await client.post(ALERT_GENERIC_WEBHOOK_URL, json=json_payload, timeout=10.0)
+            response = await client.post(
+                ALERT_GENERIC_WEBHOOK_URL, json=json_payload, timeout=10.0
+            )
             response.raise_for_status()
             logger.info("Generic webhook alert sent successfully for IP %s.", ip)
             log_event(
@@ -177,7 +183,9 @@ async def send_slack_alert(event_data: "WebhookEvent") -> None:
 
     if ALERT_ABSTRACTIONS_AVAILABLE:
         try:
-            slack_sender = SlackAlertSender(webhook_url=ALERT_SLACK_WEBHOOK_URL, timeout=10.0)
+            slack_sender = SlackAlertSender(
+                webhook_url=ALERT_SLACK_WEBHOOK_URL, timeout=10.0
+            )
             alert_data = {
                 "reason": reason,
                 "event_type": event_data.event_type,
@@ -193,7 +201,9 @@ async def send_slack_alert(event_data: "WebhookEvent") -> None:
                     {"reason": reason, "ip": ip},
                 )
             else:
-                log_error(f"Failed to send Slack alert for IP {ip} using new alert system")
+                log_error(
+                    f"Failed to send Slack alert for IP {ip} using new alert system"
+                )
         except Exception as e:  # pragma: no cover - fallback path
             log_error(
                 f"Error using new Slack alert system for IP {ip}, falling back to legacy",
@@ -222,12 +232,16 @@ async def _send_slack_alert_legacy(event_data: "WebhookEvent") -> None:
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(ALERT_SLACK_WEBHOOK_URL, headers=headers, json=payload)
+            response = await client.post(
+                ALERT_SLACK_WEBHOOK_URL, headers=headers, json=payload
+            )
             response.raise_for_status()
         logger.info("Slack alert sent successfully for IP %s.", ip)
         log_event(ALERT_LOG_FILE, "ALERT_SENT_SLACK", {"reason": reason, "ip": ip})
     except httpx.HTTPError as e:
-        log_error(f"Failed to send Slack alert to {ALERT_SLACK_WEBHOOK_URL} for IP {ip}", e)
+        log_error(
+            f"Failed to send Slack alert to {ALERT_SLACK_WEBHOOK_URL} for IP {ip}", e
+        )
     except Exception as e:  # pragma: no cover - unexpected
         log_error(f"Unexpected error sending Slack alert for IP {ip}", e)
 
@@ -268,7 +282,9 @@ IP added to blocklist (TTL: {CONFIG.BLOCKLIST_TTL_SECONDS}s). Logs in {LOG_DIR}.
                     context=ssl.create_default_context(),
                 )
             else:
-                smtp_conn = smtplib.SMTP(str(ALERT_SMTP_HOST), ALERT_SMTP_PORT, timeout=15)
+                smtp_conn = smtplib.SMTP(
+                    str(ALERT_SMTP_HOST), ALERT_SMTP_PORT, timeout=15
+                )
             if ALERT_SMTP_USE_TLS and ALERT_SMTP_PORT != 465:
                 smtp_conn.starttls(context=ssl.create_default_context())
             if ALERT_SMTP_USER:
@@ -297,8 +313,8 @@ IP added to blocklist (TTL: {CONFIG.BLOCKLIST_TTL_SECONDS}s). Logs in {LOG_DIR}.
             if smtp_conn:
                 try:
                     smtp_conn.quit()
-                except Exception:  # pragma: no cover - cleanup failure
-                    pass
+                except Exception as e:  # pragma: no cover - cleanup failure
+                    logger.error(f"Error quitting SMTP connection: {e}")
 
     try:
         await asyncio.to_thread(smtp_send_sync)

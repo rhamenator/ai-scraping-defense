@@ -14,6 +14,7 @@ from src.shared.observability import (
     register_health_check,
     trace_span,
 )
+from src.shared.ssrf_protection import is_private_ip
 
 from .db import add_credit, charge, get_crawler, init_db, register_crawler
 from .pricing import PricingEngine, load_pricing
@@ -98,6 +99,11 @@ async def proxy(full_path: str, request: Request):
         or parsed_upstream.netloc != parsed_base.netloc
     ):
         raise HTTPException(status_code=400, detail="Invalid upstream URL")
+
+    # Additional SSRF protection: check for private IPs in the upstream hostname
+    upstream_hostname = parsed_upstream.hostname
+    if upstream_hostname and is_private_ip(upstream_hostname):
+        raise HTTPException(status_code=400, detail="Access to private IPs not allowed")
     headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
     body_chunks: list[bytes] = []
 

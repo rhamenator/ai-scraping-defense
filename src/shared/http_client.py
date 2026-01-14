@@ -21,7 +21,9 @@ Usage Example:
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence
+
+from .ssrf_protection import SSRFProtectionError, validate_url
 
 try:
     import httpx
@@ -29,44 +31,54 @@ try:
 except ImportError:
     HTTPX_AVAILABLE = False
     # Create stubs for development environments without httpx
+
     class httpx:
+
         class AsyncClient:
+
             def __init__(self, *args, **kwargs):
                 pass
+
             async def __aenter__(self):
                 return self
+
             async def __aexit__(self, *args):
                 pass
+
             async def post(self, *args, **kwargs):
                 raise RuntimeError("httpx not available")
+
             async def get(self, *args, **kwargs):
                 raise RuntimeError("httpx not available")
-        
+
         class Response:
+
             def __init__(self):
                 self.status_code = 200
                 self.content = b"test"
                 self.text = "test"
-                
+
             def raise_for_status(self):
                 if self.status_code >= 400:
                     raise httpx.HTTPStatusError("HTTP error", response=self)
-        
+
         class HTTPError(Exception):
             pass
-        
+
         class RequestError(HTTPError):
             pass
-        
+
         class TimeoutException(HTTPError):
             pass
-        
+
         class HTTPStatusError(HTTPError):
+
             def __init__(self, message, response=None):
                 super().__init__(message)
                 self.response = response
-        
+
         class Limits:
+
             def __init__(self, *args, **kwargs):
                 pass
 
@@ -76,58 +88,73 @@ logger = logging.getLogger(__name__)
 
 class AsyncHttpClient:
     """Async context-managed HTTP client abstraction using httpx.AsyncClient.
-    
+
     Provides a clean interface for making HTTP requests with proper connection
     lifecycle management, configurable timeouts, and helper methods for common
     operations like JSON POST requests.
-    
+
+    Includes built-in SSRF protection to prevent requests to private IPs,
+    localhost, and enforce domain allowlists.
+
     Attributes:
         timeout (float): Default timeout in seconds for HTTP requests
         follow_redirects (bool): Whether to follow HTTP redirects
         verify (bool): Whether to verify SSL certificates
         limits (httpx.Limits): Connection pool limits configuration
+        allowed_domains (Optional[Sequence[str]]): Allowlist of permitted domains
+        block_private_ips (bool): Whether to block private IP addresses
+        require_https (bool): Whether to require HTTPS for all requests
     """
-    
+
     def __init__(
-        self, 
+        self,
         timeout: float = 30.0,
         follow_redirects: bool = True,
         verify: bool = True,
         max_connections: int = 100,
-        max_keepalive_connections: int = 20
+        max_keepalive_connections: int = 20,
+        allowed_domains: Optional[Sequence[str]] = None,
+        block_private_ips: bool = True,
+        require_https: bool = False
     ):
         """Initialize the HTTP client with configuration.
-        
+
         Args:
             timeout: Default timeout in seconds for all requests
             follow_redirects: Whether to automatically follow redirects
             verify: Whether to verify SSL certificates
             max_connections: Maximum number of connections in the pool
             max_keepalive_connections: Maximum number of keep-alive connections
+            allowed_domains: Optional list of allowed domains for SSRF protection
+            block_private_ips: Whether to block requests to private IPs (default: True)
+            require_https: Whether to require HTTPS for all requests (default: False)
         """
         if not HTTPX_AVAILABLE:
             logger.warning("httpx not available. HTTP client functionality will be limited.")
-        
+
         self.timeout = timeout
         self.follow_redirects = follow_redirects
         self.verify = verify
         self.max_connections = max_connections
         self.max_keepalive_connections = max_keepalive_connections
+        self.allowed_domains = allowed_domains
+        self.block_private_ips = block_private_ips
+        self.require_https = require_https
         self._client: Optional[httpx.AsyncClient] = None
-    
+
     async def __aenter__(self) -> 'AsyncHttpClient':
         """Enter the async context and initialize the HTTP client."""
         if not HTTPX_AVAILABLE:
             logger.error("Cannot create HTTP client: httpx not available")
             return self
-        
+
         try:
             # Create connection limits for the client
             limits = httpx.Limits(
                 max_connections=self.max_connections,
                 max_keepalive_connections=self.max_keepalive_connections
             )
-            
+
             # Initialize the httpx client with our configuration
             self._client = httpx.AsyncClient(
                 timeout=self.timeout,
@@ -135,20 +162,20 @@ class AsyncHttpClient:
                 verify=self.verify,
                 limits=limits
             )
-            
+
             logger.debug(
                 f"HTTP client initialized with timeout={self.timeout}s, "
                 f"max_connections={self.max_connections}, "
                 f"max_keepalive={self.max_keepalive_connections}"
             )
-            
+
         except Exception as e:
             logger.error(f"Failed to initialize HTTP client: {e}")
             self._client = None
             raise
-        
+
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Exit the async context and properly close the HTTP client."""
         if self._client:
@@ -159,12 +186,12 @@ class AsyncHttpClient:
                 logger.error(f"Error closing HTTP client: {e}")
             finally:
                 self._client = None
-    
+
     @property
     def is_available(self) -> bool:
         """Check if the HTTP client is available and ready for use."""
         return HTTPX_AVAILABLE and self._client is not None
-    
+
     async def async_post_json(
         self,
         url: str,
@@ -173,33 +200,46 @@ class AsyncHttpClient:
         timeout: Optional[float] = None
     ) -> 'httpx.Response':
         """Make an async POST request with JSON payload.
-        
+
         Args:
             url: The URL to send the POST request to
             data: Dictionary to be sent as JSON in the request body
             headers: Optional additional headers to include
             timeout: Optional timeout override for this request
-            
+
         Returns:
             httpx.Response: The HTTP response object
-            
+
         Raises:
             RuntimeError: If the HTTP client is not available
+            SSRFProtectionError: If the URL fails SSRF validation
             httpx.RequestError: For network-related errors
             httpx.TimeoutException: If the request times out
             httpx.HTTPStatusError: For HTTP status errors (4xx, 5xx)
         """
+        # Validate URL for SSRF protection first (before checking client availability)
+        try:
+            validate_url(
+                url,
+                allowed_domains=self.allowed_domains,
+                block_private_ips=self.block_private_ips,
+                require_https=self.require_https,
+            )
+        except SSRFProtectionError as e:
+            logger.error(f"SSRF protection blocked POST request to {url}: {e}")
+            raise
+
         if not self.is_available:
             raise RuntimeError("HTTP client is not available or not initialized")
-        
+
         # Set default headers for JSON requests
         request_headers = {"Content-Type": "application/json"}
         if headers:
             request_headers.update(headers)
-        
+
         # Use provided timeout or fall back to instance default
         request_timeout = timeout if timeout is not None else self.timeout
-        
+
         try:
             logger.debug(f"Making JSON POST request to {url}")
             response = await self._client.post(
@@ -208,14 +248,14 @@ class AsyncHttpClient:
                 headers=request_headers,
                 timeout=request_timeout
             )
-            
+
             logger.debug(
                 f"Received response: {response.status_code} from {url} "
                 f"(Content-Length: {len(response.content)} bytes)"
             )
-            
+
             return response
-            
+
         except httpx.TimeoutException as e:
             logger.error(f"Timeout making POST request to {url}: {e}")
             raise
@@ -225,7 +265,7 @@ class AsyncHttpClient:
         except Exception as e:
             logger.error(f"Unexpected error making POST request to {url}: {e}")
             raise
-    
+
     async def async_get(
         self,
         url: str,
@@ -234,27 +274,40 @@ class AsyncHttpClient:
         timeout: Optional[float] = None
     ) -> 'httpx.Response':
         """Make an async GET request.
-        
+
         Args:
             url: The URL to send the GET request to
             params: Optional query parameters
             headers: Optional headers to include
             timeout: Optional timeout override for this request
-            
+
         Returns:
             httpx.Response: The HTTP response object
-            
+
         Raises:
             RuntimeError: If the HTTP client is not available
+            SSRFProtectionError: If the URL fails SSRF validation
             httpx.RequestError: For network-related errors
             httpx.TimeoutException: If the request times out
             httpx.HTTPStatusError: For HTTP status errors (4xx, 5xx)
         """
+        # Validate URL for SSRF protection first (before checking client availability)
+        try:
+            validate_url(
+                url,
+                allowed_domains=self.allowed_domains,
+                block_private_ips=self.block_private_ips,
+                require_https=self.require_https,
+            )
+        except SSRFProtectionError as e:
+            logger.error(f"SSRF protection blocked GET request to {url}: {e}")
+            raise
+
         if not self.is_available:
             raise RuntimeError("HTTP client is not available or not initialized")
-        
+
         request_timeout = timeout if timeout is not None else self.timeout
-        
+
         try:
             logger.debug(f"Making GET request to {url}")
             response = await self._client.get(
@@ -263,14 +316,14 @@ class AsyncHttpClient:
                 headers=headers,
                 timeout=request_timeout
             )
-            
+
             logger.debug(
                 f"Received response: {response.status_code} from {url} "
                 f"(Content-Length: {len(response.content)} bytes)"
             )
-            
+
             return response
-            
+
         except httpx.TimeoutException as e:
             logger.error(f"Timeout making GET request to {url}: {e}")
             raise
