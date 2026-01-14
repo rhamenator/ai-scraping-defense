@@ -6,14 +6,12 @@
 name: DevSkim
 
 on:
-  workflow_dispatch: # Allows manual triggering of the workflow from the GitHub UI
-  # Uncomment the lines below to enable automatic runs on push or pull request events
-  # push:
-  #   branches: [ "main" ]
-  # pull_request:
-  #   branches: [ "main" ]
-  # schedule:
-  #   - cron: '45 0 * * 1'
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '38 14 * * 2'
 
 jobs:
   lint:
@@ -25,12 +23,14 @@ jobs:
       security-events: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        uses: actions/checkout@v4
 
       - name: Run DevSkim scanner
         uses: microsoft/DevSkim-Action@v1
 
       - name: Upload DevSkim scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@528ca598d956c91826bd742262cdfc5d02b77710
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('devskim-results.sarif') != ''
+        continue-on-error: true
         with:
           sarif_file: devskim-results.sarif
