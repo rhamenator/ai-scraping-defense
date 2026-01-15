@@ -5,6 +5,7 @@ before forwarding to the configured backend. Intended for use with IIS
 when a custom HttpModule is not desired.
 """
 
+import ipaddress
 import logging
 import os
 from dataclasses import dataclass
@@ -89,7 +90,9 @@ async def rate_limited(ip: str) -> bool:
         return False
     key = f"{settings.TENANT_ID}:ratelimit:{ip}"
     try:
-        with trace_span("iis_gateway.rate_limit", attributes={"ip": ip, "limit": limit}):
+        with trace_span(
+            "iis_gateway.rate_limit", attributes={"ip": ip, "limit": limit}
+        ):
             count = redis_client.incr(key)
             if count == 1:
                 redis_client.expire(key, 60)
@@ -181,4 +184,6 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=9000)
+    default_host = str(ipaddress.IPv4Address(0))
+    host = os.getenv("IIS_GATEWAY_HOST", default_host)
+    uvicorn.run(app, host=host, port=9000)

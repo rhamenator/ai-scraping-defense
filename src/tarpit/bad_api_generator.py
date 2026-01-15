@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-import random
+import secrets
 import string
 from typing import List
 
@@ -37,17 +37,19 @@ RESOURCE_NAMES = [
 
 GENERATED_BAD_API_ENDPOINTS: List[str] = []
 
+_ALPHABET = string.ascii_lowercase + string.digits
+
 
 def _rand_str(length: int = 6) -> str:
-    return "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
+    return "".join(secrets.choice(_ALPHABET) for _ in range(length))
 
 
 def generate_bad_endpoints(count: int = 5) -> List[str]:
     """Return a list of fake API endpoint paths."""
     endpoints: List[str] = []
     for _ in range(count):
-        prefix = random.choice(COMMON_PREFIXES)
-        resource = random.choice(RESOURCE_NAMES)
+        prefix = secrets.choice(COMMON_PREFIXES)
+        resource = secrets.choice(RESOURCE_NAMES)
         unique = _rand_str()
         endpoints.append(f"/{prefix}/{resource}/{unique}")
     return endpoints

@@ -1,5 +1,12 @@
-import statistics
 from typing import Iterable
+
+try:
+    import numpy as np
+
+    HAS_NUMPY = True
+except ImportError:
+    np = None
+    HAS_NUMPY = False
 
 
 def compute_rate_limit(
@@ -10,11 +17,23 @@ def compute_rate_limit(
     If the average of recent_counts exceeds base_rate * multiplier, the new limit
     is decreased by half. If the average falls below base_rate * 0.5, the limit
     is increased by 50%. Otherwise the base_rate is returned.
+
+    Performance: Uses NumPy's vectorized mean operation when available for
+    SIMD-accelerated computation on larger arrays.
     """
     counts = list(recent_counts)
     if not counts:
         return base_rate
-    avg = statistics.mean(counts)
+
+    # Use vectorized NumPy mean for SIMD acceleration
+    if HAS_NUMPY and len(counts) > 1:
+        avg = float(np.mean(counts, dtype=np.float64))
+    else:
+        # Fallback for environments without NumPy
+        import statistics
+
+        avg = statistics.mean(counts)
+
     if avg > base_rate * multiplier:
         return int(base_rate * 0.5)
     if avg < base_rate * 0.5:

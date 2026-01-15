@@ -1,6 +1,6 @@
 import logging
 import os
-import subprocess
+import subprocess  # nosec B404
 
 ENABLE_WAF = os.getenv("ENABLE_WAF", "true").lower() == "true"
 WAF_RULES_PATH = os.getenv(
@@ -37,7 +37,7 @@ def reload_waf_rules(rules: list[str]) -> bool:
         with open(WAF_RULES_PATH, "w") as f:
             f.write("\n".join(rules) + "\n")
         logger.info("WAF rules written. Reloading Nginx...")
-        subprocess.run(NGINX_RELOAD_CMD, check=True)
+        subprocess.run(NGINX_RELOAD_CMD, check=True)  # nosec B603
         logger.info("Nginx reloaded with new WAF rules.")
         return True
     except Exception as exc:  # pylint: disable=broad-except

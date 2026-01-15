@@ -22,13 +22,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with: { fetch-depth: 0 }
-      - uses: github/codeql-action/init@528ca598d956c91826bd742262cdfc5d02b77710
+      - uses: github/codeql-action/init@ce729e4d353d580e6cacd6a8cf2921b72e5e310a
         with:
           languages: "javascript, typescript, python, go, ruby, java, cpp"
-      - uses: github/codeql-action/autobuild@528ca598d956c91826bd742262cdfc5d02b77710
-      - uses: github/codeql-action/analyze@528ca598d956c91826bd742262cdfc5d02b77710
+      - uses: github/codeql-action/autobuild@ce729e4d353d580e6cacd6a8cf2921b72e5e310a
+      - uses: github/codeql-action/analyze@ce729e4d353d580e6cacd6a8cf2921b72e5e310a
         with: { category: "/language:auto" }
       - name: Install scanners & deps
         run: |
@@ -110,5 +110,5 @@ jobs:
               print(f"| {k.capitalize()} | {d.get(k,0)} |")
           print(f"| **Total** | **{d.get('total',0)}** |")
           PY
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with: { name: security-reports, path: reports/ }

@@ -3,26 +3,26 @@
 # extracts features, trains RandomForest, AND saves data for LLM fine-tuning.
 # This version is refactored for high performance using pandas.
 
-import pandas as pd
-import re
+import argparse
 import datetime
-from collections import defaultdict
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.feature_extraction import DictVectorizer
-from sklearn.metrics import classification_report, accuracy_score, roc_auc_score
-from sklearn.pipeline import Pipeline
-import joblib
-import time
-import os
-from urllib.parse import urlparse
 import json
+import os
 import random
+import re
+import time
+from collections import defaultdict
+from typing import Any, Dict, List, Optional, Tuple
+
+import joblib
+import pandas as pd
 import psycopg2
 from psycopg2.extras import DictCursor
-from typing import Optional, Dict, Any, List, Tuple
-import argparse
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
 
 # GeoIP lookup
 try:
@@ -314,7 +314,8 @@ def load_feedback_data() -> Tuple[set, set]:
                     ip = data.get("ip") or data.get("details", {}).get("ip")
                     if ip:
                         honeypot_triggers.add(ip)
-                except Exception:
+                except Exception as e:
+                    print(f"Warning: Failed to parse honeypot line: {e}")
                     continue
         print(f"Loaded {len(honeypot_triggers)} IPs from {honeypot_path}")
     except FileNotFoundError:
@@ -334,7 +335,8 @@ def load_feedback_data() -> Tuple[set, set]:
                         parts = line.strip().split(",")
                         if len(parts) > 1:
                             captcha_successes.add(parts[1].strip())
-                except Exception:
+                except Exception as e:
+                    print(f"Warning: Failed to parse CAPTCHA line: {e}")
                     continue
         print(f"Loaded {len(captcha_successes)} IPs from {captcha_path}")
     except FileNotFoundError:
