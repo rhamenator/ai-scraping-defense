@@ -330,8 +330,10 @@ class GDPRComplianceManager:
                 request_data["status"] = "failed"
                 request_data["notes"] = str(e)
                 self.redis_conn.set(key, json.dumps(request_data))
-            except Exception as e:
-                logger.error(f"Failed to store failed request data in Redis: {e}")
+            except Exception as redis_err:
+                logger.error(
+                    f"Failed to update deletion request status in Redis: {redis_err}"
+                )
             return False
 
     def _delete_user_data(self, user_id: str, data_categories: List[str]) -> None:

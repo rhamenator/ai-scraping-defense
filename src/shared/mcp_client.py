@@ -343,12 +343,12 @@ def _normalise_tool_result(result: Any) -> Dict[str, Any]:
         try:
             return result.model_dump()  # type: ignore[return-value]
         except Exception as e:  # pragma: no cover - defensive
-            logger.debug(f"model_dump() failed on MCP result: {e}")
+            logger.debug(f"Failed to call model_dump() on result: {e}")
     if hasattr(result, "dict"):
         try:
             return result.dict()  # type: ignore[return-value]
         except Exception as e:  # pragma: no cover - defensive
-            logger.debug(f"dict() failed on MCP result: {e}")
+            logger.debug(f"Failed to call dict() on result: {e}")
     return {"raw": repr(result)}
 
 
