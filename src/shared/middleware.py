@@ -15,10 +15,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-from .observability import (
-    ObservabilitySettings,
-    configure_observability,
-)
+from .observability import ObservabilitySettings, configure_observability
 
 
 @dataclass(frozen=True)
@@ -38,10 +35,16 @@ def _parse_int(name: str, default: int) -> int:
     try:
         parsed = int(value)
     except ValueError:
-        raise ValueError(f"Environment variable {name} must be a positive integer, got {value!r}")
+        raise ValueError(
+            f"Environment variable {name} must be a positive integer, got {value!r}"
+        )
     if parsed <= 0:
-        raise ValueError(f"Environment variable {name} must be a positive integer, got {parsed!r}")
+        raise ValueError(
+            f"Environment variable {name} must be a positive integer, got {parsed!r}"
+        )
     return parsed
+
+
 def _load_security_settings() -> SecuritySettings:
     """Load security middleware settings from environment variables."""
 
@@ -148,6 +151,7 @@ def add_security_middleware(
         max_requests=settings.rate_limit_requests,
         window_seconds=settings.rate_limit_window,
     )
+
     # Add standard security headers to all responses
     @app.middleware("http")
     async def _security_headers(request, call_next):
@@ -156,6 +160,10 @@ def add_security_middleware(
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault(
+            "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
+        )
+        response.headers.setdefault("X-Permitted-Cross-Domain-Policies", "none")
         # Legacy XSS header (modern browsers rely on CSP); included per security baseline
         response.headers.setdefault("X-XSS-Protection", "1; mode=block")
         # Provide a conservative default CSP if not already set upstream
