@@ -33,7 +33,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -c constraints.txt
-          pip install bandit pip-audit
+          pip install bandit pip-audit pytest
       - name: Static security checks
         run: |
           scripts/security/run_static_security_checks.py

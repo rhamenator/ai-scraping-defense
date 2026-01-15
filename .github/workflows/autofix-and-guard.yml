@@ -97,6 +97,7 @@ jobs:
           python -m pip install --upgrade pip
           pipx install black isort ruff bandit flake8 docformatter ansible-lint yamllint || python -m pip install --user black isort ruff bandit flake8 docformatter ansible-lint yamllint
           if [ -f requirements.txt ]; then python -m pip install -r requirements.txt || true; fi
+          python -m pip install pytest || true
           # pre-commit if configured
           if [ -f .pre-commit-config.yaml ]; then pipx install pre-commit || python -m pip install --user pre-commit; fi
           # JS tooling (global formatters always; eslint only if repo uses node)
