@@ -12,8 +12,9 @@ on:
         default: "json"
       autofix:
         description: "Run autofix and open PR (true|false)"
+        type: boolean
         required: false
-        default: "true"
+        default: true
   workflow_call:
     inputs:
       severity_filter:
@@ -25,9 +26,9 @@ on:
         required: false
         default: json
       autofix:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
 
 permissions:
   contents: read
@@ -41,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with: { fetch-depth: 0 }
 
       - name: Setup Python
@@ -299,7 +300,7 @@ jobs:
           EOF
 
       - name: Upload Security Reports
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: comprehensive-security-reports
           path: reports/security/
@@ -311,10 +312,10 @@ jobs:
           cat reports/security/SECURITY_SUMMARY.md >> $GITHUB_STEP_SUMMARY
 
   autofix:
-    if: ${{ inputs.autofix == 'true' }}
+    if: ${{ inputs.autofix }}
     needs: comprehensive-security-audit
     uses: ./.github/workflows/autofix-and-guard.yml
     with:
       category: security
       pr_title: Automated security fixes
-      automerge: "true"
+      automerge: true

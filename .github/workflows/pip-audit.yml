@@ -5,16 +5,65 @@ permissions:
 
 on:
   workflow_dispatch:
+    inputs:
+      update_lockfile:
+        description: Regenerate requirements.lock instead of running pip-audit
+        required: false
+        type: boolean
+        default: false
   schedule:
     - cron: '0 6 * * 0'
 
 jobs:
-  audit:
+  update-lockfile:
+    if: github.event_name == 'workflow_dispatch' && inputs.update_lockfile
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: true
       - name: Set up Python
         uses: actions/setup-python@v6.0.0
+        with:
+          python-version: '3.12'
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+      - name: Install pip-tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-tools
+      - name: Regenerate requirements.lock
+        env:
+          PIP_DISABLE_PIP_VERSION_CHECK: "1"
+          PIP_DEFAULT_TIMEOUT: "120"
+          PIP_RETRY: "5"
+        run: |
+          python -m piptools compile \
+            --upgrade-package mcp \
+            --upgrade-package urllib3 \
+            --output-file requirements.lock \
+            requirements.txt
+      - name: Commit updated lockfile
+        run: |
+          if git diff --quiet -- requirements.lock; then
+            echo "No lockfile changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add requirements.lock
+          git commit -m "Update requirements.lock"
+          git push
+
+  audit:
+    if: github.event_name != 'workflow_dispatch' || !inputs.update_lockfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       - name: Install dependencies
@@ -26,6 +75,6 @@ jobs:
         run: |
           pip-audit -r requirements.txt -f sarif -o pip-audit.sarif
       - name: Upload results
-        uses: github/codeql-action/upload-sarif@528ca598d956c91826bd742262cdfc5d02b77710
+        uses: github/codeql-action/upload-sarif@ce729e4d353d580e6cacd6a8cf2921b72e5e310a
         with:
           sarif_file: pip-audit.sarif

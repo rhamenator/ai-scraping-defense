@@ -9,4 +9,4 @@ The project aims to collaborate with external cybersecurity groups and open-sour
 - **Community Submissions** – Allow peers to contribute suspicious traffic patterns for collective analysis.
 - **Federated Blocklists** – Exchange blocklist entries with other deployments to strengthen defenses.
 
-Each integration point can be enabled or disabled via environment variables in `sample.env`.
+Each integration point can be enabled or disabled via environment variables.  Logging is enabled for API calls to track usage. Consult the project documentation for details on configuring and monitoring these integrations.

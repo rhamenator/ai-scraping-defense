@@ -13,16 +13,19 @@ on:
         default: Automated fixes
       automerge:
         description: Enable automerge when checks pass (true|false)
+        type: boolean
         required: false
-        default: "true"
+        default: true
       run_tests:
         description: Run tests before/after fixes (true|false)
+        type: boolean
         required: false
-        default: "true"
+        default: true
       create_issue_on_failure:
         description: Create an issue if no fixes or regressions detected (true|false)
+        type: boolean
         required: false
-        default: "true"
+        default: true
       base_branch:
         description: Base branch for the PR
         required: false
@@ -38,17 +41,17 @@ on:
         required: false
         default: Automated fixes
       automerge:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
       run_tests:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
       create_issue_on_failure:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
       base_branch:
         type: string
         required: false
@@ -77,7 +80,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with:
           fetch-depth: 0
 
@@ -97,6 +100,7 @@ jobs:
           python -m pip install --upgrade pip
           pipx install black isort ruff bandit flake8 docformatter ansible-lint yamllint || python -m pip install --user black isort ruff bandit flake8 docformatter ansible-lint yamllint
           if [ -f requirements.txt ]; then python -m pip install -r requirements.txt || true; fi
+          python -m pip install pytest || true
           # pre-commit if configured
           if [ -f .pre-commit-config.yaml ]; then pipx install pre-commit || python -m pip install --user pre-commit; fi
           # JS tooling (global formatters always; eslint only if repo uses node)
@@ -666,21 +670,52 @@ jobs:
           PY
           # Determine regression conditions
           REGRESS=0
-          if [ ${{ steps.after.outputs.flake8_after }} -gt ${{ steps.baseline.outputs.flake8_before || 0 }} ]; then REGRESS=1; fi
-          if [ ${{ steps.after.outputs.bandit_after }} -gt ${{ steps.baseline.outputs.bandit_before || 0 }} ]; then REGRESS=1; fi
-          if [ ${{ steps.after.outputs.eslint_after }} -gt ${{ steps.baseline.outputs.eslint_before || 0 }} ]; then REGRESS=1; fi
-          if [ ${{ steps.after.outputs.yamllint_after }} -gt ${{ steps.baseline.outputs.yamllint_before || 0 }} ]; then REGRESS=1; fi
-          if [ ${{ steps.after.outputs.shellcheck_after }} -gt ${{ steps.baseline.outputs.shellcheck_before || 0 }} ]; then REGRESS=1; fi
-          if [ ${{ steps.after.outputs.hadolint_after }} -gt ${{ steps.baseline.outputs.hadolint_before || 0 }} ]; then REGRESS=1; fi
-          if [ ${{ steps.after.outputs.markdownlint_after }} -gt ${{ steps.baseline.outputs.markdownlint_before || 0 }} ]; then REGRESS=1; fi
-          if [ ${{ steps.after.outputs.golangci_after }} -gt ${{ steps.baseline.outputs.golangci_before || 0 }} ]; then REGRESS=1; fi
-          if [ ${{ steps.after.outputs.tflint_after }} -gt ${{ steps.baseline.outputs.tflint_before || 0 }} ]; then REGRESS=1; fi
-          if [ ${{ steps.after.outputs.tfsec_after }} -gt ${{ steps.baseline.outputs.tfsec_before || 0 }} ]; then REGRESS=1; fi
-          if [ ${{ steps.after.outputs.actionlint_after }} -gt ${{ steps.baseline.outputs.actionlint_before || 0 }} ]; then REGRESS=1; fi
-          if [ ${{ steps.after.outputs.nginx_after }} -gt ${{ steps.baseline.outputs.nginx_before || 0 }} ]; then REGRESS=1; fi
-          if [ ${{ steps.after.outputs.apache_after }} -gt ${{ steps.baseline.outputs.apache_before || 0 }} ]; then REGRESS=1; fi
-          if [ "${RUN_TESTS}" = "true" ] && [ ${{ steps.baseline.outputs.tests_before || 0 }} -eq 0 ] && [ ${{ steps.after.outputs.tests_after || 0 }} -ne 0 ]; then REGRESS=1; fi
-          if [ ${{ steps.after.outputs.pssa_after }} -gt ${{ steps.baseline.outputs.pssa_before || 0 }} ]; then REGRESS=1; fi
+          FL_BEFORE="${{ steps.baseline.outputs.flake8_before || 0 }}"
+          FL_AFTER="${{ steps.after.outputs.flake8_after || 0 }}"
+          BD_BEFORE="${{ steps.baseline.outputs.bandit_before || 0 }}"
+          BD_AFTER="${{ steps.after.outputs.bandit_after || 0 }}"
+          ESL_BEFORE="${{ steps.baseline.outputs.eslint_before || 0 }}"
+          ESL_AFTER="${{ steps.after.outputs.eslint_after || 0 }}"
+          YL_BEFORE="${{ steps.baseline.outputs.yamllint_before || 0 }}"
+          YL_AFTER="${{ steps.after.outputs.yamllint_after || 0 }}"
+          SC_BEFORE="${{ steps.baseline.outputs.shellcheck_before || 0 }}"
+          SC_AFTER="${{ steps.after.outputs.shellcheck_after || 0 }}"
+          HD_BEFORE="${{ steps.baseline.outputs.hadolint_before || 0 }}"
+          HD_AFTER="${{ steps.after.outputs.hadolint_after || 0 }}"
+          MD_BEFORE="${{ steps.baseline.outputs.markdownlint_before || 0 }}"
+          MD_AFTER="${{ steps.after.outputs.markdownlint_after || 0 }}"
+          GO_BEFORE="${{ steps.baseline.outputs.golangci_before || 0 }}"
+          GO_AFTER="${{ steps.after.outputs.golangci_after || 0 }}"
+          TF_BEFORE="${{ steps.baseline.outputs.tflint_before || 0 }}"
+          TF_AFTER="${{ steps.after.outputs.tflint_after || 0 }}"
+          TS_BEFORE="${{ steps.baseline.outputs.tfsec_before || 0 }}"
+          TS_AFTER="${{ steps.after.outputs.tfsec_after || 0 }}"
+          AL_BEFORE="${{ steps.baseline.outputs.actionlint_before || 0 }}"
+          AL_AFTER="${{ steps.after.outputs.actionlint_after || 0 }}"
+          NG_BEFORE="${{ steps.baseline.outputs.nginx_before || 0 }}"
+          NG_AFTER="${{ steps.after.outputs.nginx_after || 0 }}"
+          AP_BEFORE="${{ steps.baseline.outputs.apache_before || 0 }}"
+          AP_AFTER="${{ steps.after.outputs.apache_after || 0 }}"
+          PS_BEFORE="${{ steps.baseline.outputs.pssa_before || 0 }}"
+          PS_AFTER="${{ steps.after.outputs.pssa_after || 0 }}"
+          TESTS_BEFORE="${{ steps.baseline.outputs.tests_before || 0 }}"
+          TESTS_AFTER="${{ steps.after.outputs.tests_after || 0 }}"
+
+          if [ "$FL_AFTER" -gt "$FL_BEFORE" ]; then REGRESS=1; fi
+          if [ "$BD_AFTER" -gt "$BD_BEFORE" ]; then REGRESS=1; fi
+          if [ "$ESL_AFTER" -gt "$ESL_BEFORE" ]; then REGRESS=1; fi
+          if [ "$YL_AFTER" -gt "$YL_BEFORE" ]; then REGRESS=1; fi
+          if [ "$SC_AFTER" -gt "$SC_BEFORE" ]; then REGRESS=1; fi
+          if [ "$HD_AFTER" -gt "$HD_BEFORE" ]; then REGRESS=1; fi
+          if [ "$MD_AFTER" -gt "$MD_BEFORE" ]; then REGRESS=1; fi
+          if [ "$GO_AFTER" -gt "$GO_BEFORE" ]; then REGRESS=1; fi
+          if [ "$TF_AFTER" -gt "$TF_BEFORE" ]; then REGRESS=1; fi
+          if [ "$TS_AFTER" -gt "$TS_BEFORE" ]; then REGRESS=1; fi
+          if [ "$AL_AFTER" -gt "$AL_BEFORE" ]; then REGRESS=1; fi
+          if [ "$NG_AFTER" -gt "$NG_BEFORE" ]; then REGRESS=1; fi
+          if [ "$AP_AFTER" -gt "$AP_BEFORE" ]; then REGRESS=1; fi
+          if [ "${RUN_TESTS}" = "true" ] && [ "$TESTS_BEFORE" -eq 0 ] && [ "$TESTS_AFTER" -ne 0 ]; then REGRESS=1; fi
+          if [ "$PS_AFTER" -gt "$PS_BEFORE" ]; then REGRESS=1; fi
           echo "regression=${REGRESS}" >> $GITHUB_OUTPUT
 
       - name: Create pull request (if changes)
@@ -720,21 +755,21 @@ jobs:
             }
 
       - name: Upload Autofix Report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: autofix-report-${{ env.CATEGORY }}
           path: .autofix
           retention-days: 14
 
       - name: Enable automerge (if clean)
-        if: steps.commit.outputs.changed == 'true' && steps.report.outputs.regression == '0' && inputs.automerge == 'true'
+        if: steps.commit.outputs.changed == 'true' && steps.report.outputs.regression == '0' && inputs.automerge
         uses: peter-evans/enable-pull-request-automerge@a660677d5469627102a1c1e11409dd063606628d
         with:
           pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
           merge-method: SQUASH
 
       - name: Create issue for regression
-        if: steps.commit.outputs.changed == 'true' && steps.report.outputs.regression == '1' && inputs.create_issue_on_failure == 'true'
+        if: steps.commit.outputs.changed == 'true' && steps.report.outputs.regression == '1' && inputs.create_issue_on_failure
         uses: peter-evans/create-issue-from-file@v6
         with:
           title: "Autofix regression detected (${{ env.CATEGORY }})"
@@ -742,7 +777,7 @@ jobs:
           labels: autofix, regression, ${{ env.CATEGORY }}
 
       - name: Create issue when no changes
-        if: steps.commit.outputs.changed != 'true' && inputs.create_issue_on_failure == 'true'
+        if: steps.commit.outputs.changed != 'true' && inputs.create_issue_on_failure
         uses: peter-evans/create-issue-from-file@v6
         with:
           title: "No automated fixes available (${{ env.CATEGORY }})"

@@ -16,27 +16,81 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-def _fetch_vault_secret(secret_path: str) -> Optional[str]:
-    """Retrieve a secret from HashiCorp Vault via HTTP."""
-    vault_addr = os.getenv("VAULT_ADDR")
-    token = os.getenv("VAULT_TOKEN")
-    if not (vault_addr and token):
-        return None
-    url = f"{vault_addr.rstrip('/')}/v1/{secret_path.lstrip('/')}"
+def _fetch_vault_secret(secret_path: str, key: str = "value") -> Optional[str]:
+    """
+    Retrieve a secret from HashiCorp Vault using the enhanced vault_client.
+
+    Args:
+        secret_path: Path to the secret in Vault (e.g., 'myapp/database')
+        key: Key within the secret data (default: 'value')
+
+    Returns:
+        Secret value as string or None if not found
+    """
     try:
+        # Use the enhanced vault client if available
+        from src.shared.vault_client import get_vault_client
+
+        vault_client = get_vault_client()
+        if vault_client:
+            secret = vault_client.get_secret_value(secret_path, key)
+            if secret is not None:
+                return secret
+
+        # Fallback to legacy HTTP method for backward compatibility
+        vault_addr = os.getenv("VAULT_ADDR")
+        token = os.getenv("VAULT_TOKEN")
+        if not (vault_addr and token):
+            return None
+
+        # Parse path to determine mount point and secret path
+        # Format: <mount_point>/data/<path> for KV v2
+        parts = secret_path.lstrip("/").split("/", 1)
+        if len(parts) == 2 and parts[0]:
+            mount_point = parts[0]
+            path = parts[1]
+            # Remove 'data/' prefix if present (KV v2 API)
+            if path.startswith("data/"):
+                path = path[5:]
+            url = f"{vault_addr.rstrip('/')}/v1/{mount_point}/data/{path}"
+        else:
+            url = f"{vault_addr.rstrip('/')}/v1/{secret_path.lstrip('/')}"
+
         with requests.get(url, headers={"X-Vault-Token": token}, timeout=5) as resp:
             if resp.ok:
                 data = resp.json().get("data", {}).get("data", {})
-                secret = data.get("value")
+                secret = data.get(key)
             else:
                 secret = None
+    except ImportError:
+        logger.warning("vault_client not available, using legacy HTTP method")
+        vault_addr = os.getenv("VAULT_ADDR")
+        token = os.getenv("VAULT_TOKEN")
+        if not (vault_addr and token):
+            return None
+        url = f"{vault_addr.rstrip('/')}/v1/{secret_path.lstrip('/')}"
+        try:
+            with requests.get(url, headers={"X-Vault-Token": token}, timeout=5) as resp:
+                if resp.ok:
+                    data = resp.json().get("data", {}).get("data", {})
+                    secret = data.get(key)
+                else:
+                    secret = None
+        except requests.RequestException as exc:
+            logger.warning("Could not read secret from Vault at %s: %s", secret_path, exc)
+            return None
     except requests.RequestException as exc:
         logger.warning("Could not read secret from Vault at %s: %s", secret_path, exc)
         return None
+    except Exception as exc:
+        logger.warning("Error fetching secret from Vault at %s: %s", secret_path, exc)
+        return None
+
     try:
         return secret
     finally:
-        del secret
+        if secret is not None:
+            del secret
 
 
 def get_secret(file_variable_name: str) -> Optional[str]:

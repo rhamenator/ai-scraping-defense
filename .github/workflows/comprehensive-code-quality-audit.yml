@@ -8,12 +8,14 @@ on:
         default: "moderate"
       include_metrics:
         description: "Include detailed metrics (true|false)"
+        type: boolean
         required: false
-        default: "true"
+        default: true
       autofix:
         description: "Run autofix and open PR (true|false)"
+        type: boolean
         required: false
-        default: "true"
+        default: true
   workflow_call:
     inputs:
       quality_threshold:
@@ -21,16 +23,16 @@ on:
         required: false
         default: moderate
       include_metrics:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
       autofix:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   issues: write
 
@@ -39,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with: { fetch-depth: 0 }
 
       - name: Setup Code Quality Analysis Environment
@@ -51,7 +53,7 @@ jobs:
           go install honnef.co/go/tools/cmd/staticcheck@latest
 
           # Additional quality tools
-          pip3 install --user prospector complexity-report
+          pip3 install --user prospector
           npm install -g complexity-report plato
 
       - name: Create Reports Directory
@@ -228,7 +230,7 @@ jobs:
           grep -r "require\|import.*from" --include="*.js" . | head -100 > reports/code-quality/js-imports.txt || true
 
           # Large files
-          find . -name "*.py" -o -name "*.js" -o -name "*.go" | xargs wc -l | sort -nr | head -20 > reports/code-quality/largest-files.txt || true
+          find . \( -name "*.py" -o -name "*.js" -o -name "*.go" \) -print0 | xargs -0 wc -l | sort -nr | head -20 > reports/code-quality/largest-files.txt || true
 
       # Type Safety Analysis
       - name: Analyze Type Safety
@@ -338,7 +340,7 @@ jobs:
           EOF
 
       - name: Upload Code Quality Reports
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: comprehensive-code-quality-reports
           path: reports/code-quality/
@@ -350,10 +352,10 @@ jobs:
           cat reports/code-quality/CODE_QUALITY_SUMMARY.md >> $GITHUB_STEP_SUMMARY
 
   autofix:
-    if: ${{ inputs.autofix == 'true' }}
+    if: ${{ inputs.autofix }}
     needs: comprehensive-code-quality-audit
     uses: ./.github/workflows/autofix-and-guard.yml
     with:
       category: code-quality
       pr_title: Automated code-quality fixes
-      automerge: "true"
+      automerge: true

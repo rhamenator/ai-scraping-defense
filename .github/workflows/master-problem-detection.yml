@@ -12,12 +12,14 @@ on:
         default: "all"
       generate_consolidated_report:
         description: "Generate consolidated report (true|false)"
+        type: boolean
         required: false
-        default: "true"
+        default: true
       autofix:
         description: "Run autofix and open PRs (true|false)"
+        type: boolean
         required: false
-        default: "true"
+        default: true
   workflow_call:
     inputs:
       categories:
@@ -29,13 +31,13 @@ on:
         required: false
         default: all
       generate_consolidated_report:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
       autofix:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
 
 permissions:
   contents: write
@@ -47,66 +49,66 @@ permissions:
 jobs:
   # Security Analysis
   security-analysis:
-    if: ${{ contains(github.event.inputs.categories, 'security') || github.event.inputs.categories == 'all' }}
+    if: ${{ contains(inputs.categories, 'security') || inputs.categories == 'all' }}
     uses: ./.github/workflows/comprehensive-security-audit.yml
     with:
-      severity_filter: ${{ github.event.inputs.priority_filter }}
+      severity_filter: ${{ inputs.priority_filter }}
       output_format: "json"
-      autofix: ${{ github.event.inputs.autofix }}
+      autofix: ${{ inputs.autofix }}
 
   # Architecture Analysis
   architecture-analysis:
-    if: ${{ contains(github.event.inputs.categories, 'architecture') || github.event.inputs.categories == 'all' }}
+    if: ${{ contains(inputs.categories, 'architecture') || inputs.categories == 'all' }}
     uses: ./.github/workflows/comprehensive-architecture-audit.yml
     with:
       analysis_depth: "detailed"
       focus_area: "all"
-      autofix: ${{ github.event.inputs.autofix }}
+      autofix: ${{ inputs.autofix }}
 
   # Performance Analysis
   performance-analysis:
-    if: ${{ contains(github.event.inputs.categories, 'performance') || github.event.inputs.categories == 'all' }}
+    if: ${{ contains(inputs.categories, 'performance') || inputs.categories == 'all' }}
     uses: ./.github/workflows/comprehensive-performance-audit.yml
     with:
       benchmark_duration: "60"
-      memory_analysis: "true"
-      autofix: ${{ github.event.inputs.autofix }}
+      memory_analysis: true
+      autofix: ${{ inputs.autofix }}
 
   # Operations Analysis
   operations-analysis:
-    if: ${{ contains(github.event.inputs.categories, 'operations') || github.event.inputs.categories == 'all' }}
+    if: ${{ contains(inputs.categories, 'operations') || inputs.categories == 'all' }}
     uses: ./.github/workflows/comprehensive-operations-audit.yml
     with:
       environment: "all"
-      check_external_deps: "true"
-      autofix: ${{ github.event.inputs.autofix }}
+      check_external_deps: true
+      autofix: ${{ inputs.autofix }}
 
   # Code Quality Analysis
   code-quality-analysis:
-    if: ${{ contains(github.event.inputs.categories, 'code-quality') || github.event.inputs.categories == 'all' }}
+    if: ${{ contains(inputs.categories, 'code-quality') || inputs.categories == 'all' }}
     uses: ./.github/workflows/comprehensive-code-quality-audit.yml
     with:
       quality_threshold: "moderate"
-      include_metrics: "true"
-      autofix: ${{ github.event.inputs.autofix }}
+      include_metrics: true
+      autofix: ${{ inputs.autofix }}
 
   # Compliance Analysis
   compliance-analysis:
-    if: ${{ contains(github.event.inputs.categories, 'compliance') || github.event.inputs.categories == 'all' }}
+    if: ${{ contains(inputs.categories, 'compliance') || inputs.categories == 'all' }}
     uses: ./.github/workflows/comprehensive-compliance-audit.yml
     with:
       compliance_framework: "all"
       audit_depth: "detailed"
-      autofix: ${{ github.event.inputs.autofix }}
+      autofix: ${{ inputs.autofix }}
 
   # Consolidated Report Generation
   generate-consolidated-report:
-    if: ${{ github.event.inputs.generate_consolidated_report == 'true' }}
+    if: ${{ inputs.generate_consolidated_report }}
     needs: [security-analysis, architecture-analysis, performance-analysis, operations-analysis, code-quality-analysis, compliance-analysis]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
 
       - name: Setup Python
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
@@ -114,7 +116,7 @@ jobs:
           python-version: '3.11'
 
       - name: Download All Reports
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
         with:
           path: all-reports/
 
@@ -353,7 +355,7 @@ jobs:
           EOF
 
       - name: Upload Master Reports
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: master-problem-analysis
           path: reports/master/

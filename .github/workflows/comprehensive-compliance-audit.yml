@@ -12,8 +12,9 @@ on:
         default: "detailed"
       autofix:
         description: "Run autofix and open PR (true|false)"
+        type: boolean
         required: false
-        default: "true"
+        default: true
   workflow_call:
     inputs:
       compliance_framework:
@@ -25,9 +26,9 @@ on:
         required: false
         default: detailed
       autofix:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
 
 permissions:
   contents: read
@@ -39,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with: { fetch-depth: 0 }
 
       - name: Setup Compliance Analysis Environment
@@ -352,7 +353,7 @@ jobs:
           EOF
 
       - name: Upload Compliance Reports
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: comprehensive-compliance-reports
           path: reports/compliance/
@@ -364,10 +365,10 @@ jobs:
           cat reports/compliance/COMPLIANCE_SUMMARY.md >> $GITHUB_STEP_SUMMARY
 
   autofix:
-    if: ${{ inputs.autofix == 'true' }}
+    if: ${{ inputs.autofix }}
     needs: comprehensive-compliance-audit
     uses: ./.github/workflows/autofix-and-guard.yml
     with:
       category: compliance
       pr_title: Automated compliance-related fixes
-      automerge: "true"
+      automerge: true
