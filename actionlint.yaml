@@ -1,0 +1,6 @@
+self-hosted-runner:
+  labels:
+    - self-hosted
+    - Windows
+    - windows
+    - iis
