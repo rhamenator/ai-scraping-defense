@@ -13,3 +13,10 @@ pyo3 = { version = "0.24.2", features = ["extension-module"] }
 postgres = "0.19"
 rand = "0.8"
 html-escape = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"
