@@ -1,0 +1,57 @@
+# Optional security hardening overrides for Docker Compose.
+# Use with: docker compose -f docker-compose.yaml -f docker-compose.security.yml up -d
+
+services:
+  ai_service:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  escalation_engine:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  tarpit_api:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  admin_ui:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  captcha_service:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  cloud_dashboard:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  config_recommender:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  cloud_proxy:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  prompt_router:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
