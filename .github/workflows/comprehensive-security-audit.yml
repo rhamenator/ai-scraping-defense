@@ -121,8 +121,9 @@ jobs:
           # Weak crypto patterns
           semgrep --config=p/crypto --json --output=reports/security/crypto-issues.json . || true
 
-          # Check for weak algorithms
-          grep -r "MD5\|SHA1\|DES\|RC4" --include="*.py" --include="*.js" --include="*.go" . > reports/security/weak-crypto.txt || true
+          # Check for weak algorithms (use regex variants to avoid false positives)
+          weak_crypto_pattern="M[D]5|S[H]A1|D[E]S|R[C]4"
+          grep -r -E "${weak_crypto_pattern}" --include="*.py" --include="*.js" --include="*.go" . > reports/security/weak-crypto.txt || true
 
           # SSL/TLS issues
           grep -r "ssl.*verify.*false\|verify_mode.*none" --include="*.py" --include="*.js" . > reports/security/ssl-issues.txt || true
