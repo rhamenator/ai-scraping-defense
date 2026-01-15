@@ -21,12 +21,14 @@ Usage Example:
 """
 
 import logging
+import os
 from typing import Any, Dict, Optional, Sequence
 
 from .ssrf_protection import SSRFProtectionError, validate_url
 
 try:
     import httpx
+
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
@@ -115,7 +117,8 @@ class AsyncHttpClient:
         max_keepalive_connections: int = 20,
         allowed_domains: Optional[Sequence[str]] = None,
         block_private_ips: bool = True,
-        require_https: bool = False
+        require_https: bool = False,
+        http2: bool | None = None,
     ):
         """Initialize the HTTP client with configuration.
 
@@ -128,9 +131,12 @@ class AsyncHttpClient:
             allowed_domains: Optional list of allowed domains for SSRF protection
             block_private_ips: Whether to block requests to private IPs (default: True)
             require_https: Whether to require HTTPS for all requests (default: False)
+            http2: Enable HTTP/2 support (default: env HTTP_CLIENT_HTTP2 or false)
         """
         if not HTTPX_AVAILABLE:
-            logger.warning("httpx not available. HTTP client functionality will be limited.")
+            logger.warning(
+                "httpx not available. HTTP client functionality will be limited."
+            )
 
         self.timeout = timeout
         self.follow_redirects = follow_redirects
@@ -140,9 +146,12 @@ class AsyncHttpClient:
         self.allowed_domains = allowed_domains
         self.block_private_ips = block_private_ips
         self.require_https = require_https
+        if http2 is None:
+            http2 = os.getenv("HTTP_CLIENT_HTTP2", "false").lower() == "true"
+        self.http2 = http2
         self._client: Optional[httpx.AsyncClient] = None
 
-    async def __aenter__(self) -> 'AsyncHttpClient':
+    async def __aenter__(self) -> "AsyncHttpClient":
         """Enter the async context and initialize the HTTP client."""
         if not HTTPX_AVAILABLE:
             logger.error("Cannot create HTTP client: httpx not available")
@@ -152,7 +161,7 @@ class AsyncHttpClient:
             # Create connection limits for the client
             limits = httpx.Limits(
                 max_connections=self.max_connections,
-                max_keepalive_connections=self.max_keepalive_connections
+                max_keepalive_connections=self.max_keepalive_connections,
             )
 
             # Initialize the httpx client with our configuration
@@ -160,13 +169,15 @@ class AsyncHttpClient:
                 timeout=self.timeout,
                 follow_redirects=self.follow_redirects,
                 verify=self.verify,
-                limits=limits
+                limits=limits,
+                http2=self.http2,
             )
 
             logger.debug(
                 f"HTTP client initialized with timeout={self.timeout}s, "
                 f"max_connections={self.max_connections}, "
-                f"max_keepalive={self.max_keepalive_connections}"
+                f"max_keepalive={self.max_keepalive_connections}, "
+                f"http2={'enabled' if self.http2 else 'disabled'}"
             )
 
         except Exception as e:
@@ -197,8 +208,8 @@ class AsyncHttpClient:
         url: str,
         data: Dict[str, Any],
         headers: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None
-    ) -> 'httpx.Response':
+        timeout: Optional[float] = None,
+    ) -> "httpx.Response":
         """Make an async POST request with JSON payload.
 
         Args:
@@ -243,10 +254,7 @@ class AsyncHttpClient:
         try:
             logger.debug(f"Making JSON POST request to {url}")
             response = await self._client.post(
-                url,
-                json=data,
-                headers=request_headers,
-                timeout=request_timeout
+                url, json=data, headers=request_headers, timeout=request_timeout
             )
 
             logger.debug(
@@ -271,8 +279,8 @@ class AsyncHttpClient:
         url: str,
         params: Optional[Dict[str, str]] = None,
         headers: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None
-    ) -> 'httpx.Response':
+        timeout: Optional[float] = None,
+    ) -> "httpx.Response":
         """Make an async GET request.
 
         Args:
@@ -311,10 +319,7 @@ class AsyncHttpClient:
         try:
             logger.debug(f"Making GET request to {url}")
             response = await self._client.get(
-                url,
-                params=params,
-                headers=headers,
-                timeout=request_timeout
+                url, params=params, headers=headers, timeout=request_timeout
             )
 
             logger.debug(
