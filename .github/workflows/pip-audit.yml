@@ -11,6 +11,11 @@ on:
         required: false
         type: boolean
         default: false
+  pull_request:
+    paths:
+      - "requirements.txt"
+      - "requirements.lock"
+      - "constraints.txt"
   schedule:
     - cron: '0 6 * * 0'
 
@@ -61,11 +66,13 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || !inputs.update_lockfile
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6.0.0
         with:
-          python-version: '3.10'
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
