@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import time
 from collections import deque
@@ -14,8 +15,11 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
+from starlette.responses import RedirectResponse
 
 from .observability import ObservabilitySettings, configure_observability
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -140,10 +144,51 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class GDPRComplianceMiddleware(BaseHTTPMiddleware):
+    """Middleware to apply GDPR data minimization and privacy controls."""
+
+    async def dispatch(self, request: Request, call_next):
+        # Import here to avoid circular dependency
+        try:
+            from .gdpr import get_gdpr_manager
+
+            gdpr = get_gdpr_manager()
+
+            # Extract request data
+            import datetime
+
+            request_data = {
+                "ip_address": request.client.host if request.client else "unknown",
+                "user_agent": request.headers.get("user-agent", ""),
+                "path": request.url.path,
+                "method": request.method,
+                "timestamp": datetime.datetime.now(datetime.timezone.utc)
+                .isoformat()
+                .replace("+00:00", "Z"),
+            }
+
+            # Apply data minimization
+            minimized_data = gdpr.minimize_data(request_data)
+
+            # Store minimized data in request state for downstream use
+            request.state.gdpr_minimized_data = minimized_data
+
+        except Exception as e:
+            # Don't block requests if GDPR processing fails
+            logger.warning(f"GDPR middleware error: {e}")
+
+        return await call_next(request)
+
+
 def add_security_middleware(
     app: FastAPI, security_settings: SecuritySettings | None = None
 ) -> SecuritySettings:
     settings = security_settings or _load_security_settings()
+
+    # Add GDPR compliance middleware first (innermost)
+    gdpr_enabled = os.getenv("GDPR_ENABLED", "true").lower() == "true"
+    if gdpr_enabled:
+        app.add_middleware(GDPRComplianceMiddleware)
 
     app.add_middleware(BodySizeLimitMiddleware, max_body_size=settings.max_body_size)
     app.add_middleware(
@@ -151,6 +196,19 @@ def add_security_middleware(
         max_requests=settings.rate_limit_requests,
         window_seconds=settings.rate_limit_window,
     )
+    if settings.enable_https:
+
+        @app.middleware("http")
+        async def _enforce_https(request, call_next):
+            forwarded = request.headers.get("x-forwarded-proto")
+            scheme = (
+                forwarded.split(",")[0].strip() if forwarded else request.url.scheme
+            )
+            if scheme != "https":
+                return RedirectResponse(
+                    url=str(request.url.replace(scheme="https")), status_code=307
+                )
+            return await call_next(request)
 
     # Add standard security headers to all responses
     @app.middleware("http")

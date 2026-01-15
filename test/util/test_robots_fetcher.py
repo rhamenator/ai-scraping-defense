@@ -44,15 +44,20 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
         # Patch external dependencies
         self.patches = {
             "requests.get": patch("src.util.robots_fetcher.requests.get"),
-            "k8s_config.load_incluster_config": patch(
-                "src.util.robots_fetcher.k8s_config.load_incluster_config"
-            ),
-            "k8s_client.CoreV1Api": patch("src.util.robots_fetcher.client.CoreV1Api"),
             "logger": patch("src.util.robots_fetcher.logger"),
         }
+        if robots_fetcher.KUBE_AVAILABLE:
+            self.patches["k8s_config.load_incluster_config"] = patch(
+                "src.util.robots_fetcher.k8s_config.load_incluster_config"
+            )
+            self.patches["k8s_client.CoreV1Api"] = patch(
+                "src.util.robots_fetcher.client.CoreV1Api"
+            )
         self.mocks = {name: p.start() for name, p in self.patches.items()}
 
-        self.mock_k8s_api = self.mocks["k8s_client.CoreV1Api"].return_value
+        self.mock_k8s_api = self.mocks.get(
+            "k8s_client.CoreV1Api", MagicMock()
+        ).return_value
 
     def tearDown(self):
         for p in self.patches.values():
@@ -187,7 +192,8 @@ class TestRobotsFetcherComprehensive(unittest.TestCase):
             mock_file.assert_called_with(ANY, "w", encoding="utf-8")
             mock_file().write.assert_called_once_with("local content")
             # Ensure k8s functions were not called
-            self.mocks["k8s_config.load_incluster_config"].assert_not_called()
+            if "k8s_config.load_incluster_config" in self.mocks:
+                self.mocks["k8s_config.load_incluster_config"].assert_not_called()
 
 
 if __name__ == "__main__":

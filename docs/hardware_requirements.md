@@ -34,4 +34,4 @@ On an 8-core VM with 16&nbsp;GB of RAM the stack handled roughly **3,000 req/s**
 ## Scaling Recommendations
 
 For high traffic deployments, run multiple instances of the microservices and Nginx behind a load balancer.
-Redis and PostgreSQL can be clustered for reliability. Monitor resource usage with Prometheus and add replicas as needed.
+Redis and PostgreSQL can be clustered for reliability. Monitor resource usage with Prometheus and add replicas as needed. **Implement Horizontal Pod Autoscalers (HPAs) for Nginx and AI services to automatically scale based on CPU utilization.**

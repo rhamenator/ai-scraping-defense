@@ -417,6 +417,24 @@ HUMANS_DETECTED_EXTERNAL_API = Counter(
     registry=REGISTRY,
 )
 
+# New Metrics for Data Pipeline Performance
+DATA_PIPELINE_TASKS_RECEIVED = Counter(
+    "data_pipeline_tasks_received_total",
+    "Total data pipeline tasks received.",
+    registry=REGISTRY,
+)
+DATA_PIPELINE_TASKS_COMPLETED = Counter(
+    "data_pipeline_tasks_completed_total",
+    "Total data pipeline tasks completed.",
+    registry=REGISTRY,
+)
+DATA_PIPELINE_ERRORS = Counter(
+    "data_pipeline_errors_total",
+    "Total data pipeline errors encountered.",
+    ["error_type"],
+    registry=REGISTRY,
+)
+
 
 # 2. Histograms (from previous versions)
 REQUEST_LATENCY = Histogram(
@@ -506,6 +524,57 @@ FEATURE_FLAGS = Gauge(
     "feature_flags_status",
     "Status of feature flags (1=on, 0=off).",
     ["flag_name"],
+    registry=REGISTRY,
+)
+
+# Performance Analytics Metrics
+PERFORMANCE_BASELINE = Gauge(
+    "performance_baseline_value",
+    "Baseline performance values for comparison.",
+    ["metric_name", "service"],
+    registry=REGISTRY,
+)
+PERFORMANCE_ANOMALY_SCORE = Gauge(
+    "performance_anomaly_score",
+    "Current anomaly score for performance metrics.",
+    ["metric_name", "service"],
+    registry=REGISTRY,
+)
+PERFORMANCE_TREND = Gauge(
+    "performance_trend",
+    "Performance trend indicator (-1=declining, 0=stable, 1=improving).",
+    ["metric_name", "service"],
+    registry=REGISTRY,
+)
+PERFORMANCE_PERCENTILE = Histogram(
+    "performance_percentile_seconds",
+    "Performance percentile measurements.",
+    ["metric_name", "service"],
+    registry=REGISTRY,
+    buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 2.5, 5.0, 10.0],
+)
+PERFORMANCE_SAMPLES_COLLECTED = Counter(
+    "performance_samples_collected_total",
+    "Total performance samples collected for analytics.",
+    ["metric_name", "service"],
+    registry=REGISTRY,
+)
+PERFORMANCE_PREDICTIONS_GENERATED = Counter(
+    "performance_predictions_generated_total",
+    "Total performance predictions generated.",
+    ["prediction_type", "service"],
+    registry=REGISTRY,
+)
+PERFORMANCE_INSIGHTS_GENERATED = Counter(
+    "performance_insights_generated_total",
+    "Total performance insights generated.",
+    ["insight_type", "service"],
+    registry=REGISTRY,
+)
+PERFORMANCE_DEGRADATION_DETECTED = Counter(
+    "performance_degradation_detected_total",
+    "Total performance degradations detected.",
+    ["metric_name", "service"],
     registry=REGISTRY,
 )
 

@@ -131,6 +131,7 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
                 "SHARED_SECRET": "secret",
                 "RATE_LIMIT_REQUESTS": "2",
                 "RATE_LIMIT_WINDOW": "10",
+                "TRUST_PROXY_HEADERS": "false",
             },
         )
         self.env.start()
