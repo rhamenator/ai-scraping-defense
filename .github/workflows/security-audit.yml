@@ -97,7 +97,7 @@ jobs:
       - name: Kubeconform
         if: hashFiles('**/*.yaml') != ''
         run: |
-          kubeconform -ignore-missing-schemas -strict -summary -output json $(git ls-files '*.yaml' '*.yml' | tr '\n' ' ') > reports/kubeconform.json || true
+          git ls-files -z '*.yaml' '*.yml' | xargs -0 -r kubeconform -ignore-missing-schemas -strict -summary -output json > reports/kubeconform.json || true
       - name: Aggregate findings
         run: |
           python3 .github/tools/aggregate_security_counts.py | tee reports/summary.json

@@ -230,7 +230,7 @@ jobs:
           grep -r "require\|import.*from" --include="*.js" . | head -100 > reports/code-quality/js-imports.txt || true
 
           # Large files
-          find . -name "*.py" -o -name "*.js" -o -name "*.go" | xargs wc -l | sort -nr | head -20 > reports/code-quality/largest-files.txt || true
+          find . \( -name "*.py" -o -name "*.js" -o -name "*.go" \) -print0 | xargs -0 wc -l | sort -nr | head -20 > reports/code-quality/largest-files.txt || true
 
       # Type Safety Analysis
       - name: Analyze Type Safety

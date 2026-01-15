@@ -34,7 +34,8 @@ jobs:
 
       - name: Skip cleanup (missing secrets)
         if: steps.secrets.outputs.ready != 'true'
-        run: echo "Skipping preview cleanup: missing GCP secrets."
+        run: |
+          echo "Skipping preview cleanup: missing GCP secrets."
 
       - id: auth
         if: steps.secrets.outputs.ready == 'true'
