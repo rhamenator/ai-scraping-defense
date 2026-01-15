@@ -47,7 +47,10 @@ pub fn generate_realistic_filename() -> PyResult<String> {
     let prefix = FILENAME_PREFIXES[rng.random_range(0..FILENAME_PREFIXES.len())];
     let suffix = FILENAME_SUFFIXES[rng.random_range(0..FILENAME_SUFFIXES.len())];
     let random_hash: String = rand_string(8).to_lowercase();
-    Ok(format!("{}{}{}{}", prefix, suffix, random_hash, FILENAME_EXT))
+    Ok(format!(
+        "{}{}{}{}",
+        prefix, suffix, random_hash, FILENAME_EXT
+    ))
 }
 
 /// Generate file content with SIMD optimization enabled.
