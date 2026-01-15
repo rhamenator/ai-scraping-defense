@@ -4,25 +4,19 @@
 # This version is refactored for high performance using pandas.
 
 import argparse
-import datetime
 import json
 import os
-import random
-import re
-import time
-from collections import defaultdict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Optional, Tuple
 
 import joblib
 import pandas as pd
 import psycopg2
-from psycopg2.extras import DictCursor
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_extraction import DictVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
+from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
+
+from src.util.mmap_reader import iter_text_lines
 
 # GeoIP lookup
 try:
@@ -85,7 +79,9 @@ GEOIP_DB_PATH = os.getenv("GEOIP_DB_PATH", "/app/GeoLite2-Country.mmdb")
 
 KNOWN_BAD_UAS_STR = os.getenv(
     "KNOWN_BAD_UAS",
-    "python-requests,curl,wget,scrapy,java/,ahrefsbot,semrushbot,mj12bot,dotbot,petalbot,bytespider,gptbot,ccbot,claude-web,google-extended,dataprovider,purebot,scan,masscan,zgrab,nmap",
+    "python-requests,curl,wget,scrapy,java/,ahrefsbot,semrushbot,mj12bot,"
+    "dotbot,petalbot,bytespider,gptbot,ccbot,claude-web,google-extended,"
+    "dataprovider,purebot,scan,masscan,zgrab,nmap",
 )
 KNOWN_BAD_UAS = [
     ua.strip().lower() for ua in KNOWN_BAD_UAS_STR.split(",") if ua.strip()
@@ -306,11 +302,11 @@ def load_feedback_data() -> Tuple[set, set]:
     captcha_path = os.getenv("TRAINING_CAPTCHA_LOG", CAPTCHA_SUCCESS_LOG)
 
     try:
-        with open(honeypot_path, "r") as f:
-            content = f.read().replace("\\n", "\n")
-            for line in content.splitlines():
+        for line in iter_text_lines(honeypot_path):
+            line = line.replace("\\n", "\n")
+            for entry in line.splitlines():
                 try:
-                    data = json.loads(line)
+                    data = json.loads(entry)
                     ip = data.get("ip") or data.get("details", {}).get("ip")
                     if ip:
                         honeypot_triggers.add(ip)
@@ -322,17 +318,17 @@ def load_feedback_data() -> Tuple[set, set]:
         print(f"Warning: {honeypot_path} not found.")
 
     try:
-        with open(captcha_path, "r") as f:
-            content = f.read().replace("\\n", "\n")
-            for line in content.splitlines():
+        for line in iter_text_lines(captcha_path):
+            line = line.replace("\\n", "\n")
+            for entry in line.splitlines():
                 try:
-                    if line.strip().startswith("{"):
-                        data = json.loads(line)
+                    if entry.strip().startswith("{"):
+                        data = json.loads(entry)
                         if data.get("result") == "success":
                             captcha_successes.add(data.get("ip"))
                     else:
                         # Fallback CSV: timestamp,ip
-                        parts = line.strip().split(",")
+                        parts = entry.strip().split(",")
                         if len(parts) > 1:
                             captcha_successes.add(parts[1].strip())
                 except Exception as e:
@@ -375,7 +371,6 @@ def assign_labels_and_scores(
     # Helper function to apply the scoring logic
     def calculate_score(row):
         score, reasons = 0.5, []
-        ua_lower = row["user_agent"].lower()
 
         # Apply your original scoring logic
         if row["ua_is_known_bad"] and not row["ua_is_known_benign_crawler"]:
