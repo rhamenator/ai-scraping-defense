@@ -156,6 +156,7 @@ class GDPRComplianceMiddleware(BaseHTTPMiddleware):
 
             # Extract request data
             import datetime
+
             request_data = {
                 "ip_address": request.client.host if request.client else "unknown",
                 "user_agent": request.headers.get("user-agent", ""),
@@ -217,6 +218,10 @@ def add_security_middleware(
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault(
+            "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
+        )
+        response.headers.setdefault("X-Permitted-Cross-Domain-Policies", "none")
         # Legacy XSS header (modern browsers rely on CSP); included per security baseline
         response.headers.setdefault("X-XSS-Protection", "1; mode=block")
         # Provide a conservative default CSP if not already set upstream
