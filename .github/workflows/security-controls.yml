@@ -34,6 +34,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -c constraints.txt
           pip install bandit pip-audit pytest
+      - name: Verify dependency integrity
+        run: |
+          python scripts/security/verify_dependencies.py
       - name: Static security checks
         run: |
           scripts/security/run_static_security_checks.py
