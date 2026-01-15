@@ -14,6 +14,44 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
+class _SafeLoaderIgnoreUnknown(yaml.SafeLoader):
+    """Safe loader that treats unknown tags as plain data."""
+
+
+def _construct_unknown(loader: yaml.SafeLoader, node: yaml.Node) -> Any:
+    if isinstance(node, yaml.ScalarNode):
+        return loader.construct_scalar(node)
+    if isinstance(node, yaml.SequenceNode):
+        return loader.construct_sequence(node)
+    if isinstance(node, yaml.MappingNode):
+        return loader.construct_mapping(node)
+    return None
+
+
+_SafeLoaderIgnoreUnknown.add_constructor(None, _construct_unknown)
+
+
+def _raise_on_orphan_indentation(content: str) -> None:
+    prev_indent = 0
+    prev_allows_indent = False
+    seen_content = False
+
+    block_indicators = (":", "|", ">")
+
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if seen_content and indent > prev_indent and not prev_allows_indent:
+            raise yaml.YAMLError("Unexpected indentation in YAML content.")
+        prev_allows_indent = stripped.endswith(block_indicators) or stripped.startswith(
+            "-"
+        )
+        prev_indent = indent
+        seen_content = True
+
+
 def parse_xml_string(
     xml_string: str, forbid_dtd: bool = True, forbid_entities: bool = True
 ) -> Optional[Element]:
@@ -101,7 +139,8 @@ def safe_yaml_load(content: str) -> Any:
         yaml.YAMLError: If the YAML is malformed
     """
     try:
-        data = yaml.safe_load(content)
+        _raise_on_orphan_indentation(content)
+        data = yaml.load(content, Loader=_SafeLoaderIgnoreUnknown)
         logger.debug("Successfully parsed YAML content")
         return data
     except yaml.YAMLError as exc:
@@ -125,7 +164,8 @@ def safe_yaml_load_file(file_path: str) -> Any:
     """
     try:
         with open(file_path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
+            content = f.read()
+        data = safe_yaml_load(content)
         logger.info("Successfully loaded YAML file: %s", file_path)
         return data
     except FileNotFoundError:
