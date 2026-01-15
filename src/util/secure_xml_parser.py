@@ -9,7 +9,6 @@ from typing import Any, Optional
 
 import defusedxml.ElementTree as ET
 import yaml
-from defusedxml.ElementTree import Element
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +49,7 @@ def _raise_on_orphan_indentation(content: str) -> None:
 
 def parse_xml_string(
     xml_string: str, forbid_dtd: bool = True, forbid_entities: bool = True
-) -> Optional[Element]:
+) -> Optional[Any]:
     """
     Safely parse an XML string with XXE protection.
 
@@ -83,7 +82,7 @@ def parse_xml_string(
 
 def parse_xml_file(
     file_path: str, forbid_dtd: bool = True, forbid_entities: bool = True
-) -> Optional[Element]:
+) -> Optional[Any]:
     """
     Safely parse an XML file with XXE protection.
 
