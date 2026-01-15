@@ -8,12 +8,14 @@ on:
         default: "all"
       check_external_deps:
         description: "Check external dependencies (true|false)"
+        type: boolean
         required: false
-        default: "true"
+        default: true
       autofix:
         description: "Run autofix and open PR (true|false)"
+        type: boolean
         required: false
-        default: "true"
+        default: true
   workflow_call:
     inputs:
       environment:
@@ -21,13 +23,13 @@ on:
         required: false
         default: all
       check_external_deps:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
       autofix:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
 
 permissions:
   contents: read
@@ -244,7 +246,7 @@ jobs:
 
       # External Dependencies Analysis
       - name: Analyze External Dependencies
-        if: ${{ inputs.check_external_deps == 'true' }}
+        if: ${{ inputs.check_external_deps }}
         run: |
           echo "Analyzing external dependencies..."
 
@@ -354,10 +356,10 @@ jobs:
           cat reports/operations/OPERATIONS_SUMMARY.md >> $GITHUB_STEP_SUMMARY
 
   autofix:
-    if: ${{ inputs.autofix == 'true' }}
+    if: ${{ inputs.autofix }}
     needs: comprehensive-operations-audit
     uses: ./.github/workflows/autofix-and-guard.yml
     with:
       category: operations
       pr_title: Automated operational fixes
-      automerge: "true"
+      automerge: true

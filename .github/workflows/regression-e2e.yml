@@ -106,7 +106,7 @@ jobs:
           pip3 install -r .github/tools/e2e/requirements.txt
           BASE_URL="${{ steps.base.outputs.url }}" pytest -q .github/tools/e2e/tests
       - name: Run macOS helper scripts (zsh)
-        shell: zsh
+        shell: zsh {0}
         run: |
           export BASE_URL="${{ steps.base.outputs.url }}"
           [ -f "./scripts/macos/setup.zsh" ] && zsh ./scripts/macos/setup.zsh || true

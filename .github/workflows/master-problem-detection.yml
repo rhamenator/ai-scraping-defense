@@ -12,12 +12,14 @@ on:
         default: "all"
       generate_consolidated_report:
         description: "Generate consolidated report (true|false)"
+        type: boolean
         required: false
-        default: "true"
+        default: true
       autofix:
         description: "Run autofix and open PRs (true|false)"
+        type: boolean
         required: false
-        default: "true"
+        default: true
   workflow_call:
     inputs:
       categories:
@@ -29,13 +31,13 @@ on:
         required: false
         default: all
       generate_consolidated_report:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
       autofix:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
 
 permissions:
   contents: write
@@ -69,7 +71,7 @@ jobs:
     uses: ./.github/workflows/comprehensive-performance-audit.yml
     with:
       benchmark_duration: "60"
-      memory_analysis: "true"
+      memory_analysis: true
       autofix: ${{ inputs.autofix }}
 
   # Operations Analysis
@@ -78,7 +80,7 @@ jobs:
     uses: ./.github/workflows/comprehensive-operations-audit.yml
     with:
       environment: "all"
-      check_external_deps: "true"
+      check_external_deps: true
       autofix: ${{ inputs.autofix }}
 
   # Code Quality Analysis
@@ -87,7 +89,7 @@ jobs:
     uses: ./.github/workflows/comprehensive-code-quality-audit.yml
     with:
       quality_threshold: "moderate"
-      include_metrics: "true"
+      include_metrics: true
       autofix: ${{ inputs.autofix }}
 
   # Compliance Analysis
@@ -101,7 +103,7 @@ jobs:
 
   # Consolidated Report Generation
   generate-consolidated-report:
-    if: ${{ inputs.generate_consolidated_report == 'true' }}
+    if: ${{ inputs.generate_consolidated_report }}
     needs: [security-analysis, architecture-analysis, performance-analysis, operations-analysis, code-quality-analysis, compliance-analysis]
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -8,12 +8,14 @@ on:
         default: "60"
       memory_analysis:
         description: "Enable memory analysis (true|false)"
+        type: boolean
         required: false
-        default: "true"
+        default: true
       autofix:
         description: "Run autofix and open PR (true|false)"
+        type: boolean
         required: false
-        default: "true"
+        default: true
   workflow_call:
     inputs:
       benchmark_duration:
@@ -21,13 +23,13 @@ on:
         required: false
         default: "60"
       memory_analysis:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
       autofix:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
 
 permissions:
   contents: read
@@ -211,7 +213,7 @@ jobs:
 
       # Memory Profiling (if enabled)
       - name: Run Memory Analysis
-        if: ${{ inputs.memory_analysis == 'true' }}
+        if: ${{ inputs.memory_analysis }}
         run: |
           echo "Running memory analysis..."
 
@@ -336,10 +338,10 @@ jobs:
           cat reports/performance/PERFORMANCE_SUMMARY.md >> $GITHUB_STEP_SUMMARY
 
   autofix:
-    if: ${{ inputs.autofix == 'true' }}
+    if: ${{ inputs.autofix }}
     needs: comprehensive-performance-audit
     uses: ./.github/workflows/autofix-and-guard.yml
     with:
       category: performance
       pr_title: Automated performance-related fixes
-      automerge: "true"
+      automerge: true

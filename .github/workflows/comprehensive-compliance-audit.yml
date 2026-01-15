@@ -12,8 +12,9 @@ on:
         default: "detailed"
       autofix:
         description: "Run autofix and open PR (true|false)"
+        type: boolean
         required: false
-        default: "true"
+        default: true
   workflow_call:
     inputs:
       compliance_framework:
@@ -25,9 +26,9 @@ on:
         required: false
         default: detailed
       autofix:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
 
 permissions:
   contents: read
@@ -364,10 +365,10 @@ jobs:
           cat reports/compliance/COMPLIANCE_SUMMARY.md >> $GITHUB_STEP_SUMMARY
 
   autofix:
-    if: ${{ inputs.autofix == 'true' }}
+    if: ${{ inputs.autofix }}
     needs: comprehensive-compliance-audit
     uses: ./.github/workflows/autofix-and-guard.yml
     with:
       category: compliance
       pr_title: Automated compliance-related fixes
-      automerge: "true"
+      automerge: true

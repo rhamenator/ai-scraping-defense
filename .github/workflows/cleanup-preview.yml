@@ -11,20 +11,45 @@ permissions:
 
 jobs:
   cleanup-preview:
-    if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER && secrets.GCP_SERVICE_ACCOUNT && secrets.GCP_PROJECT && secrets.GKE_CLUSTER && secrets.GCP_REGION }}
     runs-on: ubuntu-latest
+    env:
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
+      GCP_REGION: ${{ secrets.GCP_REGION }}
     steps:
+      - name: Check required secrets
+        id: secrets
+        run: |
+          if [ -n "${GCP_WORKLOAD_IDENTITY_PROVIDER}" ] \
+            && [ -n "${GCP_SERVICE_ACCOUNT}" ] \
+            && [ -n "${GCP_PROJECT}" ] \
+            && [ -n "${GKE_CLUSTER}" ] \
+            && [ -n "${GCP_REGION}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip cleanup (missing secrets)
+        if: steps.secrets.outputs.ready != 'true'
+        run: echo "Skipping preview cleanup: missing GCP secrets."
+
       - id: auth
+        if: steps.secrets.outputs.ready == 'true'
         uses: google-github-actions/auth@v3
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/get-gke-credentials@v3
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+      - if: steps.secrets.outputs.ready == 'true'
+        uses: google-github-actions/get-gke-credentials@v3
         with:
-          project_id: ${{ secrets.GCP_PROJECT }}
-          cluster_name: ${{ secrets.GKE_CLUSTER }}
-          location: ${{ secrets.GCP_REGION }}
+          project_id: ${{ env.GCP_PROJECT }}
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GCP_REGION }}
       - name: Delete preview namespace
+        if: steps.secrets.outputs.ready == 'true'
         run: |
           PR=${{ github.event.pull_request.number }}
           kubectl delete ns "pr-${PR}" --wait=false || true

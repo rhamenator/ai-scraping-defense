@@ -13,16 +13,19 @@ on:
         default: Automated fixes
       automerge:
         description: Enable automerge when checks pass (true|false)
+        type: boolean
         required: false
-        default: "true"
+        default: true
       run_tests:
         description: Run tests before/after fixes (true|false)
+        type: boolean
         required: false
-        default: "true"
+        default: true
       create_issue_on_failure:
         description: Create an issue if no fixes or regressions detected (true|false)
+        type: boolean
         required: false
-        default: "true"
+        default: true
       base_branch:
         description: Base branch for the PR
         required: false
@@ -38,17 +41,17 @@ on:
         required: false
         default: Automated fixes
       automerge:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
       run_tests:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
       create_issue_on_failure:
-        type: string
+        type: boolean
         required: false
-        default: "true"
+        default: true
       base_branch:
         type: string
         required: false
@@ -728,14 +731,14 @@ jobs:
           retention-days: 14
 
       - name: Enable automerge (if clean)
-        if: steps.commit.outputs.changed == 'true' && steps.report.outputs.regression == '0' && inputs.automerge == 'true'
+        if: steps.commit.outputs.changed == 'true' && steps.report.outputs.regression == '0' && inputs.automerge
         uses: peter-evans/enable-pull-request-automerge@a660677d5469627102a1c1e11409dd063606628d
         with:
           pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
           merge-method: SQUASH
 
       - name: Create issue for regression
-        if: steps.commit.outputs.changed == 'true' && steps.report.outputs.regression == '1' && inputs.create_issue_on_failure == 'true'
+        if: steps.commit.outputs.changed == 'true' && steps.report.outputs.regression == '1' && inputs.create_issue_on_failure
         uses: peter-evans/create-issue-from-file@v6
         with:
           title: "Autofix regression detected (${{ env.CATEGORY }})"
@@ -743,7 +746,7 @@ jobs:
           labels: autofix, regression, ${{ env.CATEGORY }}
 
       - name: Create issue when no changes
-        if: steps.commit.outputs.changed != 'true' && inputs.create_issue_on_failure == 'true'
+        if: steps.commit.outputs.changed != 'true' && inputs.create_issue_on_failure
         uses: peter-evans/create-issue-from-file@v6
         with:
           title: "No automated fixes available (${{ env.CATEGORY }})"
