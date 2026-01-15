@@ -8,8 +8,24 @@ _CONNECTION: sqlite3.Connection | None = None
 _DB_PATH = DB_PATH
 
 
+def log_to_blockchain(action: str, data: dict) -> None:
+    """Placeholder for logging actions to a blockchain.
+
+    In a real implementation, this would interact with a blockchain network.
+    """
+    # TODO: Implement actual blockchain logging using a library like web3.py
+    # Example:
+    # from web3 import Web3
+    # w3 = Web3(Web3.HTTPProvider('http://localhost:8545'))
+    # contract = w3.eth.contract(address='...', abi=...)  # Replace with your contract
+    # tx_hash = contract.functions.logAction(action, str(data)).transact({'from': w3.eth.accounts[0]})
+    # print(f'Transaction hash: {tx_hash.hex()}')
+    del data  # avoid logging or leaking payload details
+    print(f"[Blockchain] Logging action: {action} with payload redacted")
+
+
 def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
-    """Initialize the crawler database if it hasn't been already."""
+    """Initialize the crawler database and attempt to setup blockchain logging."""
     global _CONNECTION, _DB_PATH
     if _CONNECTION is not None and db_path != _DB_PATH:
         try:
@@ -23,6 +39,15 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
         )
         _CONNECTION.commit()
         _DB_PATH = db_path
+
+        # Attempt to setup blockchain logging (replace with actual logic if needed)
+        try:
+            # TODO: Add initialization logic for blockchain connection
+            print(
+                "Blockchain logging setup initialized."
+            )  # Replace with actual initialization
+        except Exception as e:
+            print(f"Failed to initialize blockchain logging: {e}")
     return _CONNECTION
 
 
@@ -42,6 +67,10 @@ def register_crawler(name: str, token: str, purpose: str) -> None:
         (token, name, purpose, token),
     )
     conn.commit()
+    log_to_blockchain(
+        "register_crawler",
+        {"name": name, "token": token, "purpose": purpose},
+    )
 
 
 def get_crawler(token: str) -> Optional[Dict[str, str]]:
@@ -68,6 +97,7 @@ def add_credit(token: str, amount: float) -> None:
         (amount, token),
     )
     conn.commit()
+    log_to_blockchain("add_credit", {"token": token, "amount": amount})
 
 
 def charge(token: str, amount: float) -> bool:
@@ -82,18 +112,19 @@ def charge(token: str, amount: float) -> bool:
     new_balance = balance - amount
     conn.execute("UPDATE crawlers SET balance=? WHERE token=?", (new_balance, token))
     conn.commit()
+    log_to_blockchain("charge", {"token": token, "amount": amount})
     return True
 
 
 def delete_crawler(token: str) -> bool:
     """Delete crawler data (GDPR right to be forgotten).
-    
+
     This implements the GDPR right to erasure by removing all
     crawler registration data associated with the given token.
-    
+
     Args:
         token: The crawler token to delete
-        
+
     Returns:
         True if data was deleted, False if token not found
     """
@@ -105,20 +136,20 @@ def delete_crawler(token: str) -> bool:
 
 def anonymize_crawler(token: str) -> bool:
     """Anonymize crawler data while preserving financial records.
-    
+
     This is useful when deletion is not possible due to legal
     retention requirements for financial transactions.
-    
+
     Args:
         token: The crawler token to anonymize
-        
+
     Returns:
         True if data was anonymized, False if token not found
     """
     conn = _get_conn()
     cur = conn.execute(
         "UPDATE crawlers SET name=?, purpose=? WHERE token=?",
-        ("[REDACTED]", "[REDACTED]", token)
+        ("[REDACTED]", "[REDACTED]", token),
     )
     conn.commit()
     return cur.rowcount > 0

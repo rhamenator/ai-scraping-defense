@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with: { fetch-depth: 0 }
       - name: Set up Python
         if: hashFiles('**/*.py') != ''
@@ -52,22 +52,38 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
           set -e
-          for crate in jszip-rs markov-train-rs tarpit-rs frequency-rs; do
-            if [ -d "$crate" ]; then
-              echo "Testing $crate..."
-              cargo test --manifest-path "$crate/Cargo.toml" --locked 2>locked.log || {
-                if grep -q "Cargo.lock needs to be updated" locked.log || grep -q "which is not allowed due to --locked" locked.log; then
-                  echo "Falling back to unlocked dependencies for $crate due to lock file error."
-                  cargo test --manifest-path "$crate/Cargo.toml"
-                else
-                  echo "cargo test failed for $crate for a reason other than lock file issues."
-                  cat locked.log
-                  exit 1
-                fi
-              }
-              cargo clippy --manifest-path "$crate/Cargo.toml" --all-targets --all-features -- -D warnings
-              cargo fmt --manifest-path "$crate/Cargo.toml" -- --check
-            fi
+          if [ -f "Cargo.toml" ]; then
+            echo "Testing root Rust project..."
+            cargo test --locked 2>locked.log || {
+              if grep -q "Cargo.lock needs to be updated" locked.log || grep -q "which is not allowed due to --locked" locked.log; then
+                echo "Falling back to unlocked dependencies for root due to lock file error."
+                cargo test
+              else
+                echo "cargo test --locked failed for root for a reason other than lock file issues."
+                cat locked.log
+                exit 1
+              fi
+            }
+            cargo clippy --all-targets --all-features -D warnings
+            cargo fmt --all -- --check
+          fi
+
+          shopt -s nullglob
+          for cargo_file in */Cargo.toml; do
+            crate_dir=$(dirname "$cargo_file")
+            echo "Testing Rust project in $crate_dir..."
+            cargo test --manifest-path "$cargo_file" --locked 2>locked.log || {
+              if grep -q "Cargo.lock needs to be updated" locked.log || grep -q "which is not allowed due to --locked" locked.log; then
+                echo "Falling back to unlocked dependencies for $crate_dir due to lock file error."
+                cargo test --manifest-path "$cargo_file"
+              else
+                echo "cargo test failed for $crate_dir for a reason other than lock file issues."
+                cat locked.log
+                exit 1
+              fi
+            }
+            cargo clippy --manifest-path "$cargo_file" --all-targets --all-features -- -D warnings
+            cargo fmt --manifest-path "$cargo_file" -- --check
           done
       - name: Node tests
         if: hashFiles('**/package.json') != ''
@@ -100,8 +116,10 @@ jobs:
         if: hashFiles('nginx/*.conf') != '' || hashFiles('nginx/**/*.conf') != ''
         run: docker run --rm -v "$PWD/nginx:/etc/nginx:ro" nginx:stable nginx -t -c /etc/nginx/nginx.conf
       - name: Set up Helm
-        uses: azure/setup-helm@v4
+        if: hashFiles('helm/**') != ''
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4
       - name: Helm/K8s lint
+        if: hashFiles('helm/**') != ''
         run: |
           curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tar.gz
           sudo tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin
@@ -116,7 +134,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with: { fetch-depth: 0 }
       - name: Set up Python
         if: hashFiles('**/*.py') != ''
@@ -153,7 +171,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with: { fetch-depth: 0 }
       - name: Set up Python
         if: hashFiles('**/*.py') != ''

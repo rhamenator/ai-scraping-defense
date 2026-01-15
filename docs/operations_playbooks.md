@@ -63,4 +63,15 @@ Run the capacity review weekly:
 * Expand synthetic monitoring to cover all public endpoints.
 * Track error budgets derived from the SLO table and integrate with the product
   roadmap.
-* Regularly run the comprehensive operations audit to identify areas for improvement and track operational maturity.  Address findings in the product roadmap.
+* Regularly run the comprehensive operations audit to identify areas for
+  improvement and track operational maturity. Address findings in the product
+  roadmap.
+
+## Operational Resilience Testing
+
+* **Automated Failure Injection**: Implement automated failure injection using tools like Chaos Mesh or LitmusChaos to simulate various failure scenarios (e.g., pod failures, network latency, CPU stress).
+* **Resilience Validation Workflows**: Create workflows that automatically validate the system's resilience after failure injection. These workflows should verify that the system recovers within the defined RTO and RPO.
+* **Recovery Testing Automation**: Automate the recovery process to ensure that the system can be quickly restored to a functional state after a failure.
+* **Resilience Metrics**: Define and track key resilience metrics such as Mean Time To Recovery (MTTR), Mean Time Between Failures (MTBF), and the number of successful and failed recovery attempts.
+* **Resilience Optimization**: Continuously optimize the system's resilience based on the results of failure injection tests and the tracked resilience metrics.
+* **WAF Integration:** Integrate Web Application Firewall (WAF) to protect against common web exploits and vulnerabilities. Monitor and log WAF events to identify and mitigate potential threats.

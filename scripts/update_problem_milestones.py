@@ -27,11 +27,12 @@ import argparse
 import json
 import logging
 import os
+import re
 import sqlite3
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 
 import requests
 
@@ -68,6 +69,26 @@ LABEL_TO_MILESTONE = {
 
 # === LOGGER ===
 LOG = logging.getLogger("update_problem_milestones")
+MILESTONE_PREFIX_RE = re.compile(r"^\s*(\d+)\.\s*(.+)$")
+
+
+def normalize_milestone_title(title: str) -> str:
+    match = MILESTONE_PREFIX_RE.match(title)
+    if match:
+        return match.group(2).strip()
+    return title.strip()
+
+
+def extract_milestone_prefix(title: str) -> Optional[str]:
+    match = MILESTONE_PREFIX_RE.match(title)
+    if match:
+        return f"{match.group(1)}."
+    return None
+
+
+def milestone_base_title(title: str) -> str:
+    normalized = normalize_milestone_title(title)
+    return normalized.split(" :: ", 1)[0].strip()
 
 
 @dataclass
@@ -96,13 +117,17 @@ class GitHubMilestoneManager:
         self.token = token
         self.dry_run = dry_run
         self._session = requests.Session()
-        self._session.headers.update({
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "problem-map-milestone-sync",
-        })
+        self._session.headers.update(
+            {
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "problem-map-milestone-sync",
+            }
+        )
         if token:
             self._session.headers["Authorization"] = f"Bearer {token}"
         self._cache: Dict[str, MilestoneInfo] = {}
+        self._normalized_map: Dict[str, str] = {}
+        self._prefix_map: Dict[str, str] = {}
         self._load_existing()
 
     # ------------------------------------------------------------------
@@ -114,15 +139,21 @@ class GitHubMilestoneManager:
         page = 1
         while True:
             params = {"state": "all", "per_page": 100, "page": page}
-            response = self._session.get(self._repo_url("milestones"), params=params, timeout=30)
+            response = self._session.get(
+                self._repo_url("milestones"), params=params, timeout=30
+            )
             if response.status_code == 401:
-                LOG.warning("GitHub authentication failed; continuing without API access.")
+                LOG.warning(
+                    "GitHub authentication failed; continuing without API access."
+                )
                 self._cache.clear()
                 return
             if response.status_code not in (200, 404):
                 LOG.debug("GitHub response %s: %s", response.status_code, response.text)
             if response.status_code == 404:
-                LOG.warning("Repository %s/%s not found or inaccessible.", self.owner, self.repo)
+                LOG.warning(
+                    "Repository %s/%s not found or inaccessible.", self.owner, self.repo
+                )
                 self._cache.clear()
                 return
             response.raise_for_status()
@@ -137,50 +168,88 @@ class GitHubMilestoneManager:
                     state=milestone.get("state", "open"),
                 )
                 self._cache[info.title] = info
+                normalized = normalize_milestone_title(info.title)
+                self._normalized_map.setdefault(normalized, info.title)
+                prefix = extract_milestone_prefix(info.title)
+                if prefix:
+                    base = milestone_base_title(info.title)
+                    self._prefix_map.setdefault(base, prefix)
             if "next" not in response.links:
                 break
             page += 1
         LOG.info("Fetched %d existing GitHub milestones.", len(self._cache))
 
     # ------------------------------------------------------------------
-    def ensure(self, title: str, description: str, parent: Optional[str]) -> MilestoneInfo:
+    def ensure(
+        self, title: str, description: str, parent: Optional[str]
+    ) -> MilestoneInfo:
         """Ensure a milestone exists, creating it if necessary."""
-        if title in self._cache:
-            info = self._cache[title]
-            info.parent = parent
+        resolved_parent = self.resolve_title(parent) if parent else None
+        resolved_title = self.resolve_title(title)
+        if resolved_title in self._cache:
+            info = self._cache[resolved_title]
+            info.parent = resolved_parent
             return info
 
         if not self.token or self.dry_run:
-            LOG.info("Skipping GitHub creation for milestone '%s' (dry-run or missing token).", title)
-            info = MilestoneInfo(title=title, number=None, url=None, parent=parent)
-            self._cache[title] = info
+            display_title = self.format_title(title)
+            LOG.info(
+                "Skipping GitHub creation for milestone '%s' (dry-run or missing token).",
+                display_title,
+            )
+            info = MilestoneInfo(
+                title=display_title, number=None, url=None, parent=resolved_parent
+            )
+            self._cache[display_title] = info
             return info
 
-        payload = {"title": title, "state": "open", "description": description}
-        response = self._session.post(self._repo_url("milestones"), json=payload, timeout=30)
+        display_title = self.format_title(title)
+        payload = {"title": display_title, "state": "open", "description": description}
+        response = self._session.post(
+            self._repo_url("milestones"), json=payload, timeout=30
+        )
         if response.status_code == 422:
             # A concurrent actor may have created the milestone; refetch cache.
-            LOG.info("Milestone '%s' already exists per GitHub; refreshing cache.", title)
+            LOG.info(
+                "Milestone '%s' already exists per GitHub; refreshing cache.",
+                display_title,
+            )
             self._load_existing()
-            info = self._cache.get(title)
+            info = self._cache.get(display_title) or self._cache.get(resolved_title)
             if info:
-                info.parent = parent
+                info.parent = resolved_parent
                 return info
-            raise RuntimeError(f"Unable to resolve milestone '{title}' after 422 response.")
+            raise RuntimeError(
+                f"Unable to resolve milestone '{display_title}' after 422 response."
+            )
         response.raise_for_status()
         milestone = response.json()
         info = MilestoneInfo(
             title=milestone["title"],
             number=milestone["number"],
             url=milestone.get("html_url"),
-            parent=parent,
+            parent=resolved_parent,
         )
         self._cache[info.title] = info
         LOG.info("Created GitHub milestone '%s' (#%s).", info.title, info.number)
         return info
 
+    def resolve_title(self, title: str) -> str:
+        normalized = normalize_milestone_title(title)
+        return self._normalized_map.get(normalized, title)
+
+    def format_title(self, title: str) -> str:
+        if extract_milestone_prefix(title):
+            return title
+        base = milestone_base_title(title)
+        prefix = self._prefix_map.get(base)
+        if prefix:
+            return f"{prefix} {title}"
+        return title
+
 
 # === MILESTONE ASSIGNMENT LOGIC ===
+
 
 def assign_base_milestone(record: Dict[str, object]) -> str:
     """Assign the primary milestone name before sub-categorisation."""
@@ -195,8 +264,7 @@ def assign_base_milestone(record: Dict[str, object]) -> str:
     if category in ("Operations", "Code Quality") and severity == "High":
         return "Local Stability"
     if category == "Architecture" and any(
-        isinstance(item, str)
-        and ("LAN" in item or "network" in item.lower())
+        isinstance(item, str) and ("LAN" in item or "network" in item.lower())
         for item in record.get("original_affected", [])
     ):
         return "Local Network Deployment"
@@ -208,14 +276,18 @@ def assign_base_milestone(record: Dict[str, object]) -> str:
         for item in record.get("resolved_files", [])
     ):
         return "Deployment Readiness"
-    if category == "Operations" and "Elastic Beanstalk" in str(record.get("fix_prompt", "")):
+    if category == "Operations" and "Elastic Beanstalk" in str(
+        record.get("fix_prompt", "")
+    ):
         return "Cloud Test"
     if category in ("Compliance", "Performance"):
         return "Production Readiness"
     return "Feature Enhancements"
 
 
-def derive_sub_milestone(base: str, record: Dict[str, object]) -> Tuple[str, Optional[str]]:
+def derive_sub_milestone(
+    base: str, record: Dict[str, object]
+) -> Tuple[str, Optional[str]]:
     """Derive a sub-milestone name when additional prioritisation helps."""
     severity = str(record.get("severity", "")).strip()
     if not severity:
@@ -234,7 +306,9 @@ def detect_focus_milestones(
 ) -> Dict[str, str]:
     """Create category focus milestones when counts exceed the threshold."""
     existing = set(existing_milestones)
-    category_counts = Counter(record.get("category", "") for record in problems.values())
+    category_counts = Counter(
+        record.get("category", "") for record in problems.values()
+    )
     category_focus: Dict[str, str] = {}
 
     for category, count in category_counts.items():
@@ -244,7 +318,12 @@ def detect_focus_milestones(
         if count >= threshold and focus_title not in existing:
             existing.add(focus_title)
             category_focus[category] = focus_title
-            LOG.info("Added dynamic milestone '%s' for %s issues (count=%d).", focus_title, category, count)
+            LOG.info(
+                "Added dynamic milestone '%s' for %s issues (count=%d).",
+                focus_title,
+                category,
+                count,
+            )
 
     if not category_focus:
         return base_assignments
@@ -259,13 +338,19 @@ def detect_focus_milestones(
 
 # === HELPERS ===
 
+
 def apply_assignments(
     problems: Dict[str, Dict[str, object]],
     base_assignments: Dict[str, str],
 ) -> Dict[str, Dict[str, object]]:
     """Apply sub-milestone logic and collect per-milestone stats."""
     milestone_stats: Dict[str, Dict[str, object]] = defaultdict(
-        lambda: {"count": 0, "categories": Counter(), "severities": Counter(), "parent": None}
+        lambda: {
+            "count": 0,
+            "categories": Counter(),
+            "severities": Counter(),
+            "parent": None,
+        }
     )
 
     for problem_id, base in base_assignments.items():
@@ -274,8 +359,12 @@ def apply_assignments(
         record["milestone"] = final_title
         record["milestone_parent"] = parent
         milestone_stats[final_title]["count"] += 1
-        milestone_stats[final_title]["categories"][record.get("category", "Unknown")] += 1
-        milestone_stats[final_title]["severities"][record.get("severity", "Unknown")] += 1
+        milestone_stats[final_title]["categories"][
+            record.get("category", "Unknown")
+        ] += 1
+        milestone_stats[final_title]["severities"][
+            record.get("severity", "Unknown")
+        ] += 1
         milestone_stats[final_title]["parent"] = parent
 
     return milestone_stats
@@ -358,25 +447,45 @@ def parse_owner_repo(default_owner: str, default_repo: str) -> Tuple[str, str]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--json", type=Path, default=DEFAULT_JSON_FILE, help="Path to problem_file_map.json")
-    parser.add_argument("--db", type=Path, default=DEFAULT_DB_FILE, help="Path to problem_file_map.db")
-    parser.add_argument("--owner", type=str, default=None, help="GitHub repository owner")
+    parser.add_argument(
+        "--json",
+        type=Path,
+        default=DEFAULT_JSON_FILE,
+        help="Path to problem_file_map.json",
+    )
+    parser.add_argument(
+        "--db", type=Path, default=DEFAULT_DB_FILE, help="Path to problem_file_map.db"
+    )
+    parser.add_argument(
+        "--owner", type=str, default=None, help="GitHub repository owner"
+    )
     parser.add_argument("--repo", type=str, default=None, help="GitHub repository name")
-    parser.add_argument("--token", type=str, default=os.environ.get("GITHUB_TOKEN"), help="GitHub token")
-    parser.add_argument("--dry-run", action="store_true", help="Skip GitHub mutations and use placeholders")
+    parser.add_argument(
+        "--token", type=str, default=os.environ.get("GITHUB_TOKEN"), help="GitHub token"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Skip GitHub mutations and use placeholders",
+    )
     parser.add_argument(
         "--category-threshold",
         type=int,
         default=CATEGORY_THRESHOLD_FOR_FOCUS,
         help="Minimum issues per category before creating a dynamic focus milestone",
     )
-    parser.add_argument("--log-level", default="INFO", help="Logging level (default: INFO)")
+    parser.add_argument(
+        "--log-level", default="INFO", help="Logging level (default: INFO)"
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO), format="%(message)s")
+    logging.basicConfig(
+        level=getattr(logging, args.log_level.upper(), logging.INFO),
+        format="%(message)s",
+    )
 
     json_path = args.json
     if not json_path.exists():
@@ -386,7 +495,10 @@ def main() -> int:
     with json_path.open("r", encoding="utf-8") as handle:
         problems: Dict[str, Dict[str, object]] = json.load(handle)
 
-    base_assignments = {problem_id: assign_base_milestone(record) for problem_id, record in problems.items()}
+    base_assignments = {
+        problem_id: assign_base_milestone(record)
+        for problem_id, record in problems.items()
+    }
 
     base_assignments = detect_focus_milestones(
         problems,
@@ -400,15 +512,33 @@ def main() -> int:
     default_owner, default_repo = parse_owner_repo(DEFAULT_OWNER, DEFAULT_REPO)
     owner = args.owner or default_owner
     repo = args.repo or default_repo
-    manager = GitHubMilestoneManager(owner=owner, repo=repo, token=args.token, dry_run=args.dry_run)
+    manager = GitHubMilestoneManager(
+        owner=owner, repo=repo, token=args.token, dry_run=args.dry_run
+    )
 
     assigned_infos: Dict[str, MilestoneInfo] = {}
+    resolved_titles: Dict[str, str] = {}
     for title, stats in milestone_stats.items():
         description = BASE_MILESTONES.get(title) or format_description(title, stats)
-        info = manager.ensure(title=title, description=description, parent=stats.get("parent"))
-        assigned_infos[title] = info
+        info = manager.ensure(
+            title=title, description=description, parent=stats.get("parent")
+        )
+        resolved_titles[title] = info.title
+        assigned_infos[info.title] = info
 
     for record in problems.values():
+        raw_title = record.get("milestone")
+        if raw_title:
+            resolved_title = resolved_titles.get(
+                raw_title, manager.resolve_title(raw_title)
+            )
+            record["milestone"] = resolved_title
+        parent_title = record.get("milestone_parent")
+        if parent_title:
+            resolved_parent = resolved_titles.get(
+                parent_title, manager.resolve_title(parent_title)
+            )
+            record["milestone_parent"] = resolved_parent
         info = assigned_infos.get(record.get("milestone"))
         record["milestone_number"] = info.number if info else None
         record["milestone_url"] = info.url if info else None

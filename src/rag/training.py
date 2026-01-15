@@ -315,7 +315,7 @@ def load_feedback_data() -> Tuple[set, set]:
                     if ip:
                         honeypot_triggers.add(ip)
                 except Exception as e:
-                    print(f"Error processing honeypot log line: {e}")
+                    print(f"Warning: Failed to parse honeypot line: {e}")
                     continue
         print(f"Loaded {len(honeypot_triggers)} IPs from {honeypot_path}")
     except FileNotFoundError:
@@ -336,7 +336,7 @@ def load_feedback_data() -> Tuple[set, set]:
                         if len(parts) > 1:
                             captcha_successes.add(parts[1].strip())
                 except Exception as e:
-                    print(f"Error processing CAPTCHA log line: {e}")
+                    print(f"Warning: Failed to parse CAPTCHA line: {e}")
                     continue
         print(f"Loaded {len(captcha_successes)} IPs from {captcha_path}")
     except FileNotFoundError:

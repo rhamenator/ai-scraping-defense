@@ -57,3 +57,9 @@ Quarterly drills simulate a full-region failure:
   week) and surface failures.
 * Use the JSON metadata files in each backup directory for audit trails and to
   prove compliance with regulatory requirements.
+
+## Resilience Validation
+
+* **Failure Injection Testing**: Regularly inject failures into the system to validate its resilience. This can be done using tools like Chaos Mesh or LitmusChaos. Metrics should be gathered to determine MTTR and MTBF.
+* **Automated Rollback**: Implement automated rollback procedures to quickly revert to a stable state in case of a failure. Test these procedures regularly to ensure they work as expected.
+* **Health Checks**: Implement comprehensive health checks for all services to quickly detect and respond to failures. Use these health checks to automatically restart failing services or trigger failover to a backup.
