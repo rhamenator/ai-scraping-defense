@@ -58,7 +58,7 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
 ---
-apiVersion: autoscaling/v2beta2
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: ai-service-hpa
