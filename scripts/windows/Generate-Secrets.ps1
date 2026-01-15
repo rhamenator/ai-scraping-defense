@@ -46,6 +46,15 @@ function New-RandomPassword {
     return $password
 }
 
+function New-RandomToken {
+    param([int]$Length = 8)
+    $tokenChars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    $random = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
+    $bytes = New-Object byte[] $Length
+    $random.GetBytes($bytes)
+    return -join ($bytes | ForEach-Object { $tokenChars[$_ % $tokenChars.Length] })
+}
+
 function ConvertTo-Base64 {
     param([string]$InputString)
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($InputString)
@@ -67,7 +76,13 @@ Write-Host "Generating secrets for Kubernetes..." -ForegroundColor Cyan
 # Generate all values
 $postgresPassword = New-RandomPassword
 $redisPassword = New-RandomPassword
-$adminUiUsername = if ([string]::IsNullOrEmpty($env:USERNAME)) { "defense-admin" } else { $env:USERNAME }
+if (-not [string]::IsNullOrEmpty($env:ADMIN_UI_USERNAME)) {
+    $adminUiUsername = $env:ADMIN_UI_USERNAME
+} elseif (-not [string]::IsNullOrEmpty($env:USERNAME)) {
+    $adminUiUsername = $env:USERNAME
+} else {
+    $adminUiUsername = "admin-" + (New-RandomToken -Length 8)
+}
 $adminUiPassword = New-RandomPassword
 $adminUiPasswordHash = (htpasswd -nbBC 12 $adminUiUsername $adminUiPassword).Split(':')[1].Trim()
 $systemSeed = New-RandomPassword -Length 48
