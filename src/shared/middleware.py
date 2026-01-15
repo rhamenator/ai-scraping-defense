@@ -15,11 +15,9 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
+from starlette.responses import RedirectResponse
 
-from .observability import (
-    ObservabilitySettings,
-    configure_observability,
-)
+from .observability import ObservabilitySettings, configure_observability
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +39,16 @@ def _parse_int(name: str, default: int) -> int:
     try:
         parsed = int(value)
     except ValueError:
-        raise ValueError(f"Environment variable {name} must be a positive integer, got {value!r}")
+        raise ValueError(
+            f"Environment variable {name} must be a positive integer, got {value!r}"
+        )
     if parsed <= 0:
-        raise ValueError(f"Environment variable {name} must be a positive integer, got {parsed!r}")
+        raise ValueError(
+            f"Environment variable {name} must be a positive integer, got {parsed!r}"
+        )
     return parsed
+
+
 def _load_security_settings() -> SecuritySettings:
     """Load security middleware settings from environment variables."""
 
@@ -191,6 +195,20 @@ def add_security_middleware(
         max_requests=settings.rate_limit_requests,
         window_seconds=settings.rate_limit_window,
     )
+    if settings.enable_https:
+
+        @app.middleware("http")
+        async def _enforce_https(request, call_next):
+            forwarded = request.headers.get("x-forwarded-proto")
+            scheme = (
+                forwarded.split(",")[0].strip() if forwarded else request.url.scheme
+            )
+            if scheme != "https":
+                return RedirectResponse(
+                    url=str(request.url.replace(scheme="https")), status_code=307
+                )
+            return await call_next(request)
+
     # Add standard security headers to all responses
     @app.middleware("http")
     async def _security_headers(request, call_next):
