@@ -37,8 +37,9 @@ VALIDATION_DATA_FILE = os.path.join(FINETUNE_DATA_DIR, "finetuning_data_eval.jso
 # Choose a pre-trained model suitable for classification (smaller models are faster)
 # Model and dataset revisions can be pinned to ensure reproducible builds
 BASE_MODEL_NAME = "distilbert-base-uncased"  # Example: Relatively small & fast
-# Pin to a specific revision for secure downloads
-HF_REVISION = "0123456789abcdef0123456789abcdef01234567"
+# Pin to a specific revision for secure downloads (set via env for production)
+HF_REVISION = os.getenv("HF_REVISION", "main")
+HF_DATASET_REVISION = os.getenv("HF_DATASET_REVISION", HF_REVISION)
 # BASE_MODEL_NAME = "bert-base-uncased"
 # BASE_MODEL_NAME = "roberta-base"
 OUTPUT_DIR = (
@@ -108,7 +109,7 @@ def load_and_prepare_dataset(file_path, tokenizer):
             "json",
             data_files=file_path,
             split="train",
-            revision="0123456789abcdef0123456789abcdef01234567",
+            revision=HF_DATASET_REVISION,
         )
 
         # Define expected features for validation and ClassLabel mapping

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-import random
 
 from .obfuscation import (
     generate_fingerprinting_script,
@@ -14,12 +13,11 @@ from .obfuscation import (
 
 
 def generate_labyrinth_page(seed: str, depth: int = 5) -> str:
-    rng = random.Random(seed)  # nosec B311
     links = []
     for i in range(depth):
         token = hashlib.sha256(f"{seed}-{i}".encode()).hexdigest()[:8]
         links.append(f"/tarpit/{token}")
-    rng.shuffle(links)
+    links.sort(key=lambda link: hashlib.sha256(f"{seed}:{link}".encode()).hexdigest())
     body = "".join(f"<a href='{link}'>Next</a><br/>" for link in links)
     css = generate_obfuscated_css()
     js = generate_obfuscated_js()
