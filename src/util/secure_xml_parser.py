@@ -34,7 +34,9 @@ def parse_xml_string(
     """
     try:
         # defusedxml automatically disables external entity processing
-        root = ET.fromstring(xml_string, forbid_dtd=forbid_dtd, forbid_entities=forbid_entities)
+        root = ET.fromstring(
+            xml_string, forbid_dtd=forbid_dtd, forbid_entities=forbid_entities
+        )
         logger.debug("Successfully parsed XML string")
         return root
     except ET.ParseError as exc:
@@ -65,7 +67,9 @@ def parse_xml_file(
         ValueError: If DTD or entities are detected when forbidden
     """
     try:
-        tree = ET.parse(file_path, forbid_dtd=forbid_dtd, forbid_entities=forbid_entities)
+        tree = ET.parse(
+            file_path, forbid_dtd=forbid_dtd, forbid_entities=forbid_entities
+        )
         root = tree.getroot()
         logger.info("Successfully parsed XML file: %s", file_path)
         return root

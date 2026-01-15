@@ -8,10 +8,10 @@ from src.util.secure_xml_parser import safe_yaml_load_file
 
 def load_pricing(path: str) -> Dict[str, float]:
     """Load pricing configuration from a YAML file using secure parsing.
-    
+
     Args:
         path: Path to the YAML pricing configuration file
-        
+
     Returns:
         Dictionary mapping path prefixes to pricing values
     """

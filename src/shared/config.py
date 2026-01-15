@@ -77,7 +77,9 @@ def _fetch_vault_secret(secret_path: str, key: str = "value") -> Optional[str]:
                 else:
                     secret = None
         except requests.RequestException as exc:
-            logger.warning("Could not read secret from Vault at %s: %s", secret_path, exc)
+            logger.warning(
+                "Could not read secret from Vault at %s: %s", secret_path, exc
+            )
             return None
     except requests.RequestException as exc:
         logger.warning("Could not read secret from Vault at %s: %s", secret_path, exc)
