@@ -14,6 +14,9 @@ generate_password() {
   LC_ALL=C tr -dc 'A-Za-z0-9_!@#$%^&*' < /dev/urandom | head -c "${1:-24}"
 }
 
+generate_username() {
+  LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c "${1:-8}"
+}
 update_env=false
 export_path=""
 
@@ -50,7 +53,10 @@ echo -e "${CYAN}Generating secrets for Kubernetes...${NC}"
 # Generate all values
 POSTGRES_USER="postgres"; POSTGRES_DB="markov_db"; POSTGRES_PASSWORD=$(generate_password)
 REDIS_PASSWORD=$(generate_password)
-ADMIN_UI_USERNAME=${SUDO_USER:-$USER}; if [ -z "$ADMIN_UI_USERNAME" ]; then ADMIN_UI_USERNAME="defense-admin"; fi
+ADMIN_UI_USERNAME=${ADMIN_UI_USERNAME:-${SUDO_USER:-$USER}}
+if [ -z "$ADMIN_UI_USERNAME" ]; then
+  ADMIN_UI_USERNAME="admin-$(generate_username)"
+fi
 ADMIN_UI_PASSWORD=$(generate_password)
 ADMIN_UI_PASSWORD_HASH=$(htpasswd -nbBC 12 "$ADMIN_UI_USERNAME" "$ADMIN_UI_PASSWORD" | cut -d: -f2 | tr -d '\n')
 SYSTEM_SEED=$(generate_password 48)
