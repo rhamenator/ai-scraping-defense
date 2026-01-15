@@ -1,4 +1,10 @@
-"""Central configuration dataclass and helpers for environment settings."""
+"""Central configuration dataclass and helpers for environment settings.
+
+Security Note:
+- For XML parsing, use src.util.secure_xml_parser functions to prevent XXE attacks
+- For YAML parsing, always use yaml.safe_load or safe_yaml_load_file
+- Never use yaml.load (unsafe) or xml.etree.ElementTree directly
+"""
 
 import logging
 import os
@@ -71,7 +77,9 @@ def _fetch_vault_secret(secret_path: str, key: str = "value") -> Optional[str]:
                 else:
                     secret = None
         except requests.RequestException as exc:
-            logger.warning("Could not read secret from Vault at %s: %s", secret_path, exc)
+            logger.warning(
+                "Could not read secret from Vault at %s: %s", secret_path, exc
+            )
             return None
     except requests.RequestException as exc:
         logger.warning("Could not read secret from Vault at %s: %s", secret_path, exc)

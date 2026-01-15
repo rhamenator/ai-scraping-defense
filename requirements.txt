@@ -33,6 +33,7 @@ cachetools~=5.3
 prometheus-client~=0.22
 PyJWT~=2.10
 PyYAML~=6.0
+defusedxml~=0.7
 
 # Secret Management
 hvac~=2.3

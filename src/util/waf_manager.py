@@ -1,6 +1,9 @@
 import logging
 import os
 import subprocess  # nosec B404
+from typing import Optional
+
+from .secure_xml_parser import validate_xml_content_type
 
 ENABLE_WAF = os.getenv("ENABLE_WAF", "true").lower() == "true"
 WAF_RULES_PATH = os.getenv(
@@ -43,6 +46,11 @@ def reload_waf_rules(rules: list[str]) -> bool:
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("Failed to reload WAF rules: %s", exc)
         return False
+
+
+def is_xml_request(content_type: Optional[str]) -> bool:
+    """Check if a request contains XML content based on Content-Type header."""
+    return validate_xml_content_type(content_type)
 
 
 if __name__ == "__main__":  # pragma: no cover - manual execution
