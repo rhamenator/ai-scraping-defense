@@ -26,7 +26,7 @@ incident response.
 The shared middleware wires instrumentation when `create_app` is called.  Each
 service can register checks or spans via `src.shared.observability`:
 
-python
+```python
 from src.shared.observability import register_health_check, trace_span
 
 app = create_app(title="Example Service")
@@ -37,6 +37,7 @@ async def redis_health():
 
 with trace_span("example.operation", attributes={"foo": "bar"}):
     ...
+```
 
 
 ## Performance Analytics
