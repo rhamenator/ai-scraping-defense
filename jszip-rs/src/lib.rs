@@ -26,6 +26,7 @@ const FILENAME_PREFIXES: [&str; 12] = [
     "data_sync_worker",
 ];
 const FILENAME_SUFFIXES: [&str; 6] = ["_min", "_pack", "_bundle", "_lib", "_core", ""];
+const FILENAME_EXT: &str = ".js";
 
 /// Generate random string with SIMD-friendly operations.
 /// The compiler can auto-vectorize the sampling and character conversion.
@@ -46,7 +47,7 @@ pub fn generate_realistic_filename() -> PyResult<String> {
     let prefix = FILENAME_PREFIXES[rng.random_range(0..FILENAME_PREFIXES.len())];
     let suffix = FILENAME_SUFFIXES[rng.random_range(0..FILENAME_SUFFIXES.len())];
     let random_hash: String = rand_string(8).to_lowercase();
-    Ok(format!("{}{}{}.{}", prefix, suffix, random_hash, "js"))
+    Ok(format!("{}{}{}{}", prefix, suffix, random_hash, FILENAME_EXT))
 }
 
 /// Generate file content with SIMD optimization enabled.
@@ -126,7 +127,7 @@ mod tests {
         let f1 = generate_realistic_filename().unwrap();
         let f2 = generate_realistic_filename().unwrap();
         assert_ne!(f1, f2);
-        assert!(f1.ends_with(".js"));
+        assert!(f1.ends_with(FILENAME_EXT));
     }
 
     #[test]
