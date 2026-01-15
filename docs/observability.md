@@ -39,6 +39,7 @@ with trace_span("example.operation", attributes={"foo": "bar"}):
     ...
 ```
 
+
 ## Performance Analytics
 
 The observability framework now includes comprehensive performance analytics
@@ -149,6 +150,13 @@ this endpoint.
 4.  Use the `scripts/operations_toolkit.py` automation to schedule health
     drills that verify logs, metrics, and traces continue to flow during
     failover tests.
+
+## Operational Data Analytics
+
+To enable operational data analytics:
+
+1.  Import the Grafana dashboards in `monitoring/grafana` to visualize the new data pipeline metrics.
+2.  Set up alerts for data pipeline failures and performance degradation based on the new metrics.
 
 ## Next Steps
 
