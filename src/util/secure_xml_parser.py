@@ -6,16 +6,12 @@ and proper validation to prevent XML External Entity (XXE) attacks.
 
 import logging
 from typing import Any, Optional
-from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
 import yaml
+from defusedxml.ElementTree import Element
 
 logger = logging.getLogger(__name__)
-
-
-class _SafeLoaderIgnoreUnknown(yaml.SafeLoader):
-    """Safe loader that treats unknown tags as plain data."""
 
 
 def _construct_unknown(loader: yaml.SafeLoader, node: yaml.Node) -> Any:
@@ -28,7 +24,7 @@ def _construct_unknown(loader: yaml.SafeLoader, node: yaml.Node) -> Any:
     return None
 
 
-_SafeLoaderIgnoreUnknown.add_constructor(None, _construct_unknown)
+yaml.SafeLoader.add_constructor(None, _construct_unknown)
 
 
 def _raise_on_orphan_indentation(content: str) -> None:
@@ -140,7 +136,7 @@ def safe_yaml_load(content: str) -> Any:
     """
     try:
         _raise_on_orphan_indentation(content)
-        data = yaml.load(content, Loader=_SafeLoaderIgnoreUnknown)
+        data = yaml.safe_load(content)
         logger.debug("Successfully parsed YAML content")
         return data
     except yaml.YAMLError as exc:
