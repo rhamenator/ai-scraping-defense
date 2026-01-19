@@ -42,6 +42,21 @@ with a 5-minute evaluation window.
 * Changes are logged to an audit trail (CI artifacts + Git history) satisfying
   compliance requirements.
 
+## Multi-Cloud Runbook Notes
+
+When deploying across providers, confirm these items before go-live:
+
+* **DNS/Ingress**: Ensure the ingress controller matches the provider load
+  balancer model and DNS records point to the correct external IP.
+* **Storage Classes**: Align PVC storage classes with provider defaults and
+  verify RWX/RWO support for each volume.
+* **Secrets**: Use provider-native secret managers or sealed secrets; avoid
+  local file secrets in production.
+* **Network Policies**: Validate CNI support and default deny policies to match
+  security expectations.
+* **Monitoring**: Confirm Prometheus scraping targets and external endpoints
+  are reachable from the provider network.
+
 ## Capacity Management
 
 Capacity dashboards in Grafana use the following metrics:
