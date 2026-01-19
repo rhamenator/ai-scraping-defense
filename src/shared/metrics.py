@@ -145,6 +145,12 @@ ERROR_COUNT = Counter(
 SECURITY_EVENTS = Counter(
     "security_events_total", "Total security events.", ["event_type"], registry=REGISTRY
 )
+OPERATIONAL_EVENTS = Counter(
+    "operational_events_total",
+    "Total operational events.",
+    ["event_type"],
+    registry=REGISTRY,
+)
 LOGIN_ATTEMPTS = Counter(
     "login_attempts_total", "Total login attempts.", ["result"], registry=REGISTRY
 )

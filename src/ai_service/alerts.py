@@ -13,6 +13,7 @@ import httpx
 import redis.asyncio as redis
 
 from src.shared.config import CONFIG
+from src.shared.operational_events import publish_operational_event
 from src.shared.utils import LOG_DIR, log_error, log_event
 
 try:
@@ -117,6 +118,14 @@ async def send_generic_webhook_alert(event_data: "WebhookEvent") -> None:
                     "ALERT_SENT_WEBHOOK",
                     {"reason": event_data.reason, "ip": ip},
                 )
+                publish_operational_event(
+                    "alert_sent",
+                    {
+                        "channel": "webhook",
+                        "ip": ip,
+                        "reason": event_data.reason,
+                    },
+                )
             else:
                 log_error(
                     f"Failed to send generic webhook alert for IP {ip} using new alert system"
@@ -157,6 +166,14 @@ async def _send_generic_webhook_alert_legacy(event_data: "WebhookEvent") -> None
                 ALERT_LOG_FILE,
                 "ALERT_SENT_WEBHOOK",
                 {"reason": event_data.reason, "ip": ip},
+            )
+            publish_operational_event(
+                "alert_sent",
+                {
+                    "channel": "webhook",
+                    "ip": ip,
+                    "reason": event_data.reason,
+                },
             )
     except json.JSONDecodeError as e:
         log_error(f"Failed to serialize generic webhook payload for IP {ip}", e)
@@ -200,6 +217,15 @@ async def send_slack_alert(event_data: "WebhookEvent") -> None:
                     "ALERT_SENT_SLACK",
                     {"reason": reason, "ip": ip},
                 )
+                publish_operational_event(
+                    "alert_sent",
+                    {
+                        "channel": "slack",
+                        "ip": ip,
+                        "reason": reason,
+                        "event_type": event_data.event_type,
+                    },
+                )
             else:
                 log_error(
                     f"Failed to send Slack alert for IP {ip} using new alert system"
@@ -238,6 +264,15 @@ async def _send_slack_alert_legacy(event_data: "WebhookEvent") -> None:
             response.raise_for_status()
         logger.info("Slack alert sent successfully for IP %s.", ip)
         log_event(ALERT_LOG_FILE, "ALERT_SENT_SLACK", {"reason": reason, "ip": ip})
+        publish_operational_event(
+            "alert_sent",
+            {
+                "channel": "slack",
+                "ip": ip,
+                "reason": reason,
+                "event_type": event_data.event_type,
+            },
+        )
     except httpx.HTTPError as e:
         log_error(
             f"Failed to send Slack alert to {ALERT_SLACK_WEBHOOK_URL} for IP {ip}", e
@@ -304,6 +339,15 @@ IP added to blocklist (TTL: {CONFIG.BLOCKLIST_TTL_SECONDS}s). Logs in {LOG_DIR}.
                 ALERT_LOG_FILE,
                 "ALERT_SENT_SMTP",
                 {"reason": reason, "ip": ip, "to": ALERT_EMAIL_TO},
+            )
+            publish_operational_event(
+                "alert_sent",
+                {
+                    "channel": "smtp",
+                    "ip": ip,
+                    "reason": reason,
+                    "to": ALERT_EMAIL_TO,
+                },
             )
         except smtplib.SMTPException as e:
             log_error(f"SMTP error for IP {ip} (Host: {ALERT_SMTP_HOST})", e)
