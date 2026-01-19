@@ -1,5 +1,5 @@
 # Web Frameworks and Servers
-fastapi>=0.110,<0.121
+fastapi>=0.110,<0.129
 uvicorn[standard]~=0.38
 gunicorn~=23.0
 jinja2>=3.1.6,<4.0
