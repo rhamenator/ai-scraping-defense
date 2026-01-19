@@ -174,7 +174,11 @@ async def push_metrics(payload: Dict[str, Any], request: Request):
 
 
 @app.get("/metrics/{installation_id}")
-async def get_metrics(installation_id: str):
+async def get_metrics(installation_id: str, request: Request):
+    if API_KEY and not secrets.compare_digest(
+        request.headers.get("X-API-Key", ""), API_KEY
+    ):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
     installation_id = _validate_installation_id(installation_id)
     if not installation_id:
         return JSONResponse({"error": "invalid installation_id"}, status_code=400)
@@ -200,6 +204,11 @@ async def get_metrics(installation_id: str):
 
 @app.websocket("/ws/{installation_id}")
 async def metrics_websocket(websocket: WebSocket, installation_id: str):
+    if API_KEY and not secrets.compare_digest(
+        websocket.headers.get("X-API-Key", ""), API_KEY
+    ):
+        await websocket.close(code=1008)
+        return
     if not _validate_installation_id(installation_id):
         await websocket.close(code=1008)
         return

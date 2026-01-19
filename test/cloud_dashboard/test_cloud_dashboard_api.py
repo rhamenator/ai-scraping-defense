@@ -110,6 +110,10 @@ class TestCloudDashboardAPI(unittest.TestCase):
                     headers={"X-API-Key": "sek"},
                 )
                 self.assertEqual(resp.status_code, 200)
+                resp = client.get("/metrics/x")
+                self.assertEqual(resp.status_code, 401)
+                resp = client.get("/metrics/x", headers={"X-API-Key": "sek"})
+                self.assertEqual(resp.status_code, 200)
 
 
 if __name__ == "__main__":
