@@ -22,7 +22,7 @@ The `create_issues_from_alerts.py` script fetches all open code scanning and sec
 
 ### Prerequisites
 
-1. **Python 3.11+** installed
+1. **Python 3.8+** installed
 2. **GitHub Personal Access Token** with scopes:
    - `repo` - Full repository access
    - `security_events` - Read security events

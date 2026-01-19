@@ -27,7 +27,7 @@ python scripts/create_issues_from_alerts.py --owner OWNER --repo REPO
 - Safe dry-run mode
 
 **Requirements**:
-- Python 3.11+
+- Python 3.8+
 - `pip install requests PyGithub`
 - GitHub token with `repo` and `security_events` scopes
 
@@ -103,7 +103,7 @@ For other scripts in this directory, refer to their individual documentation or 
 
 Most security-related scripts in this directory require:
 
-1. **Python 3.11+**
+1. **Python 3.8+**
 2. **GitHub Personal Access Token** with appropriate scopes
 3. **Python packages**: `requests`, `PyGithub`
 

@@ -18,6 +18,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration - can be overridden via environment variables
+# These defaults can be changed to match your repository
 OWNER="${GITHUB_REPOSITORY_OWNER:-rhamenator}"
 REPO="${GITHUB_REPOSITORY_NAME:-ai-scraping-defense}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
