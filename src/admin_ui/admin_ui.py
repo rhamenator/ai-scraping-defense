@@ -251,6 +251,12 @@ async def settings_page(
     except Exception as e:
         logger.warning(f"Failed to generate GDPR report: {e}")
 
+    security_kpis = {}
+    try:
+        security_kpis = metrics.get_security_kpis()
+    except Exception as e:
+        logger.warning("Failed to load security KPIs: %s", e)
+
     current_settings = {
         "Model URI": os.getenv("MODEL_URI", "Not Set"),
         "LOG_LEVEL": _get_runtime_setting("LOG_LEVEL"),
@@ -269,6 +275,7 @@ async def settings_page(
             "settings": current_settings,
             "csrf_token": csrf_token,
             "gdpr_report": gdpr_report,
+            "security_kpis": security_kpis,
         },
     )
     response.set_cookie(

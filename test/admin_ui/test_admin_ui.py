@@ -117,6 +117,23 @@ class TestAdminUIComprehensive(unittest.TestCase):
                 os.environ.get("WEBAUTHN_AUTHENTICATOR_ATTACHMENT"), "platform"
             )
 
+    def test_settings_page_shows_security_kpis(self):
+        """Settings page should render security KPI summaries."""
+        fake_redis = self._FakeRedis()
+        with patch(
+            "src.admin_ui.admin_ui.get_redis_connection", return_value=fake_redis
+        ):
+            with patch(
+                "src.admin_ui.admin_ui.metrics.get_security_kpis",
+                return_value={"security_events_total": 5.0},
+            ):
+                response = self.client.get(
+                    "/settings", auth=self.auth, headers=self._totp_headers()
+                )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Security KPIs", response.content)
+        self.assertIn(b"security_events_total", response.content)
+
     def test_index_route_success(self):
         """Test the main dashboard page serves HTML correctly and contains key elements."""
         response = self.client.get("/", auth=self.auth, headers=self._totp_headers())

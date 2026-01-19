@@ -20,6 +20,12 @@ logger = logging.getLogger(__name__)
 
 METRICS_TRULY_AVAILABLE = True
 WEBSOCKET_METRICS_INTERVAL = 5
+SECURITY_KPI_PREFIXES = {
+    "security_events_total": "security_events_total",
+    "errors_total": "errors_total",
+    "login_attempts_total": "login_attempts_total",
+    "community_reports_attempted_total": "community_reports_attempted_total",
+}
 
 router = APIRouter()
 
@@ -51,6 +57,19 @@ def _get_metrics_dict() -> dict:
 
 # Exposed for tests so they can patch the behaviour
 _get_metrics_dict_func = _get_metrics_dict
+
+
+def _sum_metrics(metrics_dict: dict, prefix: str) -> float:
+    return sum(value for key, value in metrics_dict.items() if key.startswith(prefix))
+
+
+def get_security_kpis() -> dict[str, float]:
+    """Return a summary of security KPI counters derived from metrics."""
+    metrics_dict = _get_metrics_dict_func()
+    return {
+        label: _sum_metrics(metrics_dict, prefix)
+        for label, prefix in SECURITY_KPI_PREFIXES.items()
+    }
 
 
 @router.get("/metrics")
