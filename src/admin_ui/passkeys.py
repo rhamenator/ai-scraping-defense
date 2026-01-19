@@ -26,7 +26,7 @@ from webauthn.helpers.structs import (
 from src.shared.config import tenant_key
 from src.shared.redis_client import get_redis_connection
 
-PASSKEY_TOKEN_TTL = 300
+PASSKEY_TOKEN_TTL = int(os.getenv("PASSKEY_TOKEN_TTL", "300"))
 
 RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
 ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost")
