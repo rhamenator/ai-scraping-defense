@@ -52,8 +52,6 @@ To get a full understanding of the project, please review the following document
 - [**Prompt Router**](prompt_router.md)**:** Explains how LLM requests are routed between local containers and the cloud.
 - [**Monitoring Stack**](monitoring_stack.md)**:** Using Prometheus, Grafana, and Watchtower for observability and automatic updates.
 - [**Kubernetes Deployment**](kubernetes_deployment.md)**:** A step-by-step guide for deploying the entire application stack to a production-ready Kubernetes cluster.
-- [**DevSecOps Integration**](devsecops.md)**:** How security workflows fit into CI/CD and how to extend them safely.
-- [**Security Program Foundations**](security_program.md)**:** Culture, metrics, chaos engineering, and insider threat foundations.
 - [**Fail2ban**](fail2ban.md)**:** Configuration and deployment instructions for the optional firewall banning service.
 - [**Web Application Firewall**](waf_setup.md)**:** How to load ModSecurity rules and enable request filtering.
 - [**Edge Provider Enhancements**](edge_enhancements.md)**:** Overview of advanced crawler tokens, AI labyrinths, and risk scoring.
