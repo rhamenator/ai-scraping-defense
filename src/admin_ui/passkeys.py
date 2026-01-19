@@ -27,6 +27,7 @@ from src.shared.config import tenant_key
 from src.shared.redis_client import get_redis_connection
 
 PASSKEY_TOKEN_TTL = int(os.getenv("PASSKEY_TOKEN_TTL", "300"))
+MAX_USERNAME_LENGTH = int(os.getenv("ADMIN_UI_USERNAME_MAX_LENGTH", "128"))
 
 RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
 ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost")
@@ -57,6 +58,17 @@ def _get_enc_key() -> bytes:
         raise RuntimeError("PASSKEYS_ENC_KEY must decode to 32 bytes")
     _ENC_KEY = key
     return key
+
+
+def _login_error() -> HTTPException:
+    return HTTPException(status_code=400, detail="Invalid login request")
+
+
+def _validate_username(username: str, *, detail: str) -> None:
+    if not isinstance(username, str) or not username:
+        raise HTTPException(status_code=400, detail=detail)
+    if len(username) > MAX_USERNAME_LENGTH:
+        raise HTTPException(status_code=400, detail=detail)
 
 
 def encrypt_json(obj: dict) -> str:
@@ -168,6 +180,7 @@ def _has_passkey_tokens() -> bool:
 
 
 def begin_registration(user: str) -> JSONResponse:
+    _validate_username(user, detail="Invalid or missing username")
     options = generate_registration_options(
         rp_id=RP_ID,
         rp_name="AI Scraping Defense",
@@ -201,9 +214,10 @@ def complete_registration(data: dict, user: str) -> JSONResponse:
 
 
 def begin_login(username: str) -> JSONResponse:
+    _validate_username(username, detail="Invalid login request")
     cred = _load_credential(username)
     if not cred:
-        raise HTTPException(status_code=400, detail="Unknown user")
+        raise _login_error()
     descriptor = PublicKeyCredentialDescriptor(id=cred["credential_id"])
     options = generate_authentication_options(
         rp_id=RP_ID,
@@ -215,11 +229,10 @@ def begin_login(username: str) -> JSONResponse:
 
 def complete_login(data: dict) -> JSONResponse:
     username = data.get("username")
-    if not isinstance(username, str) or not username:
-        raise HTTPException(status_code=400, detail="Invalid or missing username")
+    _validate_username(username, detail="Invalid login request")
     cred = _load_credential(username)
     if not cred:
-        raise HTTPException(status_code=400, detail="Unknown user")
+        raise _login_error()
     challenge = _consume_challenge(username)
     if not challenge:
         raise HTTPException(status_code=400, detail="Challenge expired")

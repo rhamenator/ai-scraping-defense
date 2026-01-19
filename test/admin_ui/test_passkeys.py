@@ -101,6 +101,10 @@ class TestPasskeyEndpoints(unittest.TestCase):
             self.assertEqual(resp.status_code, 200)
             mock_begin.assert_called_once_with("u")
 
+    def test_login_begin_rejects_long_username(self):
+        resp = self.client.post("/passkey/login", json={"username": "a" * 200})
+        self.assertEqual(resp.status_code, 400)
+
     def test_login_complete(self):
         with patch(
             "src.admin_ui.auth.passkeys.complete_login",

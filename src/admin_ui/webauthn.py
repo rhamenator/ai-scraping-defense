@@ -30,6 +30,7 @@ from .auth import require_auth
 router = APIRouter()
 
 WEBAUTHN_TOKEN_TTL = int(os.getenv("WEBAUTHN_TOKEN_TTL", "300"))
+MAX_USERNAME_LENGTH = int(os.getenv("ADMIN_UI_USERNAME_MAX_LENGTH", "128"))
 
 RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
 ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost")
@@ -126,9 +127,21 @@ def _authenticator_selection() -> AuthenticatorSelectionCriteria | None:
     return None
 
 
+def _login_error() -> HTTPException:
+    return HTTPException(status_code=400, detail="Invalid login request")
+
+
+def _validate_username(username: str, *, detail: str) -> None:
+    if not isinstance(username, str) or not username:
+        raise HTTPException(status_code=400, detail=detail)
+    if len(username) > MAX_USERNAME_LENGTH:
+        raise HTTPException(status_code=400, detail=detail)
+
+
 @router.post("/webauthn/register/begin")
 async def webauthn_register_begin(user: str = Depends(require_auth)):
     """Begin WebAuthn registration and return options."""
+    _validate_username(user, detail="Invalid or missing username")
     options = generate_registration_options(
         rp_id=RP_ID,
         rp_name="AI Scraping Defense",
@@ -169,12 +182,11 @@ async def webauthn_register_complete(data: dict, user: str = Depends(require_aut
 async def webauthn_login_begin(data: dict):
     """Begin WebAuthn authentication and return options."""
     username = data.get("username")
-    if not isinstance(username, str) or not username:
-        raise HTTPException(status_code=400, detail="Invalid or missing username")
+    _validate_username(username, detail="Invalid login request")
     cred = _load_webauthn_credential(username)
 
     if not cred:
-        raise HTTPException(status_code=400, detail="Unknown user")
+        raise _login_error()
     descriptor = PublicKeyCredentialDescriptor(id=cred["credential_id"])
     options = generate_authentication_options(
         rp_id=RP_ID,
@@ -188,11 +200,10 @@ async def webauthn_login_begin(data: dict):
 async def webauthn_login_complete(data: dict):
     """Complete WebAuthn authentication and return a token."""
     username = data.get("username")
-    if not isinstance(username, str) or not username:
-        raise HTTPException(status_code=400, detail="Invalid or missing username")
+    _validate_username(username, detail="Invalid login request")
     cred = _load_webauthn_credential(username)
     if not cred:
-        raise HTTPException(status_code=400, detail="Unknown user")
+        raise _login_error()
     challenge = _consume_webauthn_challenge(username)
     if not challenge:
         raise HTTPException(status_code=400, detail="Challenge expired")

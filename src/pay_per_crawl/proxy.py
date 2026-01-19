@@ -6,7 +6,7 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 from fastapi import HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.shared.middleware import create_app
 from src.shared.observability import (
@@ -45,9 +45,9 @@ async def _service_health() -> HealthCheckResult:
 
 
 class RegisterPayload(BaseModel):
-    name: str
-    purpose: str
-    token: str | None = None
+    name: str = Field(max_length=128)
+    purpose: str = Field(max_length=256)
+    token: str | None = Field(default=None, max_length=128)
 
 
 @app.post("/register-crawler")
@@ -58,7 +58,7 @@ def register(payload: RegisterPayload):
 
 
 class PayPayload(BaseModel):
-    token: str
+    token: str = Field(max_length=128)
     amount: float
 
 

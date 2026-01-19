@@ -11,11 +11,24 @@ except Exception:  # pragma: no cover - dependency missing in some envs
     InvalidTokenError = Exception  # type: ignore
 
 
+ALGORITHMS_ALLOWED = {
+    "HS256",
+    "HS384",
+    "HS512",
+    "RS256",
+    "RS384",
+    "RS512",
+    "ES256",
+    "ES384",
+    "ES512",
+    "EdDSA",
+}
 ALGORITHMS_DEFAULT = [
     alg.strip()
     for alg in os.getenv("AUTH_JWT_ALGORITHMS", "HS256").split(",")
     if alg.strip()
 ]
+ALGORITHMS_DEFAULT = [alg for alg in ALGORITHMS_DEFAULT if alg in ALGORITHMS_ALLOWED]
 JWT_SECRET = os.getenv("AUTH_JWT_SECRET")
 JWT_ISSUER = os.getenv("AUTH_JWT_ISSUER")
 JWT_AUDIENCE = os.getenv("AUTH_JWT_AUDIENCE")
@@ -53,6 +66,11 @@ def verify_jwt_from_request(
                 detail="JWT auth not configured",
             )
         return {}
+    if not ALGORITHMS_DEFAULT:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="JWT algorithms not configured",
+        )
     token = _extract_bearer_token(request)
     if not token:
         raise HTTPException(
@@ -69,7 +87,9 @@ def verify_jwt_from_request(
             options=options,
         )
     except InvalidTokenError as exc:  # pragma: no cover - runtime validation
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        ) from exc
 
     if required_roles:
         assigned = _roles_from_claims(claims)

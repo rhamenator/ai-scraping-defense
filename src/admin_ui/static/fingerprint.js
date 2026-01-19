@@ -7,7 +7,8 @@
       return fp.get();
     }).then(function(result){
       var id=result.visitorId;
-      document.cookie='fp_id='+id+'; path=/; SameSite=Lax';
+      var secure=window.location.protocol==='https:' ? '; Secure' : '';
+      document.cookie='fp_id='+id+'; path=/; SameSite=Strict'+secure;
     });
   };
   document.head.appendChild(script);

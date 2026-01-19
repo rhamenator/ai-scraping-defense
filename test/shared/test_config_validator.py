@@ -133,6 +133,57 @@ class TestConfigLoader(unittest.TestCase):
             any("DEBUG mode should not be enabled in production" in e for e in errors)
         )
 
+    def test_validate_admin_ui_password_hash_required(self):
+        """Test production requires a password hash."""
+        env = self.minimal_env.copy()
+        env.update({"APP_ENV": "production", "DEBUG": "false"})
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        is_valid, errors = loader.validate_config(config)
+
+        self.assertFalse(is_valid)
+        self.assertTrue(any("ADMIN_UI_PASSWORD_HASH must be set" in e for e in errors))
+
+    def test_validate_admin_ui_password_hash_format(self):
+        """Test password hash must be bcrypt formatted."""
+        env = self.minimal_env.copy()
+        env.update(
+            {
+                "APP_ENV": "production",
+                "DEBUG": "false",
+                "ADMIN_UI_PASSWORD_HASH": "not-a-hash",
+            }
+        )
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        is_valid, errors = loader.validate_config(config)
+
+        self.assertFalse(is_valid)
+        self.assertTrue(any("must be a bcrypt hash" in e for e in errors))
+
+    def test_validate_admin_ui_password_hash_cost(self):
+        """Test bcrypt cost must meet minimum."""
+        env = self.minimal_env.copy()
+        env.update(
+            {
+                "APP_ENV": "production",
+                "DEBUG": "false",
+                "ADMIN_UI_PASSWORD_HASH": "$2b$08$" + "." * 53,
+            }
+        )
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        is_valid, errors = loader.validate_config(config)
+
+        self.assertFalse(is_valid)
+        self.assertTrue(any("bcrypt cost must be >= 12" in e for e in errors))
+
     def test_validate_model_provider_keys(self):
         """Test validation of model provider API keys."""
         env = self.minimal_env.copy()
@@ -161,6 +212,22 @@ class TestConfigLoader(unittest.TestCase):
         self.assertFalse(is_valid)
         self.assertTrue(any("CAPTCHA_VERIFICATION_URL" in e for e in errors))
         self.assertTrue(any("CAPTCHA_SECRET" in e for e in errors))
+
+    def test_validate_jwt_algorithm_values(self):
+        """Test JWT algorithm validation rejects unsupported values."""
+        env = self.minimal_env.copy()
+        env["AUTH_JWT_ALGORITHMS"] = "none"
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        with patch.dict(os.environ, {"AUTH_JWT_ALGORITHMS": "none"}, clear=False):
+            is_valid, errors = loader.validate_config(config)
+
+        self.assertFalse(is_valid)
+        self.assertTrue(
+            any("AUTH_JWT_ALGORITHMS contains unsupported values" in e for e in errors)
+        )
 
     def test_compute_checksum(self):
         """Test configuration checksum computation."""

@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -26,6 +27,19 @@ from .config_schema import (
 )
 
 logger = logging.getLogger(__name__)
+BCRYPT_PATTERN = re.compile(r"^\$(2[aby])\$(\d\d)\$[./A-Za-z0-9]{53}$")
+JWT_ALGORITHMS_ALLOWED = {
+    "HS256",
+    "HS384",
+    "HS512",
+    "RS256",
+    "RS384",
+    "RS512",
+    "ES256",
+    "ES384",
+    "ES512",
+    "EdDSA",
+}
 
 
 class ConfigValidationError(Exception):
@@ -313,6 +327,14 @@ class ConfigLoader:
                 not config.security.tls_cert_path or not config.security.tls_key_path
             ):
                 errors.append("TLS certificate and key required when HTTPS is enabled")
+        if config.security.admin_ui_password_hash:
+            match = BCRYPT_PATTERN.match(config.security.admin_ui_password_hash)
+            if not match:
+                errors.append("ADMIN_UI_PASSWORD_HASH must be a bcrypt hash")
+            else:
+                cost = int(match.group(2))
+                if cost < 12:
+                    errors.append("ADMIN_UI_PASSWORD_HASH bcrypt cost must be >= 12")
 
         # Validate tarpit configuration
         if config.tarpit.enable_llm_generator and not config.tarpit.llm_model_uri:
@@ -347,6 +369,16 @@ class ConfigLoader:
                 errors.append(
                     "ALERT_GENERIC_WEBHOOK_URL required when ALERT_METHOD=webhook"
                 )
+
+        jwt_algorithms = [
+            alg.strip()
+            for alg in os.getenv("AUTH_JWT_ALGORITHMS", "HS256").split(",")
+            if alg.strip()
+        ]
+        if jwt_algorithms and any(
+            alg not in JWT_ALGORITHMS_ALLOWED for alg in jwt_algorithms
+        ):
+            errors.append("AUTH_JWT_ALGORITHMS contains unsupported values")
 
         return len(errors) == 0, errors
 

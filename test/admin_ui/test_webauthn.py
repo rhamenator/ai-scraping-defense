@@ -4,10 +4,16 @@ import time
 import unittest
 from unittest.mock import MagicMock, patch
 
+from fastapi import HTTPException
+
 from src.admin_ui import webauthn
 
 
 class TestWebAuthnFlows(unittest.TestCase):
+    def test_validate_username_rejects_long_value(self):
+        with self.assertRaises(HTTPException):
+            webauthn._validate_username("a" * 200, detail="Invalid login request")
+
     def test_store_and_consume_challenge(self):
         mock_redis = MagicMock()
         with patch(

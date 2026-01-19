@@ -450,7 +450,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         response = self.client.post("/webauthn/login/begin", json={})
         self.assertEqual(response.status_code, 400)
         data = response.json()
-        self.assertIn("username", data["detail"])
+        self.assertEqual("Invalid login request", data["detail"])
 
     def test_webauthn_login_complete_invalid_username(self):
         """Login complete rejects invalid username before processing."""
@@ -458,7 +458,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         response = self.client.post("/webauthn/login/complete", json=payload)
         self.assertEqual(response.status_code, 400)
         data = response.json()
-        self.assertIn("username", data["detail"])
+        self.assertEqual("Invalid login request", data["detail"])
 
     def test_missing_admin_password(self):
         """Service raises an error when ADMIN_UI_PASSWORD_HASH is unset."""

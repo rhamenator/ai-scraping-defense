@@ -1170,8 +1170,14 @@ async def handle_escalation(
                             action_taken = "external_api_inconclusive"
 
     except ValidationError as e:
-        logger.error(f"Invalid request payload received from {client_ip}: {e.errors()}")
-        raise HTTPException(status_code=422, detail=f"Invalid payload: {e.errors()}")
+        logger.error(
+            "Invalid request payload received from %s: %s", client_ip, e.errors()
+        )
+        debug_enabled = os.getenv("DEBUG", "false").lower() == "true"
+        detail = (
+            f"Invalid payload: {e.errors()}" if debug_enabled else "Invalid payload"
+        )
+        raise HTTPException(status_code=422, detail=detail)
     except Exception as e:
         logger.error(f"Unexpected error during escalation for IP {ip_under_test}: {e}")
         action_taken = "internal_server_error"
