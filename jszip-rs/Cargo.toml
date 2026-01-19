@@ -14,10 +14,17 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 pyo3 = { version = "0.27.2", features = ["abi3-py37", "extension-module", "auto-initialize"] }
-zip = "7.0"
+zip = "7.1"
 rand = "0.9"
 chrono = "0.4"
 tempfile = "3"
 
 [build-dependencies]
 pyo3-build-config = { version = "0.27.1", features = ["resolve-config"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"
