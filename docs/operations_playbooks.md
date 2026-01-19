@@ -50,6 +50,46 @@ Capacity dashboards in Grafana use the following metrics:
 * Request concurrency via `QUEUE_LENGTH` gauges.
 * Redis utilisation from custom health check details.
 
+## Event Taxonomy and Routing
+
+Operational events can be published via Redis Pub/Sub when enabled. This is a
+lightweight signal path for downstream monitors or automation.
+
+### Channels and Controls
+
+- **Channel**: `operational_events` (default)
+- **Enable**: `OPERATIONAL_EVENT_STREAM_ENABLED=true`
+- **Redis DB**: `OPERATIONAL_EVENT_REDIS_DB` (default: 0)
+
+### Core Event Types
+
+- `alert_sent`
+- `blocklist_sync_completed`
+- `blocklist_sync_empty`
+- `blocklist_sync_failed`
+
+### Payload Contract
+
+Each event payload includes:
+
+- `event_type` (string)
+- `timestamp` (UTC ISO-8601)
+- `payload` (object with event-specific fields)
+
+Example payload fields for `alert_sent`:
+
+- `channel` (webhook|slack|smtp)
+- `ip`
+- `reason`
+- `event_type` (optional)
+
+Example payload fields for `blocklist_sync_completed`:
+
+- `source`
+- `added`
+- `total`
+- `url`
+
 Run the capacity review weekly:
 
 1. Export dashboards as PDF for historical comparison.
