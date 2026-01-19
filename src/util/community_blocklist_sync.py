@@ -8,6 +8,7 @@ from typing import List, Optional
 import httpx
 
 from src.shared.config import tenant_key
+from src.shared.operational_events import publish_operational_event
 from src.shared.redis_client import get_redis_connection
 
 COMMUNITY_BLOCKLIST_API_URL = os.getenv(
@@ -74,16 +75,31 @@ async def sync_blocklist() -> Optional[int]:
         ips = await fetch_blocklist(list_url)
     except Exception as e:
         logger.error(f"Failed to fetch community blocklist: {e}")
+        publish_operational_event(
+            "blocklist_sync_failed",
+            {"source": "community", "error": str(e), "url": list_url},
+        )
         return None
     if not ips:
         logger.info("No IPs retrieved from community blocklist.")
+        publish_operational_event(
+            "blocklist_sync_empty", {"source": "community", "url": list_url}
+        )
         return 0
     redis_conn = get_redis_connection(db_number=REDIS_DB_BLOCKLIST)
     if not redis_conn:
         logger.error("Could not connect to Redis for blocklist updates.")
+        publish_operational_event(
+            "blocklist_sync_failed",
+            {"source": "community", "error": "redis_unavailable"},
+        )
         return None
     added = update_redis_blocklist(ips, redis_conn)
     logger.info(f"Added/updated {added} IPs from community blocklist.")
+    publish_operational_event(
+        "blocklist_sync_completed",
+        {"source": "community", "added": added, "total": len(ips), "url": list_url},
+    )
     return added
 
 
