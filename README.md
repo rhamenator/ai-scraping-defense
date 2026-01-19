@@ -534,6 +534,37 @@ The optional scripts `scripts/linux/security_scan.sh` and `scripts/windows/secur
 
 ## Security Alert Management
 
+### Creating Issues from Security Alerts
+
+The `scripts/create_issues_from_alerts.py` script automatically creates GitHub issues from code scanning and secret scanning alerts, making it easy to track and manage security findings.
+
+**Quick Start:**
+
+```bash
+# Install dependencies
+pip install requests PyGithub
+
+# Run in dry-run mode (preview only, no issues created)
+export GITHUB_TOKEN="your_github_token"
+./scripts/run_create_issues.sh
+
+# Create issues (live mode)
+./scripts/run_create_issues.sh --live
+```
+
+**Features:**
+- ✅ Fetches all open code scanning and secret scanning alerts
+- ✅ Groups similar alerts to avoid creating duplicate issues
+- ✅ Creates detailed issues with remediation guidance
+- ✅ Checks for existing issues before creating new ones
+- ✅ Safe dry-run mode for testing
+
+**Documentation:** See [docs/creating_issues_from_alerts.md](docs/creating_issues_from_alerts.md) for detailed usage instructions.
+
+**Automation:** The workflow runs automatically every Monday via `.github/workflows/create-issues-from-alerts.yml` or can be triggered manually from the Actions tab.
+
+### Managing and Consolidating Alerts
+
 The `scripts/manage_alerts_issues_prs.py` script helps manage security alerts, issues, and pull requests by identifying and consolidating duplicates, diagnosing error-state alerts, and keeping your repository organized.
 
 **Quick Start:**
