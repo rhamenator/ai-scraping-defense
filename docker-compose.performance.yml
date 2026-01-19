@@ -1,0 +1,7 @@
+# Optional performance tuning overrides for Docker Compose.
+# Use with: docker compose -f docker-compose.yaml -f docker-compose.performance.yml up -d
+
+services:
+  nginx_proxy:
+    volumes:
+      - ./nginx/nginx.performance.conf:/etc/nginx/conf.d/99-performance.perf.conf:ro
