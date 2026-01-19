@@ -60,6 +60,14 @@
                         <label class="block text-sm font-medium text-gray-700" for="ESCALATION_ENDPOINT">Escalation Engine URL</label>
                         <input class="mt-1 p-2 border rounded w-full" type="text" name="ESCALATION_ENDPOINT" id="ESCALATION_ENDPOINT" value="{{ settings['ESCALATION_ENDPOINT'] }}">
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="WEBAUTHN_AUTHENTICATOR_ATTACHMENT">WebAuthn Authenticator Preference</label>
+                        <select class="mt-1 p-2 border rounded w-full" name="WEBAUTHN_AUTHENTICATOR_ATTACHMENT" id="WEBAUTHN_AUTHENTICATOR_ATTACHMENT">
+                            <option value="none" {% if settings['WEBAUTHN_AUTHENTICATOR_ATTACHMENT'] == 'none' %}selected{% endif %}>No preference</option>
+                            <option value="platform" {% if settings['WEBAUTHN_AUTHENTICATOR_ATTACHMENT'] == 'platform' %}selected{% endif %}>Platform (biometric-capable)</option>
+                            <option value="cross-platform" {% if settings['WEBAUTHN_AUTHENTICATOR_ATTACHMENT'] == 'cross-platform' %}selected{% endif %}>Cross-platform (security keys)</option>
+                        </select>
+                    </div>
                     <button class="px-4 py-2 bg-blue-600 text-white rounded" type="submit">Save</button>
                 </form>
 
@@ -79,7 +87,7 @@
             <div class="bg-white p-6 rounded-lg shadow-md mt-8">
                 <h2 class="text-2xl font-semibold mb-4">GDPR Compliance</h2>
                 <p class="text-gray-600 mb-6">
-                    This system implements comprehensive GDPR compliance features including consent management, 
+                    This system implements comprehensive GDPR compliance features including consent management,
                     right to be forgotten, data minimization, and automated compliance reporting.
                 </p>
 
@@ -160,15 +168,15 @@
             e.preventDefault();
             const formData = new FormData(e.target);
             const resultDiv = document.getElementById('deletionResult');
-            
+
             try {
                 const response = await fetch('/gdpr/deletion-request', {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (response.ok) {
                     resultDiv.innerHTML = `
                         <div class="p-4 bg-green-50 border border-green-200 rounded">

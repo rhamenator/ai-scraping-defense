@@ -11,16 +11,15 @@ import secrets
 
 from fastapi import Cookie, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
+from redis.exceptions import RedisError
 
 from src.shared.audit import log_event
 from src.shared.config import CONFIG, tenant_key
 from src.shared.middleware import create_app
-from redis.exceptions import RedisError
-
 from src.shared.observability import (
     HealthCheckResult,
     ObservabilitySettings,
@@ -43,6 +42,9 @@ DEFAULT_RUNTIME_SETTINGS = {
     "LOG_LEVEL": os.getenv("LOG_LEVEL", "INFO"),
     "ESCALATION_ENDPOINT": CONFIG.ESCALATION_ENDPOINT,
     "ALLOWED_PLUGINS": os.getenv("ALLOWED_PLUGINS", "ua_blocker"),
+    "WEBAUTHN_AUTHENTICATOR_ATTACHMENT": os.getenv(
+        "WEBAUTHN_AUTHENTICATOR_ATTACHMENT", "none"
+    ),
 }
 
 WEBAUTHN_TOKEN_TTL = 300
@@ -83,6 +85,7 @@ def _discover_plugins() -> list[str]:
 
 DEFAULT_ALLOWED_ORIGINS = ["http://localhost"]
 
+
 def _get_allowed_origins() -> list[str]:
     """Return a validated list of CORS origins for the Admin UI."""
     raw = os.getenv("ADMIN_UI_CORS_ORIGINS", ",".join(DEFAULT_ALLOWED_ORIGINS))
@@ -94,6 +97,7 @@ def _get_allowed_origins() -> list[str]:
             "ADMIN_UI_CORS_ORIGINS cannot include '*' when allow_credentials is True"
         )
     return origins
+
 
 DEFAULT_ALLOWED_METHODS = ["GET", "POST", "OPTIONS"]
 DEFAULT_ALLOWED_HEADERS = [
@@ -113,7 +117,7 @@ def _parse_allowed_list(
     """Parse comma-separated values from env vars with validation."""
     raw = os.getenv(env_var, "")
     values: list[str] = []
-    for chunk in raw.split(','):
+    for chunk in raw.split(","):
         chunk = chunk.strip()
         if not chunk:
             continue
@@ -121,10 +125,8 @@ def _parse_allowed_list(
         values.append(normalised)
     if not values:
         return default
-    if any(value == '*' for value in values):
-        raise ValueError(
-            f"{env_var} cannot include '*' when allow_credentials is True"
-        )
+    if any(value == "*" for value in values):
+        raise ValueError(f"{env_var} cannot include '*' when allow_credentials is True")
     unique_values: list[str] = []
     for value in values:
         if value not in unique_values:
@@ -135,7 +137,7 @@ def _parse_allowed_list(
 def _get_allowed_methods() -> list[str]:
     """Return validated HTTP methods for CORS preflight handling."""
     return _parse_allowed_list(
-        'ADMIN_UI_CORS_METHODS',
+        "ADMIN_UI_CORS_METHODS",
         DEFAULT_ALLOWED_METHODS,
         normalizer=lambda value: value.upper(),
     )
@@ -143,7 +145,7 @@ def _get_allowed_methods() -> list[str]:
 
 def _get_allowed_headers() -> list[str]:
     """Return validated headers permitted in CORS requests."""
-    return _parse_allowed_list('ADMIN_UI_CORS_HEADERS', DEFAULT_ALLOWED_HEADERS)
+    return _parse_allowed_list("ADMIN_UI_CORS_HEADERS", DEFAULT_ALLOWED_HEADERS)
 
 
 app = create_app(
@@ -177,6 +179,8 @@ async def _redis_health() -> HealthCheckResult:
     except RedisError as exc:  # pragma: no cover - network interaction
         return HealthCheckResult.unhealthy({"error": str(exc)})
     return HealthCheckResult.healthy({"cache_keys": cache_keys})
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
@@ -236,20 +240,24 @@ async def settings_page(
     """Renders the system settings page with a CSRF token."""
     if not csrf_token:
         csrf_token = secrets.token_urlsafe(16)
-    
+
     # Get GDPR compliance report
     gdpr_report = {}
     try:
         from src.shared.gdpr import get_gdpr_manager
+
         gdpr = get_gdpr_manager()
         gdpr_report = gdpr.generate_compliance_report()
     except Exception as e:
         logger.warning(f"Failed to generate GDPR report: {e}")
-    
+
     current_settings = {
         "Model URI": os.getenv("MODEL_URI", "Not Set"),
         "LOG_LEVEL": _get_runtime_setting("LOG_LEVEL"),
         "ESCALATION_ENDPOINT": _get_runtime_setting("ESCALATION_ENDPOINT"),
+        "WEBAUTHN_AUTHENTICATOR_ATTACHMENT": _get_runtime_setting(
+            "WEBAUTHN_AUTHENTICATOR_ATTACHMENT"
+        ),
         "GDPR_ENABLED": os.getenv("GDPR_ENABLED", "true"),
         "GDPR_DPO_EMAIL": os.getenv("GDPR_DPO_EMAIL", "dpo@example.com"),
         "GDPR_DATA_RETENTION_DAYS": os.getenv("GDPR_DATA_RETENTION_DAYS", "365"),
@@ -285,6 +293,7 @@ async def update_settings(
         return HTMLResponse("Invalid CSRF token", status_code=400)
     log_level = form.get("LOG_LEVEL")
     escalation_endpoint = form.get("ESCALATION_ENDPOINT")
+    webauthn_attachment = form.get("WEBAUTHN_AUTHENTICATOR_ATTACHMENT")
 
     if log_level:
         _set_runtime_setting("LOG_LEVEL", log_level)
@@ -292,17 +301,27 @@ async def update_settings(
     if escalation_endpoint:
         _set_runtime_setting("ESCALATION_ENDPOINT", escalation_endpoint)
         os.environ["ESCALATION_ENDPOINT"] = escalation_endpoint
+    if webauthn_attachment in {"none", "platform", "cross-platform"}:
+        _set_runtime_setting("WEBAUTHN_AUTHENTICATOR_ATTACHMENT", webauthn_attachment)
+        os.environ["WEBAUTHN_AUTHENTICATOR_ATTACHMENT"] = webauthn_attachment
 
     log_event(
         user,
         "update_settings",
-        {"log_level": log_level, "endpoint": escalation_endpoint},
+        {
+            "log_level": log_level,
+            "endpoint": escalation_endpoint,
+            "webauthn_attachment": webauthn_attachment,
+        },
     )
 
     current_settings = {
         "Model URI": os.getenv("MODEL_URI", "Not Set"),
         "LOG_LEVEL": _get_runtime_setting("LOG_LEVEL"),
         "ESCALATION_ENDPOINT": _get_runtime_setting("ESCALATION_ENDPOINT"),
+        "WEBAUTHN_AUTHENTICATOR_ATTACHMENT": _get_runtime_setting(
+            "WEBAUTHN_AUTHENTICATOR_ATTACHMENT"
+        ),
     }
     return templates.TemplateResponse(
         request,
@@ -361,54 +380,47 @@ async def update_plugins(request: Request, user: str = Depends(require_admin)):
 async def gdpr_deletion_request(request: Request, user: str = Depends(require_admin)):
     """Handle GDPR data deletion request."""
     from src.shared.gdpr import get_gdpr_manager
-    
+
     # Allowed characters for user_id validation
     ALLOWED_USER_ID_CHARS = "-_"
     MAX_USER_ID_LENGTH = 255
-    
+
     form = await request.form()
     user_id = form.get("user_id", "").strip()
     email = form.get("email", "").strip()
-    
+
     # Validate user_id
     if not user_id:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "user_id is required"}
-        )
-    
+        return JSONResponse(status_code=400, content={"error": "user_id is required"})
+
     # Basic validation: alphanumeric, dashes, underscores only
     if not all(c.isalnum() or c in ALLOWED_USER_ID_CHARS for c in user_id):
         return JSONResponse(
-            status_code=400,
-            content={"error": "user_id contains invalid characters"}
+            status_code=400, content={"error": "user_id contains invalid characters"}
         )
-    
+
     # Limit length to prevent abuse
     if len(user_id) > MAX_USER_ID_LENGTH:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "user_id is too long"}
-        )
-    
+        return JSONResponse(status_code=400, content={"error": "user_id is too long"})
+
     gdpr = get_gdpr_manager()
     deletion_request = gdpr.request_data_deletion(user_id=user_id, email=email or None)
-    
+
     log_event(
         user,
         "gdpr_deletion_request",
         {
             "user_id": user_id,
             "email": email or "none",
-            "request_id": deletion_request.request_id
+            "request_id": deletion_request.request_id,
         },
     )
-    
+
     return JSONResponse(
         content={
             "request_id": deletion_request.request_id,
             "status": "pending",
-            "message": "Data deletion request submitted successfully"
+            "message": "Data deletion request submitted successfully",
         }
     )
 
@@ -417,10 +429,10 @@ async def gdpr_deletion_request(request: Request, user: str = Depends(require_ad
 async def gdpr_compliance_report(request: Request, user: str = Depends(require_auth)):
     """Generate and return GDPR compliance report."""
     from src.shared.gdpr import get_gdpr_manager
-    
+
     gdpr = get_gdpr_manager()
     report = gdpr.generate_compliance_report()
-    
+
     return JSONResponse(content=report)
 
 
