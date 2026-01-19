@@ -22,6 +22,9 @@ The AI Scraping Defense stack includes multiple layers designed to detect or mit
 
 Both `scripts/linux/security_scan.sh` and the new **`scripts/windows/security_scan.ps1`** script produce reports in the `reports` directory, allowing you to verify that these defenses are functioning as expected.
 
+Static configuration checks validate against `config/security_hardening.yaml` to
+ensure baseline hardening expectations are met in `docker-compose.yaml`.
+
 ## Optional Deep-Dive Arguments
 
 The scan script accepts optional parameters to trigger deeper API and LLM checks:
