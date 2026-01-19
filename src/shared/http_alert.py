@@ -250,7 +250,7 @@ class MultiChannelAlertSender:
 
     Usage Example:
         sender = MultiChannelAlertSender()
-        sender.add_channel("slack", HttpAlertSender("https://hooks.slack.com/..."))
+        sender.add_channel("slack", HttpAlertSender("https://hooks.example.com/..."))
         sender.add_channel("teams", HttpAlertSender("https://outlook.office.com/..."))
 
         success_count = await sender.send_alert_to_all({

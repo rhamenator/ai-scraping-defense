@@ -42,7 +42,7 @@ def fetch_rules(url: str, allowed_domains: Optional[list[str]] = None) -> str:
         return ""
 
     try:
-        response = requests.get(url, timeout=15)
+        response = requests.get(url, timeout=15, allow_redirects=False)
         response.raise_for_status()
         logger.info("Successfully fetched rules file.")
         return response.text

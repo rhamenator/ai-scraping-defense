@@ -56,7 +56,9 @@ def _fetch_vault_secret(secret_path: str, key: str = "value") -> Optional[str]:
         else:
             url = f"{vault_addr.rstrip('/')}/v1/{secret_path.lstrip('/')}"
 
-        with requests.get(url, headers={"X-Vault-Token": token}, timeout=5) as resp:
+        with requests.get(
+            url, headers={"X-Vault-Token": token}, timeout=5, allow_redirects=False
+        ) as resp:
             if resp.ok:
                 data = resp.json().get("data", {}).get("data", {})
                 secret = data.get(key)
@@ -70,7 +72,9 @@ def _fetch_vault_secret(secret_path: str, key: str = "value") -> Optional[str]:
             return None
         url = f"{vault_addr.rstrip('/')}/v1/{secret_path.lstrip('/')}"
         try:
-            with requests.get(url, headers={"X-Vault-Token": token}, timeout=5) as resp:
+            with requests.get(
+                url, headers={"X-Vault-Token": token}, timeout=5, allow_redirects=False
+            ) as resp:
                 if resp.ok:
                     data = resp.json().get("data", {}).get("data", {})
                     secret = data.get(key)

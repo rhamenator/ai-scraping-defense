@@ -18,7 +18,7 @@ def download_and_extract_crs(url: str, dest_dir: str) -> bool:
         return False
 
     try:
-        response = requests.get(url, timeout=30)
+        response = requests.get(url, timeout=30, allow_redirects=False)
         response.raise_for_status()
     except requests.exceptions.RequestException as exc:
         logger.error("Failed to download CRS archive from %s: %s", url, exc)

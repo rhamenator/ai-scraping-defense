@@ -92,8 +92,8 @@ success = await alert_sender.send_alert({
 
 **Usage Example**:
 ```bash
-# Set your Slack webhook URL in the environment (masked here)
-export ALERT_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/XXXXX/XXXXX/XXXXX"
+# Set your Slack webhook URL in the environment (example placeholder)
+export ALERT_SLACK_WEBHOOK_URL="https://hooks.example.com/services/REDACTED/REDACTED/REDACTED"
 ```
 
 ```python

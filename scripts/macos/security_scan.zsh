@@ -2,12 +2,16 @@
 # security_scan.zsh - Advanced security testing helper
 #
 
-# Usage: sudo ./security_scan.zsh <target_host_or_ip> [web_url_for_nikto] [docker_image] [code_dir] [sqlmap_url]
+# Usage: sudo ./security_scan.zsh <target_host_or_ip> [web_url_for_nikto] [docker_image] [code_dir] [sqlmap_url] [api_base_url] [openapi_spec_url] [llm_endpoint] [llm_auth_token]
 # - target_host_or_ip: IP or hostname for network scans
 # - web_url_for_nikto: full URL to scan with Nikto and ZAP (defaults to http://<target>)
 # - docker_image: optional container image to scan with Trivy
 # - code_dir: optional path to source code for Bandit static analysis
 # - sqlmap_url: optional parameterized URL for automated SQLMap testing
+# - api_base_url: optional base URL for API security testing
+# - openapi_spec_url: optional OpenAPI/Swagger spec URL for API security testing
+# - llm_endpoint: optional AI/LLM endpoint for prompt injection testing
+# - llm_auth_token: optional auth token for LLM prompt injection testing
 
 set -e
 
@@ -17,10 +21,14 @@ IMAGE="$3"
 CODE_DIR="${4:-.}"
 
 SQLMAP_URL="$5"
+API_BASE_URL="${6:-}"
+OPENAPI_SPEC_URL="${7:-}"
+LLM_ENDPOINT="${8:-}"
+LLM_AUTH_TOKEN="${9:-}"
 PORTS="22,80,443,5432,6379"
 
 if [[ -z "$TARGET" ]]; then
-    echo "Usage: sudo $0 <target_host_or_ip> [web_url_for_nikto] [docker_image] [code_dir] [sqlmap_url]"
+    echo "Usage: sudo $0 <target_host_or_ip> [web_url_for_nikto] [docker_image] [code_dir] [sqlmap_url] [api_base_url] [openapi_spec_url] [llm_endpoint] [llm_auth_token]"
     exit 1
 fi
 
@@ -344,6 +352,38 @@ if command -v syft >/dev/null 2>&1 && [[ -n "$IMAGE" ]]; then
     syft "$IMAGE" -o json > "reports/syft_$(echo $IMAGE | tr '/:' '_').json" || true
 else
     echo "syft not installed or no image specified. Skipping SBOM generation."
+fi
+
+echo "=== 36. Static Security Configuration Checks ==="
+if command -v python3 >/dev/null 2>&1 && [[ -f "scripts/security/run_static_security_checks.py" ]]; then
+    python3 scripts/security/run_static_security_checks.py \
+        > "reports/static_security_checks.txt" 2>&1 || true
+else
+    echo "python3 or static security checks script not found. Skipping."
+fi
+
+echo "=== 37. API Security Test Suite ==="
+if [[ -n "$API_BASE_URL" ]] && [[ -x "scripts/macos/api_security_test.zsh" ]]; then
+    ./scripts/macos/api_security_test.zsh "$API_BASE_URL" "$OPENAPI_SPEC_URL" || true
+else
+    echo "API base URL or api_security_test.zsh missing. Skipping API tests."
+fi
+
+echo "=== 38. LLM Prompt Injection Tests ==="
+if [[ -n "$LLM_ENDPOINT" ]] && [[ -x "scripts/macos/llm_prompt_injection_test.zsh" ]]; then
+    ./scripts/macos/llm_prompt_injection_test.zsh "$LLM_ENDPOINT" "$LLM_AUTH_TOKEN" || true
+else
+    echo "LLM endpoint or llm_prompt_injection_test.zsh missing. Skipping LLM tests."
+fi
+
+echo "=== 39. AI-Driven Scan Correlation ==="
+if command -v python3 >/dev/null 2>&1 && [[ -f "scripts/macos/ai_driven_security_test.py" ]]; then
+    python3 scripts/macos/ai_driven_security_test.py \
+        --reports-dir reports \
+        --provider "${AI_SECURITY_PROVIDER:-local}" \
+        --output reports/ai_analysis.txt || true
+else
+    echo "python3 or ai_driven_security_test.py missing. Skipping AI analysis."
 fi
 
 echo "Reports saved in the 'reports' directory. Review them for potential issues." 

@@ -13,13 +13,25 @@
     Path to source code for Bandit, Gitleaks, and ClamAV scans. Defaults to current directory.
 .PARAMETER SqlmapUrl
     Parameterized URL for automated SQLMap testing.
+.PARAMETER ApiBaseUrl
+    Optional base URL for API security testing.
+.PARAMETER OpenApiSpecUrl
+    Optional OpenAPI/Swagger spec URL for API security testing.
+.PARAMETER LlmEndpoint
+    Optional AI/LLM endpoint for prompt injection testing.
+.PARAMETER LlmAuthToken
+    Optional auth token for LLM prompt injection testing.
 #>
 param(
     [Parameter(Mandatory=$true)][string]$Target,
     [string]$WebUrl,
     [string]$DockerImage,
     [string]$CodeDir = '.',
-    [string]$SqlmapUrl
+    [string]$SqlmapUrl,
+    [string]$ApiBaseUrl,
+    [string]$OpenApiSpecUrl,
+    [string]$LlmEndpoint,
+    [string]$LlmAuthToken
 )
 
 if (-not $WebUrl) { $WebUrl = "http://$Target" }
@@ -222,5 +234,27 @@ Write-Host '=== 35. Syft SBOM Generator ==='
 if ($DockerImage -and (Get-Command syft -ErrorAction SilentlyContinue)) {
     syft $DockerImage -o json > "reports/syft_${SafeImage}.json" || $true
 } else { Write-Warning 'syft not installed or no image specified. Skipping SBOM generation.' }
+
+Write-Host '=== 36. Static Security Configuration Checks ==='
+if ((Get-Command python -ErrorAction SilentlyContinue) -and (Test-Path 'scripts/security/run_static_security_checks.py')) {
+    python scripts/security/run_static_security_checks.py *> "reports/static_security_checks.txt" || $true
+} else { Write-Warning 'python or static security checks script not found. Skipping.' }
+
+Write-Host '=== 37. API Security Test Suite ==='
+if ($ApiBaseUrl -and (Test-Path 'scripts/windows/api_security_test.ps1')) {
+    .\scripts\windows\api_security_test.ps1 -BaseUrl $ApiBaseUrl -OpenApiSpec $OpenApiSpecUrl || $true
+} else { Write-Warning 'API base URL or api_security_test.ps1 missing. Skipping API tests.' }
+
+Write-Host '=== 38. LLM Prompt Injection Tests ==='
+if ($LlmEndpoint -and (Test-Path 'scripts/windows/llm_prompt_injection_test.ps1')) {
+    .\scripts\windows\llm_prompt_injection_test.ps1 -ApiEndpoint $LlmEndpoint -AuthToken $LlmAuthToken || $true
+} else { Write-Warning 'LLM endpoint or llm_prompt_injection_test.ps1 missing. Skipping LLM tests.' }
+
+Write-Host '=== 39. AI-Driven Scan Correlation ==='
+if ((Get-Command python -ErrorAction SilentlyContinue) -and (Test-Path 'scripts/windows/ai_driven_security_test.py')) {
+    $provider = $env:AI_SECURITY_PROVIDER
+    if (-not $provider) { $provider = 'local' }
+    python scripts/windows/ai_driven_security_test.py --reports-dir reports --provider $provider --output reports/ai_analysis.txt || $true
+} else { Write-Warning 'python or ai_driven_security_test.py missing. Skipping AI analysis.' }
 
 Write-Host "Reports saved in the 'reports' directory. Review them for potential issues." -ForegroundColor Green

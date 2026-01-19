@@ -1,6 +1,6 @@
 # Security Scan Helper
 
-`scripts/linux/security_scan.sh` runs a collection of open-source tools to audit a target for common weaknesses. It invokes scanners such as **Nmap**, **Nikto**, **OWASP ZAP**, and **Trivy** alongside optional checks like **SQLMap** and **Bandit**.
+`scripts/linux/security_scan.sh` runs a collection of open-source tools to audit a target for common weaknesses. It invokes scanners such as **Nmap**, **Nikto**, **OWASP ZAP**, and **Trivy** alongside optional checks like **SQLMap**, **Bandit**, API security tests, and LLM prompt-injection exercises.
 
 ## Prerequisites
 - Linux environment with the required utilities installed (e.g. `nmap`, `nikto`, `zaproxy`, `trivy`, `sqlmap`, `masscan`, `bandit`, etc.)
@@ -21,3 +21,15 @@ The AI Scraping Defense stack includes multiple layers designed to detect or mit
 - **Comprehensive Logging** – All requests are logged and exported to Prometheus/Grafana for monitoring unusual activity.
 
 Both `scripts/linux/security_scan.sh` and the new **`scripts/windows/security_scan.ps1`** script produce reports in the `reports` directory, allowing you to verify that these defenses are functioning as expected.
+
+## Optional Deep-Dive Arguments
+
+The scan script accepts optional parameters to trigger deeper API and LLM checks:
+
+```bash
+sudo ./scripts/linux/security_scan.sh <target> [web_url] [docker_image] [code_dir] [sqlmap_url] \
+  [api_base_url] [openapi_spec_url] [llm_endpoint] [llm_auth_token]
+```
+
+- Use `api_base_url` to run `api_security_test` against the API surface.
+- Use `llm_endpoint` to run the prompt-injection tests against the AI endpoint.
