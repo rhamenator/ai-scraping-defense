@@ -86,7 +86,7 @@ if [[ -d "$CODE_DIR" ]]; then
 fi
 
 echo "=== 7. OpenVAS (Greenbone) ==="
-echo "  Ensure OpenVAS is initialized and running. Example gvm-cli command:" 
+echo "  Ensure OpenVAS is initialized and running. Example gvm-cli command:"
 echo "      gvm-cli socket -- gmp start_task <task-id>"
 
 echo "=== 8. Lynis System Audit ==="
@@ -328,4 +328,4 @@ else
     echo "python3 or ai_driven_security_test.py missing. Skipping AI analysis."
 fi
 
-echo "Reports saved in the 'reports' directory. Review them for potential issues." 
+echo "Reports saved in the 'reports' directory. Review them for potential issues."
