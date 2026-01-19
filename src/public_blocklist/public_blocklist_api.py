@@ -24,6 +24,9 @@ PUBLIC_BLOCKLIST_FILE = os.getenv(
     "PUBLIC_BLOCKLIST_FILE", "./data/public_blocklist.json"
 )
 PUBLIC_BLOCKLIST_API_KEY = os.getenv("PUBLIC_BLOCKLIST_API_KEY")
+PUBLIC_BLOCKLIST_LIST_REQUIRES_KEY = (
+    os.getenv("PUBLIC_BLOCKLIST_LIST_REQUIRES_KEY", "false").lower() == "true"
+)
 
 app = create_app()
 
@@ -111,6 +114,18 @@ class IPReport(BaseModel):
 @app.get("/list")
 def get_list() -> dict:
     """Return the list of known malicious IPs."""
+    if PUBLIC_BLOCKLIST_LIST_REQUIRES_KEY and not PUBLIC_BLOCKLIST_API_KEY:
+        raise HTTPException(status_code=503, detail="Service misconfigured")
+    return {"ips": sorted(BLOCKLIST_IPS)}
+
+
+@app.get("/list/auth")
+def get_list_authenticated(x_api_key: Optional[str] = Header(None)) -> dict:
+    """Return blocklist requiring API key when enabled."""
+    if not PUBLIC_BLOCKLIST_API_KEY:
+        raise HTTPException(status_code=503, detail="Service misconfigured")
+    if not x_api_key or not secrets.compare_digest(x_api_key, PUBLIC_BLOCKLIST_API_KEY):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
     return {"ips": sorted(BLOCKLIST_IPS)}
 
 

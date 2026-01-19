@@ -48,3 +48,9 @@ class TestPublicBlocklistAPI(unittest.TestCase):
         with unittest.mock.patch.object(self.pb, "PUBLIC_BLOCKLIST_API_KEY", None):
             resp = self.client.post("/report", json={"ip": "1.1.1.1"})
         self.assertEqual(resp.status_code, 503)
+
+    def test_get_list_authenticated_requires_key(self):
+        resp = self.client.get("/list/auth")
+        self.assertEqual(resp.status_code, 401)
+        resp = self.client.get("/list/auth", headers={"X-API-Key": "secret"})
+        self.assertEqual(resp.status_code, 200)
