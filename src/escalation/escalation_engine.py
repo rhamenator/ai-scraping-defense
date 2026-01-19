@@ -629,14 +629,14 @@ async def check_ip_reputation(ip: str) -> Optional[Dict[str, Any]]:
 # --- Pydantic Models (Preserved) ---
 class RequestMetadata(BaseModel):
     timestamp: Union[str, datetime.datetime]
-    ip: str
-    user_agent: Optional[str] = None
-    referer: Optional[str] = None
-    path: Optional[str] = None
-    method: Optional[str] = None
+    ip: str = Field(min_length=1, max_length=45)
+    user_agent: Optional[str] = Field(default=None, max_length=512)
+    referer: Optional[str] = Field(default=None, max_length=2048)
+    path: Optional[str] = Field(default=None, max_length=2048)
+    method: Optional[str] = Field(default=None, max_length=16)
     headers: Optional[Dict[str, str]] = None
-    fingerprint_id: Optional[str] = None
-    source: str
+    fingerprint_id: Optional[str] = Field(default=None, max_length=128)
+    source: str = Field(min_length=1, max_length=64)
 
 
 # --- FastAPI App ---
