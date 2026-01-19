@@ -13,7 +13,8 @@ if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administr
 
 # --- Script Configuration ---
 $ErrorActionPreference = "Stop"
-$Namespace = "ai-defense"
+$Namespace = $env:KUBE_NAMESPACE
+if (-not $Namespace) { $Namespace = "ai-defense" }
 $RootDir = Split-Path -Parent $PSScriptRoot
 Set-Location -Path $RootDir
 $K8sDir = Join-Path $RootDir "kubernetes"

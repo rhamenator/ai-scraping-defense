@@ -17,7 +17,7 @@ if [ "$(uname -s)" != "Linux" ]; then
 fi
 
 # Define the namespace for easy reference
-NAMESPACE="ai-defense"
+NAMESPACE="${KUBE_NAMESPACE:-ai-defense}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 K8S_DIR="$ROOT_DIR/kubernetes"
