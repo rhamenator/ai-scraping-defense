@@ -66,5 +66,5 @@ wheel
 pytest~=8.4
 pytest-asyncio~=1.1
 flake8~=7.3
-black~=25.11
+black~=26.1
 coverage~=7.12
