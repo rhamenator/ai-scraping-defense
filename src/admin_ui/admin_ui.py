@@ -34,6 +34,8 @@ from .auth import require_admin, require_auth
 
 logger = logging.getLogger(__name__)
 
+CSRF_COOKIE_TTL = int(os.getenv("ADMIN_UI_CSRF_COOKIE_TTL", "3600"))
+
 BASE_DIR = os.path.dirname(__file__)
 
 # Editable runtime settings managed via the Admin UI
@@ -294,6 +296,7 @@ async def settings_page(
         httponly=True,
         secure=True,
         samesite="Strict",
+        max_age=CSRF_COOKIE_TTL,
     )
     return response
 
@@ -371,6 +374,7 @@ async def plugins_page(request: Request, user: str = Depends(require_auth)):
         httponly=True,
         secure=True,
         samesite="Strict",
+        max_age=CSRF_COOKIE_TTL,
     )
     return response
 
