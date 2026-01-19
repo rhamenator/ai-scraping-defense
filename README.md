@@ -333,6 +333,13 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     docker-compose up --build -d
     ```
 
+    For an optional hardened profile (drops Linux capabilities and enforces
+    `no-new-privileges` on core services), layer in the security override file:
+
+    ```bash
+    docker compose -f docker-compose.yaml -f docker-compose.security.yml up -d
+    ```
+
     To enable optional Nginx performance tuning directives, add the
     performance override file:
 

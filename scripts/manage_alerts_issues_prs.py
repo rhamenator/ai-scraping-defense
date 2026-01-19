@@ -27,8 +27,8 @@ import os
 import sys
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List
 from difflib import SequenceMatcher
+from typing import Dict, List
 
 try:
     import requests
@@ -51,11 +51,13 @@ class AlertManager:
         self.gh = Github(token)
         self.repository = self.gh.get_repo(f"{owner}/{repo}")
         self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"token {token}",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28"
-        })
+        self.session.headers.update(
+            {
+                "Authorization": f"token {token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            }
+        )
         self.base_url = f"https://api.github.com/repos/{owner}/{repo}"
 
         # Track actions taken
@@ -70,20 +72,21 @@ class AlertManager:
             "issues_consolidated": 0,
             "prs_closed": 0,
             "prs_consolidated": 0,
-            "errors_diagnosed": 0
+            "errors_diagnosed": 0,
         }
 
     def _sanitize_message(self, message: str) -> str:
         """Sanitize message to remove any potential sensitive data like tokens."""
         import re
+
         # Pattern to match GitHub tokens with specific format:
         # ghp_ (personal), gho_ (OAuth), ghs_ (server), ghu_ (user), ghr_ (refresh) + exactly 36 chars
         # Use word boundary to ensure we match complete tokens
-        token_pattern = r'\bgh[pousr]_[A-Za-z0-9]{36}\b'
-        message = re.sub(token_pattern, '[REDACTED_TOKEN]', message)
+        token_pattern = r"\bgh[pousr]_[A-Za-z0-9]{36}\b"
+        message = re.sub(token_pattern, "[REDACTED_TOKEN]", message)
         # Pattern to match Bearer tokens and other authorization headers
-        auth_pattern = r'(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+'
-        message = re.sub(auth_pattern, r'\1[REDACTED]', message, flags=re.IGNORECASE)
+        auth_pattern = r"(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+"
+        message = re.sub(auth_pattern, r"\1[REDACTED]", message, flags=re.IGNORECASE)
         return message
 
     def log_action(self, action: str, details: str):
@@ -135,16 +138,25 @@ class AlertManager:
 
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code == 403:
-                    self.log_action("ERROR", "403 Forbidden: Insufficient permissions for code scanning alerts")
+                    self.log_action(
+                        "ERROR",
+                        "403 Forbidden: Insufficient permissions for code scanning alerts",
+                    )
                     break
                 elif e.response.status_code == 404:
-                    self.log_action("INFO", "Code scanning not enabled for this repository")
+                    self.log_action(
+                        "INFO", "Code scanning not enabled for this repository"
+                    )
                     break
                 else:
-                    self.log_action("ERROR", f"Failed to fetch code scanning alerts: {e}")
+                    self.log_action(
+                        "ERROR", f"Failed to fetch code scanning alerts: {e}"
+                    )
                     break
             except Exception as e:
-                self.log_action("ERROR", f"Unexpected error fetching code scanning alerts: {e}")
+                self.log_action(
+                    "ERROR", f"Unexpected error fetching code scanning alerts: {e}"
+                )
                 break
 
         self.stats["alerts_fetched"] += len(alerts)
@@ -175,16 +187,25 @@ class AlertManager:
 
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code == 403:
-                    self.log_action("ERROR", "403 Forbidden: Insufficient permissions for secret scanning alerts")
+                    self.log_action(
+                        "ERROR",
+                        "403 Forbidden: Insufficient permissions for secret scanning alerts",
+                    )
                     break
                 elif e.response.status_code == 404:
-                    self.log_action("INFO", "Secret scanning not enabled for this repository")
+                    self.log_action(
+                        "INFO", "Secret scanning not enabled for this repository"
+                    )
                     break
                 else:
-                    self.log_action("ERROR", f"Failed to fetch secret scanning alerts: {e}")
+                    self.log_action(
+                        "ERROR", f"Failed to fetch secret scanning alerts: {e}"
+                    )
                     break
             except Exception as e:
-                self.log_action("ERROR", f"Unexpected error fetching secret scanning alerts: {e}")
+                self.log_action(
+                    "ERROR", f"Unexpected error fetching secret scanning alerts: {e}"
+                )
                 break
 
         self.stats["alerts_fetched"] += len(alerts)
@@ -215,23 +236,32 @@ class AlertManager:
 
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code == 403:
-                    self.log_action("ERROR", "403 Forbidden: Insufficient permissions for Dependabot alerts")
+                    self.log_action(
+                        "ERROR",
+                        "403 Forbidden: Insufficient permissions for Dependabot alerts",
+                    )
                     break
                 elif e.response.status_code == 404:
-                    self.log_action("INFO", "Dependabot not enabled for this repository")
+                    self.log_action(
+                        "INFO", "Dependabot not enabled for this repository"
+                    )
                     break
                 else:
                     self.log_action("ERROR", f"Failed to fetch Dependabot alerts: {e}")
                     break
             except Exception as e:
-                self.log_action("ERROR", f"Unexpected error fetching Dependabot alerts: {e}")
+                self.log_action(
+                    "ERROR", f"Unexpected error fetching Dependabot alerts: {e}"
+                )
                 break
 
         self.stats["alerts_fetched"] += len(alerts)
         self.log_action("INFO", f"Fetched {len(alerts)} Dependabot alerts")
         return alerts
 
-    def identify_duplicate_alerts(self, alerts: List[Dict], alert_type: str) -> Dict[str, List[Dict]]:
+    def identify_duplicate_alerts(
+        self, alerts: List[Dict], alert_type: str
+    ) -> Dict[str, List[Dict]]:
         """Group alerts by their normalized key to identify duplicates."""
         groups = defaultdict(list)
 
@@ -243,13 +273,18 @@ class AlertManager:
         duplicates = {k: v for k, v in groups.items() if len(v) > 1}
 
         if duplicates:
-            self.log_action("ANALYSIS", f"Found {len(duplicates)} groups of duplicate {alert_type} alerts")
+            self.log_action(
+                "ANALYSIS",
+                f"Found {len(duplicates)} groups of duplicate {alert_type} alerts",
+            )
             for key, group in duplicates.items():
                 self.log_action("DETAIL", f"  - {key}: {len(group)} duplicates")
 
         return duplicates
 
-    def consolidate_alerts(self, duplicate_groups: Dict[str, List[Dict]], alert_type: str):
+    def consolidate_alerts(
+        self, duplicate_groups: Dict[str, List[Dict]], alert_type: str
+    ):
         """Consolidate duplicate alerts by closing all but the primary one."""
         for key, alerts in duplicate_groups.items():
             if len(alerts) <= 1:
@@ -279,8 +314,9 @@ class AlertManager:
             if len(all_files) > 10:
                 files_list += f" ... and {len(all_files) - 10} more"
 
-            self.log_action("CONSOLIDATE",
-                          f"Consolidating {alert_type} alert group: {key}")
+            self.log_action(
+                "CONSOLIDATE", f"Consolidating {alert_type} alert group: {key}"
+            )
             self.log_action("DETAIL", f"  Primary: #{primary_alert.get('number')}")
             self.log_action("DETAIL", f"  Affected files: {files_list}")
 
@@ -297,7 +333,7 @@ class AlertManager:
                                 "state": "dismissed",
                                 "dismissed_reason": "false positive",
                                 "dismissed_comment": f"Duplicate of alert #{primary_alert.get('number')}. "
-                                                   f"Consolidated alert covers files: {files_list}"
+                                f"Consolidated alert covers files: {files_list}",
                             }
                             response = self.session.patch(url, json=data)
                             response.raise_for_status()
@@ -307,7 +343,7 @@ class AlertManager:
                                 "state": "resolved",
                                 "resolution": "false_positive",
                                 "resolution_comment": f"Duplicate of alert #{primary_alert.get('number')}. "
-                                                     f"Consolidated alert covers files: {files_list}"
+                                f"Consolidated alert covers files: {files_list}",
                             }
                             response = self.session.patch(url, json=data)
                             response.raise_for_status()
@@ -317,7 +353,7 @@ class AlertManager:
                                 "state": "dismissed",
                                 "dismissed_reason": "no_bandwidth",
                                 "dismissed_comment": f"Duplicate of alert #{primary_alert.get('number')}. "
-                                                   f"Consolidated alert covers dependencies: {files_list}"
+                                f"Consolidated alert covers dependencies: {files_list}",
                             }
                             response = self.session.patch(url, json=data)
                             response.raise_for_status()
@@ -326,7 +362,10 @@ class AlertManager:
                         self.stats["alerts_consolidated"] += 1
 
                     except Exception as e:
-                        self.log_action("ERROR", f"Failed to close duplicate alert #{alert_num}: {e}")
+                        self.log_action(
+                            "ERROR",
+                            f"Failed to close duplicate alert #{alert_num}: {e}",
+                        )
 
     def diagnose_error_alerts(self, alerts: List[Dict], alert_type: str):
         """Diagnose alerts with "Error" state or label."""
@@ -344,13 +383,17 @@ class AlertManager:
             self.log_action("INFO", f"No error-state {alert_type} alerts found")
             return
 
-        self.log_action("DIAGNOSIS", f"Found {len(error_alerts)} {alert_type} alerts with errors")
+        self.log_action(
+            "DIAGNOSIS", f"Found {len(error_alerts)} {alert_type} alerts with errors"
+        )
 
         for alert in error_alerts:
             alert_num = alert.get("number")
             state_reason = alert.get("state_reason", "unknown")
 
-            self.log_action("DETAIL", f"  Alert #{alert_num}: state_reason={state_reason}")
+            self.log_action(
+                "DETAIL", f"  Alert #{alert_num}: state_reason={state_reason}"
+            )
             self.stats["errors_diagnosed"] += 1
 
             # Common error reasons and remediation
@@ -397,7 +440,14 @@ class AlertManager:
             # Create a normalized key based on title
             title = issue.title.lower()
             # Remove common prefixes
-            for prefix in ["[security]", "[bug]", "[feature]", "missing", "inadequate", "insecure"]:
+            for prefix in [
+                "[security]",
+                "[bug]",
+                "[feature]",
+                "missing",
+                "inadequate",
+                "insecure",
+            ]:
                 title = title.replace(prefix, "").strip()
 
             groups[title].append(issue)
@@ -415,8 +465,7 @@ class AlertManager:
                 for subgroup in subgroups:
                     # Check similarity with first issue in subgroup
                     similarity = self.calculate_similarity(
-                        issue.body or "",
-                        subgroup[0].body or ""
+                        issue.body or "", subgroup[0].body or ""
                     )
                     if similarity > 0.8:  # 80% similarity threshold
                         subgroup.append(issue)
@@ -432,7 +481,9 @@ class AlertManager:
                     refined_groups[f"{title}_{i}"] = subgroup
 
         if refined_groups:
-            self.log_action("ANALYSIS", f"Found {len(refined_groups)} groups of duplicate issues")
+            self.log_action(
+                "ANALYSIS", f"Found {len(refined_groups)} groups of duplicate issues"
+            )
             for key, group in refined_groups.items():
                 self.log_action("DETAIL", f"  - {key}: {len(group)} duplicates")
 
@@ -450,7 +501,9 @@ class AlertManager:
             duplicates = sorted_issues[1:]
 
             self.log_action("CONSOLIDATE", f"Consolidating issue group: {key}")
-            self.log_action("DETAIL", f"  Primary: #{primary_issue.number} - {primary_issue.title}")
+            self.log_action(
+                "DETAIL", f"  Primary: #{primary_issue.number} - {primary_issue.title}"
+            )
 
             # Close duplicate issues
             for dup_issue in duplicates:
@@ -458,8 +511,10 @@ class AlertManager:
 
                 if not self.dry_run:
                     try:
-                        comment = (f"Closing as duplicate. This issue is superseded by "
-                                 f"#{primary_issue.number} which consolidates all related concerns.")
+                        comment = (
+                            f"Closing as duplicate. This issue is superseded by "
+                            f"#{primary_issue.number} which consolidates all related concerns."
+                        )
                         dup_issue.create_comment(comment)
                         dup_issue.edit(state="closed", state_reason="not_planned")
 
@@ -467,7 +522,10 @@ class AlertManager:
                         self.stats["issues_consolidated"] += 1
 
                     except Exception as e:
-                        self.log_action("ERROR", f"Failed to close duplicate issue #{dup_issue.number}: {e}")
+                        self.log_action(
+                            "ERROR",
+                            f"Failed to close duplicate issue #{dup_issue.number}: {e}",
+                        )
 
     def fetch_pull_requests(self, state: str = "open") -> List:
         """Fetch pull requests from the repository."""
@@ -505,8 +563,7 @@ class AlertManager:
                 matched = False
                 for subgroup in subgroups:
                     similarity = self.calculate_similarity(
-                        pr.body or "",
-                        subgroup[0].body or ""
+                        pr.body or "", subgroup[0].body or ""
                     )
                     if similarity > 0.8:
                         subgroup.append(pr)
@@ -521,7 +578,9 @@ class AlertManager:
                     refined_groups[f"{title}_{i}"] = subgroup
 
         if refined_groups:
-            self.log_action("ANALYSIS", f"Found {len(refined_groups)} groups of duplicate PRs")
+            self.log_action(
+                "ANALYSIS", f"Found {len(refined_groups)} groups of duplicate PRs"
+            )
             for key, group in refined_groups.items():
                 self.log_action("DETAIL", f"  - {key}: {len(group)} duplicates")
 
@@ -539,7 +598,9 @@ class AlertManager:
             duplicates = sorted_prs[1:]
 
             self.log_action("CONSOLIDATE", f"Consolidating PR group: {key}")
-            self.log_action("DETAIL", f"  Primary: #{primary_pr.number} - {primary_pr.title}")
+            self.log_action(
+                "DETAIL", f"  Primary: #{primary_pr.number} - {primary_pr.title}"
+            )
 
             # Close duplicate PRs
             for dup_pr in duplicates:
@@ -547,8 +608,10 @@ class AlertManager:
 
                 if not self.dry_run:
                     try:
-                        comment = (f"Closing as duplicate. This PR is superseded by "
-                                 f"#{primary_pr.number} which consolidates all related changes.")
+                        comment = (
+                            f"Closing as duplicate. This PR is superseded by "
+                            f"#{primary_pr.number} which consolidates all related changes."
+                        )
                         dup_pr.create_issue_comment(comment)
                         dup_pr.edit(state="closed")
 
@@ -556,7 +619,10 @@ class AlertManager:
                         self.stats["prs_consolidated"] += 1
 
                     except Exception as e:
-                        self.log_action("ERROR", f"Failed to close duplicate PR #{dup_pr.number}: {e}")
+                        self.log_action(
+                            "ERROR",
+                            f"Failed to close duplicate PR #{dup_pr.number}: {e}",
+                        )
 
     def generate_report(self) -> str:
         """Generate a comprehensive report of actions taken."""
@@ -587,7 +653,9 @@ class AlertManager:
 
     def run(self):
         """Run the complete alert management workflow."""
-        self.log_action("START", f"Starting alert management for {self.owner}/{self.repo}")
+        self.log_action(
+            "START", f"Starting alert management for {self.owner}/{self.repo}"
+        )
 
         if self.dry_run:
             self.log_action("INFO", "Running in DRY RUN mode - no changes will be made")
@@ -612,7 +680,9 @@ class AlertManager:
                 self.consolidate_alerts(code_dupes, "code_scanning")
 
         if secret_alerts:
-            secret_dupes = self.identify_duplicate_alerts(secret_alerts, "secret_scanning")
+            secret_dupes = self.identify_duplicate_alerts(
+                secret_alerts, "secret_scanning"
+            )
             if secret_dupes:
                 self.consolidate_alerts(secret_dupes, "secret_scanning")
 
@@ -637,12 +707,15 @@ class AlertManager:
 
         # 6. Generate report
         report = self.generate_report()
-        print("\n" + report)
+        safe_report = self._sanitize_message(report)
+        print("\n" + safe_report)
 
         # Save report to file
-        report_filename = f"alert_management_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        report_filename = (
+            f"alert_management_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        )
         with open(report_filename, "w") as f:
-            f.write(report)
+            f.write(safe_report)
 
         self.log_action("COMPLETE", f"Report saved to {report_filename}")
 
@@ -650,14 +723,15 @@ class AlertManager:
 def _sanitize_message_standalone(message: str) -> str:
     """Standalone function to sanitize messages (for use before manager is created)."""
     import re
+
     # Pattern to match GitHub tokens with specific format:
     # ghp_ (personal), gho_ (OAuth), ghs_ (server), ghu_ (user), ghr_ (refresh) + exactly 36 chars
     # Use word boundary to ensure we match complete tokens
-    token_pattern = r'\bgh[pousr]_[A-Za-z0-9]{36}\b'
-    message = re.sub(token_pattern, '[REDACTED_TOKEN]', message)
+    token_pattern = r"\bgh[pousr]_[A-Za-z0-9]{36}\b"
+    message = re.sub(token_pattern, "[REDACTED_TOKEN]", message)
     # Pattern to match Bearer tokens and other authorization headers
-    auth_pattern = r'(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+'
-    message = re.sub(auth_pattern, r'\1[REDACTED]', message, flags=re.IGNORECASE)
+    auth_pattern = r"(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+"
+    message = re.sub(auth_pattern, r"\1[REDACTED]", message, flags=re.IGNORECASE)
     return message
 
 
@@ -665,20 +739,27 @@ def main():
     parser = argparse.ArgumentParser(
         description="Manage security alerts, issues, and PRs in a GitHub repository",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
+        epilog=__doc__,
     )
     parser.add_argument("--owner", required=True, help="GitHub repository owner")
     parser.add_argument("--repo", required=True, help="GitHub repository name")
-    parser.add_argument("--token", help="GitHub Personal Access Token (or use GITHUB_TOKEN env var)")
-    parser.add_argument("--dry-run", action="store_true",
-                       help="Run in dry-run mode (no changes will be made)")
+    parser.add_argument(
+        "--token", help="GitHub Personal Access Token (or use GITHUB_TOKEN env var)"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Run in dry-run mode (no changes will be made)",
+    )
 
     args = parser.parse_args()
 
     # Get token from args or environment
     token = args.token or os.environ.get("GITHUB_TOKEN")
     if not token:
-        print("ERROR: GitHub token is required. Provide via --token or GITHUB_TOKEN env var")
+        print(
+            "ERROR: GitHub token is required. Provide via --token or GITHUB_TOKEN env var"
+        )
         sys.exit(1)
 
     # Create and run manager
@@ -697,6 +778,7 @@ def main():
             error_msg = _sanitize_message_standalone(str(e))
         print(f"\n\nFATAL ERROR: {error_msg}")
         import traceback
+
         # Sanitize traceback as well
         tb = traceback.format_exc()
         if manager:
