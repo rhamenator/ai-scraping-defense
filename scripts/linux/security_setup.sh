@@ -8,7 +8,8 @@ pip install -r requirements.txt
 apt-get update
 apt-get install -y \
     nmap nikto zaproxy sqlmap lynis hydra masscan gobuster enum4linux \
-    wpscan ffuf wfuzz testssl.sh whatweb gvm rkhunter chkrootkit clamav jq
+    wpscan ffuf wfuzz testssl.sh whatweb gvm rkhunter chkrootkit clamav jq \
+    seclists dirbuster
 
 # Additional tools from GitHub with checksum verification
 TMP_DIR=$(mktemp -d)
@@ -50,10 +51,30 @@ curl -fsSL -o "$TMP_DIR/grype_checksums.txt" \
 tar -xz -C /usr/local/bin -f "$TMP_DIR/$GRYPE_TAR" grype
 rm "$TMP_DIR/$GRYPE_TAR" "$TMP_DIR/grype_checksums.txt"
 
-# Nuclei
-echo "Installing Nuclei..."
-go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest || true
-cp ~/go/bin/nuclei /usr/local/bin/ 2>/dev/null || echo "Note: nuclei not in ~/go/bin, may need manual PATH setup"
+# Go-based tools
+if command -v go >/dev/null 2>&1; then
+  echo "Installing Go-based tools..."
+  go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest || true
+  cp ~/go/bin/nuclei /usr/local/bin/ 2>/dev/null || echo "Note: nuclei not in ~/go/bin, may need manual PATH setup"
+
+  echo "Installing Katana..."
+  go install github.com/projectdiscovery/katana/cmd/katana@latest || true
+  cp ~/go/bin/katana /usr/local/bin/ 2>/dev/null || true
+
+  echo "Installing httpx..."
+  go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest || true
+  cp ~/go/bin/httpx /usr/local/bin/ 2>/dev/null || true
+
+  echo "Installing Dalfox..."
+  go install github.com/hahwul/dalfox/v2@latest || true
+  cp ~/go/bin/dalfox /usr/local/bin/ 2>/dev/null || true
+
+  echo "Installing Amass..."
+  go install -v github.com/owasp-amass/amass/v4/...@master || true
+  cp ~/go/bin/amass /usr/local/bin/ 2>/dev/null || true
+else
+  echo "Warning: Go not installed. Skipping Go-based tools (nuclei, katana, httpx, dalfox, amass)."
+fi
 
 # Feroxbuster
 FEROX_VERSION=$(curl -s https://api.github.com/repos/epi052/feroxbuster/releases/latest \
@@ -65,26 +86,6 @@ if [[ -f "$TMP_DIR/$FEROX_TAR" ]]; then
     tar -xz -C /usr/local/bin -f "$TMP_DIR/$FEROX_TAR" feroxbuster 2>/dev/null || true
 fi
 
-# Katana
-echo "Installing Katana..."
-go install github.com/projectdiscovery/katana/cmd/katana@latest || true
-cp ~/go/bin/katana /usr/local/bin/ 2>/dev/null || true
-
-# httpx
-echo "Installing httpx..."
-go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest || true
-cp ~/go/bin/httpx /usr/local/bin/ 2>/dev/null || true
-
-# Dalfox
-echo "Installing Dalfox..."
-go install github.com/hahwul/dalfox/v2@latest || true
-cp ~/go/bin/dalfox /usr/local/bin/ 2>/dev/null || true
-
-# Amass
-echo "Installing Amass..."
-go install -v github.com/owasp-amass/amass/v4/...@master || true
-cp ~/go/bin/amass /usr/local/bin/ 2>/dev/null || true
-
 # Syft SBOM tool
 SYFT_VERSION=$(curl -s https://api.github.com/repos/anchore/syft/releases/latest \
   | jq -r '.tag_name' | sed 's/^v//')
@@ -94,7 +95,11 @@ curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -
 pip install bandit sslyze sublist3r pip-audit safety semgrep schemathesis
 
 # Snyk CLI (requires account but useful)
-npm install -g snyk 2>/dev/null || echo "Note: npm not available for snyk installation"
+if command -v npm >/dev/null 2>&1; then
+  npm install -g snyk 2>/dev/null || echo "Note: npm not available for snyk installation"
+else
+  echo "Warning: npm not available. Install Node.js to enable Snyk."
+fi
 
 # Make new scripts executable
 chmod +x /home/runner/work/ai-scraping-defense/ai-scraping-defense/scripts/linux/api_security_test.sh 2>/dev/null || true
