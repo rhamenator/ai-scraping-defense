@@ -11,7 +11,7 @@ from redis.exceptions import RedisError
 from src.shared.config import get_secret
 from src.shared.redis_client import get_redis_connection
 
-from . import passkeys
+from . import mfa, passkeys
 
 security = HTTPBasic()
 router = APIRouter()
@@ -24,6 +24,7 @@ def require_auth(
     credentials: HTTPBasicCredentials = Depends(security),
     x_2fa_code: str | None = Header(None, alias="X-2FA-Code"),
     x_2fa_token: str | None = Header(None, alias="X-2FA-Token"),
+    x_2fa_backup_code: str | None = Header(None, alias="X-2FA-Backup-Code"),
     client_ip: str | None = None,
 ) -> str:
     """Validate HTTP Basic credentials and optional 2FA."""
@@ -89,8 +90,12 @@ def require_auth(
             if totp.verify(x_2fa_code, valid_window=1):
                 return credentials.username
             detail = "Invalid 2FA code"
+        elif x_2fa_backup_code:
+            if mfa.verify_backup_code(credentials.username, x_2fa_backup_code):
+                return credentials.username
+            detail = "Invalid backup code"
         else:
-            detail = "2FA token or code required"
+            detail = "2FA token, code, or backup code required"
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=detail, headers=headers
         )
@@ -144,3 +149,22 @@ async def passkey_login(data: PasskeyLoginRequest = Body(...)):
     if not data.username:
         raise HTTPException(status_code=422, detail="Username required")
     return passkeys.begin_login(data.username)
+
+
+@router.post("/mfa/backup-codes")
+async def generate_backup_codes(user: str = Depends(require_admin)):
+    """Generate and store new backup codes for MFA."""
+    codes = mfa.generate_backup_codes()
+    if not mfa.store_backup_codes(user, codes):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Backup codes unavailable",
+        )
+    return {"backup_codes": codes}
+
+
+@router.get("/mfa/backup-codes/remaining")
+async def backup_codes_remaining(user: str = Depends(require_admin)):
+    """Return the number of remaining backup codes."""
+    remaining = mfa.get_remaining_backup_codes_count(user)
+    return {"remaining": remaining}
