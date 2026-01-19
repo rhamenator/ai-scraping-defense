@@ -39,12 +39,12 @@ docker login
 
 The project uses a single `Dockerfile` in the root directory to build a base image for all Python services.
 
-```bash  
-# Replace 'your-registry/your-repo' with your actual container registry path  
+```bash
+# Replace 'your-registry/your-repo' with your actual container registry path
 export IMAGE_NAME="your-registry/your-repo/ai-scraping-defense:latest"
-# Build the image  
+# Build the image
 docker build -t $IMAGE_NAME .
-# Push the image to your registry  
+# Push the image to your registry
 docker push $IMAGE_NAME
 ```
 
@@ -107,6 +107,8 @@ If you are manually applying `kubectl apply -f` to each file, it should be done 
 ``` bash or PowerShell
 # 1. Create the namespace
 kubectl apply -f kubernetes/namespace.yaml
+# Optional: enforce Pod Security Standards (baseline with restricted warnings)
+kubectl apply -f kubernetes/namespace-pss.yaml
 
 # 2. Create the ConfigMap and Persistent Volume Claims
 kubectl apply -f kubernetes/configmap.yaml
@@ -145,7 +147,7 @@ kubectl get pods -n ai-defense -w
 Once all pods are in the Running state, you can find the external IP address of your Nginx service to access the application:
 
 ```bash or PowerShell
-kubectl get svc -n ai-defense nginx-proxy  
+kubectl get svc -n ai-defense nginx-proxy
 ```
 
 ### 6. **Access the Application**
