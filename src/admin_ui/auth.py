@@ -8,6 +8,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 from redis.exceptions import RedisError
 
+from src.shared.audit import log_event
 from src.shared.config import get_secret
 from src.shared.redis_client import get_redis_connection
 
@@ -47,6 +48,11 @@ def require_auth(
             if count == 1:
                 redis_conn.expire(key, rate_window)
             if count > rate_limit:
+                log_event(
+                    credentials.username,
+                    "admin_ui_auth_rate_limited",
+                    {"ip": client_ip},
+                )
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail="Too many authentication attempts",
@@ -66,6 +72,11 @@ def require_auth(
         credentials.password.encode(), password_hash
     )
     if not valid:
+        log_event(
+            credentials.username,
+            "admin_ui_auth_failed",
+            {"ip": client_ip},
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
 
     token_user = passkeys._consume_passkey_token(
