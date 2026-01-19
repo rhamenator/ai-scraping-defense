@@ -1,0 +1,23 @@
+version: 1
+
+compose:
+  required_services:
+    - ai_service
+    - escalation_engine
+    - tarpit_api
+    - cloud_proxy
+    - config_recommender
+
+  service_requirements:
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - "ALL"
+    read_only: true
+    tmpfs_prefixes:
+      - "/tmp"
+    require_readonly_volume: true
+
+  secret_volume_prefixes:
+    - "./secrets:/run/secrets"
+  secret_volume_readonly: true
