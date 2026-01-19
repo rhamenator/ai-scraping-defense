@@ -237,11 +237,14 @@ This alert was found in {len(alerts)} location(s):
             alert_num = alert.get("number", "N/A")
             location = alert.get("most_recent_instance", {}).get("location", {})
             path = location.get("path", "unknown")
-            start_line = location.get("start_line", "")
-            end_line = location.get("end_line", "")
+            start_line = location.get("start_line")
+            end_line = location.get("end_line")
             
-            if start_line:
+            # Format line reference if line numbers are available
+            if start_line is not None and end_line is not None:
                 line_ref = f":{start_line}" if start_line == end_line else f":{start_line}-{end_line}"
+            elif start_line is not None:
+                line_ref = f":{start_line}"
             else:
                 line_ref = ""
             
@@ -311,9 +314,10 @@ Secret scanning has detected exposed credentials in this repository. This is a c
             for location in locations[:3]:  # Show first 3 locations per alert
                 details = location.get("details", {})
                 path = details.get("path", "unknown")
-                start_line = details.get("start_line", "")
+                start_line = details.get("start_line")
                 
-                line_ref = f":{start_line}" if start_line else ""
+                # Format line reference if available
+                line_ref = f":{start_line}" if start_line is not None else ""
                 alert_url = alert.get("html_url", "")
                 body += f"{i}. [`{path}{line_ref}`]({alert_url}) - Alert #{alert_num}\n"
         

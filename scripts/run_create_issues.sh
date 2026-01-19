@@ -73,7 +73,15 @@ check_prerequisites() {
     
     # Check required packages
     # Note: PyGithub package is imported as 'github' in Python
-    if ! python3 -c "import requests; from github import Github" 2>/dev/null; then
+    local packages_ok=true
+    if ! python3 -c "import requests" 2>/dev/null; then
+        packages_ok=false
+    fi
+    if ! python3 -c "from github import Github" 2>/dev/null; then
+        packages_ok=false
+    fi
+    
+    if [ "$packages_ok" = false ]; then
         print_warning "Required Python packages not found"
         print_info "Installing required packages..."
         pip3 install requests PyGithub
