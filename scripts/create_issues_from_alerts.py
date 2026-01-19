@@ -33,6 +33,7 @@ import argparse
 import os
 import re
 import sys
+import traceback
 from collections import defaultdict
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -361,14 +362,18 @@ Secret scanning has detected exposed credentials in this repository. This is a c
         to get the core identifying part of the issue title.
         
         Examples:
-            "[Security] CodeQL: SQL Injection - 5 occurrences (HIGH)"
-            -> "CodeQL: SQL Injection"
+            Input:  "[Security] CodeQL: SQL Injection - 5 occurrences (HIGH)"
+            Output: "CodeQL: SQL Injection"
             
-            "[Secret] 3 exposed GitHub Personal Access Token detected"
-            -> "3 exposed GitHub Personal Access Token detected"
+            Input:  "[Codacy] B104: hardcoded_bind_all_interfaces - 2 occurrences (MEDIUM)"
+            Output: "B104: hardcoded_bind_all_interfaces"
             
-            "[Codacy] B104: hardcoded_bind_all_interfaces - 2 occurrences (MEDIUM)"
-            -> "B104: hardcoded_bind_all_interfaces"
+            Input:  "[Security] Bandit: try_except_pass (LOW)"
+            Output: "Bandit: try_except_pass"
+        
+        Note: The signature preserves the core problem description while removing
+        counts, severity indicators, and common prefixes to enable accurate matching
+        of similar issues regardless of how many occurrences or what severity.
         
         Returns:
             str: The cleaned signature for matching
@@ -573,7 +578,6 @@ def main():
         sys.exit(1)
     except Exception as e:
         print(f"\n\nFATAL ERROR: {e}")
-        import traceback
         traceback.print_exc()
         sys.exit(1)
 
