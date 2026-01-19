@@ -56,7 +56,6 @@ To get a full understanding of the project, please review the following document
 - [**Web Application Firewall**](waf_setup.md)**:** How to load ModSecurity rules and enable request filtering.
 - [**Edge Provider Enhancements**](edge_enhancements.md)**:** Overview of advanced crawler tokens, AI labyrinths, and risk scoring.
 - [**IIS Deployment**](iis_deployment.md)**:** Running the stack on Windows with IIS as the reverse proxy.
-- [**Advanced Cryptography Roadmap**](advanced_crypto.md)**:** Post-quantum and homomorphic cryptography planning.
 
 ---
 
