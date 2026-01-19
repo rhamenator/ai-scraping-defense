@@ -29,7 +29,7 @@ from .auth import require_auth
 
 router = APIRouter()
 
-WEBAUTHN_TOKEN_TTL = 300
+WEBAUTHN_TOKEN_TTL = int(os.getenv("WEBAUTHN_TOKEN_TTL", "300"))
 
 RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
 ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost")

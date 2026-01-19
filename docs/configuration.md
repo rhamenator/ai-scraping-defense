@@ -77,6 +77,19 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 | `CONFIG_RECOMMENDER_PORT` | `8010` | Config Recommender |
 | `PROMPT_ROUTER_PORT` | `8009` | Prompt Router |
 
+## Admin UI Authentication
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ADMIN_UI_USERNAME` | `admin` | Basic auth username |
+| `ADMIN_UI_PASSWORD_HASH` | *(none)* | bcrypt hash for admin password |
+| `ADMIN_UI_2FA_SECRET` | *(none)* | TOTP secret for MFA |
+| `WEBAUTHN_RP_ID` | `localhost` | WebAuthn relying party ID |
+| `WEBAUTHN_ORIGIN` | `http://localhost` | WebAuthn origin |
+| `WEBAUTHN_TOKEN_TTL` | `300` | WebAuthn token TTL in seconds |
+| `PASSKEY_TOKEN_TTL` | `300` | Passkey token TTL in seconds |
+| `WEBAUTHN_AUTHENTICATOR_ATTACHMENT` | `none` | `none`, `platform`, or `cross-platform` |
+
 ## Redis Configuration
 
 | Variable | Default | Description |
