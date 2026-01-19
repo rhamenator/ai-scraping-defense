@@ -10,6 +10,7 @@ from redis.exceptions import RedisError
 
 from src.shared.audit import log_event
 from src.shared.config import get_secret
+from src.shared.metrics import LOGIN_ATTEMPTS, SECURITY_EVENTS
 from src.shared.redis_client import get_redis_connection
 
 from . import mfa, passkeys
@@ -67,6 +68,8 @@ def require_auth(
     if redis_conn:
         try:
             if redis_conn.get(_lockout_key(credentials.username)):
+                LOGIN_ATTEMPTS.labels(result="locked_out").inc()
+                SECURITY_EVENTS.labels(event_type="admin_ui_lockout").inc()
                 log_event(
                     credentials.username,
                     "admin_ui_auth_locked_out",
@@ -108,6 +111,7 @@ def require_auth(
         credentials.password.encode(), password_hash
     )
     if not valid:
+        LOGIN_ATTEMPTS.labels(result="failure").inc()
         _record_failed_attempt(redis_conn, credentials.username)
         log_event(
             credentials.username,
@@ -115,6 +119,7 @@ def require_auth(
             {"ip": client_ip},
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
+    LOGIN_ATTEMPTS.labels(result="success").inc()
 
     token_user = passkeys._consume_passkey_token(
         x_2fa_token
