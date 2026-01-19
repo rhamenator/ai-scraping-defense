@@ -8,7 +8,8 @@ pip install -r requirements.txt
 
 $tools = @(
     'nmap','nikto','zaproxy','sqlmap','lynis','hydra','masscan','gobuster','enum4linux',
-    'wpscan','ffuf','wfuzz','testssl.sh','whatweb','gvm','rkhunter','chkrootkit','clamav'
+    'wpscan','ffuf','wfuzz','testssl.sh','whatweb','gvm','rkhunter','chkrootkit','clamav',
+    'seclists'
 )
 
 if (Get-Command choco -ErrorAction SilentlyContinue) {

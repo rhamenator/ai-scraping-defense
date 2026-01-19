@@ -12,7 +12,7 @@ fi
 # Install tools used by security_scan.sh
 brew update
 brew install nmap nikto zaproxy sqlmap lynis hydra masscan gobuster enum4linux \
-    wpscan ffuf wfuzz testssl whatweb gvm rkhunter chkrootkit clamav jq
+    wpscan ffuf wfuzz testssl whatweb gvm rkhunter chkrootkit clamav jq seclists
 
 # Additional tools from GitHub with checksum verification
 TMP_DIR=$(mktemp -d)
@@ -62,7 +62,7 @@ if command -v go >/dev/null 2>&1; then
     go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
     go install github.com/hahwul/dalfox/v2@latest
     go install -v github.com/owasp-amass/amass/v4/...@master
-    
+
     # Add Go bin to PATH if not already present
     if [[ ":$PATH:" != *":$HOME/go/bin:"* ]]; then
         echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.zshrc
