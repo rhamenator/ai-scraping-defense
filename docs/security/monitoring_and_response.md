@@ -29,6 +29,14 @@ and escalated in production.
 - **Review cadence** – Security operations reviews audit dashboards daily and
   completes weekly anomaly triage. High-risk anomalies trigger incident response.
 
+## Biometric and WebAuthn Scope
+
+Biometric authentication is handled through WebAuthn-capable platform
+authenticators in the Admin UI. The system does not collect or store biometric
+signals directly; it stores only the WebAuthn credential metadata required for
+verification. Operational monitoring should focus on registration and login
+events rather than biometric analytics.
+
 ## Automated Detection Rules
 
 - **Secrets Exposure** – Alert when `scripts/security/run_static_security_checks`
@@ -105,7 +113,7 @@ print(f'Average Score: {report[\"average_score\"]:.1f}')
 2. **Triage** – Duty analyst validates severity, gathers evidence (logs,
    metrics, request samples), and assigns priority.
 3. **Containment** – Depending on incident type:
-   - **Secrets leakage** → 
+   - **Secrets leakage** →
      - Immediately rotate via `./scripts/generate_secrets.sh --vault --update-env`
      - If using Vault, rotation is tracked and versioned automatically
      - Revoke old credentials in external systems (databases, APIs)
