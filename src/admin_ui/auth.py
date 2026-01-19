@@ -18,6 +18,29 @@ security = HTTPBasic()
 router = APIRouter()
 
 ADMIN_UI_ROLE = os.getenv("ADMIN_UI_ROLE", "admin")
+LOCKOUT_THRESHOLD = int(os.getenv("ADMIN_UI_LOCKOUT_THRESHOLD", "5"))
+LOCKOUT_DURATION = int(os.getenv("ADMIN_UI_LOCKOUT_DURATION", "900"))
+
+
+def _lockout_key(username: str) -> str:
+    return f"admin_ui:lockout:{username}"
+
+
+def _failure_key(username: str) -> str:
+    return f"admin_ui:auth_fail:{username}"
+
+
+def _record_failed_attempt(redis_conn, username: str) -> None:
+    if not redis_conn:
+        return
+    try:
+        count = redis_conn.incr(_failure_key(username))
+        if count == 1:
+            redis_conn.expire(_failure_key(username), LOCKOUT_DURATION)
+        if count >= LOCKOUT_THRESHOLD:
+            redis_conn.set(_lockout_key(username), "1", ex=LOCKOUT_DURATION)
+    except RedisError:
+        pass
 
 
 def require_auth(
@@ -42,6 +65,19 @@ def require_auth(
         client_ip = request.client.host
     redis_conn = get_redis_connection()
     if redis_conn:
+        try:
+            if redis_conn.get(_lockout_key(credentials.username)):
+                log_event(
+                    credentials.username,
+                    "admin_ui_auth_locked_out",
+                    {"ip": client_ip},
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_423_LOCKED,
+                    detail="Account locked",
+                )
+        except RedisError:
+            pass
         key = f"admin_ui:auth:{client_ip}"
         try:
             count = redis_conn.incr(key)
@@ -72,6 +108,7 @@ def require_auth(
         credentials.password.encode(), password_hash
     )
     if not valid:
+        _record_failed_attempt(redis_conn, credentials.username)
         log_event(
             credentials.username,
             "admin_ui_auth_failed",
@@ -99,28 +136,38 @@ def require_auth(
             totp = pyotp.TOTP(totp_secret)
 
             if totp.verify(x_2fa_code, valid_window=1):
+                if redis_conn:
+                    redis_conn.delete(_failure_key(credentials.username))
                 return credentials.username
             detail = "Invalid 2FA code"
         elif x_2fa_backup_code:
             if mfa.verify_backup_code(credentials.username, x_2fa_backup_code):
+                if redis_conn:
+                    redis_conn.delete(_failure_key(credentials.username))
                 return credentials.username
             detail = "Invalid backup code"
         else:
             detail = "2FA token, code, or backup code required"
+        _record_failed_attempt(redis_conn, credentials.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=detail, headers=headers
         )
 
     if token_user:
+        if redis_conn:
+            redis_conn.delete(_failure_key(credentials.username))
         return credentials.username
     if (
         passkeys._has_passkey_tokens() or webauthn._has_webauthn_tokens()
     ) and not token_user:
+        _record_failed_attempt(redis_conn, credentials.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="2FA token required",
             headers=headers,
         )
+    if redis_conn:
+        redis_conn.delete(_failure_key(credentials.username))
     return credentials.username
 
 

@@ -36,6 +36,10 @@ class MockRedis:
         self.expiry[key] = ttl
         return True
 
+    def delete(self, key):
+        self.store.pop(key, None)
+        self.expiry.pop(key, None)
+
 
 class TestAdminUIMfaBackupCodes(unittest.TestCase):
     def setUp(self):

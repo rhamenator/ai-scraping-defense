@@ -160,6 +160,12 @@ class TestAdminUIComprehensive(unittest.TestCase):
             def expire(self, key, ttl):
                 pass
 
+            def get(self, key):
+                return self.store.get(key)
+
+            def delete(self, key):
+                self.store.pop(key, None)
+
         mock_redis = MockRedis()
         headers = self._totp_headers()
         with patch("src.admin_ui.auth.get_redis_connection", return_value=mock_redis):
@@ -172,6 +178,45 @@ class TestAdminUIComprehensive(unittest.TestCase):
                     self.assertEqual(resp.status_code, 200)
                 resp = self.client.get("/", auth=self.auth, headers=headers)
                 self.assertEqual(resp.status_code, 429)
+
+    def test_auth_lockout_after_failures(self):
+        class MockRedis:
+            def __init__(self):
+                self.store = {}
+
+            def incr(self, key):
+                self.store[key] = int(self.store.get(key, 0)) + 1
+                return self.store[key]
+
+            def expire(self, key, ttl):
+                pass
+
+            def set(self, key, value, ex=None):
+                self.store[key] = value
+
+            def get(self, key):
+                return self.store.get(key)
+
+            def delete(self, key):
+                self.store.pop(key, None)
+
+        mock_redis = MockRedis()
+        headers = self._totp_headers()
+        with patch("src.admin_ui.auth.get_redis_connection", return_value=mock_redis):
+            original_threshold = auth.LOCKOUT_THRESHOLD
+            original_duration = auth.LOCKOUT_DURATION
+            auth.LOCKOUT_THRESHOLD = 2
+            auth.LOCKOUT_DURATION = 60
+            try:
+                resp = self.client.get("/", auth=("admin", "wrong"), headers=headers)
+                self.assertEqual(resp.status_code, 401)
+                resp = self.client.get("/", auth=("admin", "wrong"), headers=headers)
+                self.assertEqual(resp.status_code, 401)
+                resp = self.client.get("/", auth=("admin", "wrong"), headers=headers)
+                self.assertEqual(resp.status_code, 423)
+            finally:
+                auth.LOCKOUT_THRESHOLD = original_threshold
+                auth.LOCKOUT_DURATION = original_duration
 
     def test_load_recent_block_events_streaming(self):
         """Ensure _load_recent_block_events reads only the last N lines."""
