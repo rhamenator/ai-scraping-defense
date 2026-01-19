@@ -2,6 +2,7 @@
 
 import logging
 import os
+from typing import Dict, Tuple
 
 import redis
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
@@ -13,18 +14,35 @@ class RedisConnectionError(Exception):
     """Raised when a Redis connection cannot be established."""
 
 
+_POOLS: Dict[Tuple[str, int, str | None, int], redis.ConnectionPool] = {}
+
+
+def _get_pool(
+    redis_host: str, redis_port: int, password: str | None, db_number: int
+) -> redis.ConnectionPool:
+    key = (redis_host, redis_port, password, db_number)
+    pool = _POOLS.get(key)
+    if pool is None:
+        max_connections = int(os.getenv("REDIS_MAX_CONNECTIONS", "50"))
+        pool = redis.ConnectionPool(
+            host=redis_host,
+            port=redis_port,
+            password=password,
+            db=db_number,
+            decode_responses=True,
+            max_connections=max_connections,
+        )
+        _POOLS[key] = pool
+    return pool
+
+
 @retry(wait=wait_exponential(multiplier=1, min=1, max=10), stop=stop_after_attempt(3))
 def _create_client(
     redis_host: str, redis_port: int, password: str | None, db_number: int
 ) -> redis.Redis:
     """Attempt to create and ping a Redis client with retries."""
-    client = redis.Redis(
-        host=redis_host,
-        port=redis_port,
-        password=password,
-        db=db_number,
-        decode_responses=True,
-    )
+    pool = _get_pool(redis_host, redis_port, password, db_number)
+    client = redis.Redis(connection_pool=pool)
     client.ping()
     return client
 
