@@ -1,5 +1,5 @@
 # Web Frameworks and Servers
-fastapi>=0.110,<0.121
+fastapi>=0.110,<0.129
 uvicorn[standard]~=0.38
 gunicorn~=23.0
 jinja2>=3.1.6,<4.0
@@ -29,7 +29,7 @@ httpx~=0.28
 requests>=2.32.4,<3
 wikipedia~=1.4
 python-multipart~=0.0.20
-cachetools~=5.3
+cachetools~=6.2
 prometheus-client~=0.24
 PyJWT~=2.10
 PyYAML~=6.0
@@ -67,4 +67,4 @@ pytest~=8.4
 pytest-asyncio~=1.1
 flake8~=7.3
 black~=26.1
-coverage~=7.12
+coverage~=7.13

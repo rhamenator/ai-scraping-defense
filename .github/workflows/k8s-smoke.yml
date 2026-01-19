@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: ${{ inputs.python_version }}
       - name: Create kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab
         with:
           cluster_name: asd-smoke
           wait: 120s
