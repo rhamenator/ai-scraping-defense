@@ -336,6 +336,9 @@ class ConfigLoader:
                 if cost < 12:
                     errors.append("ADMIN_UI_PASSWORD_HASH bcrypt cost must be >= 12")
 
+        if config.security.jwt_secret and len(config.security.jwt_secret) < 32:
+            errors.append("AUTH_JWT_SECRET must be at least 32 characters")
+
         # Validate tarpit configuration
         if config.tarpit.enable_llm_generator and not config.tarpit.llm_model_uri:
             errors.append(

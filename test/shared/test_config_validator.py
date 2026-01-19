@@ -229,6 +229,21 @@ class TestConfigLoader(unittest.TestCase):
             any("AUTH_JWT_ALGORITHMS contains unsupported values" in e for e in errors)
         )
 
+    def test_validate_jwt_secret_min_length(self):
+        """Test JWT secret must meet minimum length."""
+        env = self.minimal_env.copy()
+        env["AUTH_JWT_SECRET"] = "short"
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        is_valid, errors = loader.validate_config(config)
+
+        self.assertFalse(is_valid)
+        self.assertTrue(
+            any("AUTH_JWT_SECRET must be at least 32 characters" in e for e in errors)
+        )
+
     def test_compute_checksum(self):
         """Test configuration checksum computation."""
         loader = ConfigLoader(strict=False)
