@@ -9,16 +9,14 @@ except Exception:  # pragma: no cover
 import json
 import logging
 import os
+import secrets
 from typing import List, Optional
 
 from fastapi import Header, HTTPException
 from pydantic import BaseModel, IPvAnyAddress
 
 from src.shared.middleware import create_app
-from src.shared.observability import (
-    HealthCheckResult,
-    register_health_check,
-)
+from src.shared.observability import HealthCheckResult, register_health_check
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +122,7 @@ def report_ip(report: IPReport, x_api_key: Optional[str] = Header(None)) -> dict
     """
     if not PUBLIC_BLOCKLIST_API_KEY:
         raise HTTPException(status_code=503, detail="Service misconfigured")
-    if not x_api_key or x_api_key != PUBLIC_BLOCKLIST_API_KEY:
+    if not x_api_key or not secrets.compare_digest(x_api_key, PUBLIC_BLOCKLIST_API_KEY):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
     BLOCKLIST_IPS.add(str(report.ip))
     _save_blocklist(sorted(BLOCKLIST_IPS))

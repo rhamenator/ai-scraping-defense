@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import secrets
 from contextlib import asynccontextmanager
 from json import JSONDecodeError
 from typing import Any, Dict, List
@@ -32,6 +33,30 @@ WATCHERS_LOCK = asyncio.Lock()
 
 WEBSOCKET_METRICS_INTERVAL = 5
 WATCHERS_CLEANUP_INTERVAL = 60
+MAX_INSTALLATION_ID_LENGTH = int(
+    os.getenv("CLOUD_DASHBOARD_MAX_INSTALLATION_ID", "128")
+)
+MAX_METRICS_KEYS = int(os.getenv("CLOUD_DASHBOARD_MAX_METRICS_KEYS", "200"))
+MAX_METRIC_KEY_LENGTH = int(os.getenv("CLOUD_DASHBOARD_MAX_METRIC_KEY_LENGTH", "64"))
+
+
+def _validate_installation_id(installation_id: Any) -> str | None:
+    if not isinstance(installation_id, str) or not installation_id:
+        return None
+    if len(installation_id) > MAX_INSTALLATION_ID_LENGTH:
+        return None
+    return installation_id
+
+
+def _validate_metrics(metrics: Any) -> bool:
+    if not isinstance(metrics, dict):
+        return False
+    if len(metrics) > MAX_METRICS_KEYS:
+        return False
+    for key in metrics.keys():
+        if not isinstance(key, str) or len(key) > MAX_METRIC_KEY_LENGTH:
+            return False
+    return True
 
 
 async def _cleanup_stale_watchers() -> None:
@@ -84,10 +109,12 @@ API_KEY = os.getenv("CLOUD_DASHBOARD_API_KEY")
 
 @app.post("/register")
 async def register_installation(payload: Dict[str, Any], request: Request):
-    if API_KEY and request.headers.get("X-API-Key") != API_KEY:
+    if API_KEY and not secrets.compare_digest(
+        request.headers.get("X-API-Key", ""), API_KEY
+    ):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
 
-    installation_id = payload.get("installation_id")
+    installation_id = _validate_installation_id(payload.get("installation_id"))
     if not installation_id:
         return JSONResponse({"error": "installation_id required"}, status_code=400)
 
@@ -113,12 +140,14 @@ async def register_installation(payload: Dict[str, Any], request: Request):
 
 @app.post("/metrics")
 async def push_metrics(payload: Dict[str, Any], request: Request):
-    if API_KEY and request.headers.get("X-API-Key") != API_KEY:
+    if API_KEY and not secrets.compare_digest(
+        request.headers.get("X-API-Key", ""), API_KEY
+    ):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
 
-    installation_id = payload.get("installation_id")
+    installation_id = _validate_installation_id(payload.get("installation_id"))
     metrics = payload.get("metrics")
-    if not installation_id or not isinstance(metrics, dict):
+    if not installation_id or not _validate_metrics(metrics):
         return JSONResponse({"error": "invalid payload"}, status_code=400)
 
     redis_conn = get_redis_connection()
@@ -146,6 +175,9 @@ async def push_metrics(payload: Dict[str, Any], request: Request):
 
 @app.get("/metrics/{installation_id}")
 async def get_metrics(installation_id: str):
+    installation_id = _validate_installation_id(installation_id)
+    if not installation_id:
+        return JSONResponse({"error": "invalid installation_id"}, status_code=400)
     redis_conn = get_redis_connection()
     if not redis_conn:
         return JSONResponse({"error": "storage unavailable"}, status_code=500)
@@ -168,6 +200,9 @@ async def get_metrics(installation_id: str):
 
 @app.websocket("/ws/{installation_id}")
 async def metrics_websocket(websocket: WebSocket, installation_id: str):
+    if not _validate_installation_id(installation_id):
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     async with WATCHERS_LOCK:
         WATCHERS.setdefault(installation_id, []).append(websocket)

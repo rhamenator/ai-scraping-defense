@@ -54,6 +54,11 @@ class TestCloudDashboardAPI(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("error", resp.json())
 
+    def test_rejects_long_installation_id(self):
+        resp = self.client.post("/register", json={"installation_id": "a" * 200})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", resp.json())
+
     def test_websocket_streams_metrics(self):
         self.client.post("/register", json={"installation_id": "ws1"})
         with self.client.websocket_connect("/ws/ws1") as ws:
