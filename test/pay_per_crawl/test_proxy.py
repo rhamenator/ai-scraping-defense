@@ -41,6 +41,10 @@ class TestPayPerCrawlProxy(unittest.TestCase):
         resp = self.client.get("/..%2Fetc/passwd", headers={"X-API-Key": "tok"})
         self.assertEqual(resp.status_code, 400)
 
+    def test_path_length_rejected(self):
+        resp = self.client.get("/" + "a" * 3000, headers={"X-API-Key": "tok"})
+        self.assertEqual(resp.status_code, 400)
+
     def test_valid_path_proxies(self):
         resp = self.client.get("/api/data", headers={"X-API-Key": "tok"})
         self.assertEqual(resp.status_code, 200)

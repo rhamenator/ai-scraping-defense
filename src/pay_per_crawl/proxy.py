@@ -23,6 +23,7 @@ PRICING_PATH = os.getenv("PRICING_CONFIG", "config/pricing.yaml")
 UPSTREAM_URL = os.getenv("UPSTREAM_URL", "http://localhost:8080")
 DEFAULT_PRICE = float(os.getenv("DEFAULT_PRICE", "0.0"))
 HTTPX_TIMEOUT = float(os.getenv("HTTPX_TIMEOUT", "10.0"))
+MAX_PROXY_PATH_LENGTH = int(os.getenv("PROXY_MAX_PATH_LENGTH", "2048"))
 
 pricing_engine = PricingEngine(load_pricing(PRICING_PATH), DEFAULT_PRICE)
 init_db()
@@ -75,7 +76,12 @@ def pay(payload: PayPayload):
 async def proxy(full_path: str, request: Request):
     # Basic validation to prevent path traversal or absolute URLs
     parsed = urlparse(full_path)
-    if parsed.scheme or parsed.netloc or ".." in full_path.split("/"):
+    if (
+        parsed.scheme
+        or parsed.netloc
+        or ".." in full_path.split("/")
+        or len(full_path) > MAX_PROXY_PATH_LENGTH
+    ):
         raise HTTPException(status_code=400, detail="Invalid path")
 
     token = request.headers.get("X-API-Key")
