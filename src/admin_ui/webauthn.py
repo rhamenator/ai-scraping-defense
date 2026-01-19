@@ -16,6 +16,8 @@ from webauthn import (
 )
 from webauthn.helpers.structs import (
     AuthenticationCredential,
+    AuthenticatorAttachment,
+    AuthenticatorSelectionCriteria,
     PublicKeyCredentialDescriptor,
     RegistrationCredential,
 )
@@ -71,7 +73,9 @@ def _store_webauthn_challenge(user: str, challenge: bytes) -> None:
     redis_conn = get_redis_connection()
     if not redis_conn:
         raise RuntimeError("Redis unavailable")
-    redis_conn.set(_challenge_key(user), b64encode(challenge).decode(), ex=WEBAUTHN_TOKEN_TTL)
+    redis_conn.set(
+        _challenge_key(user), b64encode(challenge).decode(), ex=WEBAUTHN_TOKEN_TTL
+    )
 
 
 def _consume_webauthn_challenge(user: str) -> bytes | None:
@@ -109,6 +113,19 @@ def _has_webauthn_tokens() -> bool:
     return next(redis_conn.scan_iter(_token_key("*"), count=1), None) is not None
 
 
+def _authenticator_selection() -> AuthenticatorSelectionCriteria | None:
+    preference = os.getenv("WEBAUTHN_AUTHENTICATOR_ATTACHMENT", "none").strip().lower()
+    if preference == "platform":
+        return AuthenticatorSelectionCriteria(
+            authenticator_attachment=AuthenticatorAttachment.PLATFORM
+        )
+    if preference == "cross-platform":
+        return AuthenticatorSelectionCriteria(
+            authenticator_attachment=AuthenticatorAttachment.CROSS_PLATFORM
+        )
+    return None
+
+
 @router.post("/webauthn/register/begin")
 async def webauthn_register_begin(user: str = Depends(require_auth)):
     """Begin WebAuthn registration and return options."""
@@ -117,6 +134,7 @@ async def webauthn_register_begin(user: str = Depends(require_auth)):
         rp_name="AI Scraping Defense",
         user_id=user.encode(),
         user_name=user,
+        authenticator_selection=_authenticator_selection(),
     )
     _store_webauthn_challenge(user, options.challenge)
     return JSONResponse(json.loads(options_to_json(options)))

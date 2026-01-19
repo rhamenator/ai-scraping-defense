@@ -32,6 +32,17 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.client = TestClient(admin_ui.app)
         self.auth = ("admin", "testpass")
 
+    class _FakeRedis:
+        def __init__(self):
+            self.store = {}
+
+        def hget(self, key, field):
+            return self.store.get((key, field))
+
+        def hset(self, key, field, value):
+            self.store[(key, field)] = value
+            return 1
+
     def _totp_headers(self) -> dict:
         secret = os.environ["ADMIN_UI_2FA_SECRET"]
         return {"X-2FA-Code": pyotp.TOTP(secret).now()}
@@ -41,7 +52,6 @@ class TestAdminUIComprehensive(unittest.TestCase):
         with patch.dict(os.environ, {"ADMIN_UI_CORS_ORIGINS": "*"}):
             with self.assertRaises(ValueError):
                 admin_ui._get_allowed_origins()
-
 
     def test_cors_methods_validate_override(self):
         """List-based method configuration should parse allowed verbs."""
@@ -73,6 +83,39 @@ class TestAdminUIComprehensive(unittest.TestCase):
         with patch.dict(os.environ, {"ADMIN_UI_CORS_HEADERS": "*"}):
             with self.assertRaises(ValueError):
                 admin_ui._get_allowed_headers()
+
+    def test_update_webauthn_attachment_setting(self):
+        """Admin settings should persist WebAuthn attachment preference."""
+        fake_redis = self._FakeRedis()
+        with patch(
+            "src.admin_ui.admin_ui.get_redis_connection", return_value=fake_redis
+        ):
+            response = self.client.get(
+                "/settings", auth=self.auth, headers=self._totp_headers()
+            )
+            self.assertEqual(response.status_code, 200)
+            csrf_token = response.cookies.get("csrf_token")
+            self.assertIsNotNone(csrf_token)
+
+            form = {
+                "csrf_token": csrf_token,
+                "WEBAUTHN_AUTHENTICATOR_ATTACHMENT": "platform",
+            }
+            response = self.client.post(
+                "/settings",
+                auth=self.auth,
+                headers=self._totp_headers(),
+                cookies={"csrf_token": csrf_token},
+                data=form,
+            )
+            self.assertEqual(response.status_code, 200)
+            stored = fake_redis.store.get(
+                (admin_ui.RUNTIME_SETTINGS_KEY, "WEBAUTHN_AUTHENTICATOR_ATTACHMENT")
+            )
+            self.assertEqual(stored, "platform")
+            self.assertEqual(
+                os.environ.get("WEBAUTHN_AUTHENTICATOR_ATTACHMENT"), "platform"
+            )
 
     def test_index_route_success(self):
         """Test the main dashboard page serves HTML correctly and contains key elements."""
