@@ -2,6 +2,27 @@
 
 This guide explains how to deploy the AI Scraping Defense stack to **Google Kubernetes Engine (GKE)**. The process is similar for other managed Kubernetes services such as Amazon EKS or Azure AKS.
 
+## Provider Matrix (Minimum Requirements)
+
+| Provider | Kubernetes | Container Registry | Notes |
+| --- | --- | --- | --- |
+| GKE | GKE (1.27+) | GCR/Artifact Registry | Default scripts assume GCR. |
+| EKS | EKS (1.27+) | ECR | Ensure IAM role for service account support. |
+| AKS | AKS (1.27+) | ACR | Ensure managed identity can pull images. |
+| Self-managed | Any CNCF distro | Any | Confirm ingress controller and storage class. |
+
+## Required Environment Variables
+
+The deployment scripts and manifests assume the following environment variables
+or overrides:
+
+- `PROJECT_ID` or `GOOGLE_PROJECT_ID` (GKE scripts)
+- `CLUSTER_NAME`
+- `GKE_ZONE`
+- `IMAGE_TAG` (optional)
+- `KUBE_CONTEXT` (optional, overrides kubectl context)
+- `KUBE_NAMESPACE` (optional, default `ai-defense`)
+
 ## Prerequisites
 
 - A Google Cloud project with billing enabled.
@@ -84,3 +105,6 @@ The scripts build and push the image, create the cluster if it does not already 
 
 
 Customize environment variables such as `PROJECT_ID`, `CLUSTER_NAME`, and `GKE_ZONE` before running the scripts to suit your Google Cloud environment.
+
+For non-GKE deployments, set `KUBE_CONTEXT` to the target cluster context and
+`KUBE_NAMESPACE` to the desired namespace before running the scripts.
