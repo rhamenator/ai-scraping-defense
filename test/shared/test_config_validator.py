@@ -244,6 +244,73 @@ class TestConfigLoader(unittest.TestCase):
             any("AUTH_JWT_SECRET must be at least 32 characters" in e for e in errors)
         )
 
+    def test_validate_external_api_requires_url(self):
+        """Test external API requires a URL when enabled."""
+        env = self.minimal_env.copy()
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        with patch.dict(
+            os.environ, {"ENABLE_EXTERNAL_API_CLASSIFICATION": "true"}, clear=False
+        ):
+            is_valid, errors = loader.validate_config(config)
+
+        self.assertFalse(is_valid)
+        self.assertTrue(any("EXTERNAL_API_URL required" in e for e in errors))
+
+    def test_validate_external_api_requires_https(self):
+        """Test external API URL requires https by default."""
+        env = self.minimal_env.copy()
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        with patch.dict(
+            os.environ,
+            {
+                "ENABLE_EXTERNAL_API_CLASSIFICATION": "true",
+                "EXTERNAL_API_URL": "http://example.com",
+            },
+            clear=False,
+        ):
+            is_valid, errors = loader.validate_config(config)
+
+        self.assertFalse(is_valid)
+        self.assertTrue(any("EXTERNAL_API_URL must use https://" in e for e in errors))
+
+    def test_validate_ip_reputation_requires_url(self):
+        """Test IP reputation requires a URL when enabled."""
+        env = self.minimal_env.copy()
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        with patch.dict(os.environ, {"ENABLE_IP_REPUTATION": "true"}, clear=False):
+            is_valid, errors = loader.validate_config(config)
+
+        self.assertFalse(is_valid)
+        self.assertTrue(any("IP_REPUTATION_API_URL required" in e for e in errors))
+
+    def test_validate_ip_reputation_requires_https(self):
+        """Test IP reputation URL requires https by default."""
+        env = self.minimal_env.copy()
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        with patch.dict(
+            os.environ,
+            {"IP_REPUTATION_API_URL": "http://example.com"},
+            clear=False,
+        ):
+            is_valid, errors = loader.validate_config(config)
+
+        self.assertFalse(is_valid)
+        self.assertTrue(
+            any("IP_REPUTATION_API_URL must use https://" in e for e in errors)
+        )
+
     def test_compute_checksum(self):
         """Test configuration checksum computation."""
         loader = ConfigLoader(strict=False)

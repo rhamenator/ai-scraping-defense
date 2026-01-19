@@ -383,6 +383,28 @@ class ConfigLoader:
         ):
             errors.append("AUTH_JWT_ALGORITHMS contains unsupported values")
 
+        enable_external_api = (
+            os.getenv("ENABLE_EXTERNAL_API_CLASSIFICATION", "true").lower() == "true"
+        )
+        external_api_url = os.getenv("EXTERNAL_API_URL")
+        if enable_external_api and not external_api_url:
+            errors.append(
+                "EXTERNAL_API_URL required when ENABLE_EXTERNAL_API_CLASSIFICATION=true"
+            )
+        if external_api_url and not external_api_url.startswith("https://"):
+            if os.getenv("ALLOW_INSECURE_EXTERNAL_API_URL", "false").lower() != "true":
+                errors.append("EXTERNAL_API_URL must use https://")
+
+        enable_ip_rep = os.getenv("ENABLE_IP_REPUTATION", "false").lower() == "true"
+        ip_rep_url = os.getenv("IP_REPUTATION_API_URL")
+        if enable_ip_rep and not ip_rep_url:
+            errors.append(
+                "IP_REPUTATION_API_URL required when ENABLE_IP_REPUTATION=true"
+            )
+        if ip_rep_url and not ip_rep_url.startswith("https://"):
+            if os.getenv("ALLOW_INSECURE_IP_REPUTATION_URL", "false").lower() != "true":
+                errors.append("IP_REPUTATION_API_URL must use https://")
+
         return len(errors) == 0, errors
 
     def compute_checksum(self, config: AppConfig) -> str:
