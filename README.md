@@ -333,6 +333,20 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     docker-compose up --build -d
     ```
 
+    For an optional hardened profile (drops Linux capabilities and enforces
+    `no-new-privileges` on core services), layer in the security override file:
+
+    ```bash
+    docker compose -f docker-compose.yaml -f docker-compose.security.yml up -d
+    ```
+
+    To enable optional Nginx performance tuning directives, add the
+    performance override file:
+
+    ```bash
+    docker compose -f docker-compose.yaml -f docker-compose.performance.yml up -d
+    ```
+
     If you'd like to try the proxy in front of a WordPress site, run `./setup_wordpress_website.sh` (or `./setup_wordpress_website.ps1` on Windows) instead. It launches WordPress and MariaDB containers and sets `REAL_BACKEND_HOST` automatically. For a smaller test, `./setup_fake_website.sh` creates a simple nginx site and updates the variable in the same way.
 
 7. **Access the Services:**
