@@ -5,7 +5,7 @@ import ipaddress
 import logging
 import os
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from fastapi import Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
@@ -51,8 +51,8 @@ class WebhookEvent(BaseModel):
 
 
 class WebhookAction(BaseModel):
-    action: str
-    ip: Optional[str] = None
+    action: Literal["block_ip", "allow_ip", "flag_ip", "unflag_ip"]
+    ip: Optional[str] = Field(default=None, max_length=45)
     reason: Optional[str] = Field(None, max_length=256)
 
 
@@ -146,7 +146,7 @@ async def webhook_receiver(
     try:
         action_req = WebhookAction.model_validate(payload)
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid payload schema")
+        raise HTTPException(status_code=400, detail="Invalid payload")
     body_bytes = request.state.body_bytes
     signature = request.headers.get("X-Signature", "")
     expected = hmac.new(
@@ -195,15 +195,17 @@ async def webhook_receiver(
         if not ip:
             raise HTTPException(
                 status_code=400,
-                detail=f"Missing 'ip' in payload for action '{action}'.",
+                detail="Invalid payload",
             )
         try:
             ipaddress.ip_address(ip)
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip}")
+            raise HTTPException(status_code=400, detail="Invalid payload")
 
     try:
-        with trace_span("ai_service.execute_action", attributes={"action": action, "ip": ip}):
+        with trace_span(
+            "ai_service.execute_action", attributes={"action": action, "ip": ip}
+        ):
             if action == "block_ip":
                 redis_conn.sadd(tenant_key("blocklist"), ip)
                 audit_log_event(client_ip, "webhook_block_ip", {"ip": ip})
@@ -225,7 +227,7 @@ async def webhook_receiver(
                 audit_log_event(client_ip, "webhook_unflag_ip", {"ip": ip})
                 return {"status": "success", "message": f"IP {ip} unflagged."}
             else:
-                raise HTTPException(status_code=400, detail=f"Invalid action: {action}")
+                raise HTTPException(status_code=400, detail="Invalid payload")
     except HTTPException:
         raise
     except RedisError as e:

@@ -127,10 +127,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
                 payload = {"action": action, "ip": invalid_ip, **extra}
                 response = self._post(payload)
                 self.assertEqual(response.status_code, 400)
-                self.assertEqual(
-                    response.json()["detail"],
-                    f"Invalid IP address: {invalid_ip}",
-                )
+                self.assertEqual(response.json()["detail"], "Invalid payload")
                 redis_mock.assert_not_called()
                 redis_mock.reset_mock()
 
@@ -149,16 +146,14 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         payload = {"action": "reboot_server", "ip": "1.2.3.4"}
         response = self._post(payload)
         self.assertEqual(response.status_code, 400)
-        self.assertIn("Invalid action", response.json()["detail"])
+        self.assertEqual(response.json()["detail"], "Invalid payload")
 
     def test_webhook_receiver_payload_missing_ip(self):
         """Test that a payload missing the 'ip' field returns a 400 error."""
         payload = {"action": "block_ip", "reason": "No IP here."}
         response = self._post(payload)
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(
-            response.json()["detail"], "Missing 'ip' in payload for action 'block_ip'."
-        )
+        self.assertEqual(response.json()["detail"], "Invalid payload")
 
     def test_webhook_receiver_missing_signature(self):
         """Request without the signature should be unauthorized."""
