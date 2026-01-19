@@ -9,6 +9,7 @@
 <div class="container">
     <h1>Plugin Management</h1>
     <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <label for="plugins">Enabled Plugins</label>
         <select id="plugins" name="plugins" multiple size="5">
         {% for p in available %}

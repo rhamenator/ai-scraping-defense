@@ -195,10 +195,15 @@
             e.preventDefault();
             const formData = new FormData(e.target);
             const resultDiv = document.getElementById('deletionResult');
+            const csrfToken = document.cookie
+                .split('; ')
+                .find((row) => row.startsWith('csrf_token='))
+                ?.split('=')[1] || '';
 
             try {
                 const response = await fetch('/gdpr/deletion-request', {
                     method: 'POST',
+                    headers: {'X-CSRF-Token': csrfToken},
                     body: formData
                 });
 

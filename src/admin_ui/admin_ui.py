@@ -9,7 +9,7 @@ import logging
 import os
 import secrets
 
-from fastapi import Cookie, Depends, Request
+from fastapi import Cookie, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -148,6 +148,17 @@ def _get_allowed_headers() -> list[str]:
     return _parse_allowed_list("ADMIN_UI_CORS_HEADERS", DEFAULT_ALLOWED_HEADERS)
 
 
+def _ensure_csrf_token(csrf_token: str | None) -> str:
+    if not csrf_token:
+        return secrets.token_urlsafe(16)
+    return csrf_token
+
+
+def _validate_csrf(csrf_cookie: str | None, submitted: str | None) -> None:
+    if not csrf_cookie or not submitted or csrf_cookie != submitted:
+        raise HTTPException(status_code=400, detail="Invalid CSRF token")
+
+
 app = create_app(
     observability_settings=ObservabilitySettings(
         metrics_path="/observability/metrics",
@@ -238,8 +249,7 @@ async def settings_page(
     user: str = Depends(require_auth),
 ):
     """Renders the system settings page with a CSRF token."""
-    if not csrf_token:
-        csrf_token = secrets.token_urlsafe(16)
+    csrf_token = _ensure_csrf_token(csrf_token)
 
     # Get GDPR compliance report
     gdpr_report = {}
@@ -296,8 +306,7 @@ async def update_settings(
 ):
     """Update editable settings from form data, validating the CSRF token."""
     form = await request.form()
-    if not csrf_token or form.get("csrf_token") != csrf_token:
-        return HTMLResponse("Invalid CSRF token", status_code=400)
+    _validate_csrf(csrf_token, form.get("csrf_token"))
     log_level = form.get("LOG_LEVEL")
     escalation_endpoint = form.get("ESCALATION_ENDPOINT")
     webauthn_attachment = form.get("WEBAUTHN_AUTHENTICATOR_ATTACHMENT")
@@ -347,20 +356,30 @@ async def view_logs(request: Request, user: str = Depends(require_auth)):
 @app.get("/plugins", response_class=HTMLResponse)
 async def plugins_page(request: Request, user: str = Depends(require_auth)):
     """Show available plugins and which are enabled."""
+    csrf_token = _ensure_csrf_token(request.cookies.get("csrf_token"))
     available = _discover_plugins()
     allowed_plugins = _get_runtime_setting("ALLOWED_PLUGINS")
     enabled = allowed_plugins.split(",") if allowed_plugins else []
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request,
         "plugins.html",
-        {"available": available, "enabled": enabled},
+        {"available": available, "enabled": enabled, "csrf_token": csrf_token},
     )
+    response.set_cookie(
+        "csrf_token",
+        csrf_token,
+        httponly=True,
+        secure=True,
+        samesite="Strict",
+    )
+    return response
 
 
 @app.post("/plugins")
 async def update_plugins(request: Request, user: str = Depends(require_admin)):
     """Update enabled plugins and notify the escalation engine."""
     form = await request.form()
+    _validate_csrf(request.cookies.get("csrf_token"), form.get("csrf_token"))
     selected = form.getlist("plugins")
     allowed = ",".join(selected)
     _set_runtime_setting("ALLOWED_PLUGINS", allowed)
@@ -387,6 +406,10 @@ async def update_plugins(request: Request, user: str = Depends(require_admin)):
 async def gdpr_deletion_request(request: Request, user: str = Depends(require_admin)):
     """Handle GDPR data deletion request."""
     from src.shared.gdpr import get_gdpr_manager
+
+    _validate_csrf(
+        request.cookies.get("csrf_token"), request.headers.get("X-CSRF-Token")
+    )
 
     # Allowed characters for user_id validation
     ALLOWED_USER_ID_CHARS = "-_"
