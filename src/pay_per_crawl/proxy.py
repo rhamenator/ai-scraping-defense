@@ -60,7 +60,7 @@ def register(payload: RegisterPayload):
 
 class PayPayload(BaseModel):
     token: str = Field(max_length=128)
-    amount: float
+    amount: float = Field(ge=0.0)
 
 
 @app.post("/pay")

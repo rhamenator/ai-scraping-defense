@@ -108,6 +108,10 @@ class TestPayPerCrawlProxy(unittest.TestCase):
         resp = self.client.get("/api/data", headers={"X-API-Key": "tok"})
         self.assertEqual(resp.status_code, 200)
 
+    def test_pay_rejects_negative_amount(self):
+        resp = self.client.post("/pay", json={"token": "tok", "amount": -1})
+        self.assertEqual(resp.status_code, 422)
+
 
 if __name__ == "__main__":
     unittest.main()
