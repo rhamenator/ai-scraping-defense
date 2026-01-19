@@ -83,6 +83,33 @@
                 </div>
             </div>
 
+            {% if security_kpis %}
+            <div class="bg-white p-6 rounded-lg shadow-md mt-8">
+                <h2 class="text-2xl font-semibold mb-4">Security KPIs</h2>
+                <p class="text-gray-600 mb-6">
+                    Summary counters derived from the security metrics pipeline.
+                </p>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border">
+                        <thead class="bg-gray-200">
+                            <tr>
+                                <th class="py-2 px-4 border-b text-left">Metric</th>
+                                <th class="py-2 px-4 border-b text-left">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for key, value in security_kpis.items() %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="py-2 px-4 border-b font-mono text-sm text-gray-700">{{ key }}</td>
+                                <td class="py-2 px-4 border-b font-mono text-sm text-blue-800">{{ value }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- GDPR Compliance Section -->
             <div class="bg-white p-6 rounded-lg shadow-md mt-8">
                 <h2 class="text-2xl font-semibold mb-4">GDPR Compliance</h2>
