@@ -17,9 +17,9 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Configuration
-OWNER="rhamenator"
-REPO="ai-scraping-defense"
+# Configuration - can be overridden via environment variables
+OWNER="${GITHUB_REPOSITORY_OWNER:-rhamenator}"
+REPO="${GITHUB_REPOSITORY_NAME:-ai-scraping-defense}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_PATH="${SCRIPT_DIR}/create_issues_from_alerts.py"
 
@@ -72,7 +72,8 @@ check_prerequisites() {
     print_success "pip3 found"
     
     # Check required packages
-    if ! python3 -c "import requests, github" 2>/dev/null; then
+    # Note: PyGithub package is imported as 'github' in Python
+    if ! python3 -c "import requests; from github import Github" 2>/dev/null; then
         print_warning "Required Python packages not found"
         print_info "Installing required packages..."
         pip3 install requests PyGithub

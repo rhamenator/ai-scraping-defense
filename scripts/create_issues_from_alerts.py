@@ -349,16 +349,52 @@ Secret scanning has detected exposed credentials in this repository. This is a c
         
         return body
 
-    def check_existing_issue(self, title_prefix: str) -> Optional[object]:
-        """Check if an issue with similar title already exists."""
+    def extract_issue_signature(self, title: str) -> str:
+        """
+        Extract a signature from issue title for duplicate detection.
+        
+        For example:
+        - "[Security] CodeQL: SQL Injection - 5 occurrences (HIGH)" -> "CodeQL SQL Injection"
+        - "[Secret] Exposed GitHub Token detected" -> "GitHub Token"
+        
+        Returns the core identifying part without counts, severities, or decorations.
+        """
+        # Remove common prefixes
+        signature = title
+        for prefix in ["[Security]", "[Secret]", "[Codacy]", "[CodeQL]"]:
+            signature = signature.replace(prefix, "")
+        
+        # Remove count patterns like "- 5 occurrences"
+        import re
+        signature = re.sub(r'-\s*\d+\s+occurrence[s]?', '', signature)
+        signature = re.sub(r'\(\s*(HIGH|MEDIUM|LOW|CRITICAL)\s*\)', '', signature, flags=re.IGNORECASE)
+        
+        # Clean up and return
+        return signature.strip()
+
+    def check_existing_issue(self, title: str) -> Optional[object]:
+        """
+        Check if an issue with similar title already exists.
+        
+        Uses a signature-based approach to detect duplicates even when
+        titles have different formatting or counts.
+        """
         try:
-            # Search for open issues with similar title
-            query = f"repo:{self.owner}/{self.repo} is:issue is:open {title_prefix} in:title"
+            # Extract signature for this title
+            signature = self.extract_issue_signature(title)
+            
+            # Search for open issues with any part of the signature
+            # Use the first significant words from the signature
+            search_terms = " ".join(signature.split()[:3])  # First 3 words
+            query = f"repo:{self.owner}/{self.repo} is:issue is:open {search_terms} in:title"
             results = self.gh.search_issues(query)
             
             for issue in results:
-                # Check if title matches closely
-                if title_prefix.lower() in issue.title.lower():
+                # Extract signature from existing issue
+                existing_signature = self.extract_issue_signature(issue.title)
+                
+                # Check if signatures match closely
+                if signature.lower() == existing_signature.lower():
                     return issue
             
             return None
@@ -370,7 +406,7 @@ Secret scanning has detected exposed credentials in this repository. This is a c
         """Create a GitHub issue."""
         try:
             # Check if similar issue already exists
-            existing = self.check_existing_issue(title.split('-')[0].strip())
+            existing = self.check_existing_issue(title)
             if existing:
                 self.log("SKIP", f"Issue already exists: #{existing.number} - {existing.title}")
                 self.stats["issues_skipped_existing"] += 1
