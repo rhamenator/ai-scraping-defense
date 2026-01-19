@@ -71,6 +71,8 @@ def ensure_nginx_headers_and_limits() -> None:
         "limit_req_zone",
         "limit_req zone=global_limit",
         "add_header X-Frame-Options",
+        "add_header X-Content-Type-Options",
+        "add_header Content-Security-Policy",
     ]
     for token in required_tokens:
         if token not in config:
