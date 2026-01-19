@@ -31,6 +31,7 @@ Features:
 
 import argparse
 import os
+import re
 import sys
 from collections import defaultdict
 from datetime import datetime
@@ -43,6 +44,9 @@ except ImportError:
     print("ERROR: Required libraries not installed.")
     print("Please run: pip install requests PyGithub")
     sys.exit(1)
+
+# Configuration constants
+SIGNATURE_SEARCH_WORDS = 3  # Number of words from signature to use in search query
 
 
 class IssueCreator:
@@ -353,11 +357,21 @@ Secret scanning has detected exposed credentials in this repository. This is a c
         """
         Extract a signature from issue title for duplicate detection.
         
-        For example:
-        - "[Security] CodeQL: SQL Injection - 5 occurrences (HIGH)" -> "CodeQL SQL Injection"
-        - "[Secret] Exposed GitHub Token detected" -> "GitHub Token"
+        Removes decorative elements like prefixes, counts, and severities
+        to get the core identifying part of the issue title.
         
-        Returns the core identifying part without counts, severities, or decorations.
+        Examples:
+            "[Security] CodeQL: SQL Injection - 5 occurrences (HIGH)"
+            -> "CodeQL: SQL Injection"
+            
+            "[Secret] 3 exposed GitHub Personal Access Token detected"
+            -> "3 exposed GitHub Personal Access Token detected"
+            
+            "[Codacy] B104: hardcoded_bind_all_interfaces - 2 occurrences (MEDIUM)"
+            -> "B104: hardcoded_bind_all_interfaces"
+        
+        Returns:
+            str: The cleaned signature for matching
         """
         # Remove common prefixes
         signature = title
@@ -365,7 +379,6 @@ Secret scanning has detected exposed credentials in this repository. This is a c
             signature = signature.replace(prefix, "")
         
         # Remove count patterns like "- 5 occurrences"
-        import re
         signature = re.sub(r'-\s*\d+\s+occurrence[s]?', '', signature)
         signature = re.sub(r'\(\s*(HIGH|MEDIUM|LOW|CRITICAL)\s*\)', '', signature, flags=re.IGNORECASE)
         
@@ -385,7 +398,7 @@ Secret scanning has detected exposed credentials in this repository. This is a c
             
             # Search for open issues with any part of the signature
             # Use the first significant words from the signature
-            search_terms = " ".join(signature.split()[:3])  # First 3 words
+            search_terms = " ".join(signature.split()[:SIGNATURE_SEARCH_WORDS])
             query = f"repo:{self.owner}/{self.repo} is:issue is:open {search_terms} in:title"
             results = self.gh.search_issues(query)
             
