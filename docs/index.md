@@ -56,6 +56,11 @@ To get a full understanding of the project, please review the following document
 - [**Web Application Firewall**](waf_setup.md)**:** How to load ModSecurity rules and enable request filtering.
 - [**Edge Provider Enhancements**](edge_enhancements.md)**:** Overview of advanced crawler tokens, AI labyrinths, and risk scoring.
 - [**IIS Deployment**](iis_deployment.md)**:** Running the stack on Windows with IIS as the reverse proxy.
+- [**DevSecOps Integration**](devsecops.md)**:** How security workflows fit into CI/CD and how to extend them safely.
+- [**Security Program Foundations**](security_program.md)**:** Culture, metrics, chaos engineering, and insider threat foundations.
+- [**Advanced Cryptography Roadmap**](advanced_crypto.md)**:** Post-quantum and homomorphic cryptography planning.
+- [**Future Security Controls**](future_security_controls.md)**:** Deferred security initiatives awaiting design.
+- [**Performance Innovation Roadmap**](performance_innovation.md)**:** Future performance research and experimentation.
 
 ---
 
