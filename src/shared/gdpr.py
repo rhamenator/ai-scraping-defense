@@ -9,7 +9,6 @@ This module implements GDPR compliance features including:
 - Data protection officer designation
 """
 
-import asyncio
 import datetime
 import json
 import logging
@@ -20,7 +19,7 @@ from typing import Any, Dict, List, Optional
 
 from redis.exceptions import RedisError
 
-from .config import CONFIG, tenant_key
+from .config import tenant_key
 from .redis_client import get_redis_connection
 
 logger = logging.getLogger(__name__)
@@ -391,22 +390,24 @@ class GDPRComplianceManager:
             "status_code",
         ]
 
-        for field in essential_fields:
-            if field in data:
-                value = data[field]
+        for field_name in essential_fields:
+            if field_name in data:
+                value = data[field_name]
                 # Anonymize IP address (keep only first 3 octets for IPv4)
-                if field == "ip_address" and isinstance(value, str):
+                if field_name == "ip_address" and isinstance(value, str):
                     parts = value.split(".")
                     if len(parts) == 4:
-                        minimized[field] = f"{parts[0]}.{parts[1]}.{parts[2]}.0"
+                        minimized[field_name] = f"{parts[0]}.{parts[1]}.{parts[2]}.0"
                     else:
                         # For IPv6 or other formats, truncate
-                        minimized[field] = value[:IPV6_ANONYMIZATION_LENGTH] + "::0"
+                        minimized[field_name] = (
+                            value[:IPV6_ANONYMIZATION_LENGTH] + "::0"
+                        )
                 # Truncate user agent to reduce fingerprinting
-                elif field == "user_agent" and isinstance(value, str):
-                    minimized[field] = value[:USER_AGENT_MAX_LENGTH]
+                elif field_name == "user_agent" and isinstance(value, str):
+                    minimized[field_name] = value[:USER_AGENT_MAX_LENGTH]
                 else:
-                    minimized[field] = value
+                    minimized[field_name] = value
 
         return minimized
 
