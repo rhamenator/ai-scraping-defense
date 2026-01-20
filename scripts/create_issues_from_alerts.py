@@ -435,7 +435,8 @@ Secret scanning has detected exposed credentials in this repository. This is a c
                 return False
             
             if self.dry_run:
-                self.log("DRY-RUN", f"Would create issue: {title}")
+                # Avoid logging potentially sensitive issue titles in clear text
+                self.log("DRY-RUN", "Would create issue (title redacted)")
                 self.log("DRY-RUN", f"  Labels: {', '.join(labels)}")
                 self.stats["issues_created"] += 1
                 return True
