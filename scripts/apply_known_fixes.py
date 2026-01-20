@@ -48,8 +48,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple, Dict
-
+from typing import Dict, Iterable, List, Optional, Tuple
 
 # -------- Utilities --------
 
@@ -87,7 +86,8 @@ def extract_snippet(text: str, start: int, end: int) -> str:
     if end < start:
         start, end = end, start
     # Convert to 0-based slice
-    return "\n".join(lines[start - 1 : end])
+    start_index = start - 1
+    return "\n".join(lines[start_index:end])
 
 
 @dataclass
@@ -165,18 +165,24 @@ def build_user_prompt(problem: dict, contexts: List[AffectedContext]) -> str:
             # Use triple backticks with a language hint based on extension if desired
             ext = ctx.path.suffix.lower()
             lang = (
-                "python" if ext in {".py", ".pyi"} else
-                "conf" if ext in {".conf", ".ini"} else
-                "dockerfile" if ctx.path.name.lower() == "dockerfile" else
-                "yaml" if ext in {".yml", ".yaml"} else
-                "text"
+                "python"
+                if ext in {".py", ".pyi"}
+                else (
+                    "conf"
+                    if ext in {".conf", ".ini"}
+                    else (
+                        "dockerfile"
+                        if ctx.path.name.lower() == "dockerfile"
+                        else "yaml" if ext in {".yml", ".yaml"} else "text"
+                    )
+                )
             )
             lines.append(f"```{lang}")
             # Trim overly large snippets for token safety
             snippet = ctx.snippet
             max_chars = 12000
             if len(snippet) > max_chars:
-                snippet = snippet[: max_chars] + "\n...\n"
+                snippet = snippet[:max_chars] + "\n...\n"
             lines.append(snippet)
             lines.append("```")
         else:
@@ -239,7 +245,9 @@ def write_text(path: Path, data: str) -> None:
     path.write_text(data, encoding="utf-8")
 
 
-def git_apply_patch(patch_path: Path, check_only: bool = False) -> subprocess.CompletedProcess:
+def git_apply_patch(
+    patch_path: Path, check_only: bool = False
+) -> subprocess.CompletedProcess:
     args = ["git", "apply", "--index", "--whitespace=fix"]
     if check_only:
         args.append("--check")
@@ -260,7 +268,9 @@ def file_paths_from_patch(patch: str) -> List[str]:
     return paths
 
 
-def run_pre_commit_on_files(files: Iterable[str]) -> Optional[subprocess.CompletedProcess]:
+def run_pre_commit_on_files(
+    files: Iterable[str],
+) -> Optional[subprocess.CompletedProcess]:
     files = [f for f in files if f]
     if not files:
         return None
@@ -295,7 +305,10 @@ def process_problem(
 
     system_prompt = build_system_prompt()
     raw = call_openai(
-        api_key=api_key, model=model, system_prompt=system_prompt, user_prompt=user_prompt
+        api_key=api_key,
+        model=model,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
     )
     patch = extract_patch_from_markdown(raw)
     if not patch:
@@ -350,7 +363,11 @@ def detect_problem_container(data: dict) -> Tuple[str, List[Dict]]:
 
     # Find first key that endswith '_problems' with 'problems' list inside
     for k, v in data.items():
-        if isinstance(v, dict) and k.endswith("_problems") and isinstance(v.get("problems"), list):
+        if (
+            isinstance(v, dict)
+            and k.endswith("_problems")
+            and isinstance(v.get("problems"), list)
+        ):
             return k, v["problems"]
 
     # Fallback: find any dict containing list under 'problems'
@@ -370,7 +387,9 @@ def iter_selected_problems(data: dict, ids: Optional[List[int]]) -> Iterable[dic
         yield from problems
 
 
-def discover_categories(repo_root: Path, requested: Optional[List[str]] = None) -> List[str]:
+def discover_categories(
+    repo_root: Path, requested: Optional[List[str]] = None
+) -> List[str]:
     """Discover categories by scanning for '*_problems*.json' files in repo root.
 
     If 'requested' is provided, return it (lowercased, unique) filtered to those
@@ -430,7 +449,9 @@ def discover_files_for_category(repo_root: Path, category: str) -> List[Path]:
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Apply known fixes via OpenAI across categories")
+    parser = argparse.ArgumentParser(
+        description="Apply known fixes via OpenAI across categories"
+    )
     parser.add_argument(
         "--categories",
         nargs="*",
@@ -478,7 +499,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     categories = discover_categories(repo_root, args.categories)
     if not categories:
-        eprint("No categories discovered. Ensure '*_problems*.json' files exist in repo root.")
+        eprint(
+            "No categories discovered. Ensure '*_problems*.json' files exist in repo root."
+        )
         return 2
 
     total_problems = 0
