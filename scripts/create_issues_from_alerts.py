@@ -523,8 +523,9 @@ Secret scanning has detected exposed credentials in this repository. This is a c
         print()
         print("Statistics:")
         print(f"  Code Scanning Alerts Found: {self.stats['code_scanning_alerts']}")
-        secret_alerts_count = int(self.stats.get('secret_scanning_alerts', 0))
-        print(f"  Secret Scanning Alerts Found: {secret_alerts_count}")
+        # Do not log the exact number of secret scanning alerts to avoid exposing
+        # potentially sensitive information in clear text logs.
+        print("  Secret Scanning Alerts Found: (redacted)")
         print(f"  Issues Created: {self.stats['issues_created']}")
         print(f"  Issues Skipped (already exist): {self.stats['issues_skipped_existing']}")
         print("=" * 70)
