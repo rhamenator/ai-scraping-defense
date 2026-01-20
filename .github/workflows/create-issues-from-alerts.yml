@@ -1,0 +1,79 @@
+name: Create Issues from Security Alerts
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run in dry-run mode (no issues will be created)'
+        required: false
+        type: boolean
+        default: true
+  schedule:
+    # Run weekly on Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+
+permissions:
+  contents: read
+  issues: write
+  security-events: read
+
+jobs:
+  create-issues:
+    runs-on: ubuntu-latest
+    name: Create GitHub Issues from Security Alerts
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'  # Minimum 3.8+, can use any version 3.8 or newer
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install requests PyGithub
+      
+      - name: Determine mode
+        id: mode
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            # Scheduled runs are in live mode
+            echo "dry_run=" >> $GITHUB_OUTPUT
+            echo "mode_label=LIVE" >> $GITHUB_OUTPUT
+          elif [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            echo "dry_run=--dry-run" >> $GITHUB_OUTPUT
+            echo "mode_label=DRY RUN" >> $GITHUB_OUTPUT
+          else
+            echo "dry_run=" >> $GITHUB_OUTPUT
+            echo "mode_label=LIVE" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create issues from security alerts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Running in ${{ steps.mode.outputs.mode_label }} mode"
+          python scripts/create_issues_from_alerts.py \
+            --owner ${{ github.repository_owner }} \
+            --repo ${{ github.event.repository.name }} \
+            ${{ steps.mode.outputs.dry_run }}
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Issue Creation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Mode:** ${{ steps.mode.outputs.mode_label }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.mode.outputs.dry_run }}" != "" ]]; then
+            echo "ℹ️ This was a dry-run. No issues were created." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "To create issues, run this workflow manually with dry-run disabled." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ Issues have been created from open security alerts." >> $GITHUB_STEP_SUMMARY
+          fi
