@@ -235,20 +235,21 @@ class AlertManager:
                 page += 1
 
             except requests.exceptions.HTTPError as e:
-                if e.response.status_code == 403:
+                status = e.response.status_code
+                if status == 403:
                     self.log_action(
                         "ERROR",
                         "403 Forbidden: Insufficient permissions for Dependabot alerts",
                     )
                     break
-                elif e.response.status_code == 404:
+                if status in {400, 404}:
                     self.log_action(
-                        "INFO", "Dependabot not enabled for this repository"
+                        "INFO",
+                        "Dependabot alerts unavailable for this repository",
                     )
                     break
-                else:
-                    self.log_action("ERROR", f"Failed to fetch Dependabot alerts: {e}")
-                    break
+                self.log_action("ERROR", f"Failed to fetch Dependabot alerts: {e}")
+                break
             except Exception as e:
                 self.log_action(
                     "ERROR", f"Unexpected error fetching Dependabot alerts: {e}"
