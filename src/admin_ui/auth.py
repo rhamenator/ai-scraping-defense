@@ -3,7 +3,16 @@ import secrets
 
 import bcrypt
 import pyotp
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    Header,
+    HTTPException,
+    Request,
+    Response,
+    status,
+)
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 from redis.exceptions import RedisError
@@ -21,6 +30,9 @@ router = APIRouter()
 ADMIN_UI_ROLE = os.getenv("ADMIN_UI_ROLE", "admin")
 LOCKOUT_THRESHOLD = int(os.getenv("ADMIN_UI_LOCKOUT_THRESHOLD", "5"))
 LOCKOUT_DURATION = int(os.getenv("ADMIN_UI_LOCKOUT_DURATION", "900"))
+SESSION_TTL = int(os.getenv("ADMIN_UI_SESSION_TTL", "3600"))
+SESSION_MAX_CONCURRENT = int(os.getenv("ADMIN_UI_SESSION_MAX_CONCURRENT", "3"))
+SESSION_COOKIE_NAME = os.getenv("ADMIN_UI_SESSION_COOKIE", "admin_ui_session")
 
 
 def _lockout_key(username: str) -> str:
@@ -29,6 +41,69 @@ def _lockout_key(username: str) -> str:
 
 def _failure_key(username: str) -> str:
     return f"admin_ui:auth_fail:{username}"
+
+
+def _session_key(session_id: str) -> str:
+    return f"admin_ui:session:{session_id}"
+
+
+def _session_index_key(username: str) -> str:
+    return f"admin_ui:sessions:{username}"
+
+
+def _decode_redis(value) -> str:
+    if isinstance(value, bytes):
+        return value.decode()
+    return value
+
+
+def _get_session_user(redis_conn, session_id: str | None) -> str | None:
+    if not redis_conn or not session_id or SESSION_TTL <= 0:
+        return None
+    try:
+        user = redis_conn.get(_session_key(session_id))
+        if not user:
+            return None
+        redis_conn.expire(_session_key(session_id), SESSION_TTL)
+        return _decode_redis(user)
+    except RedisError:
+        return None
+
+
+def _issue_session(redis_conn, username: str) -> str | None:
+    if not redis_conn or SESSION_TTL <= 0:
+        return None
+    session_id = secrets.token_urlsafe(32)
+    try:
+        redis_conn.set(_session_key(session_id), username, ex=SESSION_TTL)
+        if SESSION_MAX_CONCURRENT > 0:
+            index_key = _session_index_key(username)
+            redis_conn.lpush(index_key, session_id)
+            redis_conn.expire(index_key, SESSION_TTL)
+            sessions = [
+                _decode_redis(entry) for entry in redis_conn.lrange(index_key, 0, -1)
+            ]
+            if len(sessions) > SESSION_MAX_CONCURRENT:
+                drop = sessions[SESSION_MAX_CONCURRENT:]
+                redis_conn.ltrim(index_key, 0, SESSION_MAX_CONCURRENT - 1)
+                for old_session_id in drop:
+                    redis_conn.delete(_session_key(old_session_id))
+    except RedisError:
+        return None
+    return session_id
+
+
+def _clear_session(redis_conn, session_id: str | None) -> None:
+    if not redis_conn or not session_id:
+        return
+    try:
+        user = redis_conn.get(_session_key(session_id))
+        redis_conn.delete(_session_key(session_id))
+        if user:
+            index_key = _session_index_key(_decode_redis(user))
+            redis_conn.lrem(index_key, 0, session_id)
+    except RedisError:
+        return
 
 
 def _record_failed_attempt(redis_conn, username: str) -> None:
@@ -44,13 +119,14 @@ def _record_failed_attempt(redis_conn, username: str) -> None:
         pass
 
 
-def require_auth(
-    request: Request = None,
-    credentials: HTTPBasicCredentials = Depends(security),
-    x_2fa_code: str | None = Header(None, alias="X-2FA-Code"),
-    x_2fa_token: str | None = Header(None, alias="X-2FA-Token"),
-    x_2fa_backup_code: str | None = Header(None, alias="X-2FA-Backup-Code"),
-    client_ip: str | None = None,
+def _require_auth_core(
+    request: Request | None,
+    response: Response | None,
+    credentials: HTTPBasicCredentials,
+    x_2fa_code: str | None,
+    x_2fa_token: str | None,
+    x_2fa_backup_code: str | None,
+    client_ip: str | None,
 ) -> str:
     """Validate HTTP Basic credentials and optional 2FA."""
     from . import webauthn
@@ -65,6 +141,11 @@ def require_auth(
             )
         client_ip = request.client.host
     redis_conn = get_redis_connection()
+    session_id = None
+    session_user = None
+    if request is not None:
+        session_id = request.cookies.get(SESSION_COOKIE_NAME)
+        session_user = _get_session_user(redis_conn, session_id)
     if redis_conn:
         try:
             if redis_conn.get(_lockout_key(credentials.username)):
@@ -134,8 +215,13 @@ def require_auth(
     totp_secret = os.getenv("ADMIN_UI_2FA_SECRET") or get_secret(
         "ADMIN_UI_2FA_SECRET_FILE"
     )
+    session_valid = session_user == credentials.username
     if totp_secret:
-        if token_user:
+        if token_user or session_valid:
+            if redis_conn:
+                redis_conn.delete(_failure_key(credentials.username))
+            if not session_valid:
+                _set_session_cookie(response, request, redis_conn, credentials.username)
             return credentials.username
         if x_2fa_code:
             totp = pyotp.TOTP(totp_secret)
@@ -143,12 +229,14 @@ def require_auth(
             if totp.verify(x_2fa_code, valid_window=1):
                 if redis_conn:
                     redis_conn.delete(_failure_key(credentials.username))
+                _set_session_cookie(response, request, redis_conn, credentials.username)
                 return credentials.username
             detail = "Invalid 2FA code"
         elif x_2fa_backup_code:
             if mfa.verify_backup_code(credentials.username, x_2fa_backup_code):
                 if redis_conn:
                     redis_conn.delete(_failure_key(credentials.username))
+                _set_session_cookie(response, request, redis_conn, credentials.username)
                 return credentials.username
             detail = "Invalid backup code"
         else:
@@ -158,9 +246,11 @@ def require_auth(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=detail, headers=headers
         )
 
-    if token_user:
+    if token_user or session_valid:
         if redis_conn:
             redis_conn.delete(_failure_key(credentials.username))
+        if not session_valid:
+            _set_session_cookie(response, request, redis_conn, credentials.username)
         return credentials.username
     if (
         passkeys._has_passkey_tokens() or webauthn._has_webauthn_tokens()
@@ -173,7 +263,54 @@ def require_auth(
         )
     if redis_conn:
         redis_conn.delete(_failure_key(credentials.username))
+    _set_session_cookie(response, request, redis_conn, credentials.username)
     return credentials.username
+
+
+def require_auth(
+    request: Request,
+    response: Response,
+    credentials: HTTPBasicCredentials = Depends(security),
+    x_2fa_code: str | None = Header(None, alias="X-2FA-Code"),
+    x_2fa_token: str | None = Header(None, alias="X-2FA-Token"),
+    x_2fa_backup_code: str | None = Header(None, alias="X-2FA-Backup-Code"),
+    client_ip: str | None = None,
+) -> str:
+    """Validate HTTP Basic credentials and optional 2FA."""
+    return _require_auth_core(
+        request,
+        response,
+        credentials,
+        x_2fa_code,
+        x_2fa_token,
+        x_2fa_backup_code,
+        client_ip,
+    )
+
+
+def _set_session_cookie(
+    response: Response | None,
+    request: Request | None,
+    redis_conn,
+    username: str,
+) -> None:
+    if SESSION_TTL <= 0:
+        return
+    session_id = _issue_session(redis_conn, username)
+    if not session_id:
+        return
+    if request is not None:
+        request.state.admin_ui_session_cookie = session_id
+        request.state.admin_ui_session_ttl = SESSION_TTL
+    if response is not None:
+        response.set_cookie(
+            SESSION_COOKIE_NAME,
+            session_id,
+            max_age=SESSION_TTL,
+            httponly=True,
+            secure=True,
+            samesite="Strict",
+        )
 
 
 def require_admin(user: str = Depends(require_auth)) -> str:
@@ -231,3 +368,17 @@ async def backup_codes_remaining(user: str = Depends(require_admin)):
     """Return the number of remaining backup codes."""
     remaining = mfa.get_remaining_backup_codes_count(user)
     return {"remaining": remaining}
+
+
+@router.post("/logout")
+async def logout(
+    request: Request,
+    response: Response,
+    user: str = Depends(require_auth),
+):
+    """Invalidate the current Admin UI session cookie."""
+    redis_conn = get_redis_connection()
+    session_id = request.cookies.get(SESSION_COOKIE_NAME)
+    _clear_session(redis_conn, session_id)
+    response.delete_cookie(SESSION_COOKIE_NAME)
+    return {"status": "ok"}

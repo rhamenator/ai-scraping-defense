@@ -211,6 +211,19 @@ async def csp_header(request: Request, call_next):
     response.headers.setdefault(
         "Content-Security-Policy", os.getenv("ADMIN_UI_CSP", DEFAULT_CSP)
     )
+    session_id = getattr(request.state, "admin_ui_session_cookie", None)
+    if session_id:
+        session_ttl = getattr(
+            request.state, "admin_ui_session_ttl", auth_routes.SESSION_TTL
+        )
+        response.set_cookie(
+            auth_routes.SESSION_COOKIE_NAME,
+            session_id,
+            max_age=session_ttl,
+            httponly=True,
+            secure=True,
+            samesite="Strict",
+        )
     return response
 
 

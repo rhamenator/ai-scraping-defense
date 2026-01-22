@@ -13,7 +13,7 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBasicCredentials
 
-from .auth import require_auth
+from .auth import _require_auth_core, require_auth
 from .metrics_admin_ui import get_metrics
 
 logger = logging.getLogger(__name__)
@@ -103,12 +103,15 @@ async def metrics_websocket(websocket: WebSocket):
                 x_2fa_code = websocket.headers.get("X-2FA-Code")
                 x_2fa_token = websocket.headers.get("X-2FA-Token")
                 try:
-                    require_auth(
+                    _require_auth_core(
+                        request=None,
+                        response=None,
                         credentials=HTTPBasicCredentials(
                             username=username, password=password
                         ),
                         x_2fa_code=x_2fa_code,
                         x_2fa_token=x_2fa_token,
+                        x_2fa_backup_code=None,
                         client_ip=websocket.client.host,
                     )
                 except HTTPException:

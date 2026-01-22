@@ -13,6 +13,7 @@ class MockRedis:
     def __init__(self):
         self.store = {}
         self.expiry = {}
+        self.lists = {}
 
     def get(self, key):
         return self.store.get(key)
@@ -39,6 +40,47 @@ class MockRedis:
     def delete(self, key):
         self.store.pop(key, None)
         self.expiry.pop(key, None)
+        self.lists.pop(key, None)
+
+    def lpush(self, key, value):
+        self.lists.setdefault(key, []).insert(0, value)
+        return len(self.lists[key])
+
+    def lrange(self, key, start, end):
+        items = self.lists.get(key, [])
+        if end == -1:
+            end = len(items) - 1
+        return items[start : end + 1]
+
+    def ltrim(self, key, start, end):
+        items = self.lists.get(key, [])
+        if end == -1:
+            end = len(items) - 1
+        self.lists[key] = items[start : end + 1]
+
+    def lrem(self, key, count, value):
+        items = self.lists.get(key, [])
+        removed = 0
+        if count == 0:
+            self.lists[key] = [item for item in items if item != value]
+            removed = len(items) - len(self.lists[key])
+        else:
+            remaining = []
+            for item in items:
+                if item == value and removed < abs(count):
+                    removed += 1
+                    continue
+                remaining.append(item)
+            self.lists[key] = remaining
+        return removed
+
+    def getdel(self, key):
+        value = self.get(key)
+        self.delete(key)
+        return value
+
+    def scan_iter(self, match=None, count=1):
+        return iter([])
 
 
 class TestAdminUIMfaBackupCodes(unittest.TestCase):

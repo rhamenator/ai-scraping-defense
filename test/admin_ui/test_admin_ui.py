@@ -152,6 +152,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         class MockRedis:
             def __init__(self):
                 self.store = {}
+                self.lists = {}
 
             def incr(self, key):
                 self.store[key] = self.store.get(key, 0) + 1
@@ -160,11 +161,31 @@ class TestAdminUIComprehensive(unittest.TestCase):
             def expire(self, key, ttl):
                 pass
 
+            def set(self, key, value, ex=None):
+                self.store[key] = value
+
             def get(self, key):
                 return self.store.get(key)
 
             def delete(self, key):
                 self.store.pop(key, None)
+                self.lists.pop(key, None)
+
+            def lpush(self, key, value):
+                self.lists.setdefault(key, []).insert(0, value)
+                return len(self.lists[key])
+
+            def lrange(self, key, start, end):
+                items = self.lists.get(key, [])
+                if end == -1:
+                    end = len(items) - 1
+                return items[start : end + 1]
+
+            def ltrim(self, key, start, end):
+                items = self.lists.get(key, [])
+                if end == -1:
+                    end = len(items) - 1
+                self.lists[key] = items[start : end + 1]
 
         mock_redis = MockRedis()
         headers = self._totp_headers()
@@ -587,6 +608,156 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(data["temporary_block_count"], 0)
         self.assertEqual(data["total_bots_detected"], 0)
         self.assertEqual(data["total_humans_detected"], 0)
+
+
+class TestAdminUISessions(unittest.TestCase):
+    class _MockRedis:
+        def __init__(self):
+            self.store = {}
+            self.lists = {}
+            self.expirations = {}
+
+        def incr(self, key):
+            self.store[key] = int(self.store.get(key, 0)) + 1
+            return self.store[key]
+
+        def expire(self, key, ttl):
+            self.expirations[key] = ttl
+
+        def get(self, key):
+            return self.store.get(key)
+
+        def set(self, key, value, ex=None):
+            self.store[key] = value
+            if ex is not None:
+                self.expirations[key] = ex
+
+        def delete(self, key):
+            self.store.pop(key, None)
+            self.lists.pop(key, None)
+
+        def getdel(self, key):
+            value = self.get(key)
+            self.delete(key)
+            return value
+
+        def lpush(self, key, value):
+            self.lists.setdefault(key, []).insert(0, value)
+            return len(self.lists[key])
+
+        def lrange(self, key, start, end):
+            items = self.lists.get(key, [])
+            if end == -1:
+                end = len(items) - 1
+            return items[start : end + 1]
+
+        def ltrim(self, key, start, end):
+            items = self.lists.get(key, [])
+            if end == -1:
+                end = len(items) - 1
+            self.lists[key] = items[start : end + 1]
+
+        def lrem(self, key, count, value):
+            items = self.lists.get(key, [])
+            removed = 0
+            if count == 0:
+                self.lists[key] = [item for item in items if item != value]
+                removed = len(items) - len(self.lists[key])
+            else:
+                remaining = []
+                for item in items:
+                    if item == value and removed < abs(count):
+                        removed += 1
+                        continue
+                    remaining.append(item)
+                self.lists[key] = remaining
+            return removed
+
+        def scan_iter(self, match=None, count=1):
+            return iter([])
+
+    def setUp(self):
+        os.environ["ADMIN_UI_USERNAME"] = "admin"
+        os.environ["ADMIN_UI_PASSWORD_HASH"] = bcrypt.hashpw(
+            b"testpass", bcrypt.gensalt()
+        ).decode()
+        os.environ["ADMIN_UI_ROLE"] = "admin"
+        os.environ["ADMIN_UI_2FA_SECRET"] = "JBSWY3DPEHPK3PXP"
+        self.redis = self._MockRedis()
+        self.auth = ("admin", "testpass")
+        self.client = TestClient(admin_ui.app)
+
+        self._patches = [
+            patch("src.admin_ui.auth.get_redis_connection", return_value=self.redis),
+            patch(
+                "src.admin_ui.passkeys.get_redis_connection", return_value=self.redis
+            ),
+            patch(
+                "src.admin_ui.webauthn.get_redis_connection", return_value=self.redis
+            ),
+        ]
+        for patcher in self._patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+        self._original_ttl = auth.SESSION_TTL
+        self._original_max = auth.SESSION_MAX_CONCURRENT
+        auth.SESSION_TTL = 300
+        auth.SESSION_MAX_CONCURRENT = 2
+
+    def tearDown(self):
+        auth.SESSION_TTL = self._original_ttl
+        auth.SESSION_MAX_CONCURRENT = self._original_max
+
+    def _totp_headers(self) -> dict:
+        secret = os.environ["ADMIN_UI_2FA_SECRET"]
+        return {"X-2FA-Code": pyotp.TOTP(secret).now()}
+
+    def test_session_cookie_allows_skipping_2fa(self):
+        response = self.client.get("/", auth=self.auth, headers=self._totp_headers())
+        self.assertEqual(response.status_code, 200)
+        session_cookie = response.cookies.get(auth.SESSION_COOKIE_NAME)
+        self.assertIsNotNone(session_cookie)
+
+        response = self.client.get(
+            "/", auth=self.auth, cookies={auth.SESSION_COOKIE_NAME: session_cookie}
+        )
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.post(
+            "/logout",
+            auth=self.auth,
+            cookies={auth.SESSION_COOKIE_NAME: session_cookie},
+        )
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.get(
+            "/", auth=self.auth, cookies={auth.SESSION_COOKIE_NAME: session_cookie}
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_session_concurrency_limit(self):
+        auth.SESSION_MAX_CONCURRENT = 1
+        response = self.client.get("/", auth=self.auth, headers=self._totp_headers())
+        self.assertEqual(response.status_code, 200)
+        first_session = response.cookies.get(auth.SESSION_COOKIE_NAME)
+        self.assertIsNotNone(first_session)
+
+        response = self.client.get("/", auth=self.auth, headers=self._totp_headers())
+        self.assertEqual(response.status_code, 200)
+        second_session = response.cookies.get(auth.SESSION_COOKIE_NAME)
+        self.assertIsNotNone(second_session)
+        self.assertNotEqual(first_session, second_session)
+
+        response = self.client.get(
+            "/", auth=self.auth, cookies={auth.SESSION_COOKIE_NAME: first_session}
+        )
+        self.assertEqual(response.status_code, 401)
+
+        response = self.client.get(
+            "/", auth=self.auth, cookies={auth.SESSION_COOKIE_NAME: second_session}
+        )
+        self.assertEqual(response.status_code, 200)
 
 
 if __name__ == "__main__":
