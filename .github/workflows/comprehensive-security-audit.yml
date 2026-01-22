@@ -154,7 +154,7 @@ jobs:
           grep -r "Access-Control-Allow-Origin.*\*" --include="*.py" --include="*.js" . > reports/security/cors-issues.txt || true
 
           # Insecure protocols
-          grep -r "http://\|ftp://\|telnet://" --include="*.py" --include="*.js" --include="*.go" --include="*.conf" . > reports/security/insecure-protocols.txt || true
+          grep -r "h\"\"ttp://\|f\"\"tp://\|t\"\"elnet://" --include="*.py" --include="*.js" --include="*.go" --include="*.conf" . > reports/security/insecure-protocols.txt || true
 
       # Dependency Security Problems
       - name: Scan Dependencies

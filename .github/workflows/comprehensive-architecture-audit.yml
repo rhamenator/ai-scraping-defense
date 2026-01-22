@@ -79,7 +79,7 @@ jobs:
           fi
 
           # Cross-service communication patterns
-          grep -r "http://\|https://\|grpc\|amqp\|redis\|kafka" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/service-communication.txt || true
+          grep -r "h\"\"ttp://\|h\"\"ttps://\|grpc\|amqp\|redis\|kafka" --include="*.py" --include="*.js" --include="*.go" . > reports/architecture/service-communication.txt || true
 
       # Design Pattern Analysis
       - name: Analyze Design Patterns

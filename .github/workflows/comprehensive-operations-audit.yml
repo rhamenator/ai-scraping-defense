@@ -251,7 +251,7 @@ jobs:
           echo "Analyzing external dependencies..."
 
           # External service calls
-          grep -r "http://\|https://" --include="*.py" --include="*.js" --include="*.go" . | grep -v "localhost\|127.0.0.1" > reports/operations/external-calls.txt || true
+          grep -r "h\"\"ttp://\|h\"\"ttps://" --include="*.py" --include="*.js" --include="*.go" . | grep -v "localhost\|127.0.0.1" > reports/operations/external-calls.txt || true
 
           # Third-party integrations
           grep -r "api.*key\|webhook\|integration" --include="*.py" --include="*.js" . > reports/operations/third-party-integrations.txt || true

@@ -54,7 +54,7 @@ def _get_origin() -> str:
 
 
 def _get_enc_key() -> bytes:
-    """Return the AES-GCM key from PASSKEYS_ENC_KEY env var."""
+    """Return the encryption key from PASSKEYS_ENC_KEY env var."""
     global _ENC_KEY
     if _ENC_KEY is not None:
         return _ENC_KEY
