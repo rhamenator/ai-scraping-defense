@@ -7,7 +7,7 @@ import os
 
 import redis.asyncio as redis
 
-from src.util.adaptive_rate_limit_manager import compute_and_update
+from src.util import adaptive_rate_limit_manager
 
 SYNC_INTERVAL_SECONDS = int(os.getenv("ADAPTIVE_RATE_LIMIT_INTERVAL", "60"))
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
@@ -62,7 +62,51 @@ async def handle_rate_limit_event(event_data):
         event_data: Dictionary containing rate limit event information
     """
     logger.info("Received rate limit event: %s", event_data)
-    # Planned: implement dynamic rate limit updates based on event_data.
+
+    def _coerce_positive_int(value, name):
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            logger.warning("Invalid %s value in rate limit event: %r", name, value)
+            return None
+        if parsed <= 0:
+            logger.warning("Non-positive %s value in rate limit event: %r", name, value)
+            return None
+        return parsed
+
+    global SYNC_INTERVAL_SECONDS
+    if "sync_interval_seconds" in event_data:
+        interval = _coerce_positive_int(
+            event_data.get("sync_interval_seconds"), "sync_interval_seconds"
+        )
+        if interval:
+            SYNC_INTERVAL_SECONDS = interval
+
+    new_limit = event_data.get("new_limit") or event_data.get("rate_limit")
+    if new_limit is not None:
+        parsed_limit = _coerce_positive_int(new_limit, "new_limit")
+        if parsed_limit:
+            adaptive_rate_limit_manager.update_rate_limit(parsed_limit)
+        return
+
+    updated = False
+    if "base_rate_limit" in event_data:
+        base_limit = _coerce_positive_int(
+            event_data.get("base_rate_limit"), "base_rate_limit"
+        )
+        if base_limit:
+            adaptive_rate_limit_manager.BASE_RATE_LIMIT = base_limit
+            updated = True
+    if "window_seconds" in event_data:
+        window_seconds = _coerce_positive_int(
+            event_data.get("window_seconds"), "window_seconds"
+        )
+        if window_seconds:
+            adaptive_rate_limit_manager.FREQUENCY_WINDOW_SECONDS = window_seconds
+            updated = True
+
+    if updated:
+        adaptive_rate_limit_manager.compute_and_update()
 
 
 async def run_loop(stop_event: asyncio.Event | None = None) -> None:
@@ -73,7 +117,9 @@ async def run_loop(stop_event: asyncio.Event | None = None) -> None:
         try:
             # Run synchronous compute_and_update in an executor to avoid blocking
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, compute_and_update)
+            await loop.run_in_executor(
+                None, adaptive_rate_limit_manager.compute_and_update
+            )
         except Exception as exc:  # pragma: no cover - unexpected
             logger.error("Adaptive rate limit update failed: %s", exc)
         try:
