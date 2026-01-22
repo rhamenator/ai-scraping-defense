@@ -35,6 +35,7 @@ This project provides a multi-layered, microservice-based defense system against
 - **Model Version Metrics:** Prometheus gauge `model_version_info` exposes the running ML model version.
 - **CORS & CSP Headers:** The Admin UI sets CORS policies and a default Content-Security-Policy header. `ADMIN_UI_CORS_ORIGINS` defaults to `http://localhost` and must list explicit origins; wildcard `*` is rejected when credentials are allowed.
 - **Additional Security Headers:** Nginx now sends `Referrer-Policy`, `Permissions-Policy`, and `X-Permitted-Cross-Domain-Policies` headers by default. See `docs/SECURITY_HEADERS.md`.
+- **Structured Errors:** API errors include stable codes and request IDs. See `docs/ERROR_HANDLING.md`.
 
 ## Repository Structure
 
