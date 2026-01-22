@@ -33,6 +33,7 @@ This project provides a multi-layered, microservice-based defense system against
 - **Audit Logging:** Sensitive actions are written to a rotating `audit.log` for forensic review.
 - **Anomaly Alerting Actions:** Alert, blocklist, or escalate based on anomaly score. See `docs/ANOMALY_ALERTING.md`.
 - **RBAC Controls:** Admin endpoints verify an `ADMIN_UI_ROLE` environment variable and reject non-admin users.
+- **Admin UI SSO:** Optional OIDC/SAML authentication with MFA. See `docs/ADMIN_UI_SSO.md`.
 - **Model Version Metrics:** Prometheus gauge `model_version_info` exposes the running ML model version.
 - **CORS & CSP Headers:** The Admin UI sets CORS policies and a default Content-Security-Policy header. `ADMIN_UI_CORS_ORIGINS` defaults to `http://localhost` and must list explicit origins; wildcard `*` is rejected when credentials are allowed.
 - **Additional Security Headers:** Nginx now sends `Referrer-Policy`, `Permissions-Policy`, and `X-Permitted-Cross-Domain-Policies` headers by default. See `docs/SECURITY_HEADERS.md`.

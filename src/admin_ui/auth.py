@@ -22,9 +22,9 @@ from src.shared.config import get_secret
 from src.shared.metrics import LOGIN_ATTEMPTS, SECURITY_EVENTS
 from src.shared.redis_client import get_redis_connection
 
-from . import mfa, passkeys
+from . import mfa, passkeys, sso
 
-security = HTTPBasic()
+security = HTTPBasic(auto_error=False)
 router = APIRouter()
 
 ADMIN_UI_ROLE = os.getenv("ADMIN_UI_ROLE", "admin")
@@ -119,17 +119,105 @@ def _record_failed_attempt(redis_conn, username: str) -> None:
         pass
 
 
+def _require_mfa(
+    request: Request | None,
+    response: Response | None,
+    redis_conn,
+    username: str,
+    session_user: str | None,
+    x_2fa_code: str | None,
+    x_2fa_token: str | None,
+    x_2fa_backup_code: str | None,
+    *,
+    force: bool,
+) -> str:
+    """Validate 2FA for the given username."""
+    from . import webauthn
+
+    token_user = passkeys._consume_passkey_token(
+        x_2fa_token
+    ) or webauthn._consume_webauthn_token(x_2fa_token)
+    if token_user and token_user != username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid 2FA token",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    totp_secret = os.getenv("ADMIN_UI_2FA_SECRET") or get_secret(
+        "ADMIN_UI_2FA_SECRET_FILE"
+    )
+    session_valid = session_user == username
+    if totp_secret:
+        if token_user or session_valid:
+            if redis_conn:
+                redis_conn.delete(_failure_key(username))
+            if not session_valid:
+                _set_session_cookie(response, request, redis_conn, username)
+            return username
+        if x_2fa_code:
+            totp = pyotp.TOTP(totp_secret)
+
+            if totp.verify(x_2fa_code, valid_window=1):
+                if redis_conn:
+                    redis_conn.delete(_failure_key(username))
+                _set_session_cookie(response, request, redis_conn, username)
+                return username
+            detail = "Invalid 2FA code"
+        elif x_2fa_backup_code:
+            if mfa.verify_backup_code(username, x_2fa_backup_code):
+                if redis_conn:
+                    redis_conn.delete(_failure_key(username))
+                _set_session_cookie(response, request, redis_conn, username)
+                return username
+            detail = "Invalid backup code"
+        else:
+            detail = "2FA token, code, or backup code required"
+        _record_failed_attempt(redis_conn, username)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=detail,
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    if token_user or session_valid:
+        if redis_conn:
+            redis_conn.delete(_failure_key(username))
+        if not session_valid:
+            _set_session_cookie(response, request, redis_conn, username)
+        return username
+    if (
+        passkeys._has_passkey_tokens() or webauthn._has_webauthn_tokens()
+    ) and not token_user:
+        _record_failed_attempt(redis_conn, username)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="2FA token required",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    if force:
+        _record_failed_attempt(redis_conn, username)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="MFA required",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    if redis_conn:
+        redis_conn.delete(_failure_key(username))
+    _set_session_cookie(response, request, redis_conn, username)
+    return username
+
+
 def _require_auth_core(
     request: Request | None,
     response: Response | None,
-    credentials: HTTPBasicCredentials,
+    credentials: HTTPBasicCredentials | None,
     x_2fa_code: str | None,
     x_2fa_token: str | None,
     x_2fa_backup_code: str | None,
     client_ip: str | None,
 ) -> str:
-    """Validate HTTP Basic credentials and optional 2FA."""
-    from . import webauthn
+    """Validate HTTP Basic credentials, SSO, and optional 2FA."""
 
     rate_limit = int(os.getenv("ADMIN_UI_RATE_LIMIT", "5"))
     rate_window = int(os.getenv("ADMIN_UI_RATE_LIMIT_WINDOW", "60"))
@@ -146,6 +234,39 @@ def _require_auth_core(
     if request is not None:
         session_id = request.cookies.get(SESSION_COOKIE_NAME)
         session_user = _get_session_user(redis_conn, session_id)
+    sso_user = None
+    if request is not None:
+        sso_user = sso.get_sso_user(request)
+    if sso_user:
+        username = sso_user["username"]
+        sso_mfa_required = (
+            os.getenv("ADMIN_UI_SSO_MFA_REQUIRED", "false").lower() == "true"
+        )
+        if not sso_mfa_required:
+            if redis_conn:
+                redis_conn.delete(_failure_key(username))
+            if session_user != username:
+                _set_session_cookie(response, request, redis_conn, username)
+            return username
+        return _require_mfa(
+            request,
+            response,
+            redis_conn,
+            username,
+            session_user,
+            x_2fa_code,
+            x_2fa_token,
+            x_2fa_backup_code,
+            force=sso_mfa_required,
+        )
+
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing basic auth credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
     if redis_conn:
         try:
             if redis_conn.get(_lockout_key(credentials.username)):
@@ -202,81 +323,29 @@ def _require_auth_core(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
     LOGIN_ATTEMPTS.labels(result="success").inc()
 
-    token_user = passkeys._consume_passkey_token(
-        x_2fa_token
-    ) or webauthn._consume_webauthn_token(x_2fa_token)
-    if token_user and token_user != credentials.username:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid 2FA token",
-            headers=headers,
-        )
-
-    totp_secret = os.getenv("ADMIN_UI_2FA_SECRET") or get_secret(
-        "ADMIN_UI_2FA_SECRET_FILE"
+    return _require_mfa(
+        request,
+        response,
+        redis_conn,
+        credentials.username,
+        session_user,
+        x_2fa_code,
+        x_2fa_token,
+        x_2fa_backup_code,
+        force=False,
     )
-    session_valid = session_user == credentials.username
-    if totp_secret:
-        if token_user or session_valid:
-            if redis_conn:
-                redis_conn.delete(_failure_key(credentials.username))
-            if not session_valid:
-                _set_session_cookie(response, request, redis_conn, credentials.username)
-            return credentials.username
-        if x_2fa_code:
-            totp = pyotp.TOTP(totp_secret)
-
-            if totp.verify(x_2fa_code, valid_window=1):
-                if redis_conn:
-                    redis_conn.delete(_failure_key(credentials.username))
-                _set_session_cookie(response, request, redis_conn, credentials.username)
-                return credentials.username
-            detail = "Invalid 2FA code"
-        elif x_2fa_backup_code:
-            if mfa.verify_backup_code(credentials.username, x_2fa_backup_code):
-                if redis_conn:
-                    redis_conn.delete(_failure_key(credentials.username))
-                _set_session_cookie(response, request, redis_conn, credentials.username)
-                return credentials.username
-            detail = "Invalid backup code"
-        else:
-            detail = "2FA token, code, or backup code required"
-        _record_failed_attempt(redis_conn, credentials.username)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=detail, headers=headers
-        )
-
-    if token_user or session_valid:
-        if redis_conn:
-            redis_conn.delete(_failure_key(credentials.username))
-        if not session_valid:
-            _set_session_cookie(response, request, redis_conn, credentials.username)
-        return credentials.username
-    if (
-        passkeys._has_passkey_tokens() or webauthn._has_webauthn_tokens()
-    ) and not token_user:
-        _record_failed_attempt(redis_conn, credentials.username)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="2FA token required",
-            headers=headers,
-        )
-    if redis_conn:
-        redis_conn.delete(_failure_key(credentials.username))
-    _set_session_cookie(response, request, redis_conn, credentials.username)
-    return credentials.username
 
 
 def require_auth(
     request: Request,
     response: Response,
-    credentials: HTTPBasicCredentials = Depends(security),
+    credentials: HTTPBasicCredentials | None = Depends(security),
     x_2fa_code: str | None = Header(None, alias="X-2FA-Code"),
     x_2fa_token: str | None = Header(None, alias="X-2FA-Token"),
     x_2fa_backup_code: str | None = Header(None, alias="X-2FA-Backup-Code"),
     client_ip: str | None = None,
 ) -> str:
-    """Validate HTTP Basic credentials and optional 2FA."""
+    """Validate HTTP Basic credentials, SSO, and optional 2FA."""
     return _require_auth_core(
         request,
         response,
