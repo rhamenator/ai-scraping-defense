@@ -252,7 +252,9 @@ def git_apply_patch(
     if check_only:
         args.append("--check")
     args.append(str(patch_path))
-    return subprocess.run(args, capture_output=True, text=True)
+    return subprocess.run(  # nosec B603 - controlled git command
+        args, capture_output=True, text=True
+    )
 
 
 def file_paths_from_patch(patch: str) -> List[str]:
@@ -279,7 +281,9 @@ def run_pre_commit_on_files(
     if shutil.which("pre-commit") is None:
         return None
     cmd = ["pre-commit", "run", "--files", *files]
-    return subprocess.run(cmd, capture_output=True, text=True)
+    return subprocess.run(  # nosec B603 - controlled pre-commit command
+        cmd, capture_output=True, text=True
+    )
 
 
 # -------- Main flow --------

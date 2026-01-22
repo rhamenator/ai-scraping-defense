@@ -3,6 +3,7 @@
 import os
 from enum import Enum
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -66,11 +67,20 @@ class ServiceEndpoint(BaseModel):
 
     host: str = Field(min_length=1, description="Service hostname or IP")
     port: int = Field(ge=1, le=65535, description="Service port")
+    scheme: str = Field(default="http", description="Service URL scheme")
 
     @property
     def url(self) -> str:
         """Get full service URL."""
-        return f"http://{self.host}:{self.port}"
+        return f"{self.scheme}://{self.host}:{self.port}"
+
+    @field_validator("scheme")
+    @classmethod
+    def validate_scheme(cls, value: str) -> str:
+        scheme = value.lower()
+        if scheme not in {"http", "https"}:
+            raise ValueError("scheme must be http or https")
+        return scheme
 
 
 class RedisConfig(BaseModel):
@@ -144,8 +154,10 @@ class EscalationConfig(BaseModel):
     @classmethod
     def validate_webhook_url(cls, v: Optional[str]) -> Optional[str]:
         """Validate webhook URL format."""
-        if v and not v.startswith(("http://", "https://")):
-            raise ValueError("webhook_url must start with http:// or https://")
+        if v:
+            scheme = urlparse(v).scheme
+            if scheme not in {"http", "https"}:
+                raise ValueError("webhook_url must start with http or https")
         return v
 
 

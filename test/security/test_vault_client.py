@@ -1,6 +1,7 @@
 """Tests for vault_client module."""
 
 import os
+import secrets
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
@@ -17,18 +18,19 @@ class TestVaultConfig(unittest.TestCase):
 
     def test_from_env_defaults(self):
         """Test loading config from environment with defaults."""
-        with patch.dict(os.environ, {"VAULT_ADDR": "http://test:8200"}, clear=True):
+        with patch.dict(os.environ, {"VAULT_ADDR": "https://test:8200"}, clear=True):
             config = VaultConfig.from_env()
-            self.assertEqual(config.addr, "http://test:8200")
+            self.assertEqual(config.addr, "https://test:8200")
             self.assertEqual(config.mount_point, "secret")
             self.assertTrue(config.verify_tls)
             self.assertEqual(config.timeout, 30)
 
     def test_from_env_custom(self):
         """Test loading config from environment with custom values."""
+        token = secrets.token_urlsafe(12)
         env = {
             "VAULT_ADDR": "https://vault.example.com:8200",
-            "VAULT_TOKEN": "test-token",
+            "VAULT_TOKEN": token,
             "VAULT_NAMESPACE": "test-ns",
             "VAULT_MOUNT_POINT": "custom",
             "VAULT_VERIFY_TLS": "false",
@@ -37,7 +39,7 @@ class TestVaultConfig(unittest.TestCase):
         with patch.dict(os.environ, env, clear=True):
             config = VaultConfig.from_env()
             self.assertEqual(config.addr, "https://vault.example.com:8200")
-            self.assertEqual(config.token, "test-token")
+            self.assertEqual(config.token, token)
             self.assertEqual(config.namespace, "test-ns")
             self.assertEqual(config.mount_point, "custom")
             self.assertFalse(config.verify_tls)
@@ -49,8 +51,9 @@ class TestVaultClient(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
+        token = secrets.token_urlsafe(12)
         self.config = VaultConfig(
-            addr="http://vault:8200", token="test-token", mount_point="secret"
+            addr="https://vault:8200", token=token, mount_point="secret"
         )
 
     @patch("src.shared.vault_client.hvac.Client")
@@ -87,7 +90,7 @@ class TestVaultClient(unittest.TestCase):
         mock_instance.is_authenticated.return_value = False
         mock_hvac_client.return_value = mock_instance
 
-        config = VaultConfig(addr="http://vault:8200")  # No token
+        config = VaultConfig(addr="https://vault:8200")  # No token
         client = VaultClient(config)
 
         # Expect tenacity.RetryError or VaultConnectionError
@@ -134,7 +137,8 @@ class TestVaultClient(unittest.TestCase):
         mock_hvac_client.return_value = mock_instance
 
         client = VaultClient(self.config)
-        data = {"password": "secret123", "username": "admin"}
+        secret_value = secrets.token_urlsafe(12)
+        data = {"password": secret_value, "username": "admin"}
         success = client.write_secret("myapp/database", data)
 
         self.assertTrue(success)
@@ -145,15 +149,16 @@ class TestVaultClient(unittest.TestCase):
         """Test convenience method for getting a single value."""
         mock_instance = MagicMock()
         mock_instance.is_authenticated.return_value = True
+        secret_value = secrets.token_urlsafe(12)
         mock_instance.secrets.kv.v2.read_secret_version.return_value = {
-            "data": {"data": {"password": "secret123"}}
+            "data": {"data": {"password": secret_value}}
         }
         mock_hvac_client.return_value = mock_instance
 
         client = VaultClient(self.config)
         value = client.get_secret_value("myapp/database", "password")
 
-        self.assertEqual(value, "secret123")
+        self.assertEqual(value, secret_value)
 
     @patch("src.shared.vault_client.hvac.Client")
     def test_list_secrets(self, mock_hvac_client):
@@ -184,7 +189,7 @@ class TestVaultClient(unittest.TestCase):
         mock_instance.is_authenticated.return_value = False
         mock_hvac_client.return_value = mock_instance
 
-        with patch.dict(os.environ, {"VAULT_ADDR": "http://vault:8200"}, clear=True):
+        with patch.dict(os.environ, {"VAULT_ADDR": "https://vault:8200"}, clear=True):
             # Should return None when auth fails
             client = get_vault_client()
             self.assertIsNone(client)
@@ -194,8 +199,9 @@ class TestVaultClient(unittest.TestCase):
         """Test that get_vault_client returns None when connection fails."""
         mock_hvac_client.side_effect = Exception("Connection refused")
 
+        token = secrets.token_urlsafe(12)
         with patch.dict(
-            os.environ, {"VAULT_ADDR": "http://vault:8200", "VAULT_TOKEN": "test"}
+            os.environ, {"VAULT_ADDR": "https://vault:8200", "VAULT_TOKEN": token}
         ):
             # Should return None and log error
             client = get_vault_client()

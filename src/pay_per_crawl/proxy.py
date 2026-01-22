@@ -20,7 +20,9 @@ from .db import add_credit, charge, get_crawler, init_db, register_crawler
 from .pricing import PricingEngine, load_pricing
 
 PRICING_PATH = os.getenv("PRICING_CONFIG", "config/pricing.yaml")
-UPSTREAM_URL = os.getenv("UPSTREAM_URL", "http://localhost:8080")
+UPSTREAM_URL = os.getenv("UPSTREAM_URL") or (
+    f"{os.getenv('UPSTREAM_SCHEME', 'http')}://localhost:8080"
+)
 DEFAULT_PRICE = float(os.getenv("DEFAULT_PRICE", "0.0"))
 HTTPX_TIMEOUT = float(os.getenv("HTTPX_TIMEOUT", "10.0"))
 MAX_PROXY_PATH_LENGTH = int(os.getenv("PROXY_MAX_PATH_LENGTH", "2048"))

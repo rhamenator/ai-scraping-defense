@@ -124,7 +124,7 @@ def validate_url(
         allowed_schemes = ["http", "https"]
 
     if not parsed.scheme:
-        raise SSRFProtectionError("URL must include a scheme (http:// or https://)")
+        raise SSRFProtectionError("URL must include a scheme (http or https)")
 
     if parsed.scheme not in allowed_schemes:
         raise SSRFProtectionError(

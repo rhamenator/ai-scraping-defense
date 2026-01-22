@@ -29,9 +29,6 @@ from src.shared.redis_client import get_redis_connection
 PASSKEY_TOKEN_TTL = int(os.getenv("PASSKEY_TOKEN_TTL", "300"))
 MAX_USERNAME_LENGTH = int(os.getenv("ADMIN_UI_USERNAME_MAX_LENGTH", "128"))
 
-RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
-ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost")
-
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +37,20 @@ JSON_SERIALIZATION_PARAMS = {"separators": (",", ":"), "sort_keys": True}
 
 
 _ENC_KEY: bytes | None = None
+
+
+def _get_rp_id() -> str:
+    rp_id = os.getenv("WEBAUTHN_RP_ID")
+    if not rp_id:
+        raise RuntimeError("WEBAUTHN_RP_ID must be set for passkey operations")
+    return rp_id
+
+
+def _get_origin() -> str:
+    origin = os.getenv("WEBAUTHN_ORIGIN")
+    if not origin:
+        raise RuntimeError("WEBAUTHN_ORIGIN must be set for passkey operations")
+    return origin
 
 
 def _get_enc_key() -> bytes:
@@ -182,7 +193,7 @@ def _has_passkey_tokens() -> bool:
 def begin_registration(user: str) -> JSONResponse:
     _validate_username(user, detail="Invalid or missing username")
     options = generate_registration_options(
-        rp_id=RP_ID,
+        rp_id=_get_rp_id(),
         rp_name="AI Scraping Defense",
         user_id=user.encode(),
         user_name=user,
@@ -199,8 +210,8 @@ def complete_registration(data: dict, user: str) -> JSONResponse:
     verification = verify_registration_response(
         credential=credential,
         expected_challenge=challenge,
-        expected_rp_id=RP_ID,
-        expected_origin=ORIGIN,
+        expected_rp_id=_get_rp_id(),
+        expected_origin=_get_origin(),
     )
     _store_credential(
         user,
@@ -220,7 +231,7 @@ def begin_login(username: str) -> JSONResponse:
         raise _login_error()
     descriptor = PublicKeyCredentialDescriptor(id=cred["credential_id"])
     options = generate_authentication_options(
-        rp_id=RP_ID,
+        rp_id=_get_rp_id(),
         allow_credentials=[descriptor],
     )
     _store_challenge(username, options.challenge)
@@ -240,8 +251,8 @@ def complete_login(data: dict) -> JSONResponse:
     verification = verify_authentication_response(
         credential=credential,
         expected_challenge=challenge,
-        expected_rp_id=RP_ID,
-        expected_origin=ORIGIN,
+        expected_rp_id=_get_rp_id(),
+        expected_origin=_get_origin(),
         credential_public_key=cred["public_key"],
         credential_current_sign_count=cred["sign_count"],
     )

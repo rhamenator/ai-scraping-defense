@@ -33,7 +33,7 @@ except Exception:  # pragma: no cover - kubernetes may not be installed
 
 # --- Logging and Configuration ---
 logger = logging.getLogger(__name__)
-REAL_BACKEND_HOST = os.getenv("REAL_BACKEND_HOST", "http://example.com")
+REAL_BACKEND_HOST = os.getenv("REAL_BACKEND_HOST", "https://example.com")
 CONFIGMAP_NAME = os.getenv("ROBOTS_CONFIGMAP_NAME", "live-robots-txt-config")
 CONFIGMAP_NAMESPACE = os.getenv("KUBERNETES_NAMESPACE", "default")
 FETCHER_USER_AGENT = "RobotsTxtFetcher/1.5 (AI-Scraping-Defense-Stack)"
@@ -70,7 +70,7 @@ def fetch_robots_txt(
     try:
         validate_url(
             url,
-            allowed_schemes=['http', 'https'],
+            allowed_schemes=["http", "https"],
             allowed_domains=allowed_hosts,
             block_private_ips=True,
         )

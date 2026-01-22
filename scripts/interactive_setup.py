@@ -94,7 +94,13 @@ def update_env_file(path: Path, values: dict[str, str]) -> None:
 
 def store_secrets(root: Path, env: dict[str, str]) -> None:
     """Store secrets in an SQLite database under secrets/ if user agrees."""
-    resp = input("Store secrets in local SQLite database? [y/N]: ").strip().lower()
+    resp = (
+        input(  # nosec B322 - interactive prompt
+            "Store secrets in local SQLite database? [y/N]: "
+        )
+        .strip()
+        .lower()
+    )
     if resp != "y":
         return
     secrets_dir = root / "secrets"
@@ -130,19 +136,19 @@ def main() -> None:
     for key in KEY_SETTINGS:
         default = env.get(key, "")
         prompt = f"{key} [{default}]: " if default else f"{key}: "
-        val = input(prompt).strip()
+        val = input(prompt).strip()  # nosec B322 - interactive prompt
         updates[key] = val if val else (default or "")
 
     print("\nConfigure optional features:")
     for feature, info in OPTIONAL_FEATURES.items():
-        resp = input(f"{info['prompt']} [y/N]: ").strip().lower()
+        resp = input(f"{info['prompt']} [y/N]: ").strip().lower()  # nosec B322
         enabled = resp == "y"
         updates[feature] = "true" if enabled else "false"
         if enabled:
             for var, desc, default in info.get("extras", []):
                 current = env.get(var, default)
                 prompt = f"  {desc} [{current}]: " if current else f"  {desc}: "
-                val = input(prompt).strip()
+                val = input(prompt).strip()  # nosec B322 - interactive prompt
                 updates[var] = val if val else current
 
     env.update(updates)
@@ -152,49 +158,59 @@ def main() -> None:
     print("Generating secrets...")
     if is_windows:
         secrets_script = root / "scripts" / "windows" / "Generate-Secrets.ps1"
-        subprocess.run(
+        subprocess.run(  # nosec B603 - controlled script call
             ["powershell", "-File", str(secrets_script)],
             cwd=str(root),
             check=True,
         )
     else:
         secrets_script = root / "scripts" / "linux" / "generate_secrets.sh"
-        subprocess.run(
+        subprocess.run(  # nosec B603 - controlled script call
             ["bash", str(secrets_script), "--update-env"],
             cwd=str(root),
             check=True,
         )
     print("Setup complete. Updated .env and generated secrets.")
 
-    resp = input("Launch the local Docker Compose stack now? [y/N]: ").strip().lower()
+    resp = (
+        input(  # nosec B322 - interactive prompt
+            "Launch the local Docker Compose stack now? [y/N]: "
+        )
+        .strip()
+        .lower()
+    )
     if resp == "y":
         if is_windows:
             quickstart_script = root / "scripts" / "windows" / "quickstart_dev.ps1"
-            subprocess.run(
+            subprocess.run(  # nosec B603 - controlled script call
                 ["powershell", "-File", str(quickstart_script)],
                 cwd=str(root),
                 check=True,
             )
         else:
             quickstart_script = root / "scripts" / "linux" / "quickstart_dev.sh"
-            subprocess.run(
+            subprocess.run(  # nosec B603 - controlled script call
                 ["bash", str(quickstart_script)], cwd=str(root), check=True
             )
 
     resp = (
-        input("Deploy to Kubernetes using quick_deploy.sh now? [y/N]: ").strip().lower()
+        input(  # nosec B322 - interactive prompt
+            "Deploy to Kubernetes using quick_deploy.sh now? [y/N]: "
+        )
+        .strip()
+        .lower()
     )
     if resp == "y":
         if is_windows:
             deploy_script = root / "scripts" / "windows" / "quick_deploy.ps1"
-            subprocess.run(
+            subprocess.run(  # nosec B603 - controlled script call
                 ["powershell", "-File", str(deploy_script)],
                 cwd=str(root),
                 check=True,
             )
         else:
             deploy_script = root / "scripts" / "linux" / "quick_deploy.sh"
-            subprocess.run(
+            subprocess.run(  # nosec B603 - controlled script call
                 ["bash", str(deploy_script)], cwd=str(root), check=True
             )
 

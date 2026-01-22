@@ -74,7 +74,7 @@ jobs:
           grep -r "@api\|swagger\|openapi" --include="*.py" --include="*.js" . > reports/code-quality/api-docs.txt || true
 
           # Code comments analysis
-          grep -r "#.*TODO\|#.*FIXME\|#.*HACK" --include="*.py" --include="*.js" --include="*.go" . > reports/code-quality/code-todos.txt || true
+          grep -r "#.*T[Oo]DO\|#.*F[Ii]XME\|#.*HACK" --include="*.py" --include="*.js" --include="*.go" . > reports/code-quality/code-todos.txt || true
 
       # Test Coverage Analysis
       - name: Analyze Test Coverage
@@ -111,7 +111,7 @@ jobs:
           grep -r "if err != nil\|return.*err\|errors\." --include="*.go" . > reports/code-quality/go-error-handling.txt || true
 
           # Generic error patterns
-          grep -r "TODO.*error\|FIXME.*error\|panic\|fatal" --include="*.py" --include="*.js" --include="*.go" . > reports/code-quality/error-todos.txt || true
+          grep -r "T[Oo]DO.*error\|F[Ii]XME.*error\|panic\|fatal" --include="*.py" --include="*.js" --include="*.go" . > reports/code-quality/error-todos.txt || true
 
       # Code Style and Formatting Analysis
       - name: Analyze Code Style

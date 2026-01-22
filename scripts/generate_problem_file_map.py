@@ -40,7 +40,9 @@ def call_gemini(prompt):
 def get_all_files():
     """Returns a list of all files in the git repository."""
     try:
-        result = subprocess.run(["git", "ls-files"], capture_output=True, text=True)
+        result = subprocess.run(  # nosec B603 - local git command
+            ["git", "ls-files"], capture_output=True, text=True
+        )
         return [f.strip() for f in result.stdout.splitlines() if f.strip()]
     except Exception as e:
         print(f"Error getting file list: {e}")

@@ -37,7 +37,7 @@ ISSUE_REFERENCE_PATTERN = re.compile(r"(?<![a-zA-Z0-9_])#(\d+)\b")
 def run_gh_command(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
     """Run a GitHub CLI command and return the result."""
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - controlled gh CLI call
             cmd,
             capture_output=True,
             text=True,
@@ -256,7 +256,9 @@ def main():
 
     # Check for GitHub CLI
     try:
-        subprocess.run(["gh", "--version"], capture_output=True, check=True)
+        subprocess.run(  # nosec B603 - controlled gh CLI call
+            ["gh", "--version"], capture_output=True, check=True
+        )
     except (subprocess.CalledProcessError, FileNotFoundError):
         LOG.error("GitHub CLI (gh) is not installed or not in PATH")
         LOG.error("Install from: https://cli.github.com/")

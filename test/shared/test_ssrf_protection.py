@@ -53,7 +53,7 @@ class TestIsLocalhost(unittest.TestCase):
         self.assertTrue(is_localhost("127.0.0.1"))
         self.assertTrue(is_localhost("127.1.1.1"))
         self.assertTrue(is_localhost("::1"))
-        self.assertTrue(is_localhost("0.0.0.0"))
+        self.assertTrue(is_localhost("0.0.0.0"))  # nosec B104 - test fixture
         self.assertTrue(is_localhost("[::]"))
 
     def test_non_localhost(self):
@@ -137,10 +137,10 @@ class TestValidateURL(unittest.TestCase):
     def test_domain_allowlist(self):
         """Test that domain allowlist is enforced."""
         allowed = ["example.com", "api.example.com"]
-        
+
         # Allowed domain should pass
         validate_url("https://example.com/path", allowed_domains=allowed)
-        
+
         # Non-allowed domain should fail
         with self.assertRaises(SSRFProtectionError) as ctx:
             validate_url("https://evil.com/path", allowed_domains=allowed)
@@ -149,11 +149,11 @@ class TestValidateURL(unittest.TestCase):
     def test_port_restrictions(self):
         """Test that port restrictions are enforced."""
         allowed_ports = [80, 443]
-        
+
         # Standard ports should pass
         validate_url("http://example.com/path", allowed_ports=allowed_ports)
         validate_url("https://example.com/path", allowed_ports=allowed_ports)
-        
+
         # Non-standard port should fail
         with self.assertRaises(SSRFProtectionError) as ctx:
             validate_url("http://example.com:8080/path", allowed_ports=allowed_ports)
@@ -162,7 +162,7 @@ class TestValidateURL(unittest.TestCase):
     def test_allowed_schemes(self):
         """Test that custom allowed schemes work."""
         validate_url("ftp://example.com/file", allowed_schemes=["ftp"])
-        
+
         with self.assertRaises(SSRFProtectionError):
             validate_url("http://example.com", allowed_schemes=["ftp"])
 
@@ -185,7 +185,7 @@ class TestValidateURLSafe(unittest.TestCase):
     def test_domain_allowlist(self):
         """Test that domain allowlist works with safe version."""
         allowed = ["example.com"]
-        
+
         self.assertTrue(
             validate_url_safe("https://example.com/path", allowed_domains=allowed)
         )
@@ -195,12 +195,8 @@ class TestValidateURLSafe(unittest.TestCase):
 
     def test_require_https(self):
         """Test that require_https works with safe version."""
-        self.assertTrue(
-            validate_url_safe("https://example.com", require_https=True)
-        )
-        self.assertFalse(
-            validate_url_safe("http://example.com", require_https=True)
-        )
+        self.assertTrue(validate_url_safe("https://example.com", require_https=True))
+        self.assertFalse(validate_url_safe("http://example.com", require_https=True))
 
 
 if __name__ == "__main__":

@@ -37,7 +37,7 @@ def main() -> None:
     out_file = Path("admin-2fa.png")
     img.save(out_file)
     if args.show_secret:
-        confirm = input(
+        confirm = input(  # nosec B322 - interactive confirmation
             "Are you sure you want to display the TOTP secret? "
             "Type 'YES' to confirm: "
         )

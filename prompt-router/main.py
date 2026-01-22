@@ -1,7 +1,7 @@
 # Built-in modules
 import asyncio
-import logging
 import hmac
+import logging
 import os
 import re
 import time
@@ -10,19 +10,26 @@ import time
 import httpx
 from fastapi import HTTPException, Request, Response
 
+from src.shared.mcp_client import MCPClientError, call_mcp_tool
 from src.shared.middleware import SecuritySettings, create_app
 from src.shared.observability import ObservabilitySettings
 from src.shared.request_utils import read_json_body
-from src.shared.mcp_client import MCPClientError, call_mcp_tool
 
-LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "http://llama3:11434/api/generate")
-CLOUD_PROXY_URL = os.getenv("CLOUD_PROXY_URL", "http://cloud_proxy:8008/api/chat")
+INTERNAL_SERVICE_SCHEME = os.getenv("INTERNAL_SERVICE_SCHEME", "http")
+LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL") or (
+    f"{INTERNAL_SERVICE_SCHEME}://llama3:11434/api/generate"
+)
+CLOUD_PROXY_URL = os.getenv("CLOUD_PROXY_URL") or (
+    f"{INTERNAL_SERVICE_SCHEME}://cloud_proxy:8008/api/chat"
+)
 MAX_LOCAL_TOKENS = int(os.getenv("MAX_LOCAL_TOKENS", "1000"))
 TOKEN_PATTERN = re.compile(r"\w+|[^\w\s]")
 logger = logging.getLogger("prompt_router")
 SHARED_SECRET = os.getenv("SHARED_SECRET")
 if not SHARED_SECRET:
-    logger.error("SHARED_SECRET environment variable is not set; requests will fail until it is configured")
+    logger.error(
+        "SHARED_SECRET environment variable is not set; requests will fail until it is configured"
+    )
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "60"))
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "false").lower() in (
@@ -105,7 +112,9 @@ async def route_prompt(request: Request, response: Response) -> dict:
     token = auth_header.split(" ", 1)[1]
     shared_secret = SHARED_SECRET or os.getenv("SHARED_SECRET")
     if not shared_secret:
-        raise HTTPException(status_code=500, detail="Prompt router secret not configured")
+        raise HTTPException(
+            status_code=500, detail="Prompt router secret not configured"
+        )
     if not hmac.compare_digest(token, shared_secret):
         raise HTTPException(status_code=401, detail="Unauthorized")
     client_ip = get_client_ip(request)

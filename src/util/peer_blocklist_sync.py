@@ -4,6 +4,7 @@ import json
 import logging
 import os
 from typing import List, Optional
+from urllib.parse import urlparse
 
 import httpx
 
@@ -19,7 +20,8 @@ logger = logging.getLogger(__name__)
 
 async def fetch_peer_ips(url: str) -> List[str]:
     """Fetch a list of malicious IPs from a peer deployment."""
-    if not url.startswith(("http://", "https://")):
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
         logger.warning("Skipping invalid URL: %s", url)
         return []
     async with httpx.AsyncClient() as client:
@@ -74,7 +76,8 @@ async def sync_peer_blocklists() -> Optional[int]:
         return None
     total_added = 0
     for url in urls:
-        if not url.startswith(("http://", "https://")):
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
             logger.warning("Skipping invalid URL: %s", url)
             continue
         try:

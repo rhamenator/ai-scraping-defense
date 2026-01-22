@@ -47,7 +47,8 @@ def call_gemini(prompt):
             if e.code == 429:  # Quota exceeded
                 raise QuotaExceededException("API quota exceeded")
             continue
-        except Exception:
+        except Exception as exc:
+            print(f"Warning: Gemini request failed for {model}: {exc}")
             continue
     return None
 

@@ -184,7 +184,7 @@ Do not include markdown formatting (```json) in the response, just the raw JSON 
 
 def ensure_label(label, color="ededed"):
     try:
-        subprocess.run(
+        subprocess.run(  # nosec B603 - controlled gh CLI call
             ["gh", "label", "create", label, "--color", color, "--force"],
             check=False,
             capture_output=True,
@@ -206,7 +206,9 @@ def fetch_gh_issues(limit=1):
         "--limit",
         str(limit),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(  # nosec B603 - controlled gh CLI call
+        cmd, capture_output=True, text=True
+    )
     if result.returncode != 0:
         print(f"Failed to fetch issues: {result.stderr}")
         return []
@@ -216,7 +218,9 @@ def fetch_gh_issues(limit=1):
 def fetch_single_issue(issue_number):
     print(f"Fetching issue #{issue_number} from GitHub...")
     cmd = ["gh", "issue", "view", str(issue_number), "--json", "number,title,body"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(  # nosec B603 - controlled gh CLI call
+        cmd, capture_output=True, text=True
+    )
     if result.returncode != 0:
         print(f"Failed to fetch issue #{issue_number}: {result.stderr}")
         return []
@@ -287,7 +291,9 @@ def create_pr(issue, fix_data, metadata, dry_run=False):
         return None, branch_name
 
     # Create Branch
-    subprocess.run(["git", "checkout", "-b", branch_name], check=True)
+    subprocess.run(  # nosec B603 - controlled git command
+        ["git", "checkout", "-b", branch_name], check=True
+    )
 
     # Apply Changes
     files_changed = []
@@ -303,24 +309,32 @@ def create_pr(issue, fix_data, metadata, dry_run=False):
                 os.makedirs(os.path.dirname(clean_path), exist_ok=True)
             with open(clean_path, "w", encoding="utf-8") as f:
                 f.write(new_content)
-            subprocess.run(["git", "add", clean_path], check=True)
+            subprocess.run(  # nosec B603 - controlled git command
+                ["git", "add", clean_path], check=True
+            )
             files_changed.append(clean_path)
         except Exception as e:
             print(f"Failed to write {clean_path}: {e}")
 
     if not files_changed:
         print("No files changed. Skipping PR.")
-        subprocess.run(["git", "checkout", "-"], check=True)
-        subprocess.run(["git", "branch", "-D", branch_name], check=True)
+        subprocess.run(  # nosec B603 - controlled git command
+            ["git", "checkout", "-"], check=True
+        )
+        subprocess.run(  # nosec B603 - controlled git command
+            ["git", "branch", "-D", branch_name], check=True
+        )
         return None, branch_name
 
     # Commit
-    subprocess.run(
+    subprocess.run(  # nosec B603 - controlled git command
         ["git", "commit", "-m", f"Fix: {title} (Issue #{issue_number})"], check=True
     )
 
     # Push
-    subprocess.run(["git", "push", "origin", branch_name], check=True)
+    subprocess.run(  # nosec B603 - controlled git command
+        ["git", "push", "origin", branch_name], check=True
+    )
 
     # Create Labels
     ensure_label(category, "1d76db")  # Blue for category
@@ -377,7 +391,9 @@ Fixes #{issue_number}
     ]
 
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        result = subprocess.run(  # nosec B603 - controlled gh CLI call
+            cmd, check=True, capture_output=True, text=True
+        )
         print(f"PR Created successfully for Issue #{issue_number}")
 
         # Extract PR number from output
@@ -393,7 +409,9 @@ Fixes #{issue_number}
         return None, branch_name
     finally:
         # Cleanup
-        subprocess.run(["git", "checkout", "-"], check=True)
+        subprocess.run(  # nosec B603 - controlled git command
+            ["git", "checkout", "-"], check=True
+        )
 
 
 def main():

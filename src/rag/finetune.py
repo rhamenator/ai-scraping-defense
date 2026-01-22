@@ -40,6 +40,7 @@ BASE_MODEL_NAME = "distilbert-base-uncased"  # Example: Relatively small & fast
 # Pin to a specific revision for secure downloads (set via env for production)
 HF_REVISION = os.getenv("HF_REVISION", "main")
 HF_DATASET_REVISION = os.getenv("HF_DATASET_REVISION", HF_REVISION)
+HF_MODEL_REVISION = os.getenv("HF_MODEL_REVISION", HF_REVISION)
 # BASE_MODEL_NAME = "bert-base-uncased"
 # BASE_MODEL_NAME = "roberta-base"
 OUTPUT_DIR = (
@@ -227,7 +228,7 @@ def fine_tune_model():
         print(f"Loading tokenizer for base model: {BASE_MODEL_NAME}")
         tokenizer = AutoTokenizer.from_pretrained(
             BASE_MODEL_NAME,
-            revision="0123456789abcdef0123456789abcdef01234567",
+            revision=HF_MODEL_REVISION,
         )
     except Exception as e:
         print(f"ERROR: Failed to load tokenizer '{BASE_MODEL_NAME}': {e}")
@@ -249,7 +250,7 @@ def fine_tune_model():
         model = AutoModelForSequenceClassification.from_pretrained(
             BASE_MODEL_NAME,
             num_labels=2,
-            revision="0123456789abcdef0123456789abcdef01234567",
+            revision=HF_MODEL_REVISION,
         )
     except Exception as e:
         print(f"ERROR: Failed to load base model '{BASE_MODEL_NAME}': {e}")

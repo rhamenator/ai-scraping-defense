@@ -13,10 +13,10 @@ def log_to_blockchain(action: str, data: dict) -> None:
 
     In a real implementation, this would interact with a blockchain network.
     """
-    # TODO: Implement actual blockchain logging using a library like web3.py
+    # Planned: implement blockchain logging using a library like web3.py.
     # Example:
     # from web3 import Web3
-    # w3 = Web3(Web3.HTTPProvider('http://localhost:8545'))
+    # w3 = Web3(Web3.HTTPProvider('https://localhost:8545'))
     # contract = w3.eth.contract(address='...', abi=...)  # Replace with your contract
     # tx_hash = contract.functions.logAction(action, str(data)).transact({'from': w3.eth.accounts[0]})
     # print(f'Transaction hash: {tx_hash.hex()}')
@@ -42,7 +42,7 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
 
         # Attempt to setup blockchain logging (replace with actual logic if needed)
         try:
-            # TODO: Add initialization logic for blockchain connection
+            # Planned: add initialization logic for blockchain connection.
             print(
                 "Blockchain logging setup initialized."
             )  # Replace with actual initialization

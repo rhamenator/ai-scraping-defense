@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
+
 from src.shared.mcp_client import (
     MCPClient,
     MCPClientError,
@@ -322,7 +323,7 @@ class OllamaAdapter(BaseModelAdapter):
             logging.error("ollama library not installed.")
             return
         # For Ollama, the URI path is the model name, and the host comes from config.
-        host = self.config.get("host")  # e.g., http://localhost:11434
+        host = self.config.get("host")  # e.g., https://localhost:11434
         try:
             self.model = ollama.Client(host=host)
             self.model.list()
@@ -455,7 +456,9 @@ class MCPAdapter(BaseModelAdapter):
                 server_label, overrides=overrides, adapter_config=config_map
             )
         except MCPClientError as exc:
-            logging.error(f"Failed to configure MCP adapter for server '{server_label}': {exc}")
+            logging.error(
+                f"Failed to configure MCP adapter for server '{server_label}': {exc}"
+            )
             return
 
         self.tool_name = tool_name
@@ -482,7 +485,9 @@ class MCPAdapter(BaseModelAdapter):
         payload = self._prepare_payload(data, extra)
 
         try:
-            return self.client.call_tool(self.tool_name, payload, timeout=timeout_override)
+            return self.client.call_tool(
+                self.tool_name, payload, timeout=timeout_override
+            )
         except MCPClientError as exc:
             logging.error("MCP tool '%s' invocation failed: %s", self.tool_name, exc)
             return {"error": str(exc)}

@@ -113,7 +113,9 @@ def check_if_issue_exists(title):
             "--json",
             "title",
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(  # nosec B603 - controlled gh CLI call
+            cmd, capture_output=True, text=True
+        )
         if result.returncode == 0:
             issues = json.loads(result.stdout)
             # Check for exact match or close enough
@@ -170,7 +172,7 @@ def upload_issues(grouped_problems):
                 "--label",
                 "automated-issue",
             ]
-            subprocess.run(cmd, check=True)
+            subprocess.run(cmd, check=True)  # nosec B603 - controlled gh CLI call
             print(f"  Created issue: {title}")
             count += 1
             time.sleep(RATE_LIMIT_SLEEP)

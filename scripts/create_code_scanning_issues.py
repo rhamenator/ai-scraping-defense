@@ -41,14 +41,18 @@ def create_github_issue(title: str, body: str, labels: List[str]) -> bool:
     """Create a GitHub issue using gh CLI."""
     try:
         # Check if gh CLI is available
-        subprocess.run(["gh", "--version"], capture_output=True, check=True)
+        subprocess.run(  # nosec B603 - controlled gh CLI call
+            ["gh", "--version"], capture_output=True, check=True
+        )
 
         # Create the issue
         cmd = ["gh", "issue", "create", "--title", title, "--body", body]
         for label in labels:
             cmd.extend(["--label", label])
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(  # nosec B603 - controlled gh CLI call
+            cmd, capture_output=True, text=True
+        )
         if result.returncode == 0:
             print(f"✓ Created issue: {title}")
             return True

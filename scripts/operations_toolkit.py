@@ -6,6 +6,7 @@ practice.  The commands are intentionally shell-friendly and leverage
 subprocess calls to existing tools (`pg_dump`, `redis-cli`, `terraform`,
 `ansible`, `kubectl`) without enforcing a particular platform.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,7 +32,9 @@ class CommandResult:
     stderr: str
 
 
-def run_command(command: Iterable[str], *, execute: bool, cwd: Path | None = None) -> CommandResult:
+def run_command(
+    command: Iterable[str], *, execute: bool, cwd: Path | None = None
+) -> CommandResult:
     """Run a command, optionally in dry-run mode, returning captured output."""
 
     args = list(command)
@@ -40,7 +43,7 @@ def run_command(command: Iterable[str], *, execute: bool, cwd: Path | None = Non
         LOG.info("[dry-run] %s", shlex.join(args))
         return CommandResult(command=args, returncode=0, stdout="", stderr="")
 
-    proc = subprocess.run(
+    proc = subprocess.run(  # nosec B603 - controlled CLI wrapper
         args,
         cwd=str(cwd) if cwd else None,
         check=False,
@@ -219,20 +222,38 @@ def gitops_sync(args: argparse.Namespace) -> None:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--execute", action="store_true", help="Run commands instead of logging them")
+    parser.add_argument(
+        "--execute", action="store_true", help="Run commands instead of logging them"
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     backup_parser = sub.add_parser("backup", help="Create a full backup")
     backup_parser.add_argument("--destination", help="Directory for backup artifacts")
-    backup_parser.add_argument("--postgres-url", default=os.getenv("POSTGRES_URL", "postgres://postgres@localhost:5432/postgres"))
-    backup_parser.add_argument("--redis-url", default=os.getenv("REDIS_URL", "redis://localhost:6379/0"))
-    backup_parser.add_argument("--kube-context", default=os.getenv("KUBE_CONTEXT", "kind-ai-defense"))
+    backup_parser.add_argument(
+        "--postgres-url",
+        default=os.getenv(
+            "POSTGRES_URL", "postgres://postgres@localhost:5432/postgres"
+        ),
+    )
+    backup_parser.add_argument(
+        "--redis-url", default=os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    )
+    backup_parser.add_argument(
+        "--kube-context", default=os.getenv("KUBE_CONTEXT", "kind-ai-defense")
+    )
     backup_parser.set_defaults(func=backup)
 
     restore_parser = sub.add_parser("restore", help="Restore from a backup directory")
     restore_parser.add_argument("source", help="Backup directory to restore")
-    restore_parser.add_argument("--postgres-url", default=os.getenv("POSTGRES_URL", "postgres://postgres@localhost:5432/postgres"))
-    restore_parser.add_argument("--redis-url", default=os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+    restore_parser.add_argument(
+        "--postgres-url",
+        default=os.getenv(
+            "POSTGRES_URL", "postgres://postgres@localhost:5432/postgres"
+        ),
+    )
+    restore_parser.add_argument(
+        "--redis-url", default=os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    )
     restore_parser.add_argument("--redis-data-dir", default="/var/lib/redis")
     restore_parser.add_argument("--redis-host", default="localhost")
     restore_parser.set_defaults(func=restore)
@@ -242,21 +263,33 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     drill_parser.add_argument("--drill-backup-dir", default="./drills/latest")
     drill_parser.add_argument(
         "--postgres-url",
-        default=os.getenv("POSTGRES_URL", "postgres://postgres@localhost:5432/postgres"),
+        default=os.getenv(
+            "POSTGRES_URL", "postgres://postgres@localhost:5432/postgres"
+        ),
     )
-    drill_parser.add_argument("--redis-url", default=os.getenv("REDIS_URL", "redis://localhost:6379/0"))
-    drill_parser.add_argument("--kube-context", default=os.getenv("KUBE_CONTEXT", "kind-ai-defense"))
+    drill_parser.add_argument(
+        "--redis-url", default=os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    )
+    drill_parser.add_argument(
+        "--kube-context", default=os.getenv("KUBE_CONTEXT", "kind-ai-defense")
+    )
     drill_parser.add_argument("--redis-data-dir", default="/var/lib/redis")
     drill_parser.add_argument("--redis-host", default="localhost")
     drill_parser.set_defaults(func=disaster_recovery_drill)
 
-    deploy_parser = sub.add_parser("deploy", help="Run Terraform/Ansible/Kubernetes deployment")
+    deploy_parser = sub.add_parser(
+        "deploy", help="Run Terraform/Ansible/Kubernetes deployment"
+    )
     deploy_parser.add_argument("--environment", default="staging")
     deploy_parser.add_argument("--terraform-dir", default="infrastructure/terraform")
     deploy_parser.add_argument("--ansible-inventory", default="ansible/inventory.yaml")
     deploy_parser.add_argument("--ansible-playbook", default="ansible/site.yaml")
-    deploy_parser.add_argument("--kube-context", default=os.getenv("KUBE_CONTEXT", "kind-ai-defense"))
-    deploy_parser.add_argument("--kustomize-dir", default="kubernetes/overlays/{environment}")
+    deploy_parser.add_argument(
+        "--kube-context", default=os.getenv("KUBE_CONTEXT", "kind-ai-defense")
+    )
+    deploy_parser.add_argument(
+        "--kustomize-dir", default="kubernetes/overlays/{environment}"
+    )
     deploy_parser.set_defaults(func=deploy)
 
     gitops_parser = sub.add_parser("gitops", help="Trigger GitOps reconciliation")
@@ -269,7 +302,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     args = parse_args(argv)
     args.func(args)
     return 0

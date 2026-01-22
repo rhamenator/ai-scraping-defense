@@ -62,7 +62,7 @@ async def handle_rate_limit_event(event_data):
         event_data: Dictionary containing rate limit event information
     """
     logger.info("Received rate limit event: %s", event_data)
-    # TODO: Implement dynamic rate limit configuration updates based on event_data
+    # Planned: implement dynamic rate limit updates based on event_data.
 
 
 async def run_loop(stop_event: asyncio.Event | None = None) -> None:
@@ -102,7 +102,9 @@ async def main():
 
 
 if __name__ == "__main__":  # pragma: no cover - manual execution
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

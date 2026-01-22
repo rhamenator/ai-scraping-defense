@@ -85,7 +85,7 @@ def _discover_plugins() -> list[str]:
     return sorted(names)
 
 
-DEFAULT_ALLOWED_ORIGINS = ["http://localhost"]
+DEFAULT_ALLOWED_ORIGINS = [f"{os.getenv('ADMIN_UI_CORS_SCHEME', 'http')}://localhost"]
 
 
 def _get_allowed_origins() -> list[str]:

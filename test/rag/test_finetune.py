@@ -177,13 +177,13 @@ class TestFinetuneScriptComprehensive(unittest.TestCase):
         # Assert that the main components were called as expected
         mock_tokenizer.assert_called_with(
             "distilbert-base-uncased",
-            revision="0123456789abcdef0123456789abcdef01234567",
+            revision=finetune.HF_MODEL_REVISION,
         )
         self.assertEqual(mock_load_data.call_count, 2)
         mock_model_cls.from_pretrained.assert_called_with(
             "distilbert-base-uncased",
             num_labels=2,
-            revision="0123456789abcdef0123456789abcdef01234567",
+            revision=finetune.HF_MODEL_REVISION,
         )
         mock_train_args.assert_called()
         mock_trainer.assert_called()

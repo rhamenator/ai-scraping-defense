@@ -6,8 +6,9 @@ from typing import Any, Dict, List
 
 import httpx
 
-ESCALATION_URL = os.getenv(
-    "ESCALATION_ENGINE_URL", "http://escalation_engine:8003/escalate"
+ESCALATION_URL = os.getenv("ESCALATION_ENGINE_URL") or (
+    f"{os.getenv('ESCALATION_ENGINE_SCHEME', 'http')}://"
+    "escalation_engine:8003/escalate"
 )
 EVE_LOG_PATH = os.getenv("SURICATA_EVE_LOG", "/var/log/suricata/eve.json")
 

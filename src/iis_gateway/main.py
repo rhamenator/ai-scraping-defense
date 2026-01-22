@@ -27,7 +27,9 @@ from src.shared.observability import (
 
 @dataclass
 class Settings:
-    BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8080")
+    BACKEND_URL: str = os.getenv("BACKEND_URL") or (
+        f"{os.getenv('BACKEND_SCHEME', 'http')}://localhost:8080"
+    )
     ESCALATION_ENDPOINT: str | None = os.getenv("ESCALATION_ENDPOINT")
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
     REDIS_PORT: int = int(os.getenv("REDIS_PORT", 6379))

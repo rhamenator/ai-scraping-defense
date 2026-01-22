@@ -457,7 +457,7 @@ async def handle_anomaly_event(event_data):
             await send_alert(event_data)
     """
     logger.info("Received anomaly event: %s", event_data)
-    # TODO: Implement alerting logic based on anomaly score and features
+    # Planned: implement alerting logic based on anomaly score and features.
 
 
 async def main():

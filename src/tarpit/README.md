@@ -54,11 +54,11 @@ This system combats scraping by unauthorized AI bots targeting FOSS or documenta
 
 ### Accessing Services (Default Ports)
 
-* **Main Website / Docs:** `http://localhost/` (or `https://localhost/` if HTTPS configured)
+* **Main Website / Docs:** `https://localhost/`
 * **Tarpit Endpoint (Internal):** Accessed via Nginx redirect (`/api/tarpit`)
-* **Admin UI:** `http://localhost/admin/` (or `https://localhost/admin/`)
-* **Metrics API:** `http://localhost/admin/metrics` (used by Admin UI frontend)
-* **GoAccess Dashboard (if enabled):** `http://localhost:7890`
+* **Admin UI:** `https://localhost/admin/`
+* **Metrics API:** `https://localhost/admin/metrics` (used by Admin UI frontend)
+* **GoAccess Dashboard (if enabled):** `https://localhost:7890`
 
 ## Architecture
 

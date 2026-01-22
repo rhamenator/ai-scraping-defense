@@ -175,6 +175,9 @@ class Config:
     PROMPT_ROUTER_PORT: int = field(
         default_factory=lambda: int(os.getenv("PROMPT_ROUTER_PORT", 8009))
     )
+    INTERNAL_SERVICE_SCHEME: str = field(
+        default_factory=lambda: os.getenv("INTERNAL_SERVICE_SCHEME", "http")
+    )
 
     # Redis
     REDIS_HOST: str = field(default_factory=lambda: os.getenv("REDIS_HOST", "redis"))
@@ -207,9 +210,9 @@ class Config:
 
     # Tarpit configuration
     ESCALATION_ENDPOINT: str = field(
-        default_factory=lambda: os.getenv(
-            "ESCALATION_ENDPOINT", "http://escalation_engine:8003/escalate"
-        )
+        default_factory=lambda: os.getenv("ESCALATION_ENDPOINT")
+        or f"{os.getenv('INTERNAL_SERVICE_SCHEME', 'http')}://"
+        "escalation_engine:8003/escalate"
     )
     TAR_PIT_MIN_DELAY_SEC: float = field(
         default_factory=lambda: float(os.getenv("TAR_PIT_MIN_DELAY_SEC", 0.6))
@@ -494,38 +497,41 @@ class Config:
         return cfg
 
     def __post_init__(self):
+        scheme = self.INTERNAL_SERVICE_SCHEME
         object.__setattr__(
             self,
             "AI_SERVICE_URL",
-            f"http://{self.AI_SERVICE_HOST}:{self.AI_SERVICE_PORT}",
+            f"{scheme}://{self.AI_SERVICE_HOST}:{self.AI_SERVICE_PORT}",
         )
         object.__setattr__(
             self,
             "ESCALATION_ENGINE_URL",
-            f"http://{self.ESCALATION_ENGINE_HOST}:{self.ESCALATION_ENGINE_PORT}",
+            f"{scheme}://{self.ESCALATION_ENGINE_HOST}:{self.ESCALATION_ENGINE_PORT}",
         )
         object.__setattr__(
             self,
             "TARPIT_API_URL",
-            f"http://{self.TARPIT_API_HOST}:{self.TARPIT_API_PORT}",
+            f"{scheme}://{self.TARPIT_API_HOST}:{self.TARPIT_API_PORT}",
         )
         object.__setattr__(
-            self, "ADMIN_UI_URL", f"http://{self.ADMIN_UI_HOST}:{self.ADMIN_UI_PORT}"
+            self,
+            "ADMIN_UI_URL",
+            f"{scheme}://{self.ADMIN_UI_HOST}:{self.ADMIN_UI_PORT}",
         )
         object.__setattr__(
             self,
             "CLOUD_DASHBOARD_URL",
-            f"http://{self.CLOUD_DASHBOARD_HOST}:{self.CLOUD_DASHBOARD_PORT}",
+            f"{scheme}://{self.CLOUD_DASHBOARD_HOST}:{self.CLOUD_DASHBOARD_PORT}",
         )
         object.__setattr__(
             self,
             "CONFIG_RECOMMENDER_URL",
-            f"http://{self.CONFIG_RECOMMENDER_HOST}:{self.CONFIG_RECOMMENDER_PORT}",
+            f"{scheme}://{self.CONFIG_RECOMMENDER_HOST}:{self.CONFIG_RECOMMENDER_PORT}",
         )
         object.__setattr__(
             self,
             "PROMPT_ROUTER_URL",
-            f"http://{self.PROMPT_ROUTER_HOST}:{self.PROMPT_ROUTER_PORT}",
+            f"{scheme}://{self.PROMPT_ROUTER_HOST}:{self.PROMPT_ROUTER_PORT}",
         )
         object.__setattr__(self, "TENANT_PREFIX", f"{self.TENANT_ID}:")
 

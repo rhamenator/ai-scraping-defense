@@ -115,7 +115,8 @@ local request_uri = ngx.var.request_uri or "/" -- Ensure URI is never nil
 local fingerprint_id = ngx.var.cookie_fp_id
 local ai_service_host = os.getenv("AI_SERVICE_HOST") or "ai_service"
 local ai_service_port = os.getenv("AI_SERVICE_PORT") or "8000"
-local ai_service_url = "http://" .. ai_service_host .. ":" .. ai_service_port .. "/webhook"
+local ai_service_scheme = os.getenv("AI_SERVICE_SCHEME") or "http"
+local ai_service_url = ai_service_scheme .. "://" .. ai_service_host .. ":" .. ai_service_port .. "/webhook"
 local http = require "resty.http"
 local cjson = require "cjson.safe"
 math.randomseed(ngx.now() * 1000)

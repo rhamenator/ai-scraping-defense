@@ -1,6 +1,17 @@
 <script>
 // Dashboard script v1.0
 document.addEventListener('DOMContentLoaded', () => {
+    const delay = (ms, callback) => {
+        const start = performance.now();
+        const tick = (now) => {
+            if (now - start >= ms) {
+                callback();
+                return;
+            }
+            requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    };
 
     const archData = {
         'nginx': {
@@ -124,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 el.addEventListener('click', () => showModal(key));
             }
         });
-        
+
         requestAnimationFrame(drawArchitectureLines);
     }
 
@@ -133,10 +144,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('arch-diagram-container');
         if (!canvas || !container) return;
         const ctx = canvas.getContext('2d');
-        
+
         canvas.width = container.offsetWidth;
         canvas.height = container.offsetHeight;
-        
+
         const connections = [
             { from: 'nginx', to: 'ai-service', color: '#9CA3AF' },
             { from: 'nginx', to: 'website', color: '#10B981' },
@@ -161,18 +172,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const startX = fromRect.left + fromRect.width / 2 - containerRect.left;
             const startY = fromRect.top + fromRect.height / 2 - containerRect.top;
-            
+
             let endX = toRect.left + toRect.width / 2 - containerRect.left;
             let endY = toRect.top + toRect.height / 2 - containerRect.top;
 
             const dx = endX - startX;
             const dy = endY - startY;
             const angle = Math.atan2(dy, dx);
-            
+
             const padding = 10;
             const halfW = toRect.width / 2 + padding;
             const halfH = toRect.height / 2 + padding;
-            
+
             const cos = Math.cos(angle);
             const sin = Math.sin(angle);
 
@@ -184,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 intersectX = endX - (halfH / Math.tan(angle) * Math.sign(sin));
                 intersectY = endY - (halfH * Math.sign(sin));
             }
-            
+
             drawArrow(ctx, startX, startY, intersectX, intersectY, color);
         });
     }
@@ -225,15 +236,23 @@ document.addEventListener('DOMContentLoaded', () => {
             .join('');
         const modal = document.getElementById('modal');
         modal.classList.remove('hidden');
-        setTimeout(() => modal.classList.remove('opacity-0'), 10);
-        setTimeout(() => modal.querySelector('.modal-content').classList.remove('scale-95'), 10);
+        requestAnimationFrame(() => {
+            modal.classList.remove('opacity-0');
+            const content = modal.querySelector('.modal-content');
+            if (content) {
+                content.classList.remove('scale-95');
+            }
+        });
     }
 
     function hideModal() {
         const modal = document.getElementById('modal');
         modal.classList.add('opacity-0');
-        modal.querySelector('.modal-content').classList.add('scale-95');
-        setTimeout(() => modal.classList.add('hidden'), 300);
+        const content = modal.querySelector('.modal-content');
+        if (content) {
+            content.classList.add('scale-95');
+        }
+        delay(300, () => modal.classList.add('hidden'));
     }
 
     document.getElementById('modal-close').addEventListener('click', hideModal);
@@ -246,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderDefenseLayers() {
         const tabsContainer = document.getElementById('tabs-container');
         const contentContainer = document.getElementById('tab-content-container');
-        
+
         tabsContainer.innerHTML = Object.keys(defenseLayersData).map((key, index) => `
             <button class="tab-btn text-left w-full px-4 py-3 rounded-lg transition-colors ${index === 0 ? 'active' : ''}" data-tab="${key}">
                 ${defenseLayersData[key].title}
@@ -265,18 +284,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 switchTab(e.target.dataset.tab);
             }
         });
-        
+
         switchTab(Object.keys(defenseLayersData)[0]);
     }
 
     function renderConfig() {
         const listContainer = document.getElementById('config-list');
         const searchInput = document.getElementById('config-search');
-        
+
         function filterAndRender() {
             const query = searchInput.value.toLowerCase();
             const filteredData = configData.filter(item => item.key.toLowerCase().includes(query) || item.description.toLowerCase().includes(query));
-            
+
             if (filteredData.length === 0) {
                 listContainer.innerHTML = `<p class="text-gray-500 text-center">No settings found.</p>`;
                 return;
@@ -293,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.addEventListener('input', filterAndRender);
         filterAndRender();
     }
-    
+
     function initAdminUIMockup() {
         const trafficChartCtx = document.getElementById('trafficChart').getContext('2d');
         const labels = Array.from({ length: 24 }, (_, i) => {
@@ -387,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 totalRequests -= removedAllowed;
                 threatsBlocked -= removedBlocked;
             }
-            
+
             const newAllowed = Math.floor(Math.random() * 1500) + 3000;
             const newBlocked = Math.floor(Math.random() * (newAllowed * 0.1));
             totalRequests += newAllowed;
@@ -401,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             kpiTotal.textContent = totalRequests.toLocaleString();
             kpiBlocked.textContent = threatsBlocked.toLocaleString();
-            
+
             const newEventTime = newLabel.toLocaleTimeString();
             const randomIP = `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`;
             let newEvent;
@@ -426,7 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `).join('');
         }
-        
+
         for(let i=0; i < 24; i++) {
              const newAllowed = Math.floor(Math.random() * 1500) + 3000;
              const newBlocked = Math.floor(Math.random() * (newAllowed * 0.1));
@@ -461,15 +480,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
-    
-    let resizeTimer;
+
+    let resizeToken = 0;
     window.addEventListener('resize', () => {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
+        resizeToken += 1;
+        const token = resizeToken;
+        delay(100, () => {
+            if (token !== resizeToken) {
+                return;
+            }
             requestAnimationFrame(drawArchitectureLines);
-        }, 100);
+        });
     });
-    
+
     document.querySelectorAll('.copy-btn').forEach(button => {
         button.addEventListener('click', () => {
             const code = button.previousElementSibling.querySelector('code').innerText;
@@ -480,9 +503,9 @@ document.addEventListener('DOMContentLoaded', () => {
             document.execCommand('copy');
             document.body.removeChild(textarea);
             button.innerText = 'Copied!';
-            setTimeout(() => {
+            delay(2000, () => {
                 button.innerText = 'Copy';
-            }, 2000);
+            });
         });
     });
 

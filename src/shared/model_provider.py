@@ -14,9 +14,9 @@ from src.shared.model_adapters import (
     GoogleGeminiAdapter,
     HttpModelAdapter,
     LlamaCppAdapter,
-    MCPAdapter,
     LocalLLMApiAdapter,
     MarkovAdapter,
+    MCPAdapter,
     MistralAdapter,
     OllamaAdapter,
     OpenAIAdapter,
@@ -56,7 +56,7 @@ def get_model_adapter(
     - openai://gpt-4-turbo
     - mistral://mistral-large-latest
     - ollama://llama3
-    - http://my-custom-api.com/predict
+    - https://my-custom-api.com/predict
     """
     if model_uri is None:
         model_uri = os.getenv("MODEL_URI")

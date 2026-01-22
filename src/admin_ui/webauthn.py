@@ -32,8 +32,19 @@ router = APIRouter()
 WEBAUTHN_TOKEN_TTL = int(os.getenv("WEBAUTHN_TOKEN_TTL", "300"))
 MAX_USERNAME_LENGTH = int(os.getenv("ADMIN_UI_USERNAME_MAX_LENGTH", "128"))
 
-RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
-ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost")
+
+def _get_rp_id() -> str:
+    rp_id = os.getenv("WEBAUTHN_RP_ID")
+    if not rp_id:
+        raise RuntimeError("WEBAUTHN_RP_ID must be set for WebAuthn operations")
+    return rp_id
+
+
+def _get_origin() -> str:
+    origin = os.getenv("WEBAUTHN_ORIGIN")
+    if not origin:
+        raise RuntimeError("WEBAUTHN_ORIGIN must be set for WebAuthn operations")
+    return origin
 
 
 def _cred_key(user: str) -> str:
@@ -143,7 +154,7 @@ async def webauthn_register_begin(user: str = Depends(require_auth)):
     """Begin WebAuthn registration and return options."""
     _validate_username(user, detail="Invalid or missing username")
     options = generate_registration_options(
-        rp_id=RP_ID,
+        rp_id=_get_rp_id(),
         rp_name="AI Scraping Defense",
         user_id=user.encode(),
         user_name=user,
@@ -163,8 +174,8 @@ async def webauthn_register_complete(data: dict, user: str = Depends(require_aut
     verification = verify_registration_response(
         credential=credential,
         expected_challenge=challenge,
-        expected_rp_id=RP_ID,
-        expected_origin=ORIGIN,
+        expected_rp_id=_get_rp_id(),
+        expected_origin=_get_origin(),
     )
     _store_webauthn_credential(
         user,
@@ -189,7 +200,7 @@ async def webauthn_login_begin(data: dict):
         raise _login_error()
     descriptor = PublicKeyCredentialDescriptor(id=cred["credential_id"])
     options = generate_authentication_options(
-        rp_id=RP_ID,
+        rp_id=_get_rp_id(),
         allow_credentials=[descriptor],
     )
     _store_webauthn_challenge(username, options.challenge)
@@ -211,8 +222,8 @@ async def webauthn_login_complete(data: dict):
     verification = verify_authentication_response(
         credential=credential,
         expected_challenge=challenge,
-        expected_rp_id=RP_ID,
-        expected_origin=ORIGIN,
+        expected_rp_id=_get_rp_id(),
+        expected_origin=_get_origin(),
         credential_public_key=cred["public_key"],
         credential_current_sign_count=cred["sign_count"],
     )

@@ -1,5 +1,6 @@
 """Tests for configuration schema validation."""
 
+import secrets
 import unittest
 
 from pydantic import ValidationError
@@ -63,13 +64,14 @@ class TestRedisConfig(unittest.TestCase):
 
     def test_redis_with_password(self):
         """Test Redis configuration with password masking."""
-        config = RedisConfig(password="secret123")
+        password = secrets.token_urlsafe(12)
+        config = RedisConfig(password=password)
         # Password should be accessible as-is for actual use
-        self.assertEqual(config.password, "secret123")
+        self.assertEqual(config.password, password)
         # But should be masked in repr
         repr_str = repr(config)
         self.assertIn("***MASKED***", repr_str)
-        self.assertNotIn("secret123", repr_str)
+        self.assertNotIn(password, repr_str)
 
 
 class TestTarpitConfig(unittest.TestCase):

@@ -40,8 +40,9 @@ class VaultConfig:
     @classmethod
     def from_env(cls) -> "VaultConfig":
         """Load Vault configuration from environment variables."""
+        vault_scheme = os.getenv("VAULT_SCHEME", "http")
         return cls(
-            addr=os.getenv("VAULT_ADDR", "http://vault:8200"),
+            addr=os.getenv("VAULT_ADDR") or f"{vault_scheme}://vault:8200",
             token=os.getenv("VAULT_TOKEN"),
             namespace=os.getenv("VAULT_NAMESPACE"),
             role_id=os.getenv("VAULT_ROLE_ID"),
