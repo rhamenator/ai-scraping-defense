@@ -2,6 +2,13 @@ name: Actions Pin Audit
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/*.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/*.yml"
 
 permissions:
   contents: read
