@@ -2,6 +2,8 @@ import os
 import sqlite3
 from typing import Dict, Optional
 
+from src.pay_per_crawl import blockchain
+
 DB_PATH = os.environ.get("CRAWLER_DB_PATH", "crawler_registry.db")
 
 _CONNECTION: sqlite3.Connection | None = None
@@ -9,19 +11,10 @@ _DB_PATH = DB_PATH
 
 
 def log_to_blockchain(action: str, data: dict) -> None:
-    """Placeholder for logging actions to a blockchain.
-
-    In a real implementation, this would interact with a blockchain network.
-    """
-    # Planned: implement blockchain logging using a library like web3.py.
-    # Example:
-    # from web3 import Web3
-    # w3 = Web3(Web3.HTTPProvider('https://localhost:8545'))
-    # contract = w3.eth.contract(address='...', abi=...)  # Replace with your contract
-    # tx_hash = contract.functions.logAction(action, str(data)).transact({'from': w3.eth.accounts[0]})
-    # print(f'Transaction hash: {tx_hash.hex()}')
-    del data  # avoid logging or leaking payload details
-    print(f"[Blockchain] Logging action: {action} with payload redacted")
+    """Append pay-per-crawl events to a hash-chained audit log."""
+    if not blockchain.log_action(action, data):
+        del data  # avoid logging or leaking payload details
+        print(f"[Blockchain] Logging skipped for action: {action}")
 
 
 def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
@@ -40,14 +33,8 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
         _CONNECTION.commit()
         _DB_PATH = db_path
 
-        # Attempt to setup blockchain logging (replace with actual logic if needed)
-        try:
-            # Planned: add initialization logic for blockchain connection.
-            print(
-                "Blockchain logging setup initialized."
-            )  # Replace with actual initialization
-        except Exception as e:
-            print(f"Failed to initialize blockchain logging: {e}")
+        if blockchain.LOG_ENABLED:
+            print("Blockchain logging enabled.")
     return _CONNECTION
 
 
