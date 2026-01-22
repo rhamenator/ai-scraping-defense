@@ -42,7 +42,7 @@ jobs:
             fi
           done; cat images.txt
       - id: auth
-        uses: google-github-actions/auth@v3
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
@@ -68,7 +68,7 @@ jobs:
           helm upgrade --install "$REL" "$CHART" -n "$NS" -f helm/values-staging.yaml -f "$OV" \
             --set ingress.enabled=true --set ingress.hosts[0].host="${{ steps.host.outputs.host }}"
       - name: Comment preview URL
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
         env:
           GH_TOKEN: ${{ github.token }}
         with:

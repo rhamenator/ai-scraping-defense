@@ -32,7 +32,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r .github/tools/e2e/requirements.txt
       - name: k6 install (Linux)
-        uses: grafana/setup-k6-action@v1
+        uses: grafana/setup-k6-action@ffe7d7290dfa715e48c2ccc924d068444c94bde2
         with: { version: v0.50.0 }
       - name: k6 rich scenarios
         run: k6 run -e BASE_URL="${{ steps.base.outputs.url }}" .github/tools/e2e/k6-rich.js

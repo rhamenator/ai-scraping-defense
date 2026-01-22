@@ -721,7 +721,7 @@ jobs:
       - name: Create pull request (if changes)
         if: steps.commit.outputs.changed == 'true'
         id: cpr
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676
         with:
           branch: ${{ steps.br.outputs.branch }}
           title: ${{ env.PR_TITLE }}
@@ -735,7 +735,7 @@ jobs:
 
       - name: Comment summary on PR
         if: steps.commit.outputs.changed == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
         env:
           PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
         with:
@@ -770,7 +770,7 @@ jobs:
 
       - name: Create issue for regression
         if: steps.commit.outputs.changed == 'true' && steps.report.outputs.regression == '1' && inputs.create_issue_on_failure
-        uses: peter-evans/create-issue-from-file@v6
+        uses: peter-evans/create-issue-from-file@fca9117c27cdc29c6c4db3b86c48e4115a786710
         with:
           title: "Autofix regression detected (${{ env.CATEGORY }})"
           content-filepath: .autofix/REPORT.md
@@ -778,7 +778,7 @@ jobs:
 
       - name: Create issue when no changes
         if: steps.commit.outputs.changed != 'true' && inputs.create_issue_on_failure
-        uses: peter-evans/create-issue-from-file@v6
+        uses: peter-evans/create-issue-from-file@fca9117c27cdc29c6c4db3b86c48e4115a786710
         with:
           title: "No automated fixes available (${{ env.CATEGORY }})"
           content-filepath: .autofix/REPORT.md
