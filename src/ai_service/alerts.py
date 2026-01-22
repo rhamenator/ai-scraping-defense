@@ -5,6 +5,7 @@ import os
 import pprint
 import smtplib
 import ssl
+from datetime import datetime, timezone
 from email.mime.text import MIMEText
 from functools import lru_cache
 from typing import TYPE_CHECKING, Optional
@@ -48,6 +49,31 @@ REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 REDIS_DB = int(os.environ.get("REDIS_DB", 0))
 REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 ANOMALY_EVENT_CHANNEL = "anomaly_events"
+
+ANOMALY_ALERT_ACTIONS_ENV = os.environ.get("ANOMALY_ALERT_ACTIONS", "alert")
+ANOMALY_ALERT_THRESHOLD_ENV = os.environ.get("ANOMALY_ALERT_THRESHOLD", "0.9")
+ANOMALY_BLOCK_THRESHOLD_ENV = os.environ.get("ANOMALY_BLOCK_THRESHOLD", "0.97")
+ANOMALY_ESCALATE_THRESHOLD_ENV = os.environ.get("ANOMALY_ESCALATE_THRESHOLD", "0.95")
+
+
+def _parse_actions(actions: str) -> set[str]:
+    return {item.strip().lower() for item in actions.split(",") if item.strip()}
+
+
+def _parse_float(value: str, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _load_anomaly_config() -> dict[str, object]:
+    return {
+        "actions": _parse_actions(ANOMALY_ALERT_ACTIONS_ENV),
+        "alert_threshold": _parse_float(ANOMALY_ALERT_THRESHOLD_ENV, 0.9),
+        "block_threshold": _parse_float(ANOMALY_BLOCK_THRESHOLD_ENV, 0.97),
+        "escalate_threshold": _parse_float(ANOMALY_ESCALATE_THRESHOLD_ENV, 0.95),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -374,6 +400,8 @@ async def send_alert(event_data: "WebhookEvent") -> None:
         "High Combined": 1,
         "Honeypot_Hit": 2,
         "IP Reputation": 1,
+        "Anomaly Score": 2,
+        "Anomaly": 2,
     }
     reason_key = event_data.reason.split("(")[0].strip()
     event_severity = severity_map.get(reason_key, 0)
@@ -456,8 +484,69 @@ async def handle_anomaly_event(event_data):
             event_data['reason'] = f"Critical Anomaly Score: {anomaly_score:.2f}"
             await send_alert(event_data)
     """
-    logger.info("Received anomaly event: %s", event_data)
-    # Planned: implement alerting logic based on anomaly score and features.
+    config = _load_anomaly_config()
+    anomaly_score = float(event_data.get("anomaly_score", 0) or 0)
+    alert_threshold = float(config["alert_threshold"])
+    block_threshold = float(config["block_threshold"])
+    escalate_threshold = float(config["escalate_threshold"])
+    features = event_data.get("features", {}) or {}
+    ip = (
+        event_data.get("ip")
+        or features.get("ip")
+        or features.get("client_ip")
+        or features.get("remote_ip")
+        or "unknown"
+    )
+    reason = f"Anomaly Score ({anomaly_score:.2f})"
+    event_details = {
+        "ip": ip,
+        "anomaly_score": anomaly_score,
+        "features": features,
+    }
+
+    if anomaly_score < alert_threshold:
+        logger.info(
+            "Anomaly score %.2f below alert threshold %.2f",
+            anomaly_score,
+            alert_threshold,
+        )
+        return
+
+    from src.ai_service.blocklist import add_ip_to_blocklist
+    from src.ai_service.main import WebhookEvent
+
+    webhook_event = WebhookEvent(
+        event_type="anomaly_detected",
+        reason=reason,
+        timestamp_utc=event_data.get("timestamp_utc")
+        or event_data.get("timestamp")
+        or datetime.now(timezone.utc).isoformat(),
+        details=event_details,
+    )
+
+    actions = config["actions"]
+    if "alert" in actions or "notify" in actions:
+        await send_alert(webhook_event)
+        publish_operational_event(
+            "anomaly_alerted",
+            {"ip": ip, "score": anomaly_score, "reason": reason},
+        )
+
+    if "blocklist" in actions and anomaly_score >= block_threshold:
+        blocked = add_ip_to_blocklist(ip, reason, event_details)
+        if blocked:
+            publish_operational_event(
+                "anomaly_blocklisted",
+                {"ip": ip, "score": anomaly_score, "reason": reason},
+            )
+
+    if "escalate" in actions and anomaly_score >= escalate_threshold:
+        publish_operational_event(
+            "anomaly_escalation_requested",
+            {"ip": ip, "score": anomaly_score, "reason": reason},
+        )
+
+    logger.info("Handled anomaly event: %s", event_details)
 
 
 async def main():
