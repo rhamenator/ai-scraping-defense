@@ -55,6 +55,7 @@ class TestFinetuneScriptComprehensive(unittest.TestCase):
                 "VALIDATION_DATA_FILE": self.eval_file,
                 "OUTPUT_DIR": self.model_dir,
                 "MODEL_NAME": "distilbert-base-uncased",  # Use a known model for consistency
+                "HF_MODEL_REVISION": "0123456",
             },
         )
         self.env_patcher.start()
@@ -175,15 +176,16 @@ class TestFinetuneScriptComprehensive(unittest.TestCase):
         finetune.fine_tune_model()
 
         # Assert that the main components were called as expected
+        expected_revision = finetune.resolve_model_revision()
         mock_tokenizer.assert_called_with(
             "distilbert-base-uncased",
-            revision=finetune.HF_MODEL_REVISION,
+            revision=expected_revision,
         )
         self.assertEqual(mock_load_data.call_count, 2)
         mock_model_cls.from_pretrained.assert_called_with(
             "distilbert-base-uncased",
             num_labels=2,
-            revision=finetune.HF_MODEL_REVISION,
+            revision=expected_revision,
         )
         mock_train_args.assert_called()
         mock_trainer.assert_called()

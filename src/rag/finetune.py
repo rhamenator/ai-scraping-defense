@@ -6,6 +6,7 @@
 
 import json
 import os
+import re
 import time  # Added for timing
 
 from datasets import load_dataset  # Using Hugging Face datasets library
@@ -38,9 +39,24 @@ VALIDATION_DATA_FILE = os.path.join(FINETUNE_DATA_DIR, "finetuning_data_eval.jso
 # Model and dataset revisions can be pinned to ensure reproducible builds
 BASE_MODEL_NAME = "distilbert-base-uncased"  # Example: Relatively small & fast
 # Pin to a specific revision for secure downloads (set via env for production)
-HF_REVISION = os.getenv("HF_REVISION", "main")
+HF_REVISION = os.getenv("HF_REVISION")
 HF_DATASET_REVISION = os.getenv("HF_DATASET_REVISION", HF_REVISION)
 HF_MODEL_REVISION = os.getenv("HF_MODEL_REVISION", HF_REVISION)
+# Commit hashes are 7-40 hex characters in length.
+REVISION_PATTERN = re.compile(r"^[0-9a-fA-F]{7,40}$")
+
+
+def resolve_model_revision() -> str:
+    """Return a pinned Hugging Face model revision commit hash."""
+    revision = os.getenv("HF_MODEL_REVISION") or os.getenv("HF_REVISION")
+    if not revision or not REVISION_PATTERN.fullmatch(revision):
+        raise ValueError(
+            "HF_MODEL_REVISION must be set to a commit hash "
+            "(7-40 hexadecimal characters)."
+        )
+    return revision
+
+
 # BASE_MODEL_NAME = "bert-base-uncased"
 # BASE_MODEL_NAME = "roberta-base"
 OUTPUT_DIR = (
@@ -223,12 +239,18 @@ def fine_tune_model():
     """Main function to load data, model, tokenizer, and run fine-tuning."""
     print("--- Starting Language Model Fine-Tuning ---")
 
+    try:
+        model_revision = resolve_model_revision()
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        return
+
     # 1. Load Tokenizer
     try:
         print(f"Loading tokenizer for base model: {BASE_MODEL_NAME}")
         tokenizer = AutoTokenizer.from_pretrained(
             BASE_MODEL_NAME,
-            revision=HF_MODEL_REVISION,
+            revision=model_revision,  # nosec B615 - revision validated above.
         )
     except Exception as e:
         print(f"ERROR: Failed to load tokenizer '{BASE_MODEL_NAME}': {e}")
@@ -250,7 +272,7 @@ def fine_tune_model():
         model = AutoModelForSequenceClassification.from_pretrained(
             BASE_MODEL_NAME,
             num_labels=2,
-            revision=HF_MODEL_REVISION,
+            revision=model_revision,  # nosec B615 - revision validated above.
         )
     except Exception as e:
         print(f"ERROR: Failed to load base model '{BASE_MODEL_NAME}': {e}")
