@@ -8,6 +8,17 @@ on:
         required: false
         type: boolean
         default: true
+      min_security_severity:
+        description: 'Only create issues at or above this security severity'
+        required: false
+        type: choice
+        options:
+          - all
+          - low
+          - medium
+          - high
+          - critical
+        default: all
   schedule:
     # Run weekly on Monday at 9 AM UTC
     - cron: '0 9 * * 1'
@@ -39,6 +50,15 @@ jobs:
       - name: Determine mode
         id: mode
         run: |
+          MIN_SEVERITY="${{ github.event.inputs.min_security_severity }}"
+          if [[ -n "$MIN_SEVERITY" && "$MIN_SEVERITY" != "all" ]]; then
+            echo "min_severity=--min-security-severity $MIN_SEVERITY" >> $GITHUB_OUTPUT
+            echo "min_severity_label=$MIN_SEVERITY" >> $GITHUB_OUTPUT
+          else
+            echo "min_severity=" >> $GITHUB_OUTPUT
+            echo "min_severity_label=all" >> $GITHUB_OUTPUT
+          fi
+
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
             # Scheduled runs are in live mode
             echo "dry_run=" >> $GITHUB_OUTPUT
@@ -59,7 +79,8 @@ jobs:
           python scripts/create_issues_from_alerts.py \
             --owner ${{ github.repository_owner }} \
             --repo ${{ github.event.repository.name }} \
-            ${{ steps.mode.outputs.dry_run }}
+            ${{ steps.mode.outputs.dry_run }} \
+            ${{ steps.mode.outputs.min_severity }}
 
       - name: Summary
         if: always()
@@ -68,6 +89,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
           echo "**Mode:** ${{ steps.mode.outputs.mode_label }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Min Severity:** ${{ steps.mode.outputs.min_severity_label }}" >> $GITHUB_STEP_SUMMARY
           echo "**Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [[ "${{ steps.mode.outputs.dry_run }}" != "" ]]; then
