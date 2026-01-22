@@ -75,7 +75,7 @@ jobs:
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
         with:
           scan-type: fs
-          scan-path: .
+          scan-ref: .
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           format: table
@@ -91,7 +91,7 @@ jobs:
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
         with:
           scan-type: config
-          scan-path: .
+          scan-ref: .
           severity: CRITICAL,HIGH
           format: table
           exit-code: '0'
