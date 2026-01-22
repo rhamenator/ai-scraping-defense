@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Generate a TOTP secret and QR code for the Admin UI."""
 import argparse
+import os
 import sys
 from pathlib import Path
-import os
+
 import pyotp
 import qrcode
 
@@ -15,7 +16,7 @@ def main() -> None:
     parser.add_argument(
         "--show-secret",
         action="store_true",
-        help="Print the TOTP secret to stdout (use with caution).",
+        help="Print the TOTP secret to stdout (not written to disk).",
     )
     parser.add_argument(
         "--admin-email",
@@ -26,16 +27,12 @@ def main() -> None:
     args = parser.parse_args()
 
     admin_email = (
-        args.admin_email
-        or os.environ.get("ADMIN_EMAIL")
-        or "admin@example.com"
+        args.admin_email or os.environ.get("ADMIN_EMAIL") or "admin@example.com"
     )
 
     secret = pyotp.random_base32()
     issuer = "AI Scraping Defense"
-    uri = pyotp.TOTP(secret).provisioning_uri(
-        name=admin_email, issuer_name=issuer
-    )
+    uri = pyotp.TOTP(secret).provisioning_uri(name=admin_email, issuer_name=issuer)
     img = qrcode.make(uri)
     out_file = Path("admin-2fa.png")
     img.save(out_file)
@@ -45,17 +42,15 @@ def main() -> None:
             "Type 'YES' to confirm: "
         )
         if confirm == "YES":
-            secret_file = Path("admin-2fa.secret")
-            with open(secret_file, "w") as f:
-                f.write(secret)
-            os.chmod(secret_file, 0o600)
-            print(f"TOTP secret written to {secret_file.resolve()} (permissions: 600)")
+            print("TOTP secret (store securely; not written to disk):")
+            print(secret)
         else:
             print("TOTP secret not displayed.")
     else:
         print("TOTP secret not displayed.")
 
     print(f"QR code written to {out_file.resolve()}")
+    print("Note: The QR code contains the secret. Store the file securely.")
 
 
 if __name__ == "__main__":

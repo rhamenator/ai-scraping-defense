@@ -103,6 +103,14 @@ class IssueCreator:
             "issues_skipped_existing": 0,
         }
 
+    def _sanitize_message(self, message: str) -> str:
+        """Sanitize messages to avoid logging sensitive data."""
+        token_pattern = r"\bgh[pousr]_[A-Za-z0-9]{36}\b"
+        message = re.sub(token_pattern, "[REDACTED_TOKEN]", message)
+        auth_pattern = r"(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+"
+        message = re.sub(auth_pattern, r"\1[REDACTED]", message, flags=re.IGNORECASE)
+        return message
+
     def _passes_min_security_severity(self, alert: Dict) -> bool:
         """Return True if alert meets minimum security severity."""
         if not self.min_security_severity:
@@ -116,7 +124,8 @@ class IssueCreator:
     def log(self, level: str, message: str):
         """Log a message with timestamp."""
         timestamp = datetime.now().strftime("%H:%M:%S")
-        print(f"[{timestamp}] {level}: {message}")
+        safe_message = self._sanitize_message(message)
+        print(f"[{timestamp}] {level}: {safe_message}")
 
     def fetch_code_scanning_alerts(self) -> List[Dict]:
         """Fetch all open code scanning alerts."""
@@ -156,10 +165,17 @@ class IssueCreator:
             elif e.response.status_code == 404:
                 self.log("INFO", "Code scanning not enabled for this repository")
             else:
-                self.log("ERROR", f"Failed to fetch code scanning alerts: {e}")
+                status_code = getattr(e.response, "status_code", "unknown")
+                self.log(
+                    "ERROR",
+                    f"Failed to fetch code scanning alerts (HTTP {status_code})",
+                )
             return []
         except Exception as e:
-            self.log("ERROR", f"Error fetching code scanning alerts: {e}")
+            self.log(
+                "ERROR",
+                f"Error fetching code scanning alerts ({type(e).__name__})",
+            )
             return []
 
     def fetch_secret_scanning_alerts(self) -> List[Dict]:
@@ -200,10 +216,17 @@ class IssueCreator:
             elif e.response.status_code == 404:
                 self.log("INFO", "Secret scanning not enabled for this repository")
             else:
-                self.log("ERROR", f"Failed to fetch secret scanning alerts: {e}")
+                status_code = getattr(e.response, "status_code", "unknown")
+                self.log(
+                    "ERROR",
+                    f"Failed to fetch secret scanning alerts (HTTP {status_code})",
+                )
             return []
         except Exception as e:
-            self.log("ERROR", f"Error fetching secret scanning alerts: {e}")
+            self.log(
+                "ERROR",
+                f"Error fetching secret scanning alerts ({type(e).__name__})",
+            )
             return []
 
     def group_code_scanning_alerts(self, alerts: List[Dict]) -> Dict[str, List[Dict]]:
@@ -482,7 +505,10 @@ This is a critical security issue that must be addressed immediately.
 
             return None
         except Exception as e:
-            self.log("WARNING", f"Error checking for existing issue: {e}")
+            self.log(
+                "WARNING",
+                f"Error checking for existing issue ({type(e).__name__})",
+            )
             return None
 
     def create_github_issue(self, title: str, body: str, labels: List[str]) -> bool:
@@ -513,7 +539,10 @@ This is a critical security issue that must be addressed immediately.
             return True
 
         except Exception as e:
-            self.log("ERROR", f"Failed to create issue '{title}': {e}")
+            self.log(
+                "ERROR",
+                f"Failed to create issue '{title}' ({type(e).__name__})",
+            )
             return False
 
     def process_code_scanning_alerts(self, alerts: List[Dict]):

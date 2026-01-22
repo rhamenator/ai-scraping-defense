@@ -68,8 +68,35 @@ function formatMetricValue(key, value) {
     return value; // Return other types as is
 }
 
+function clearElement(element) {
+    while (element.firstChild) {
+        element.removeChild(element.firstChild);
+    }
+}
+
+function createMetricCard(title, value) {
+    const card = document.createElement('div');
+    card.className = 'metric-card';
+
+    const heading = document.createElement('h3');
+    heading.textContent = title;
+    card.appendChild(heading);
+
+    const metricValue = document.createElement('div');
+    metricValue.className = 'metric-value';
+    metricValue.textContent = String(value);
+    card.appendChild(metricValue);
+
+    return card;
+}
+
 function updateMetricsDisplay(metrics) {
-    let html = '';
+    if (!metricsDisplay) {
+        return;
+    }
+
+    clearElement(metricsDisplay);
+
     // Sort keys alphabetically for consistent order, except uptime/timestamp
     const sortedKeys = Object.keys(metrics)
         .filter(key => !key.includes('uptime_seconds') && !key.includes('last_updated_utc'))
@@ -77,23 +104,20 @@ function updateMetricsDisplay(metrics) {
 
     // Add uptime first
     if (metrics.service_uptime_seconds !== undefined) {
-         html += `
-            <div class="metric-card">
-                <h3>Service Uptime</h3>
-                <div class="metric-value">${formatMetricValue('service_uptime_seconds', metrics.service_uptime_seconds)}</div>
-            </div>`;
+        const uptimeValue = formatMetricValue('service_uptime_seconds', metrics.service_uptime_seconds);
+        metricsDisplay.appendChild(createMetricCard('Service Uptime', uptimeValue));
     }
 
     // Add other metrics
     for (const key of sortedKeys) {
-        html += `
-            <div class="metric-card">
-                <h3>${formatMetricKey(key)}</h3>
-                <div class="metric-value">${formatMetricValue(key, metrics[key])}</div>
-            </div>`;
+        const label = formatMetricKey(key);
+        const metricValue = formatMetricValue(key, metrics[key]);
+        metricsDisplay.appendChild(createMetricCard(label, metricValue));
     }
 
-    metricsDisplay.innerHTML = html || '<p>No metrics available.</p>'; // Handle empty metrics case
+    if (!metricsDisplay.firstChild) {
+        metricsDisplay.textContent = 'No metrics available.';
+    }
 
     // Update last updated time
     if (metrics.last_updated_utc) {
@@ -105,19 +129,34 @@ function updateMetricsDisplay(metrics) {
 
 function updateBlockStatsDisplay(stats) {
     if (!blockStatsContainer) return;
-    let html = '<h2>Blocked Traffic</h2>';
-    html += `<p>Blocked IPs: ${stats.blocked_ip_count || 0}</p>`;
-    html += `<p>Temporary Blocks: ${stats.temporary_block_count || 0}</p>`;
-    html += `<p>Total Bots Detected: ${stats.total_bots_detected || 0}</p>`;
+    clearElement(blockStatsContainer);
+
+    const heading = document.createElement('h2');
+    heading.textContent = 'Blocked Traffic';
+    blockStatsContainer.appendChild(heading);
+
+    const blockedIps = document.createElement('p');
+    blockedIps.textContent = `Blocked IPs: ${stats.blocked_ip_count || 0}`;
+    blockStatsContainer.appendChild(blockedIps);
+
+    const temporaryBlocks = document.createElement('p');
+    temporaryBlocks.textContent = `Temporary Blocks: ${stats.temporary_block_count || 0}`;
+    blockStatsContainer.appendChild(temporaryBlocks);
+
+    const totalBots = document.createElement('p');
+    totalBots.textContent = `Total Bots Detected: ${stats.total_bots_detected || 0}`;
+    blockStatsContainer.appendChild(totalBots);
+
     if (stats.recent_block_events && stats.recent_block_events.length) {
-        html += '<ul>';
+        const list = document.createElement('ul');
         for (const ev of stats.recent_block_events) {
             const ts = ev.timestamp ? new Date(ev.timestamp).toLocaleString() : '';
-            html += `<li>${ev.ip || 'n/a'} - ${ev.reason || 'n/a'} - ${ts}</li>`;
+            const item = document.createElement('li');
+            item.textContent = `${ev.ip || 'n/a'} - ${ev.reason || 'n/a'} - ${ts}`;
+            list.appendChild(item);
         }
-        html += '</ul>';
+        blockStatsContainer.appendChild(list);
     }
-    blockStatsContainer.innerHTML = html;
 }
 
 function fetchBlockStats() {

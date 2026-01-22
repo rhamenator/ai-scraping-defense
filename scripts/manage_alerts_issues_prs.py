@@ -112,7 +112,7 @@ class AlertManager:
         safe_details = self._sanitize_message(details)
         log_entry = f"[{timestamp}] {action}: {safe_details}"
         self.actions_log.append(log_entry)
-        print(log_entry)
+        print(f"[{timestamp}] {action}")
 
     def calculate_similarity(self, text1: str, text2: str) -> float:
         """Calculate similarity ratio between two text strings."""
@@ -658,10 +658,9 @@ class AlertManager:
             report.append(f"  {key.replace('_', ' ').title()}: {value}")
         report.append("")
 
-        report.append("ACTIONS LOG:")
+        report.append("ACTIONS LOG: (suppressed to avoid storing sensitive data)")
         report.append("-" * 80)
-        for action in self.actions_log:
-            report.append(action)
+        report.append("See stdout for high-level status messages.")
         report.append("")
 
         report.append("=" * 80)
