@@ -3,6 +3,7 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from src.shared import http_client
 from src.shared.http_client import AsyncHttpClient
 from src.shared.ssrf_protection import SSRFProtectionError
 
@@ -14,7 +15,9 @@ class TestAsyncHttpClientSSRFProtection(unittest.IsolatedAsyncioTestCase):
         """Test that POST requests to localhost are blocked."""
         async with AsyncHttpClient() as client:
             with self.assertRaises(SSRFProtectionError) as ctx:
-                await client.async_post_json("http://localhost:8080/api", {"test": "data"})
+                await client.async_post_json(
+                    "http://localhost:8080/api", {"test": "data"}
+                )
             self.assertIn("localhost", str(ctx.exception))
 
     async def test_post_json_blocks_private_ip(self):
@@ -66,7 +69,9 @@ class TestAsyncHttpClientSSRFProtection(unittest.IsolatedAsyncioTestCase):
                     mock_client.get.return_value = mock_response
                     mock_client_class.return_value = mock_client
 
-                    async with AsyncHttpClient(allowed_domains=["example.com"]) as client:
+                    async with AsyncHttpClient(
+                        allowed_domains=["example.com"]
+                    ) as client:
                         # This should pass SSRF validation
                         await client.async_get("http://example.com/api")
 
@@ -105,16 +110,67 @@ class TestAsyncHttpClientSSRFProtection(unittest.IsolatedAsyncioTestCase):
                     mock_response = MagicMock()
                     mock_response.status_code = 200
                     mock_response.content = b"success"
-                    mock_client.post.return_value = mock_response
+                    mock_client.request.return_value = mock_response
                     mock_client_class.return_value = mock_client
 
                     async with AsyncHttpClient() as client:
                         response = await client.async_post_json(
-                            "https://api.example.com/webhook",
-                            {"test": "data"}
+                            "https://api.example.com/webhook", {"test": "data"}
                         )
                         self.assertEqual(response.status_code, 200)
                         self.assertEqual(response.content, b"success")
+
+    async def test_retry_on_status(self):
+        """Retry should occur for retryable status codes."""
+        with patch("src.shared.http_client.HTTPX_AVAILABLE", True):
+            with patch("src.shared.http_client.httpx.AsyncClient") as mock_client_class:
+                with patch("src.shared.http_client.httpx.Limits"):
+                    mock_client = AsyncMock()
+                    retry_response = MagicMock()
+                    retry_response.status_code = 503
+                    retry_response.content = b""
+                    retry_response.headers = {}
+                    ok_response = MagicMock()
+                    ok_response.status_code = 200
+                    ok_response.content = b"ok"
+                    ok_response.headers = {}
+                    mock_client.request.side_effect = [retry_response, ok_response]
+                    mock_client_class.return_value = mock_client
+
+                    async with AsyncHttpClient(
+                        retry_enabled=True,
+                        max_retries=2,
+                        retry_backoff_base=0,
+                        retry_backoff_max=0,
+                    ) as client:
+                        response = await client.async_get(
+                            "https://api.example.com/data", max_retries=1
+                        )
+                        self.assertEqual(response.status_code, 200)
+                    self.assertEqual(mock_client.request.call_count, 2)
+
+    async def test_circuit_breaker_opens(self):
+        """Circuit breaker should open after repeated failures."""
+        http_client._circuit_states.clear()
+        with patch("src.shared.http_client.HTTPX_AVAILABLE", True):
+            with patch("src.shared.http_client.httpx.AsyncClient") as mock_client_class:
+                with patch("src.shared.http_client.httpx.Limits"):
+                    mock_client = AsyncMock()
+                    mock_client.request.side_effect = http_client.httpx.RequestError(
+                        "boom", request=None
+                    )
+                    mock_client_class.return_value = mock_client
+
+                    async with AsyncHttpClient(
+                        retry_enabled=False,
+                        circuit_breaker_enabled=True,
+                        circuit_breaker_threshold=1,
+                        circuit_breaker_reset_seconds=60,
+                    ) as client:
+                        with self.assertRaises(http_client.httpx.RequestError):
+                            await client.async_get("https://api.example.com/data")
+                        with self.assertRaises(http_client.CircuitBreakerOpenError):
+                            await client.async_get("https://api.example.com/data")
 
 
 if __name__ == "__main__":

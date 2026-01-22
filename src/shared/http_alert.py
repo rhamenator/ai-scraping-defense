@@ -169,57 +169,67 @@ class HttpAlertSender:
 
         logger.info(f"Sending alert to {self.webhook_url}")
 
-        # Attempt delivery with retry logic
-
-        for attempt in range(1, max_attempts + 1):
-            try:
-                async with AsyncHttpClient(
-                    timeout=self.timeout, verify=self.verify_ssl
-                ) as client:
-                    response = await client.async_post_json(
-                        self.webhook_url, payload, headers=headers, timeout=self.timeout
-                    )
-
-                    # Check if the response indicates success
-                    response.raise_for_status()
-
-                    logger.info(
-                        f"Alert delivered successfully to {self.webhook_url} "
-                        f"(Status: {response.status_code})"
-                    )
-
-                    return True
-
-            except httpx.TimeoutException:
-                error_msg = f"Timeout delivering alert to {self.webhook_url} (attempt {attempt}/{max_attempts})"
-                logger.error(error_msg)
-
-            except httpx.HTTPStatusError as e:
-                error_msg = (
-                    f"HTTP error delivering alert to {self.webhook_url} "
-                    f"(Status: {e.response.status_code}, attempt {attempt}/{max_attempts})"
-                )
-                response_body = (
-                    e.response.text[:500] if hasattr(e.response, "text") else None
-                )
-                logger.error(f"{error_msg}. Response: {response_body}")
-
-            except httpx.RequestError as e:
-                error_msg = f"Request error delivering alert to {self.webhook_url} (attempt {attempt}/{max_attempts}): {e}"
-                logger.error(error_msg)
-
-            except Exception as e:
-                error_msg = f"Unexpected error delivering alert to {self.webhook_url} (attempt {attempt}/{max_attempts}): {e}"
-                logger.error(error_msg)
-
-            # If this wasn't the last attempt, log retry information
-            if attempt < max_attempts:
-                logger.info(
-                    f"Retrying alert delivery in attempt {attempt + 1}/{max_attempts}"
+        max_attempts = max(1, max_attempts)
+        max_retries = max_attempts - 1
+        try:
+            async with AsyncHttpClient(
+                timeout=self.timeout,
+                verify=self.verify_ssl,
+                retry_enabled=True,
+                max_retries=max_retries,
+            ) as client:
+                response = await client.async_post_json(
+                    self.webhook_url,
+                    payload,
+                    headers=headers,
+                    timeout=self.timeout,
+                    max_retries=max_retries,
                 )
 
-        # All attempts failed
-        logger.error(f"Failed to deliver alert after {max_attempts} attempts")
+            response.raise_for_status()
+
+            logger.info(
+                f"Alert delivered successfully to {self.webhook_url} "
+                f"(Status: {response.status_code})"
+            )
+            return True
+
+        except httpx.TimeoutException:
+            logger.error(
+                "Timeout delivering alert to %s (attempts %s)",
+                self.webhook_url,
+                max_attempts,
+            )
+
+        except httpx.HTTPStatusError as e:
+            response_body = (
+                e.response.text[:500] if hasattr(e.response, "text") else None
+            )
+            logger.error(
+                "HTTP error delivering alert to %s (Status: %s, attempts %s). Response: %s",
+                self.webhook_url,
+                e.response.status_code,
+                max_attempts,
+                response_body,
+            )
+
+        except httpx.RequestError as e:
+            logger.error(
+                "Request error delivering alert to %s (attempts %s): %s",
+                self.webhook_url,
+                max_attempts,
+                e,
+            )
+
+        except Exception as e:
+            logger.error(
+                "Unexpected error delivering alert to %s (attempts %s): %s",
+                self.webhook_url,
+                max_attempts,
+                e,
+            )
+
+        logger.error("Failed to deliver alert after %s attempts", max_attempts)
         return False
 
     async def send_test_alert(self) -> bool:
