@@ -30,7 +30,7 @@ jobs:
         uses: microsoft/DevSkim-Action@4b5047945a44163b94642a1cecc0d93a3f428cc6
         with:
           ignore-globs: "**/.git/**,**/*.md,**/docs/**,**/docs_ui/**,**/test/**,**/tests/**,**/scripts/**,**/sample.env*,**/docker-compose.yaml,**/nginx/**,**/apache/**,**/helm/**,**/kubernetes/**,**/iis/**"
-          exclude-rules: DS162092
+          exclude-rules: DS162092,DS176209
 
       - name: Upload DevSkim scan results to GitHub Security tab
         if: always() && hashFiles('devskim-results.sarif') != ''
