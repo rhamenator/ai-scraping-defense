@@ -53,7 +53,7 @@ class TestIsLocalhost(unittest.TestCase):
         self.assertTrue(is_localhost("127.0.0.1"))
         self.assertTrue(is_localhost("127.1.1.1"))
         self.assertTrue(is_localhost("::1"))
-        self.assertTrue(is_localhost("0.0.0.0"))  # nosec B104 - test fixture
+        self.assertTrue(is_localhost("0.0.0.0"))  # nosec B104
         self.assertTrue(is_localhost("[::]"))
 
     def test_non_localhost(self):

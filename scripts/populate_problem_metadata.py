@@ -46,7 +46,7 @@ def call_gemini(prompt):
         except urllib.error.HTTPError as e:
             if e.code == 429:  # Quota exceeded
                 raise QuotaExceededException("API quota exceeded")
-            continue
+            continue  # nosec B112 - try next model on non-quota errors
         except Exception as exc:
             print(f"Warning: Gemini request failed for {model}: {exc}")
             continue

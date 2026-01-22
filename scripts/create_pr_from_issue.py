@@ -189,8 +189,8 @@ def ensure_label(label, color="ededed"):
             check=False,
             capture_output=True,
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"Warning: failed to ensure label '{label}': {exc}")
 
 
 def fetch_gh_issues(limit=1):

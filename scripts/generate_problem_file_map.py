@@ -27,7 +27,9 @@ def call_gemini(prompt):
             req = urllib.request.Request(
                 url, data=json.dumps(data).encode("utf-8"), headers=headers
             )
-            with urllib.request.urlopen(req) as response:
+            with urllib.request.urlopen(
+                req
+            ) as response:  # nosec B310 - HTTPS URL is constructed locally
                 result = json.loads(response.read().decode("utf-8"))
                 if "candidates" in result and result["candidates"]:
                     return result["candidates"][0]["content"]["parts"][0]["text"]

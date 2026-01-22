@@ -1,13 +1,14 @@
 # test/rag/training.test.py
-import unittest
-from unittest.mock import patch, MagicMock, mock_open
-import os
-import pandas as pd
 import datetime
 import importlib
-import sys
 import json
+import os
+import sys
 import tempfile
+import unittest
+from unittest.mock import MagicMock, mock_open, patch
+
+import pandas as pd
 
 from rag import training
 
@@ -87,9 +88,10 @@ class TestTrainingPipelineComprehensive(unittest.TestCase):
         fake_reader = MagicMock()
         fake_reader.country.return_value = fake_resp
         with patch("geoip2.database.Reader", return_value=fake_reader):
-            with patch.object(training, "GEOIP_DB_PATH", "/tmp/db.mmdb"):
-                training._geoip_reader = None
-                code = training.lookup_country_code("8.8.8.8")
+            with tempfile.NamedTemporaryFile() as tmpfile:
+                with patch.object(training, "GEOIP_DB_PATH", tmpfile.name):
+                    training._geoip_reader = None
+                    code = training.lookup_country_code("8.8.8.8")
         self.assertEqual(code, "US")
 
     def test_assign_labels_and_scores(self):

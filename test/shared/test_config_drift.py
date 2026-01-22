@@ -1,6 +1,7 @@
 """Tests for configuration drift detection."""
 
 import json
+import secrets
 import tempfile
 import unittest
 from pathlib import Path
@@ -81,8 +82,8 @@ class TestConfigDrift(unittest.TestCase):
             drift = ConfigDrift(baseline_dir=Path(tmpdir))
 
             config = self.base_config.copy()
-            config["redis"]["password"] = "secret123"
-            config["jwt_secret"] = "jwt_secret_key"
+            config["redis"]["password"] = secrets.token_urlsafe(8)
+            config["jwt_secret"] = secrets.token_urlsafe(12)
 
             filtered = drift._filter_volatile_fields(config)
 

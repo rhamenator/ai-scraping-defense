@@ -11,14 +11,13 @@ This test evaluates:
 """
 from __future__ import annotations
 
+import os
 import re
 import stat
-import os
 from pathlib import Path
 
 import pytest
 import yaml
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -206,24 +205,24 @@ class TestSecurityScanCoverage:
     def test_security_scan_script_exists(self):
         """Verify that security_scan.sh exists and is executable."""
         script_path = PROJECT_ROOT / "scripts/linux/security_scan.sh"
-        assert script_path.exists(), "security_scan.sh not found"
+        assert script_path.exists(), "security_scan.sh not found"  # nosec B101
         if os.name == "nt":
-            assert _read_text(script_path).startswith("#!")
+            assert _read_text(script_path).startswith("#!")  # nosec B101
             return
-        assert script_path.stat().st_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH), (
-            "security_scan.sh not executable"
-        )
+        assert script_path.stat().st_mode & (
+            stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        ), "security_scan.sh not executable"  # nosec B101
 
     def test_security_setup_script_exists(self):
         """Verify that security_setup.sh exists and is executable."""
         script_path = PROJECT_ROOT / "scripts/linux/security_setup.sh"
-        assert script_path.exists(), "security_setup.sh not found"
+        assert script_path.exists(), "security_setup.sh not found"  # nosec B101
         if os.name == "nt":
-            assert _read_text(script_path).startswith("#!")
+            assert _read_text(script_path).startswith("#!")  # nosec B101
             return
-        assert script_path.stat().st_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH), (
-            "security_setup.sh not executable"
-        )
+        assert script_path.stat().st_mode & (
+            stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        ), "security_setup.sh not executable"  # nosec B101
 
     def test_static_security_checks_exists(self):
         """Verify that run_static_security_checks.py exists."""
@@ -240,7 +239,7 @@ class TestSecurityScanCoverage:
             # Check if at least one tool from each category is present
             # Either in scan_script or as standalone script
             category_covered = False
-            
+
             for tool in tools:
                 # Check in main scan script
                 if tool in scan_script:
@@ -251,11 +250,9 @@ class TestSecurityScanCoverage:
                 if script_path.exists():
                     category_covered = True
                     break
-            
+
             if not category_covered:
-                missing_categories.append(
-                    f"{category} (expected: {', '.join(tools)})"
-                )
+                missing_categories.append(f"{category} (expected: {', '.join(tools)})")
 
         assert (
             not missing_categories
@@ -314,9 +311,7 @@ class TestSecurityScanCoverage:
     def test_secret_scanning_included(self):
         """Verify that secret scanning is included."""
         scan_script = _read_security_scan_sh()
-        assert (
-            "gitleaks" in scan_script
-        ), "gitleaks not included for secret scanning"
+        assert "gitleaks" in scan_script, "gitleaks not included for secret scanning"
 
     def test_sql_injection_testing_included(self):
         """Verify that SQL injection testing is included."""
@@ -335,9 +330,7 @@ class TestSecurityScanCoverage:
         ]
 
         for check in required_checks:
-            assert (
-                check in static_checks
-            ), f"Static check function {check} not found"
+            assert check in static_checks, f"Static check function {check} not found"
 
     def test_static_checks_validate_hardened_services(self):
         """Verify that static checks validate hardened service configurations."""
@@ -386,9 +379,7 @@ class TestSecurityScanCoverage:
         assert (
             'IMAGE="$3"' in scan_script or "docker_image" in scan_script
         ), "Docker image parameter not accepted"
-        assert (
-            "trivy image" in scan_script
-        ), "Docker image scanning not implemented"
+        assert "trivy image" in scan_script, "Docker image scanning not implemented"
 
     def test_security_scan_accepts_code_directory_parameter(self):
         """Verify that security_scan.sh can scan source code directories."""
@@ -397,9 +388,7 @@ class TestSecurityScanCoverage:
         assert (
             'CODE_DIR="$4"' in scan_script or "code_dir" in scan_script
         ), "Code directory parameter not accepted"
-        assert (
-            "bandit -r" in scan_script
-        ), "Source code scanning not implemented"
+        assert "bandit -r" in scan_script, "Source code scanning not implemented"
 
     def test_security_tools_setup_script_comprehensive(self):
         """Verify that security_setup.sh installs all required tools."""
@@ -481,9 +470,7 @@ class TestStackSpecificSecurityConcerns:
         # PostgreSQL should have POSTGRES_PASSWORD set
         has_password = any("POSTGRES_PASSWORD" in str(env) for env in environment)
 
-        assert (
-            has_password
-        ), "PostgreSQL should have POSTGRES_PASSWORD configured"
+        assert has_password, "PostgreSQL should have POSTGRES_PASSWORD configured"
 
     def test_nginx_security_headers_configured(self):
         """Verify that Nginx has security headers configured."""
@@ -516,9 +503,7 @@ class TestStackSpecificSecurityConcerns:
 
         nginx_conf = _read_text(nginx_conf_path)
 
-        assert (
-            "limit_req_zone" in nginx_conf
-        ), "Rate limiting not configured in Nginx"
+        assert "limit_req_zone" in nginx_conf, "Rate limiting not configured in Nginx"
         assert (
             "limit_req zone=" in nginx_conf
         ), "Rate limiting zone not applied in Nginx"
@@ -638,9 +623,9 @@ class TestEnhancedSecurityTools:
         if os.name == "nt":
             assert _read_text(script_path).startswith("#!")
             return
-        assert script_path.stat().st_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH), (
-            "api_security_test.sh not executable"
-        )
+        assert script_path.stat().st_mode & (
+            stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        ), "api_security_test.sh not executable"
 
     def test_llm_prompt_injection_script_exists(self):
         """Verify that llm_prompt_injection_test.sh exists and is executable."""
@@ -649,9 +634,9 @@ class TestEnhancedSecurityTools:
         if os.name == "nt":
             assert _read_text(script_path).startswith("#!")
             return
-        assert script_path.stat().st_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH), (
-            "llm_prompt_injection_test.sh not executable"
-        )
+        assert script_path.stat().st_mode & (
+            stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        ), "llm_prompt_injection_test.sh not executable"
 
     def test_ai_driven_security_script_exists(self):
         """Verify that ai_driven_security_test.py exists and is executable."""
@@ -660,9 +645,9 @@ class TestEnhancedSecurityTools:
         if os.name == "nt":
             assert _read_text(script_path).startswith("#!")
             return
-        assert script_path.stat().st_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH), (
-            "ai_driven_security_test.py not executable"
-        )
+        assert script_path.stat().st_mode & (
+            stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        ), "ai_driven_security_test.py not executable"
 
     def test_api_security_script_has_comprehensive_tests(self):
         """Verify API security script tests multiple attack vectors."""
@@ -681,9 +666,7 @@ class TestEnhancedSecurityTools:
         ]
 
         for test in required_tests:
-            assert (
-                test in script_content
-            ), f"API security test missing: {test}"
+            assert test in script_content, f"API security test missing: {test}"
 
     def test_llm_injection_script_has_diverse_payloads(self):
         """Verify LLM prompt injection script has diverse attack payloads."""
