@@ -14,9 +14,10 @@ def main() -> None:
         description="Generate a TOTP secret and QR code for the Admin UI."
     )
     parser.add_argument(
-        "--show-secret",
-        action="store_true",
-        help="Print the TOTP secret to stdout (not written to disk).",
+        "--write-secret",
+        type=Path,
+        default=None,
+        help="Write the TOTP secret to this file with 0600 permissions.",
     )
     parser.add_argument(
         "--admin-email",
@@ -36,19 +37,22 @@ def main() -> None:
     img = qrcode.make(uri)
     out_file = Path("admin-2fa.png")
     img.save(out_file)
-    if args.show_secret:
-        confirm = input(  # nosec B322 - interactive confirmation
-            "Are you sure you want to display the TOTP secret? "
-            "Type 'YES' to confirm: "
-        )
-        if confirm == "YES":
-            print("TOTP secret (store securely; not written to disk):")
-            # codeql[py/clear-text-logging-sensitive-data]: explicit user request.
-            print(secret)
-        else:
-            print("TOTP secret not displayed.")
+    try:
+        out_file.chmod(0o600)
+    except OSError:
+        pass
+
+    if args.write_secret:
+        secret_path = args.write_secret
+        secret_path.write_text(f"{secret}\n")
+        try:
+            secret_path.chmod(0o600)
+        except OSError:
+            pass
+        print(f"TOTP secret written to {secret_path.resolve()}")
+        print("Delete the secret file after provisioning.")
     else:
-        print("TOTP secret not displayed.")
+        print("TOTP secret not displayed; use the QR code to provision.")
 
     print(f"QR code written to {out_file.resolve()}")
     print("Note: The QR code contains the secret. Store the file securely.")

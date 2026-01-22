@@ -103,14 +103,6 @@ class IssueCreator:
             "issues_skipped_existing": 0,
         }
 
-    def _sanitize_message(self, message: str) -> str:
-        """Sanitize messages to avoid logging sensitive data."""
-        token_pattern = r"\bgh[pousr]_[A-Za-z0-9]{36}\b"
-        message = re.sub(token_pattern, "[REDACTED_TOKEN]", message)
-        auth_pattern = r"(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+"
-        message = re.sub(auth_pattern, r"\1[REDACTED]", message, flags=re.IGNORECASE)
-        return message
-
     def _passes_min_security_severity(self, alert: Dict) -> bool:
         """Return True if alert meets minimum security severity."""
         if not self.min_security_severity:
@@ -121,12 +113,10 @@ class IssueCreator:
         rank = SECURITY_SEVERITY_ORDER.get(str(level).lower(), 0)
         return rank >= threshold
 
-    def log(self, level: str, message: str):
+    def log(self, level: str, message: str) -> None:
         """Log a message with timestamp."""
         timestamp = datetime.now().strftime("%H:%M:%S")
-        safe_message = self._sanitize_message(message)
-        # codeql[py/clear-text-logging-sensitive-data]: message is sanitized before logging.
-        print(f"[{timestamp}] {level}: {safe_message}")
+        print(f"[{timestamp}] {level}: {message}")
 
     def fetch_code_scanning_alerts(self) -> List[Dict]:
         """Fetch all open code scanning alerts."""
@@ -151,7 +141,7 @@ class IssueCreator:
                     url = None
 
             self.stats["code_scanning_alerts"] = len(alerts)
-            self.log("INFO", f"Found {len(alerts)} open code scanning alerts")
+            self.log("INFO", "Code scanning alerts fetched")
             return alerts
 
         except requests.exceptions.HTTPError as e:
@@ -202,7 +192,7 @@ class IssueCreator:
                     url = None
 
             self.stats["secret_scanning_alerts"] = len(alerts)
-            self.log("INFO", f"Found {len(alerts)} open secret scanning alerts")
+            self.log("INFO", "Secret scanning alerts fetched")
             return alerts
 
         except requests.exceptions.HTTPError as e:
@@ -518,32 +508,26 @@ This is a critical security issue that must be addressed immediately.
             # Check if similar issue already exists
             existing = self.check_existing_issue(title)
             if existing:
-                self.log(
-                    "SKIP",
-                    f"Issue already exists: #{existing.number} - {existing.title}",
-                )
+                self.log("SKIP", f"Issue already exists: #{existing.number}")
                 self.stats["issues_skipped_existing"] += 1
                 return False
 
             if self.dry_run:
                 # Avoid logging potentially sensitive issue titles in clear text
                 self.log("DRY-RUN", "Would create issue (title redacted)")
-                self.log("DRY-RUN", f"  Labels: {', '.join(labels)}")
+                self.log("DRY-RUN", "Labels redacted")
                 self.stats["issues_created"] += 1
                 return True
 
             # Create the issue
             issue = self.repository.create_issue(title=title, body=body, labels=labels)
 
-            self.log("SUCCESS", f"Created issue #{issue.number}: {title}")
+            self.log("SUCCESS", f"Created issue #{issue.number}")
             self.stats["issues_created"] += 1
             return True
 
         except Exception as e:
-            self.log(
-                "ERROR",
-                f"Failed to create issue '{title}' ({type(e).__name__})",
-            )
+            self.log("ERROR", f"Failed to create issue ({type(e).__name__})")
             return False
 
     def process_code_scanning_alerts(self, alerts: List[Dict]):
@@ -552,18 +536,14 @@ This is a critical security issue that must be addressed immediately.
             self.log("INFO", "No code scanning alerts to process")
             return
 
-        self.log("INFO", f"Processing {len(alerts)} code scanning alerts...")
+        self.log("INFO", "Processing code scanning alerts...")
         filtered_alerts = [a for a in alerts if self._passes_min_security_severity(a)]
         if len(filtered_alerts) != len(alerts):
-            self.log(
-                "INFO",
-                f"Filtered to {len(filtered_alerts)} alerts "
-                f"by min security severity: {self.min_security_severity}",
-            )
+            self.log("INFO", "Filtered alerts by min security severity")
 
         # Group alerts
         grouped = self.group_code_scanning_alerts(filtered_alerts)
-        self.log("INFO", f"Grouped into {len(grouped)} unique alert types")
+        self.log("INFO", "Grouped code scanning alerts")
 
         # Create issues for each group
         for key, alert_group in grouped.items():
@@ -602,11 +582,11 @@ This is a critical security issue that must be addressed immediately.
             self.log("INFO", "No secret scanning alerts to process")
             return
 
-        self.log("INFO", f"Processing {len(alerts)} secret scanning alerts...")
+        self.log("INFO", "Processing secret scanning alerts...")
 
         # Group alerts
         grouped = self.group_secret_scanning_alerts(alerts)
-        self.log("INFO", f"Grouped into {len(grouped)} unique secret types")
+        self.log("INFO", "Grouped secret scanning alerts")
 
         # Create issues for each group
         for key, alert_group in grouped.items():
