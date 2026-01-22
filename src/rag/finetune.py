@@ -105,11 +105,12 @@ def load_and_prepare_dataset(file_path, tokenizer):
     try:
         # Load from JSON Lines file
         # Expected format per line: {"log_data": {parsed_log_dict}, "label": "bot" or "human"}
-        raw_dataset = load_dataset(
+        raw_dataset = load_dataset(  # nosec B615 - local JSON file, no remote download
             "json",
             data_files=file_path,
             split="train",
             revision=HF_DATASET_REVISION,
+            local_files_only=True,
         )
 
         # Define expected features for validation and ClassLabel mapping
