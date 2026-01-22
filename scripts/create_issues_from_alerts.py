@@ -125,6 +125,7 @@ class IssueCreator:
         """Log a message with timestamp."""
         timestamp = datetime.now().strftime("%H:%M:%S")
         safe_message = self._sanitize_message(message)
+        # codeql[py/clear-text-logging-sensitive-data]: message is sanitized before logging.
         print(f"[{timestamp}] {level}: {safe_message}")
 
     def fetch_code_scanning_alerts(self) -> List[Dict]:

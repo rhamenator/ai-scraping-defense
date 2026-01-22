@@ -43,6 +43,7 @@ def main() -> None:
         )
         if confirm == "YES":
             print("TOTP secret (store securely; not written to disk):")
+            # codeql[py/clear-text-logging-sensitive-data]: explicit user request.
             print(secret)
         else:
             print("TOTP secret not displayed.")
