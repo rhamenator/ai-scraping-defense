@@ -60,6 +60,11 @@ def _load_security_settings() -> SecuritySettings:
     )
 
 
+def _header_override(name: str, default: str) -> str:
+    value = os.getenv(name)
+    return value if value else default
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Simple in-memory IP-based rate limiter."""
 
@@ -214,24 +219,40 @@ def add_security_middleware(
     @app.middleware("http")
     async def _security_headers(request, call_next):
         response = await call_next(request)
+        header_defaults = {
+            "X-Frame-Options": _header_override(
+                "SECURITY_HEADER_X_FRAME_OPTIONS", "DENY"
+            ),
+            "X-Content-Type-Options": _header_override(
+                "SECURITY_HEADER_X_CONTENT_TYPE_OPTIONS", "nosniff"
+            ),
+            "Referrer-Policy": _header_override(
+                "SECURITY_HEADER_REFERRER_POLICY", "no-referrer"
+            ),
+            "Permissions-Policy": _header_override(
+                "SECURITY_HEADER_PERMISSIONS_POLICY",
+                "geolocation=(), microphone=(), camera=()",
+            ),
+            "X-Permitted-Cross-Domain-Policies": _header_override(
+                "SECURITY_HEADER_X_PERMITTED_CROSS_DOMAIN_POLICIES", "none"
+            ),
+            "X-XSS-Protection": _header_override(
+                "SECURITY_HEADER_X_XSS_PROTECTION", "1; mode=block"
+            ),
+            "Content-Security-Policy": _header_override(
+                "SECURITY_HEADER_CSP", "default-src 'self'"
+            ),
+        }
         # Clickjacking and MIME sniffing protections
-        response.headers.setdefault("X-Frame-Options", "DENY")
-        response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("Referrer-Policy", "no-referrer")
-        response.headers.setdefault(
-            "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
-        )
-        response.headers.setdefault("X-Permitted-Cross-Domain-Policies", "none")
-        # Legacy XSS header (modern browsers rely on CSP); included per security baseline
-        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
-        # Provide a conservative default CSP if not already set upstream
-        response.headers.setdefault("Content-Security-Policy", "default-src 'self'")
+        for header, value in header_defaults.items():
+            response.headers.setdefault(header, value)
         # Enable HSTS when HTTPS is enabled. Header is ignored over plain HTTP.
         if settings.enable_https:
-            response.headers.setdefault(
-                "Strict-Transport-Security",
+            hsts_value = _header_override(
+                "SECURITY_HEADER_HSTS",
                 "max-age=31536000; includeSubDomains; preload",
             )
+            response.headers.setdefault("Strict-Transport-Security", hsts_value)
         return response
 
     return settings
