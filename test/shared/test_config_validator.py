@@ -1,6 +1,7 @@
 """Tests for configuration validation and loading."""
 
 import os
+import secrets
 import tempfile
 import unittest
 from pathlib import Path
@@ -232,7 +233,7 @@ class TestConfigLoader(unittest.TestCase):
     def test_validate_jwt_secret_min_length(self):
         """Test JWT secret must meet minimum length."""
         env = self.minimal_env.copy()
-        env["AUTH_JWT_SECRET"] = "short"
+        env["AUTH_JWT_SECRET"] = secrets.token_urlsafe(4)
 
         loader = ConfigLoader(strict=False)
         config = loader.load_from_env(env)

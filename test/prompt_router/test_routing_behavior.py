@@ -1,5 +1,6 @@
 import importlib.util
 import os
+import secrets
 import sys
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -10,7 +11,7 @@ MODULE_PATH = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "prompt-router", "main.py")
 )
 
-os.environ["SHARED_SECRET"] = "secret"
+os.environ["SHARED_SECRET"] = secrets.token_urlsafe(12)
 spec = importlib.util.spec_from_file_location("prompt_router.main", MODULE_PATH)
 pr_module = importlib.util.module_from_spec(spec)
 sys.modules["prompt_router.main"] = pr_module
@@ -20,13 +21,14 @@ app = pr_module.app
 
 class TestRoutingBehavior(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
+        self.shared_secret = secrets.token_urlsafe(12)
         self.env = patch.dict(
             os.environ,
             {
                 "MAX_LOCAL_TOKENS": "5",
                 "LOCAL_LLM_URL": "http://local",
                 "CLOUD_PROXY_URL": "http://cloud",
-                "SHARED_SECRET": "secret",
+                "SHARED_SECRET": self.shared_secret,
             },
         )
         self.env.start()
@@ -61,7 +63,7 @@ class TestRoutingBehavior(unittest.IsolatedAsyncioTestCase):
                 await ac.post(
                     "/route",
                     json={"prompt": prompt},
-                    headers={"Authorization": "Bearer secret"},
+                    headers={"Authorization": f"Bearer {self.shared_secret}"},
                 )
         return calls
 

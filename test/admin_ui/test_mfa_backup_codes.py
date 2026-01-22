@@ -90,7 +90,7 @@ class TestAdminUIMfaBackupCodes(unittest.TestCase):
             b"testpass", bcrypt.gensalt()
         ).decode()
         os.environ["ADMIN_UI_ROLE"] = "admin"
-        os.environ["ADMIN_UI_2FA_SECRET"] = "JBSWY3DPEHPK3PXP"
+        os.environ["ADMIN_UI_2FA_SECRET"] = pyotp.random_base32()
         auth.ADMIN_UI_ROLE = "admin"
         self.client = TestClient(admin_ui.app)
         self.auth = ("admin", "testpass")

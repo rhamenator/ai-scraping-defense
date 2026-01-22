@@ -123,10 +123,15 @@ def main():
         create_report = False
 
     # Load Bandit results
-    bandit_file = "/tmp/bandit-results.json"
+    bandit_file = os.environ.get(
+        "BANDIT_RESULTS_PATH", "/tmp/bandit-results.json"  # nosec B108
+    )
     if not Path(bandit_file).exists():
         print(f"Bandit results file not found: {bandit_file}")
-        print("Run: bandit -r src/ -f json -o /tmp/bandit-results.json")
+        print(
+            "Run: bandit -r src/ -f json -o /tmp/bandit-results.json "
+            "or set BANDIT_RESULTS_PATH"
+        )
         return 1
 
     bandit_results = load_bandit_results(bandit_file)

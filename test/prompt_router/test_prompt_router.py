@@ -1,5 +1,6 @@
 import importlib.util
 import os
+import secrets
 import sys
 import time
 import unittest
@@ -11,7 +12,7 @@ import httpx
 MODULE_PATH = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "prompt-router", "main.py")
 )
-os.environ["SHARED_SECRET"] = "secret"
+os.environ["SHARED_SECRET"] = secrets.token_urlsafe(12)
 spec = importlib.util.spec_from_file_location("prompt_router.main", MODULE_PATH)
 pr_module = importlib.util.module_from_spec(spec)
 sys.modules["prompt_router.main"] = pr_module
@@ -21,6 +22,7 @@ app = pr_module.app
 
 class TestPromptRouterRouting(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
+        self.shared_secret = secrets.token_urlsafe(12)
         # Use small token limit for predictable routing
         self.env = patch.dict(
             os.environ,
@@ -28,7 +30,7 @@ class TestPromptRouterRouting(unittest.IsolatedAsyncioTestCase):
                 "MAX_LOCAL_TOKENS": "10",
                 "LOCAL_LLM_URL": "http://local",
                 "CLOUD_PROXY_URL": "http://cloud",
-                "SHARED_SECRET": "secret",
+                "SHARED_SECRET": self.shared_secret,
             },
         )
         self.env.start()
@@ -72,7 +74,7 @@ class TestPromptRouterRouting(unittest.IsolatedAsyncioTestCase):
                 resp = await ac.post(
                     "/route",
                     json={"prompt": "short"},
-                    headers={"Authorization": "Bearer secret"},
+                    headers={"Authorization": f"Bearer {self.shared_secret}"},
                 )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json(), {"route": "local"})
@@ -112,7 +114,7 @@ class TestPromptRouterRouting(unittest.IsolatedAsyncioTestCase):
                 resp = await ac.post(
                     "/route",
                     json={"prompt": long_prompt},
-                    headers={"Authorization": "Bearer secret"},
+                    headers={"Authorization": f"Bearer {self.shared_secret}"},
                 )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json(), {"route": "cloud"})
@@ -122,13 +124,14 @@ class TestPromptRouterRouting(unittest.IsolatedAsyncioTestCase):
 
 class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
+        self.shared_secret = secrets.token_urlsafe(12)
         self.env = patch.dict(
             os.environ,
             {
                 "MAX_LOCAL_TOKENS": "10",
                 "LOCAL_LLM_URL": "http://local",
                 "CLOUD_PROXY_URL": "http://cloud",
-                "SHARED_SECRET": "secret",
+                "SHARED_SECRET": self.shared_secret,
                 "RATE_LIMIT_REQUESTS": "2",
                 "RATE_LIMIT_WINDOW": "10",
                 "TRUST_PROXY_HEADERS": "false",
@@ -167,7 +170,7 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp.status_code, 401)
 
     async def test_rate_limit_headers_and_429(self):
-        headers = {"Authorization": "Bearer secret"}
+        headers = {"Authorization": f"Bearer {self.shared_secret}"}
         resp1 = await self._post(headers=headers)
         self.assertEqual(resp1.status_code, 200)
         self.assertEqual(resp1.headers["X-RateLimit-Limit"], "2")
@@ -180,7 +183,7 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Retry-After", resp3.headers)
 
     async def test_window_rollover_resets_counter(self):
-        headers = {"Authorization": "Bearer secret"}
+        headers = {"Authorization": f"Bearer {self.shared_secret}"}
         real_time = time.time
 
         class FakeTime:
@@ -204,10 +207,16 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
             spec.loader.exec_module(pr_module)
             global app
             app = pr_module.app
-            headers1 = {"Authorization": "Bearer secret", "X-Forwarded-For": "1.1.1.1"}
+            headers1 = {
+                "Authorization": f"Bearer {self.shared_secret}",
+                "X-Forwarded-For": "1.1.1.1",
+            }
             resp1 = await self._post(headers=headers1)
             self.assertEqual(resp1.status_code, 200)
-            headers2 = {"Authorization": "Bearer secret", "X-Forwarded-For": "2.2.2.2"}
+            headers2 = {
+                "Authorization": f"Bearer {self.shared_secret}",
+                "X-Forwarded-For": "2.2.2.2",
+            }
             resp2 = await self._post(headers=headers2)
             self.assertEqual(resp2.status_code, 429)
 
@@ -219,10 +228,16 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
             global app
             app = pr_module.app
             resp1 = await self._post(
-                headers={"Authorization": "Bearer secret", "X-Forwarded-For": "1.1.1.1"}
+                headers={
+                    "Authorization": f"Bearer {self.shared_secret}",
+                    "X-Forwarded-For": "1.1.1.1",
+                }
             )
             resp2 = await self._post(
-                headers={"Authorization": "Bearer secret", "X-Forwarded-For": "2.2.2.2"}
+                headers={
+                    "Authorization": f"Bearer {self.shared_secret}",
+                    "X-Forwarded-For": "2.2.2.2",
+                }
             )
         self.assertEqual(resp1.status_code, 200)
         self.assertEqual(resp2.status_code, 200)
@@ -249,13 +264,13 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
             with patch.object(pr_module, "time", FakeTime([0, 11])):
                 await self._post(
                     headers={
-                        "Authorization": "Bearer secret",
+                        "Authorization": f"Bearer {self.shared_secret}",
                         "X-Forwarded-For": "1.1.1.1",
                     }
                 )
                 await self._post(
                     headers={
-                        "Authorization": "Bearer secret",
+                        "Authorization": f"Bearer {self.shared_secret}",
                         "X-Forwarded-For": "2.2.2.2",
                     }
                 )

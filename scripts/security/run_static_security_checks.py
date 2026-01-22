@@ -34,7 +34,7 @@ DEFAULT_HARDENING_BASELINE: Dict[str, Any] = {
             "security_opt": ["no-new-privileges:true"],
             "cap_drop": ["ALL"],
             "read_only": True,
-            "tmpfs_prefixes": ["/tmp"],
+            "tmpfs_prefixes": ["/tmp"],  # nosec B108 - tmpfs mount requirement
             "require_readonly_volume": True,
         },
         "secret_volume_prefixes": ["./secrets:/run/secrets"],
@@ -94,7 +94,9 @@ def ensure_compose_security() -> None:
     )
     required_cap_drop = service_requirements.get("cap_drop", ["ALL"])
     require_read_only = service_requirements.get("read_only", True)
-    tmpfs_prefixes = service_requirements.get("tmpfs_prefixes", ["/tmp"])
+    tmpfs_prefixes = service_requirements.get(
+        "tmpfs_prefixes", ["/tmp"]  # nosec B108 - tmpfs mount requirement
+    )
     require_readonly_volume = service_requirements.get("require_readonly_volume", True)
     secret_prefixes = compose_baseline.get(
         "secret_volume_prefixes", ["./secrets:/run/secrets"]

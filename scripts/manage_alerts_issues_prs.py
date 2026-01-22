@@ -98,7 +98,7 @@ class AlertManager:
         # Pattern to match GitHub tokens with specific format:
         # ghp_ (personal), gho_ (OAuth), ghs_ (server), ghu_ (user), ghr_ (refresh) + exactly 36 chars
         # Use word boundary to ensure we match complete tokens
-        token_pattern = r"\bgh[pousr]_[A-Za-z0-9]{36}\b"
+        token_pattern = r"\bgh[pousr]_[A-Za-z0-9]{36}\b"  # nosec B105
         message = re.sub(token_pattern, "[REDACTED_TOKEN]", message)
         # Pattern to match Bearer tokens and other authorization headers
         auth_pattern = r"(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+"
@@ -749,7 +749,7 @@ def _sanitize_message_standalone(message: str) -> str:
     # Pattern to match GitHub tokens with specific format:
     # ghp_ (personal), gho_ (OAuth), ghs_ (server), ghu_ (user), ghr_ (refresh) + exactly 36 chars
     # Use word boundary to ensure we match complete tokens
-    token_pattern = r"\bgh[pousr]_[A-Za-z0-9]{36}\b"
+    token_pattern = r"\bgh[pousr]_[A-Za-z0-9]{36}\b"  # nosec B105
     message = re.sub(token_pattern, "[REDACTED_TOKEN]", message)
     # Pattern to match Bearer tokens and other authorization headers
     auth_pattern = r"(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+"

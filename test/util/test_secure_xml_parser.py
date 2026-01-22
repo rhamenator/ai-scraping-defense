@@ -3,7 +3,7 @@
 import os
 import tempfile
 import unittest
-from xml.etree.ElementTree import ParseError
+from xml.etree.ElementTree import ParseError  # nosec B405
 
 import yaml
 

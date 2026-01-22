@@ -2,7 +2,6 @@ from pathlib import Path
 
 import yaml
 
-
 HARDENED_SERVICES = {
     "ai_service",
     "escalation_engine",
@@ -36,7 +35,7 @@ def test_compose_services_drop_privileges():
         assert "cap_drop" in service and "ALL" in service["cap_drop"]
         assert service.get("read_only", False) is True
         tmpfs = service.get("tmpfs", [])
-        assert any(str(entry).startswith("/tmp") for entry in tmpfs)
+        assert any(str(entry).startswith("/tmp") for entry in tmpfs)  # nosec B108
         volumes = service.get("volumes", [])
         assert any(str(volume).endswith(":ro") for volume in volumes)
 

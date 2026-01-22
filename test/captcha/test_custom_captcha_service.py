@@ -1,5 +1,6 @@
 import json
 import os
+import secrets
 import unittest
 
 from fastapi.testclient import TestClient
@@ -9,8 +10,9 @@ from src.captcha import custom_captcha_service as svc
 
 class TestCustomCaptcha(unittest.TestCase):
     def setUp(self):
-        os.environ["CAPTCHA_SECRET"] = "testsecret"
-        svc.CAPTCHA_SECRET = "testsecret"
+        secret = secrets.token_urlsafe(12)
+        os.environ["CAPTCHA_SECRET"] = secret
+        svc.CAPTCHA_SECRET = secret
         self.client = TestClient(svc.app)
 
     def test_full_flow(self):

@@ -157,4 +157,5 @@ if __name__ == "__main__":
     import uvicorn
 
     port = int(os.getenv("PORT", "8009"))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    host = os.getenv("HOST", "0.0.0.0")  # nosec B104 - override for restricted binds
+    uvicorn.run("main:app", host=host, port=port)

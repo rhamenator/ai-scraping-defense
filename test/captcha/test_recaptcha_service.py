@@ -1,5 +1,6 @@
 import asyncio
 import os
+import secrets
 import shutil
 import tempfile
 import unittest
@@ -11,11 +12,12 @@ from starlette.requests import Request
 
 class TestRecaptchaService(unittest.TestCase):
     def setUp(self):
-        os.environ["CAPTCHA_SECRET"] = "testsecret"
+        secret = secrets.token_urlsafe(12)
+        os.environ["CAPTCHA_SECRET"] = secret
         from src.captcha import recaptcha_service as svc
 
         self.svc = svc
-        self.svc.CAPTCHA_SECRET = "testsecret"
+        self.svc.CAPTCHA_SECRET = secret
         self.tmpdir = tempfile.mkdtemp()
         self.svc.CAPTCHA_SUCCESS_LOG = os.path.join(self.tmpdir, "captcha.log")
         self.client = TestClient(self.svc.app)

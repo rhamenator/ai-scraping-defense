@@ -55,8 +55,8 @@ def parse_problems_txt():
                 # No, `[]` is an empty list. `[{...}]` is a list.
                 # `[][{...}]` is invalid JSON.
                 pass
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"Warning: failed to parse problems.txt: {exc}")
     return problems
 
 

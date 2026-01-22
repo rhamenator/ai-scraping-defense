@@ -1,6 +1,7 @@
 # test/admin_ui/test_admin_ui.py
 import json
 import os
+import secrets
 import tempfile
 import time
 import unittest
@@ -22,7 +23,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
             b"testpass", bcrypt.gensalt()
         ).decode()
         os.environ["ADMIN_UI_ROLE"] = "admin"
-        os.environ["ADMIN_UI_2FA_SECRET"] = "JBSWY3DPEHPK3PXP"
+        os.environ["ADMIN_UI_2FA_SECRET"] = pyotp.random_base32()
         auth.ADMIN_UI_ROLE = "admin"
         # Disable rate limiting by making the auth layer think Redis is unavailable
         patcher = patch("src.admin_ui.auth.get_redis_connection", return_value=None)
@@ -412,7 +413,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
     def test_2fa_required_and_valid(self):
         """Requests succeed when a valid TOTP code is supplied."""
-        secret = "JBSWY3DPEHPK3PXP"
+        secret = pyotp.random_base32()
         os.environ["ADMIN_UI_2FA_SECRET"] = secret
         code = pyotp.TOTP(secret).now()
         headers = {"X-2FA-Code": code}
@@ -422,7 +423,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
     def test_2fa_missing_code(self):
         """Missing TOTP code results in 401 when 2FA is enabled."""
-        secret = "JBSWY3DPEHPK3PXP"
+        secret = pyotp.random_base32()
         os.environ["ADMIN_UI_2FA_SECRET"] = secret
         response = self.client.get("/", auth=self.auth)
         self.assertEqual(response.status_code, 401)
@@ -430,7 +431,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
     def test_2fa_invalid_code(self):
         """Invalid TOTP code results in 401."""
-        secret = "JBSWY3DPEHPK3PXP"
+        secret = pyotp.random_base32()
         os.environ["ADMIN_UI_2FA_SECRET"] = secret
         headers = {"X-2FA-Code": "000000"}
         response = self.client.get("/", auth=self.auth, headers=headers)
@@ -439,9 +440,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
     def test_webauthn_token_allows_login(self):
         """A valid WebAuthn token satisfies the 2FA requirement."""
-        secret = "JBSWY3DPEHPK3PXP"
+        secret = pyotp.random_base32()
         os.environ["ADMIN_UI_2FA_SECRET"] = secret
-        token = "tok123"
+        token = secrets.token_urlsafe(12)
 
         class MockRedis:
             def __init__(self):
@@ -477,7 +478,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
     def test_webauthn_token_invalid(self):
         """Invalid WebAuthn tokens are rejected."""
-        secret = "JBSWY3DPEHPK3PXP"
+        secret = pyotp.random_base32()
         os.environ["ADMIN_UI_2FA_SECRET"] = secret
 
         class MockRedis:
@@ -682,7 +683,7 @@ class TestAdminUISessions(unittest.TestCase):
             b"testpass", bcrypt.gensalt()
         ).decode()
         os.environ["ADMIN_UI_ROLE"] = "admin"
-        os.environ["ADMIN_UI_2FA_SECRET"] = "JBSWY3DPEHPK3PXP"
+        os.environ["ADMIN_UI_2FA_SECRET"] = pyotp.random_base32()
         self.redis = self._MockRedis()
         self.auth = ("admin", "testpass")
         self.client = TestClient(admin_ui.app)

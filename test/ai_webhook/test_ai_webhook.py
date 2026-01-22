@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
 import unittest
 from importlib import reload
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -19,7 +20,7 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
     def setUp(self):
         """Set up the FastAPI test client and patch dependencies."""
-        self.secret = "test-secret"
+        self.secret = secrets.token_urlsafe(16)
         reload(ai_webhook)
         self.client = TestClient(ai_webhook.app)
         ai_webhook._request_counts.clear()

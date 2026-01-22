@@ -1,6 +1,6 @@
 import io
 import os
-import subprocess
+import subprocess  # nosec B404
 import tarfile
 import tempfile
 import unittest
