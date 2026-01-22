@@ -11,6 +11,14 @@ on:
         options:
           - 'true'
           - 'false'
+      include_dependabot:
+        description: 'Include Dependabot alerts (requires Dependabot alerts enabled)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
   schedule:
     # Run weekly on Sunday at midnight UTC
     - cron: '0 0 * * 0'
@@ -53,10 +61,12 @@ jobs:
 
           # Extract repo name from full repository path (owner/repo)
           REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          INCLUDE_DEPENDABOT="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.include_dependabot || 'true' }}"
 
           python scripts/manage_alerts_issues_prs.py \
             --owner ${{ github.repository_owner }} \
             --repo "$REPO_NAME" \
+            --include-dependabot "$INCLUDE_DEPENDABOT" \
             $DRY_RUN_FLAG
 
       - name: Upload report

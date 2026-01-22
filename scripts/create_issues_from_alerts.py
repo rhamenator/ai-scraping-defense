@@ -53,15 +53,33 @@ except ImportError:
 
 # Configuration constants
 SIGNATURE_SEARCH_WORDS = 3  # Number of words from signature to use in search query
+SECURITY_SEVERITY_ORDER = {
+    "low": 1,
+    "medium": 2,
+    "high": 3,
+    "critical": 4,
+}
 
 
 class IssueCreator:
     """Creates GitHub issues from security scanning alerts."""
 
-    def __init__(self, owner: str, repo: str, token: str, dry_run: bool = False):
+    def __init__(
+        self,
+        owner: str,
+        repo: str,
+        token: str,
+        dry_run: bool = False,
+        min_security_severity: Optional[str] = None,
+    ):
         self.owner = owner
         self.repo = repo
         self.dry_run = dry_run
+        self.min_security_severity = (
+            min_security_severity.lower()
+            if isinstance(min_security_severity, str)
+            else None
+        )
         if Auth is not None:
             self.gh = Github(auth=Auth.Token(token))
         else:
@@ -84,6 +102,16 @@ class IssueCreator:
             "issues_created": 0,
             "issues_skipped_existing": 0,
         }
+
+    def _passes_min_security_severity(self, alert: Dict) -> bool:
+        """Return True if alert meets minimum security severity."""
+        if not self.min_security_severity:
+            return True
+        threshold = SECURITY_SEVERITY_ORDER.get(self.min_security_severity, 0)
+        rule = alert.get("rule", {})
+        level = rule.get("security_severity_level", "")
+        rank = SECURITY_SEVERITY_ORDER.get(str(level).lower(), 0)
+        return rank >= threshold
 
     def log(self, level: str, message: str):
         """Log a message with timestamp."""
@@ -495,9 +523,16 @@ This is a critical security issue that must be addressed immediately.
             return
 
         self.log("INFO", f"Processing {len(alerts)} code scanning alerts...")
+        filtered_alerts = [a for a in alerts if self._passes_min_security_severity(a)]
+        if len(filtered_alerts) != len(alerts):
+            self.log(
+                "INFO",
+                f"Filtered to {len(filtered_alerts)} alerts "
+                f"by min security severity: {self.min_security_severity}",
+            )
 
         # Group alerts
-        grouped = self.group_code_scanning_alerts(alerts)
+        grouped = self.group_code_scanning_alerts(filtered_alerts)
         self.log("INFO", f"Grouped into {len(grouped)} unique alert types")
 
         # Create issues for each group
@@ -507,16 +542,26 @@ This is a critical security issue that must be addressed immediately.
 
             # Determine labels
             first_alert = alert_group[0]
-            severity = first_alert.get("rule", {}).get("severity", "").lower()
+            rule = first_alert.get("rule", {})
+            security_severity = str(rule.get("security_severity_level", "")).lower()
+            severity = str(rule.get("severity", "")).lower()
 
             labels = ["security", "code-scanning"]
 
-            if severity == "error" or severity == "critical":
-                labels.append("priority: high")
-            elif severity == "warning" or severity == "high":
-                labels.append("priority: medium")
+            if security_severity:
+                if security_severity in {"critical", "high"}:
+                    labels.append("priority: high")
+                elif security_severity == "medium":
+                    labels.append("priority: medium")
+                else:
+                    labels.append("priority: low")
             else:
-                labels.append("priority: low")
+                if severity == "error" or severity == "critical":
+                    labels.append("priority: high")
+                elif severity == "warning" or severity == "high":
+                    labels.append("priority: medium")
+                else:
+                    labels.append("priority: low")
 
             # Create the issue
             self.create_github_issue(title, body, labels)
@@ -601,6 +646,11 @@ def main():
         action="store_true",
         help="Run in dry-run mode (no issues will be created)",
     )
+    parser.add_argument(
+        "--min-security-severity",
+        choices=["low", "medium", "high", "critical"],
+        help="Only create issues for alerts at or above this security severity level",
+    )
 
     args = parser.parse_args()
 
@@ -616,7 +666,13 @@ def main():
 
     # Create and run issue creator
     try:
-        creator = IssueCreator(args.owner, args.repo, token, args.dry_run)
+        creator = IssueCreator(
+            args.owner,
+            args.repo,
+            token,
+            args.dry_run,
+            min_security_severity=args.min_security_severity,
+        )
         creator.run()
     except KeyboardInterrupt:
         print("\n\nInterrupted by user")

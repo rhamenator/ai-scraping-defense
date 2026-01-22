@@ -47,12 +47,20 @@ except ImportError:
 class AlertManager:
     """Manages security alerts, issues, and PRs for a GitHub repository."""
 
-    def __init__(self, owner: str, repo: str, token: str, dry_run: bool = False):
+    def __init__(
+        self,
+        owner: str,
+        repo: str,
+        token: str,
+        dry_run: bool = False,
+        include_dependabot: bool = True,
+    ):
         self.owner = owner
         self.repo = repo
         # Don't store the token at all to prevent any possibility of exposure
         # Token is only used immediately in initialization
         self.dry_run = dry_run
+        self.include_dependabot = include_dependabot
         if Auth is not None:
             self.gh = Github(auth=Auth.Token(token))
         else:
@@ -672,7 +680,13 @@ class AlertManager:
         # 1. Fetch and analyze alerts
         code_alerts = self.fetch_code_scanning_alerts()
         secret_alerts = self.fetch_secret_scanning_alerts()
-        dependabot_alerts = self.fetch_dependabot_alerts()
+        dependabot_alerts: List[Dict] = []
+        if self.include_dependabot:
+            dependabot_alerts = self.fetch_dependabot_alerts()
+        else:
+            self.log_action(
+                "INFO", "Dependabot alerts disabled by configuration; skipping"
+            )
 
         # 2. Diagnose error alerts
         if code_alerts:
@@ -760,6 +774,11 @@ def main():
         action="store_true",
         help="Run in dry-run mode (no changes will be made)",
     )
+    parser.add_argument(
+        "--include-dependabot",
+        choices=["true", "false"],
+        help="Whether to include Dependabot alerts (default: true)",
+    )
 
     args = parser.parse_args()
 
@@ -771,10 +790,29 @@ def main():
         )
         sys.exit(1)
 
+    include_dependabot = True
+    if args.include_dependabot is not None:
+        include_dependabot = args.include_dependabot == "true"
+    else:
+        env_value = os.environ.get("INCLUDE_DEPENDABOT_ALERTS")
+        if env_value is not None:
+            include_dependabot = env_value.strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+
     # Create and run manager
     manager = None
     try:
-        manager = AlertManager(args.owner, args.repo, token, args.dry_run)
+        manager = AlertManager(
+            args.owner,
+            args.repo,
+            token,
+            args.dry_run,
+            include_dependabot=include_dependabot,
+        )
         manager.run()
     except KeyboardInterrupt:
         print("\n\nInterrupted by user")
