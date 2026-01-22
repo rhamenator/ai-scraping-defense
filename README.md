@@ -52,6 +52,7 @@ This project provides a multi-layered, microservice-based defense system against
 - Guardrails compare pre/post results (flake8, bandit, eslint, yamllint, shellcheck, hadolint, markdownlint, golangci-lint, tflint/tfsec) and run tests if present. If any metric regresses, the workflow opens an issue and does not enable automerge.
 - PRs are labeled with `autofix` and the category, and automerge is enabled only when guardrails are clean.
 - The legacy `security-autofix.yml` now delegates to the generic autofixer for compatibility.
+- The `security-controls` workflow acts as the security baseline gate. See `docs/SECURITY_BASELINE_GATE.md`.
 
 ## Architecture Overview
 
