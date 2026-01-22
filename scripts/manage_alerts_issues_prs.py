@@ -33,6 +33,11 @@ from typing import Dict, List
 try:
     import requests
     from github import Github
+
+    try:
+        from github import Auth
+    except Exception:  # pragma: no cover - older PyGithub
+        Auth = None
 except ImportError:
     print("ERROR: Required libraries not installed.")
     print("Please run: pip install requests PyGithub")
@@ -48,7 +53,10 @@ class AlertManager:
         # Don't store the token at all to prevent any possibility of exposure
         # Token is only used immediately in initialization
         self.dry_run = dry_run
-        self.gh = Github(token)
+        if Auth is not None:
+            self.gh = Github(auth=Auth.Token(token))
+        else:
+            self.gh = Github(token)
         self.repository = self.gh.get_repo(f"{owner}/{repo}")
         self.session = requests.Session()
         self.session.headers.update(
