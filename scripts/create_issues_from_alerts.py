@@ -95,6 +95,12 @@ class IssueCreator:
         )
         self.base_url = f"https://api.github.com/repos/{owner}/{repo}"
 
+        # Cache open issues once to avoid GitHub Search API abuse limits.
+        self._existing_by_dedupe_key = None
+        self._existing_by_signature = None
+        self._existing_by_code_rule_id = None
+        self._existing_by_secret_type = None
+
         # Track statistics
         self.stats = {
             "code_scanning_alerts": 0,
@@ -117,6 +123,60 @@ class IssueCreator:
         """Log a message with timestamp."""
         timestamp = datetime.now().strftime("%H:%M:%S")
         print(f"[{timestamp}] {level}: {message}")
+
+    @staticmethod
+    def _slug_component(value: str) -> str:
+        """Normalize a string for use in a dedupe key (no spaces)."""
+        value = str(value or "").strip()
+        value = re.sub(r"\s+", "_", value)
+        return value or "unknown"
+
+    def _dedupe_key_for_code_scanning(self, alerts: List[Dict]) -> str:
+        first_alert = alerts[0]
+        rule = first_alert.get("rule", {})
+        rule_id = rule.get("id", "unknown")
+        severity = rule.get("severity", "unknown")
+        tool_name = first_alert.get("tool", {}).get("name", "unknown")
+        tool_slug = self._slug_component(tool_name)
+        return f"code-scanning:{tool_slug}:{rule_id}:{severity}"
+
+    def _dedupe_key_for_secret_scanning(self, alerts: List[Dict]) -> str:
+        first_alert = alerts[0]
+        secret_type = first_alert.get("secret_type", "unknown")
+        return f"secret-scanning:{self._slug_component(secret_type)}"
+
+    def _load_existing_issue_cache(self) -> None:
+        if self._existing_by_dedupe_key is not None:
+            return
+        self.log("INFO", "Loading open issues cache for dedupe...")
+
+        existing_by_dedupe_key = {}
+        existing_by_signature = {}
+        existing_by_code_rule_id = {}
+        existing_by_secret_type = {}
+        marker_re = re.compile(r"alert-group-key:\s*(.+?)\s*(?:-->|$)")
+        rule_id_re = re.compile(r"\*\*Rule ID:\*\*\s*`([^`]+)`")
+        secret_type_re = re.compile(r"\*\*Secret Type:\*\*\s*`([^`]+)`")
+
+        for issue in self.repository.get_issues(state="open"):
+            sig = self.extract_issue_signature(issue.title).lower()
+            existing_by_signature.setdefault(sig, issue)
+            body = issue.body or ""
+            match = marker_re.search(body)
+            if match:
+                key = match.group(1).strip()
+                existing_by_dedupe_key.setdefault(key, issue)
+            match = rule_id_re.search(body)
+            if match:
+                existing_by_code_rule_id.setdefault(match.group(1).strip(), issue)
+            match = secret_type_re.search(body)
+            if match:
+                existing_by_secret_type.setdefault(match.group(1).strip(), issue)
+
+        self._existing_by_dedupe_key = existing_by_dedupe_key
+        self._existing_by_signature = existing_by_signature
+        self._existing_by_code_rule_id = existing_by_code_rule_id
+        self._existing_by_secret_type = existing_by_secret_type
 
     def fetch_code_scanning_alerts(self) -> List[Dict]:
         """Fetch all open code scanning alerts."""
@@ -259,10 +319,19 @@ class IssueCreator:
         severity = rule.get("severity", "unknown").upper()
         tool_name = first_alert.get("tool", {}).get("name", "CodeQL")
 
-        if len(alerts) == 1:
-            return f"[Security] {tool_name}: {rule_name} ({severity})"
+        # Include rule_id to avoid collapsing different rules with similar display names.
+        if str(rule_name).strip() and str(rule_name).strip() != str(rule_id).strip():
+            rule_display = f"{rule_id}: {rule_name}"
         else:
-            return f"[Security] {tool_name}: {rule_name} - {len(alerts)} occurrences ({severity})"
+            rule_display = str(rule_id)
+
+        if len(alerts) == 1:
+            return f"[Security] {tool_name}: {rule_display} ({severity})"
+        else:
+            return (
+                f"[Security] {tool_name}: {rule_display} - "
+                f"{len(alerts)} occurrences ({severity})"
+            )
 
     def create_issue_body_for_code_scanning(self, alerts: List[Dict]) -> str:
         """Generate issue body for code scanning alert group."""
@@ -276,9 +345,12 @@ class IssueCreator:
         severity = rule.get("severity", "unknown")
         security_severity = rule.get("security_severity_level", "N/A")
         help_text = rule.get("help", "")
+        alert_group_key = self._dedupe_key_for_code_scanning(alerts)
 
         # Build the issue body
-        body = f"""## Security Alert: {rule_name}
+        body = f"""<!-- alert-group-key: {alert_group_key} -->
+
+## Security Alert: {rule_name}
 
 **Rule ID:** `{rule_id}`
 **Severity:** {severity.upper()}
@@ -358,8 +430,11 @@ This alert was found in {len(alerts)} location(s):
         first_alert = alerts[0]
         secret_type = first_alert.get("secret_type", "unknown")
         secret_type_display = first_alert.get("secret_type_display_name", secret_type)
+        alert_group_key = self._dedupe_key_for_secret_scanning(alerts)
 
-        body = f"""## Secret Scanning Alert: {secret_type_display}
+        body = f"""<!-- alert-group-key: {alert_group_key} -->
+
+## Secret Scanning Alert: {secret_type_display}
 
 **Secret Type:** `{secret_type}`
 **Number of Locations:** {len(alerts)}
@@ -469,7 +544,9 @@ This is a critical security issue that must be addressed immediately.
         # Clean up and return
         return signature.strip()
 
-    def check_existing_issue(self, title: str) -> Optional[object]:
+    def check_existing_issue(
+        self, title: str, *, dedupe_key: Optional[str] = None
+    ) -> Optional[object]:
         """
         Check if an issue with similar title already exists.
 
@@ -477,24 +554,28 @@ This is a critical security issue that must be addressed immediately.
         titles have different formatting or counts.
         """
         try:
-            # Extract signature for this title
-            signature = self.extract_issue_signature(title)
+            self._load_existing_issue_cache()
 
-            # Search for open issues with any part of the signature
-            # Use the first significant words from the signature
-            search_terms = " ".join(signature.split()[:SIGNATURE_SEARCH_WORDS])
-            query = f"repo:{self.owner}/{self.repo} is:issue is:open {search_terms} in:title"
-            results = self.gh.search_issues(query)
+            if dedupe_key:
+                existing = self._existing_by_dedupe_key.get(dedupe_key)
+                if existing:
+                    return existing
+                if dedupe_key.startswith("code-scanning:"):
+                    # Back-compat: older issues may not have a marker but do include Rule ID.
+                    parts = dedupe_key.split(":", 3)
+                    if len(parts) >= 3:
+                        rule_id = parts[2]
+                        existing = self._existing_by_code_rule_id.get(rule_id)
+                        if existing:
+                            return existing
+                if dedupe_key.startswith("secret-scanning:"):
+                    secret_type = dedupe_key.split(":", 1)[1]
+                    existing = self._existing_by_secret_type.get(secret_type)
+                    if existing:
+                        return existing
 
-            for issue in results:
-                # Extract signature from existing issue
-                existing_signature = self.extract_issue_signature(issue.title)
-
-                # Check if signatures match closely
-                if signature.lower() == existing_signature.lower():
-                    return issue
-
-            return None
+            signature = self.extract_issue_signature(title).lower()
+            return self._existing_by_signature.get(signature)
         except Exception as e:
             self.log(
                 "WARNING",
@@ -502,11 +583,18 @@ This is a critical security issue that must be addressed immediately.
             )
             return None
 
-    def create_github_issue(self, title: str, body: str, labels: List[str]) -> bool:
+    def create_github_issue(
+        self,
+        title: str,
+        body: str,
+        labels: List[str],
+        *,
+        dedupe_key: Optional[str] = None,
+    ) -> bool:
         """Create a GitHub issue."""
         try:
             # Check if similar issue already exists
-            existing = self.check_existing_issue(title)
+            existing = self.check_existing_issue(title, dedupe_key=dedupe_key)
             if existing:
                 self.log("SKIP", f"Issue already exists: #{existing.number}")
                 self.stats["issues_skipped_existing"] += 1
@@ -574,7 +662,12 @@ This is a critical security issue that must be addressed immediately.
                     labels.append("priority: low")
 
             # Create the issue
-            self.create_github_issue(title, body, labels)
+            self.create_github_issue(
+                title,
+                body,
+                labels,
+                dedupe_key=self._dedupe_key_for_code_scanning(alert_group),
+            )
 
     def process_secret_scanning_alerts(self, alerts: List[Dict]):
         """Process secret scanning alerts and create issues."""
@@ -597,7 +690,12 @@ This is a critical security issue that must be addressed immediately.
             labels = ["security", "secret-scanning", "priority: critical"]
 
             # Create the issue
-            self.create_github_issue(title, body, labels)
+            self.create_github_issue(
+                title,
+                body,
+                labels,
+                dedupe_key=self._dedupe_key_for_secret_scanning(alert_group),
+            )
 
     def generate_summary(self):
         """Generate and print a summary of the execution."""
