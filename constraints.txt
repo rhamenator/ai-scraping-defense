@@ -2,4 +2,4 @@
 torch==2.9.0
 torchvision==0.24.1
 torchaudio==2.9.0
-python-multipart==0.0.20
+python-multipart==0.0.22
