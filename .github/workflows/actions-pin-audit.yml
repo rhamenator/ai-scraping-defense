@@ -17,8 +17,8 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
-      - name: Scan workflows for unpinned actions
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+      - name: Scan workflows for pinned + standardized actions
         run: |
           python3 - <<'PY'
           import pathlib
@@ -29,6 +29,18 @@ jobs:
           uses_re = re.compile(r"^\\s*-?\\s*uses:\\s*([^\\s#]+)")
           sha_re = re.compile(r"^[0-9a-fA-F]{40}$")
           issues = []
+          mismatches = []
+
+          # Standardize a small set of common actions so pins are consistent repo-wide.
+          expected_refs = {
+            "actions/checkout": "1af3b93b6815bc44a9784bd300feb67ff0d1eeb3",
+            "actions/setup-python": "a26af69be951a213d495a4c3e4e4022e16d87065",
+            "actions/upload-artifact": "330a01c490aca151604b8cf639adc76d48f6c5d4",
+            "actions/github-script": "ed597411d8f924073f98dfc5c65a23a2325f34cd",
+            "github/codeql-action/init": "ce729e4d353d580e6cacd6a8cf2921b72e5e310a",
+            "github/codeql-action/analyze": "ce729e4d353d580e6cacd6a8cf2921b72e5e310a",
+            "github/codeql-action/upload-sarif": "ce729e4d353d580e6cacd6a8cf2921b72e5e310a",
+          }
 
           for path in sorted(workflow_dir.glob("*.yml")):
             for lineno, line in enumerate(path.read_text().splitlines(), start=1):
@@ -41,14 +53,24 @@ jobs:
               if "@" not in uses:
                 issues.append((path, lineno, uses))
                 continue
-              ref = uses.split("@", 1)[1]
+              action, ref = uses.split("@", 1)
               if not sha_re.fullmatch(ref):
                 issues.append((path, lineno, uses))
+                continue
+              expected = expected_refs.get(action)
+              if expected and ref != expected:
+                mismatches.append((path, lineno, uses, expected))
 
           if issues:
             print("Unpinned GitHub Actions references found:")
             for path, lineno, uses in issues:
               print(f"- {path}:{lineno}: {uses}")
+            sys.exit(1)
+
+          if mismatches:
+            print("Non-standard GitHub Actions pins found:")
+            for path, lineno, uses, expected in mismatches:
+              print(f"- {path}:{lineno}: {uses} (expected @{expected})")
             sys.exit(1)
 
           print("All GitHub Actions references are pinned to SHAs.")
