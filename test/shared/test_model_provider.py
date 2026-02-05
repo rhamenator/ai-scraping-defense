@@ -51,7 +51,9 @@ class TestGetModelAdapter(unittest.TestCase):
             {"MODEL_URI": "sklearn:///model.joblib"},
         ), patch.dict(
             model_provider.ADAPTER_MAP, {"sklearn": FlakyAdapter}, clear=True
-        ), patch("time.sleep") as mock_sleep:
+        ), patch(
+            "time.sleep"
+        ) as mock_sleep:
             adapter = model_provider.get_model_adapter(retries=3, delay=0)
             self.assertIsInstance(adapter, FlakyAdapter)
             self.assertEqual(FlakyAdapter.attempts, 3)
@@ -63,7 +65,9 @@ class TestGetModelAdapter(unittest.TestCase):
             {"MODEL_URI": "sklearn:///model.joblib"},
         ), patch.dict(
             model_provider.ADAPTER_MAP, {"sklearn": AlwaysFailAdapter}, clear=True
-        ), patch("time.sleep") as mock_sleep:
+        ), patch(
+            "time.sleep"
+        ) as mock_sleep:
             adapter = model_provider.get_model_adapter(retries=2, delay=0)
             self.assertIsNone(adapter)
             self.assertEqual(mock_sleep.call_count, 1)
@@ -77,9 +81,7 @@ class TestGetModelAdapter(unittest.TestCase):
         with patch.dict(
             os.environ,
             {"MODEL_URI": "mcp://insights/deep-scan"},
-        ), patch.dict(
-            model_provider.ADAPTER_MAP, {"mcp": CaptureAdapter}, clear=True
-        ):
+        ), patch.dict(model_provider.ADAPTER_MAP, {"mcp": CaptureAdapter}, clear=True):
             adapter = model_provider.get_model_adapter()
             self.assertIsInstance(adapter, CaptureAdapter)
             self.assertEqual(adapter.uri, "mcp://insights/deep-scan")

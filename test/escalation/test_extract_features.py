@@ -1,6 +1,6 @@
+import datetime
 import unittest
 from unittest.mock import patch
-import datetime
 
 from src.escalation import escalation_engine as ee
 

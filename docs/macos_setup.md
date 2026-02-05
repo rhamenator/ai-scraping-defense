@@ -50,4 +50,3 @@ The script runs Trivy, Gitleaks, and Grype scans and stores reports in the `secu
 
 ## Updating Dependencies
 Re-run `./reset_venv.zsh` whenever Python dependencies change. To update security tools, run `./security_setup.zsh` again.
-

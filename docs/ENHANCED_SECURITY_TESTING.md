@@ -27,7 +27,7 @@ All security testing scripts are available for multiple platforms:
 
 ### 1. LLM Prompt Injection Testing 🆕
 
-**Scripts**: 
+**Scripts**:
 - Linux: `scripts/linux/llm_prompt_injection_test.sh`
 - Windows: `scripts/windows/llm_prompt_injection_test.ps1`
 - macOS: `scripts/macos/llm_prompt_injection_test.zsh`
@@ -399,7 +399,7 @@ For questions or issues:
 
 ---
 
-**Enhancement Version**: 2.0  
-**Test Coverage**: 48/48 passing ✅  
-**Security Categories**: 17 (+55%)  
+**Enhancement Version**: 2.0
+**Test Coverage**: 48/48 passing ✅
+**Security Categories**: 17 (+55%)
 **Total Tools**: 35 (+40%)

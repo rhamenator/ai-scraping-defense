@@ -13,11 +13,11 @@ Your repository has:
 
 ## What This System Does
 
-✅ **Finds Duplicates** - Smart content-based detection  
-✅ **Consolidates Items** - Keeps one, closes rest with notes  
-✅ **Diagnoses Errors** - Identifies issues and suggests fixes  
-✅ **Generates Reports** - Complete audit trail of actions  
-✅ **Safe by Default** - Dry-run mode to preview changes  
+✅ **Finds Duplicates** - Smart content-based detection
+✅ **Consolidates Items** - Keeps one, closes rest with notes
+✅ **Diagnoses Errors** - Identifies issues and suggests fixes
+✅ **Generates Reports** - Complete audit trail of actions
+✅ **Safe by Default** - Dry-run mode to preview changes
 
 ## Quick Start (3 Steps)
 
@@ -33,7 +33,7 @@ Create a GitHub token at: https://github.com/settings/tokens/new
 
 Check these boxes:
 - ☑ repo
-- ☑ security_events  
+- ☑ security_events
 - ☑ admin:org
 
 Then:
@@ -68,7 +68,7 @@ Review the output. If you like what you see:
 ╚═══════════════════════════════════════════════════════════╝
 
 ✓ Python 3 found
-✓ Required packages found  
+✓ Required packages found
 ✓ GitHub token found
 
 Configuration:
@@ -98,7 +98,7 @@ STATISTICS:
 ## What Makes It Smart?
 
 ### Not Just File-Based
-❌ **Wrong**: "Same file path = duplicate"  
+❌ **Wrong**: "Same file path = duplicate"
 ✅ **Right**: "Same problem type + 80% similar content = duplicate"
 
 ### Example
@@ -116,11 +116,11 @@ Alert #2: "B110: try_except_pass"
 
 ## Safety Features
 
-🛡️ **Dry-Run Mode** - Test without making changes  
-🛡️ **Detailed Logging** - See exactly what will happen  
-🛡️ **Comprehensive Reports** - Full audit trail  
-🛡️ **Superseding Notes** - All closures reference primary item  
-🛡️ **Graceful Errors** - Handles API failures without crashing  
+🛡️ **Dry-Run Mode** - Test without making changes
+🛡️ **Detailed Logging** - See exactly what will happen
+🛡️ **Comprehensive Reports** - Full audit trail
+🛡️ **Superseding Notes** - All closures reference primary item
+🛡️ **Graceful Errors** - Handles API failures without crashing
 
 ## Documentation Map
 

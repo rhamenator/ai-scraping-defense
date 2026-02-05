@@ -47,7 +47,7 @@ graph TD
     subgraph "Defense System"
         direction TB
         Nginx["🛡️ Nginx Proxy w/ Lua"]
-        
+
         subgraph "Analysis & Logic (Python Microservices)"
             direction LR
             AIService["AI Service Webhook"]
@@ -70,7 +70,7 @@ graph TD
             Postgres["🐘 PostgreSQL\n(Markov Data)"]
         end
     end
-    
+
     subgraph "External Services"
         LLM["☁️ LLM APIs\n(OpenAI, Mistral, etc.)"]
         CommunityBlocklist["☁️ Community Blocklist"]

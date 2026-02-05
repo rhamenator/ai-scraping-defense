@@ -1,6 +1,10 @@
 import unittest
 
-from src.security.sequence_anomaly import MarkovModel, SequenceAnomalyDetector, train_markov_model
+from src.security.sequence_anomaly import (
+    MarkovModel,
+    SequenceAnomalyDetector,
+    train_markov_model,
+)
 
 
 class TestSequenceAnomalyDetector(unittest.TestCase):

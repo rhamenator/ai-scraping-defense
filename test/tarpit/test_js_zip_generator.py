@@ -1,12 +1,12 @@
 # test/tarpit/js_zip_generator.test.py
-import unittest
-from unittest.mock import patch
-import os
-import zipfile
-import tempfile
-import shutil
-import random
 import logging
+import os
+import random
+import shutil
+import tempfile
+import unittest
+import zipfile
+from unittest.mock import patch
 
 from src.tarpit import js_zip_generator
 
@@ -79,7 +79,7 @@ class TestJsZipGeneratorComprehensive(unittest.TestCase):
         self.assertIsNotNone(zip_path)
         with zipfile.ZipFile(zip_path, "r") as zf:
             names = zf.namelist()
-            self.assertTrue(any(name.endswith('.zip') for name in names))
+            self.assertTrue(any(name.endswith(".zip") for name in names))
 
     @patch("zipfile.ZipFile", side_effect=IOError("Disk full or permissions error"))
     def test_create_fake_js_zip_handles_zip_exception(self, mock_zipfile):

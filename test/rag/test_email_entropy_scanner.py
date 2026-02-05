@@ -1,8 +1,8 @@
 # test/rag/email_entropy_scanner.test.py
-import unittest
 import math  # For math.log2 in direct entropy calculation for verification if needed
-from unittest.mock import patch, MagicMock
 import sys
+import unittest
+from unittest.mock import MagicMock, patch
 
 sys.modules.setdefault("markov_train_rs", MagicMock())
 
@@ -11,9 +11,9 @@ sys.modules.setdefault("markov_train_rs", MagicMock())
 from rag import email_entropy_scanner  # Import the module itself
 from rag.email_entropy_scanner import (
     calculate_entropy,
-    is_suspicious_username,
     is_disposable_domain,
     is_suspicious_email,
+    is_suspicious_username,
 )
 
 

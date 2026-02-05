@@ -22,19 +22,19 @@ find ./test -type f -name "*.test.py" -print0 | while IFS= read -r -d '' old_pat
     dir=$(dirname "$old_path")
     # Get just the filename (e.g., admin_ui.test.py)
     filename=$(basename "$old_path")
-    
+
     # Remove the '.test.py' suffix to get the base module name (e.g., admin_ui)
     module_name=${filename%.test.py}
-    
+
     # Prepend 'test_' and add back the .py extension (e.g., test_admin_ui.py)
     new_filename="test_${module_name}.py"
-    
+
     # Construct the full new path
     new_path="$dir/$new_filename"
-    
+
     # Rename the file
     mv "$old_path" "$new_path"
-    
+
     echo "Renamed: $old_path -> $new_path"
 done
 

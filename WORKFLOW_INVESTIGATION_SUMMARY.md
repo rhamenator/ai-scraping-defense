@@ -58,7 +58,7 @@ with:
 
 **Impact**: This was likely the primary cause of failures when running the master problem detection workflow, which orchestrates multiple category-specific audit workflows.
 
-**Files Modified**: 
+**Files Modified**:
 - `.github/workflows/master-problem-detection.yml`
 - `.github/workflows/comprehensive-operations-audit.yml`
 - `.github/workflows/comprehensive-performance-audit.yml`

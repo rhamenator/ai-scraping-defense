@@ -31,6 +31,7 @@ async def _captcha_health() -> HealthCheckResult:
         return HealthCheckResult.unhealthy({"reason": "captcha secret missing"})
     return HealthCheckResult.healthy({"token_expiry": TOKEN_EXPIRY})
 
+
 logger = logging.getLogger(__name__)
 
 

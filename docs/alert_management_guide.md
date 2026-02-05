@@ -48,7 +48,7 @@ When duplicates are found:
 
 Example closure note:
 ```
-Closing as duplicate. This issue is superseded by #123 which consolidates 
+Closing as duplicate. This issue is superseded by #123 which consolidates
 all related concerns across the following files: file1.py, file2.py, file3.py
 ```
 
@@ -113,7 +113,7 @@ This will:
 - Closes: duplicate alerts with `dismissed` state
 - Note: References primary alert and lists all affected files
 
-#### Secret Scanning Alerts  
+#### Secret Scanning Alerts
 - Groups by: secret type, pattern
 - Consolidates: alerts differing only in file locations
 - Closes: duplicate alerts with `resolved` state
@@ -300,7 +300,7 @@ jobs:
 
 **Solution**: This is informational, not an error. It means:
 - Code scanning not enabled → Enable in repository settings
-- Secret scanning not enabled → Enable in repository settings  
+- Secret scanning not enabled → Enable in repository settings
 - Dependabot not enabled → Enable in repository settings
 
 ### Module Not Found
@@ -334,22 +334,22 @@ pip install requests PyGithub
 
 ## FAQs
 
-**Q: Will this delete my alerts/issues/PRs?**  
+**Q: Will this delete my alerts/issues/PRs?**
 A: No. It closes them with appropriate states and adds references to the primary item.
 
-**Q: Can I undo the changes?**  
+**Q: Can I undo the changes?**
 A: Yes. Closed items can be reopened manually. Comments explaining consolidation remain.
 
-**Q: How often should I run this?**  
+**Q: How often should I run this?**
 A: Weekly for active repos, or after security scans. Start with dry-run monthly.
 
-**Q: What if I disagree with a consolidation?**  
+**Q: What if I disagree with a consolidation?**
 A: Reopen the closed item and it won't be re-consolidated unless it matches again.
 
-**Q: Does this work with private repositories?**  
+**Q: Does this work with private repositories?**
 A: Yes, with a token that has access to private repos (`repo` scope).
 
-**Q: Can this run in CI/CD?**  
+**Q: Can this run in CI/CD?**
 A: Yes! See the GitHub Actions integration section above.
 
 ## Support

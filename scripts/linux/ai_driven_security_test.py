@@ -74,11 +74,14 @@ Provide a concise, actionable security analysis."""
         response = client.chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=[
-                {"role": "system", "content": "You are a cybersecurity expert analyzing vulnerability scan results."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": "You are a cybersecurity expert analyzing vulnerability scan results.",
+                },
+                {"role": "user", "content": prompt},
             ],
             max_tokens=2000,
-            temperature=0.3
+            temperature=0.3,
         )
 
         return response.choices[0].message.content
@@ -116,9 +119,7 @@ Focus on actionable insights."""
             model="claude-3-sonnet-20240229",
             max_tokens=2000,
             temperature=0.3,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
+            messages=[{"role": "user", "content": prompt}],
         )
 
         return response.content[0].text
@@ -192,26 +193,24 @@ def generate_correlation_analysis(results: Dict[str, str]) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="AI-Driven Security Test Analysis"
-    )
+    parser = argparse.ArgumentParser(description="AI-Driven Security Test Analysis")
     parser.add_argument(
         "--reports-dir",
         type=str,
         default="reports",
-        help="Directory containing security scan reports"
+        help="Directory containing security scan reports",
     )
     parser.add_argument(
         "--provider",
         choices=["openai", "anthropic", "local"],
         default="local",
-        help="AI provider to use for analysis"
+        help="AI provider to use for analysis",
     )
     parser.add_argument(
         "--output",
         type=str,
         default="reports/ai_analysis.txt",
-        help="Output file for AI analysis"
+        help="Output file for AI analysis",
     )
 
     args = parser.parse_args()
@@ -259,9 +258,9 @@ def main():
     output_file.write_text(analysis)
 
     print(f"\nAnalysis saved to: {output_file}")
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print(analysis)
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":

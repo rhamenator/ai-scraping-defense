@@ -57,21 +57,21 @@ print_error() {
 # Check prerequisites
 check_prerequisites() {
     print_info "Checking prerequisites..."
-    
+
     # Check Python
     if ! command -v python3 &> /dev/null; then
         print_error "Python 3 not found. Please install Python 3."
         exit 1
     fi
     print_success "Python 3 found: $(python3 --version)"
-    
+
     # Check pip
     if ! command -v pip3 &> /dev/null; then
         print_error "pip3 not found. Please install pip."
         exit 1
     fi
     print_success "pip3 found"
-    
+
     # Check required packages
     # Note: PyGithub package is imported as 'github' in Python
     local packages_ok=true
@@ -81,14 +81,14 @@ check_prerequisites() {
     if ! python3 -c "from github import Github" 2>/dev/null; then
         packages_ok=false
     fi
-    
+
     if [ "$packages_ok" = false ]; then
         print_warning "Required Python packages not found"
         print_info "Installing required packages..."
         pip3 install requests PyGithub
     fi
     print_success "Required packages found"
-    
+
     # Check GitHub token
     if [[ -z "${GITHUB_TOKEN:-}" ]]; then
         print_error "GITHUB_TOKEN environment variable not set"
@@ -101,14 +101,14 @@ check_prerequisites() {
         exit 1
     fi
     print_success "GitHub token found"
-    
+
     # Check script exists
     if [[ ! -f "$SCRIPT_PATH" ]]; then
         print_error "Script not found: $SCRIPT_PATH"
         exit 1
     fi
     print_success "Script found"
-    
+
     echo ""
 }
 
@@ -142,18 +142,18 @@ confirm_live_mode() {
 run_script() {
     print_info "Starting issue creation from security alerts..."
     echo ""
-    
+
     python3 "$SCRIPT_PATH" \
         --owner "$OWNER" \
         --repo "$REPO" \
         $DRY_RUN
-    
+
     local exit_code=$?
     echo ""
-    
+
     if [[ $exit_code -eq 0 ]]; then
         print_success "Script completed successfully"
-        
+
         if [[ -n "$DRY_RUN" ]]; then
             echo ""
             print_info "This was a dry-run. No issues were created."

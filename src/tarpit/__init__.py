@@ -1,11 +1,11 @@
 from . import (
+    bad_api_generator,
     ip_flagger,
     js_zip_generator,
     markov_generator,
-    rotating_archive,
     obfuscation,
+    rotating_archive,
     tarpit_api,
-    bad_api_generator,
 )
 
 try:

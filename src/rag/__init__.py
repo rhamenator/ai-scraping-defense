@@ -1,5 +1,6 @@
-from . import training, finetune, email_entropy_scanner
 import markov_train_rs
+
+from . import email_entropy_scanner, finetune, training
 
 __all__ = [
     "training",

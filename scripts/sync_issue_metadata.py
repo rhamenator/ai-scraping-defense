@@ -65,17 +65,27 @@ AUTOMATION_LABEL_DESCRIPTION = "Issue generated from problem_file_map automation
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--json", type=Path, default=DEFAULT_JSON, help="Path to problem_file_map.json")
-    parser.add_argument("--owner", type=str, default=None, help="GitHub repository owner")
+    parser.add_argument(
+        "--json", type=Path, default=DEFAULT_JSON, help="Path to problem_file_map.json"
+    )
+    parser.add_argument(
+        "--owner", type=str, default=None, help="GitHub repository owner"
+    )
     parser.add_argument("--repo", type=str, default=None, help="GitHub repository name")
-    parser.add_argument("--token", type=str, default=os.environ.get("GITHUB_TOKEN"), help="GitHub token")
-    parser.add_argument("--dry-run", action="store_true", help="Log actions without applying changes")
+    parser.add_argument(
+        "--token", type=str, default=os.environ.get("GITHUB_TOKEN"), help="GitHub token"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Log actions without applying changes"
+    )
     parser.add_argument(
         "--create-missing",
         action="store_true",
         help="Create GitHub issues for problem entries without a matching issue.",
     )
-    parser.add_argument("--log-level", default="INFO", help="Logging level (default: INFO)")
+    parser.add_argument(
+        "--log-level", default="INFO", help="Logging level (default: INFO)"
+    )
     return parser.parse_args()
 
 
@@ -92,10 +102,12 @@ class GitHubClient:
         self.owner = owner
         self.repo = repo
         self.session = requests.Session()
-        self.session.headers.update({
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "problem-map-sync",
-        })
+        self.session.headers.update(
+            {
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "problem-map-sync",
+            }
+        )
         if token:
             self.session.headers["Authorization"] = f"Bearer {token}"
         self._label_cache: Dict[str, dict] = {}
@@ -110,7 +122,9 @@ class GitHubClient:
         page = 1
         while True:
             params = {"state": "all", "per_page": 100, "page": page}
-            response = self.session.get(self._url("issues"), params=params, timeout=REQUEST_TIMEOUT)
+            response = self.session.get(
+                self._url("issues"), params=params, timeout=REQUEST_TIMEOUT
+            )
             if response.status_code == 401:
                 raise RuntimeError("GitHub authentication failed when listing issues.")
             response.raise_for_status()
@@ -125,7 +139,11 @@ class GitHubClient:
                     number=issue["number"],
                     title=title,
                     labels={label["name"] for label in issue.get("labels", [])},
-                    milestone_number=issue.get("milestone", {}).get("number") if issue.get("milestone") else None,
+                    milestone_number=(
+                        issue.get("milestone", {}).get("number")
+                        if issue.get("milestone")
+                        else None
+                    ),
                 )
                 if title in issues_by_title:
                     LOG.warning(
@@ -148,7 +166,9 @@ class GitHubClient:
         labels: Dict[str, dict] = {}
         while True:
             params = {"per_page": 100, "page": page}
-            response = self.session.get(self._url("labels"), params=params, timeout=REQUEST_TIMEOUT)
+            response = self.session.get(
+                self._url("labels"), params=params, timeout=REQUEST_TIMEOUT
+            )
             response.raise_for_status()
             payload = response.json()
             if not payload:
@@ -163,7 +183,9 @@ class GitHubClient:
         return labels
 
     # -----------------------------------------------------------
-    def ensure_label(self, name: str, color: str, description: Optional[str], dry_run: bool = False) -> None:
+    def ensure_label(
+        self, name: str, color: str, description: Optional[str], dry_run: bool = False
+    ) -> None:
         labels = self.fetch_labels()
         if name in labels:
             return
@@ -171,7 +193,9 @@ class GitHubClient:
             LOG.info("[dry-run] Would create label '%s'.", name)
             return
         payload = {"name": name, "color": color, "description": description or ""}
-        response = self.session.post(self._url("labels"), json=payload, timeout=REQUEST_TIMEOUT)
+        response = self.session.post(
+            self._url("labels"), json=payload, timeout=REQUEST_TIMEOUT
+        )
         if response.status_code == 422:
             # Label already exists (race). Refresh cache and move on.
             self._label_cache = {}
@@ -185,11 +209,15 @@ class GitHubClient:
         LOG.info("Created label '%s'.", name)
 
     # -----------------------------------------------------------
-    def update_issue(self, issue_number: int, labels: Iterable[str], milestone: Optional[int]) -> None:
+    def update_issue(
+        self, issue_number: int, labels: Iterable[str], milestone: Optional[int]
+    ) -> None:
         payload = {"labels": sorted(labels)}
         if milestone is not None:
             payload["milestone"] = milestone
-        response = self.session.patch(self._url(f"issues/{issue_number}"), json=payload, timeout=REQUEST_TIMEOUT)
+        response = self.session.patch(
+            self._url(f"issues/{issue_number}"), json=payload, timeout=REQUEST_TIMEOUT
+        )
         response.raise_for_status()
 
     # -----------------------------------------------------------
@@ -202,7 +230,12 @@ class GitHubClient:
         dry_run: bool = False,
     ) -> Optional[IssueRecord]:
         if dry_run:
-            LOG.info("[dry-run] Would create issue '%s' with labels %s and milestone %s.", title, sorted(labels), milestone)
+            LOG.info(
+                "[dry-run] Would create issue '%s' with labels %s and milestone %s.",
+                title,
+                sorted(labels),
+                milestone,
+            )
             return None
 
         payload = {
@@ -213,7 +246,9 @@ class GitHubClient:
         if milestone is not None:
             payload["milestone"] = milestone
 
-        response = self.session.post(self._url("issues"), json=payload, timeout=REQUEST_TIMEOUT)
+        response = self.session.post(
+            self._url("issues"), json=payload, timeout=REQUEST_TIMEOUT
+        )
         response.raise_for_status()
         data = response.json()
         LOG.info("Created issue #%s for '%s'.", data["number"], title)
@@ -266,7 +301,10 @@ def build_issue_body(title: str, record: Dict[str, object]) -> str:
 
 def main() -> int:
     args = parse_args()
-    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO), format="%(message)s")
+    logging.basicConfig(
+        level=getattr(logging, args.log_level.upper(), logging.INFO),
+        format="%(message)s",
+    )
 
     if not args.token:
         LOG.error("GITHUB_TOKEN is required for GitHub API access.")
@@ -300,7 +338,11 @@ def main() -> int:
             try:
                 milestone_number = int(milestone_number)
             except (TypeError, ValueError):
-                LOG.warning("Milestone number for '%s' is not an integer: %s", title, milestone_number)
+                LOG.warning(
+                    "Milestone number for '%s' is not an integer: %s",
+                    title,
+                    milestone_number,
+                )
                 milestone_number = None
 
         desired_labels = set(issue.labels) if issue else set()
@@ -316,8 +358,12 @@ def main() -> int:
         if severity:
             severity_label = f"{LABEL_PREFIX_SEVERITY}{severity}"
             color = SEVERITY_LABEL_COLOR.get(severity, "bdbdbd")
-            description = SEVERITY_LABEL_DESCRIPTIONS.get(severity, "Severity label assigned from problem map.")
-            client.ensure_label(severity_label, color, description, dry_run=args.dry_run)
+            description = SEVERITY_LABEL_DESCRIPTIONS.get(
+                severity, "Severity label assigned from problem map."
+            )
+            client.ensure_label(
+                severity_label, color, description, dry_run=args.dry_run
+            )
             desired_labels.add(severity_label)
 
         if not issue:
@@ -336,7 +382,9 @@ def main() -> int:
 
             body = build_issue_body(title, record)
             LOG.info("Creating issue for '%s'.", title)
-            created = client.create_issue(title, body, desired_labels, milestone_number, dry_run=args.dry_run)
+            created = client.create_issue(
+                title, body, desired_labels, milestone_number, dry_run=args.dry_run
+            )
             if created is None:
                 missing_issues += 1
                 continue
@@ -347,7 +395,10 @@ def main() -> int:
                 time.sleep(RATE_LIMIT_SLEEP)
             continue
 
-        if desired_labels == issue.labels and milestone_number == issue.milestone_number:
+        if (
+            desired_labels == issue.labels
+            and milestone_number == issue.milestone_number
+        ):
             continue
 
         updates += 1
@@ -371,7 +422,12 @@ def main() -> int:
         except requests.HTTPError as exc:
             LOG.error("Failed to update issue #%s: %s", issue.number, exc)
 
-    LOG.info("Processed %d problems; %d issues updated, %d without matching GitHub issues.", len(problems), updates, missing_issues)
+    LOG.info(
+        "Processed %d problems; %d issues updated, %d without matching GitHub issues.",
+        len(problems),
+        updates,
+        missing_issues,
+    )
     if args.dry_run:
         LOG.info("Dry run mode; no GitHub issues were modified.")
     return 0

@@ -9,7 +9,7 @@ Systematically investigated all failing CI/CD workflows and fixed critical issue
 ## Workflows Mentioned as Failing
 1. CI Tests (all of them) - tests-linux, tests-windows, tests-macos
 2. CodeQL Advanced workflows
-3. Security controls/python-security  
+3. Security controls/python-security
 4. Tests/build
 5. Codacy Security Scan
 6. Code scanning results/CodeQL
@@ -71,7 +71,7 @@ imagePullSecrets: {{ toYaml . | nindent 6 }}
 
 #### markov-train-rs
 - **Problem**: Invalid regex `(?<!\w)['\-](?!\w)` uses look-behind not supported by Rust
-- **Fix**: 
+- **Fix**:
   - Removed `re1` regex entirely
   - Updated `tokenize_text()` signature from 4 to 3 parameters
   - Updated tests to match

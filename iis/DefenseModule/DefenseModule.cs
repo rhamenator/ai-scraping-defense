@@ -68,7 +68,7 @@ namespace AntiScrape.IIS
             {
                 await EscalateAsync(ip, "MissingUA");
             }
-            
+
             else if (ctx.Request.UserAgent.Contains("curl") || ctx.Request.UserAgent.Contains("wget"))
             {
                 await EscalateAsync(ip, "BadUA");

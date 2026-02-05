@@ -18,13 +18,13 @@ class TestOperationsToolkit(unittest.TestCase):
                 kube_context="test-context",
                 execute=False,
             )
-            
+
             with patch("scripts.operations_toolkit.run_command") as mock_run:
                 mock_run.return_value = operations_toolkit.CommandResult(
                     command=[], returncode=0, stdout="", stderr=""
                 )
                 result_path = operations_toolkit.backup(args)
-                
+
                 # Verify the returned path is under the destination
                 self.assertTrue(str(result_path).startswith(tmp))
                 # Verify the path includes a timestamp subdirectory
@@ -45,29 +45,29 @@ class TestOperationsToolkit(unittest.TestCase):
                 redis_host="localhost",
                 execute=False,
             )
-            
+
             with patch("scripts.operations_toolkit.run_command") as mock_run:
                 mock_run.return_value = operations_toolkit.CommandResult(
                     command=[], returncode=0, stdout="", stderr=""
                 )
-                
+
                 with patch("scripts.operations_toolkit.restore") as mock_restore:
                     operations_toolkit.disaster_recovery_drill(args)
-                    
+
                     # Verify restore was called
                     self.assertEqual(mock_restore.call_count, 1)
-                    
+
                     # Get the arguments passed to restore
                     restore_args = mock_restore.call_args[0][0]
-                    
+
                     # Verify the source path is a timestamped subdirectory, not the parent
                     self.assertTrue(restore_args.source.startswith(tmp))
                     self.assertNotEqual(restore_args.source, tmp)
-                    
+
                     # Verify required redis parameters are present
                     self.assertEqual(restore_args.redis_data_dir, "/var/lib/redis")
                     self.assertEqual(restore_args.redis_host, "localhost")
-                    
+
                     # Verify other parameters are passed correctly
                     self.assertEqual(restore_args.postgres_url, "postgres://test")
                     self.assertEqual(restore_args.redis_url, "redis://test")
@@ -86,26 +86,34 @@ class TestOperationsToolkit(unittest.TestCase):
                 redis_host="localhost",
                 execute=False,
             )
-            
+
             with patch("scripts.operations_toolkit.run_command") as mock_run:
                 mock_run.return_value = operations_toolkit.CommandResult(
                     command=[], returncode=0, stdout="", stderr=""
                 )
-                
+
                 with patch("scripts.operations_toolkit.restore") as mock_restore:
                     operations_toolkit.disaster_recovery_drill(args)
-                    
+
                     # Get the arguments passed to restore
                     restore_args = mock_restore.call_args[0][0]
-                    
+
                     # Get all attribute names from the Namespace
                     attrs = vars(restore_args)
-                    
+
                     # Verify each required attribute exists exactly once
-                    required_attrs = ["source", "postgres_url", "redis_url", 
-                                      "redis_data_dir", "redis_host", "execute"]
+                    required_attrs = [
+                        "source",
+                        "postgres_url",
+                        "redis_url",
+                        "redis_data_dir",
+                        "redis_host",
+                        "execute",
+                    ]
                     for attr in required_attrs:
-                        self.assertIn(attr, attrs, f"Missing required attribute: {attr}")
+                        self.assertIn(
+                            attr, attrs, f"Missing required attribute: {attr}"
+                        )
 
 
 if __name__ == "__main__":

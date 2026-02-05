@@ -120,39 +120,67 @@ FEATURE_KEYWORDS = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT, help="Path to problem_file_map.json")
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Destination JSON file")
+    parser.add_argument(
+        "--input",
+        type=Path,
+        default=DEFAULT_INPUT,
+        help="Path to problem_file_map.json",
+    )
+    parser.add_argument(
+        "--output", type=Path, default=DEFAULT_OUTPUT, help="Destination JSON file"
+    )
     return parser.parse_args()
 
 
-def choose_milestone(record: Dict[str, object], text_blob: str, severity: str) -> Tuple[str, str]:
+def choose_milestone(
+    record: Dict[str, object], text_blob: str, severity: str
+) -> Tuple[str, str]:
     category = str(record.get("category") or "").strip()
 
-    if category.lower() == "security" or any(term in text_blob for term in SECURITY_KEYWORDS):
+    if category.lower() == "security" or any(
+        term in text_blob for term in SECURITY_KEYWORDS
+    ):
         return "Security Testing", "Security-focused issue routed to Security Testing."
 
     if any(term in text_blob for term in LOCAL_STABILITY_KEYWORDS):
         return "Local Stability", "Affects local startup or environment stability."
 
     if any(term in text_blob for term in NETWORK_KEYWORDS):
-        return "Local Network Deployment", "Network exposure or LAN configuration matter."
+        return (
+            "Local Network Deployment",
+            "Network exposure or LAN configuration matter.",
+        )
 
     if any(term in text_blob for term in DEPLOYMENT_KEYWORDS):
-        return "Deployment Readiness", "Packaging or deployment configuration referenced."
+        return (
+            "Deployment Readiness",
+            "Packaging or deployment configuration referenced.",
+        )
 
     if any(term in text_blob for term in CLOUD_KEYWORDS):
         return "Cloud Test", "Cloud validation or AWS context detected."
 
     if category in {"Operations", "Compliance", "Performance"}:
-        return "Production Readiness", f"{category} improvements align with production hardening."
+        return (
+            "Production Readiness",
+            f"{category} improvements align with production hardening.",
+        )
 
     if any(term in text_blob for term in PRODUCTION_KEYWORDS):
-        return "Production Readiness", "Scaling, monitoring, or production hardening keywords present."
+        return (
+            "Production Readiness",
+            "Scaling, monitoring, or production hardening keywords present.",
+        )
 
     if category == "Architecture":
-        return "Production Readiness", "Architecture change supporting production readiness."
+        return (
+            "Production Readiness",
+            "Architecture change supporting production readiness.",
+        )
 
-    if category == "Code Quality" or any(term in text_blob for term in FEATURE_KEYWORDS):
+    if category == "Code Quality" or any(
+        term in text_blob for term in FEATURE_KEYWORDS
+    ):
         return "Feature Enhancements", "Code quality or enhancement oriented work."
 
     return "Untriaged", "No rule matched; requires manual triage."
@@ -199,16 +227,24 @@ def main() -> int:
                 "milestone": milestone,
                 "priority": severity,
                 "reason": reason,
-                "confidence": confidence if isinstance(confidence, (int, float)) else None,
+                "confidence": (
+                    confidence if isinstance(confidence, (int, float)) else None
+                ),
             }
         )
 
     milestone_rank = {name: index for index, name in enumerate(MILESTONE_SEQUENCE)}
 
     def sort_key(entry: Dict[str, object]) -> Tuple[int, int, float]:
-        milestone_index = milestone_rank.get(entry["milestone"], len(MILESTONE_SEQUENCE))
+        milestone_index = milestone_rank.get(
+            entry["milestone"], len(MILESTONE_SEQUENCE)
+        )
         priority_index = PRIORITY_ORDER.get(entry["priority"], 1)
-        confidence_value = entry["confidence"] if isinstance(entry["confidence"], (int, float)) else -1.0
+        confidence_value = (
+            entry["confidence"]
+            if isinstance(entry["confidence"], (int, float))
+            else -1.0
+        )
         return milestone_index, priority_index, -confidence_value
 
     assignments.sort(key=sort_key)

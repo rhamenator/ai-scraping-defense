@@ -1,7 +1,7 @@
 # test/run_all_tests.py
-import unittest
 import os
 import sys
+import unittest
 
 try:
     import coverage
