@@ -43,6 +43,7 @@ jobs:
           tags: ${{ matrix.image.name }}:scan
           load: true
       - name: Scan image with Trivy (SARIF)
+        id: trivy_sarif
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
         with:
           image-ref: ${{ matrix.image.name }}:scan
@@ -50,9 +51,18 @@ jobs:
           output: trivy-${{ matrix.image.name }}.sarif
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+      - name: Check SARIF Exists
+        id: sarif_exists
+        if: always()
+        run: |
+          if test -f "trivy-${{ matrix.image.name }}.sarif"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Upload Trivy results
         uses: github/codeql-action/upload-sarif@ce729e4d353d580e6cacd6a8cf2921b72e5e310a
-        if: always()
+        if: always() && steps.sarif_exists.outputs.exists == 'true'
         with:
           sarif_file: trivy-${{ matrix.image.name }}.sarif
           category: trivy-${{ matrix.image.name }}

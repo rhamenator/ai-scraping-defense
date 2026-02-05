@@ -45,19 +45,22 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create a dedicated non-root user with specific UID/GID for consistency
-RUN groupadd -r appuser -g 1000 && useradd -r -g appuser -u 1000 appuser
-
-RUN pip check
+RUN groupadd -r appuser -g 1000 && \
+    useradd --create-home --home-dir /home/appuser -g appuser -u 1000 appuser
 
 WORKDIR /app
 
 ENV PYTHONPATH "${PYTHONPATH}:/app"
 
-COPY --chown=appuser:appuser requirements.txt constraints.txt ./
+COPY requirements.txt constraints.txt ./
 
-USER appuser
+# Install dependencies as root into the image's site-packages. We still run the
+# app as non-root, but avoid pip falling back to a user-install (which requires
+# a writable $HOME).
 RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt && \
-    rm -rf /home/appuser/.cache/pip
+    rm -rf /root/.cache/pip && \
+    pip check
+
 COPY --chown=appuser:appuser src/ /app/src/
 
 # Copy the pre-built shared libraries from the builder stage
