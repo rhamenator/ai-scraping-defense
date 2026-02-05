@@ -36,7 +36,8 @@ jobs:
           cache-dependency-path: requirements.txt
       - name: Install pip-tools
         run: |
-          python -m pip install --upgrade pip
+          # pip-tools is currently incompatible with pip>=25.
+          python -m pip install --upgrade "pip<25"
           pip install pip-tools
       - name: Regenerate requirements.lock
         env:
@@ -74,7 +75,7 @@ jobs:
           cache-dependency-path: requirements.lock
       - name: Install pip-audit
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade "pip<25"
           pip install pip-audit
       - name: Run pip-audit (generate report)
         id: audit
