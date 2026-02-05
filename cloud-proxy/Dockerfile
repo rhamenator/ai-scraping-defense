@@ -11,7 +11,10 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Install dependencies as root
-RUN pip install --no-cache-dir fastapi uvicorn[standard] httpx cachetools prometheus-client
+RUN pip install --no-cache-dir fastapi uvicorn[standard] httpx cachetools prometheus-client && \
+    # Reduce image attack surface: build tooling is not needed at runtime.
+    pip uninstall -y setuptools wheel || true && \
+    pip check
 
 # Copy application files with proper ownership
 COPY --chown=appuser:appuser main.py /app/main.py

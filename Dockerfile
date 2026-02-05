@@ -59,6 +59,8 @@ COPY requirements.txt constraints.txt ./
 # a writable $HOME).
 RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt && \
     rm -rf /root/.cache/pip && \
+    # Reduce image attack surface: build tooling is not needed at runtime.
+    pip uninstall -y setuptools wheel || true && \
     pip check
 
 COPY --chown=appuser:appuser src/ /app/src/
