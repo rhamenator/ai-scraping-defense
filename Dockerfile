@@ -62,7 +62,7 @@ RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt && \
     # Trivy may flag vulnerabilities in setuptools' vendored dependencies (e.g. jaraco.context).
     # We keep setuptools for build tooling included in requirements.txt (pip-tools), but remove
     # unused vendored modules to reduce exposure in the runtime image.
-    python -c "import shutil; from pathlib import Path; import setuptools; vendor=Path(setuptools.__file__).parent/'_vendor'; [shutil.rmtree(p, ignore_errors=True) for p in vendor.glob('jaraco.context-*.dist-info')]; ctx=vendor/'jaraco'/'context.py'; ctx.exists() and ctx.unlink()" && \
+    python -c "import shutil; from pathlib import Path; import setuptools; vendor=Path(setuptools.__file__).parent/'_vendor'; [shutil.rmtree(p, ignore_errors=True) for p in vendor.glob('jaraco.context-*.dist-info')]; ctx=vendor/'jaraco'/'context.py'; ctx.exists() and ctx.unlink(); [shutil.rmtree(p, ignore_errors=True) for p in vendor.glob('wheel-*.dist-info')]; wh=vendor/'wheel'; wh.exists() and shutil.rmtree(wh, ignore_errors=True)" && \
     pip check
 
 COPY --chown=appuser:appuser src/ /app/src/
