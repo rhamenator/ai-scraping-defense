@@ -82,3 +82,21 @@ jobs:
           severity: CRITICAL,HIGH,MEDIUM
           ignore-unfixed: true
           exit-code: "0"
+      - name: Scan image with Trivy (JSON)
+        id: trivy_json
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+        with:
+          image-ref: ${{ matrix.image.name }}:scan
+          format: json
+          output: trivy-${{ matrix.image.name }}.json
+          severity: CRITICAL,HIGH,MEDIUM,LOW
+          ignore-unfixed: true
+          exit-code: "0"
+      - name: Upload JSON Artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        if: always()
+        with:
+          name: trivy-json-${{ matrix.image.name }}
+          path: trivy-${{ matrix.image.name }}.json
+          if-no-files-found: ignore
+          retention-days: 7
