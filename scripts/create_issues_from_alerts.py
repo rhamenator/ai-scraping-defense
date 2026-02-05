@@ -38,18 +38,20 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Dict, List, Optional
 
+import requests
+
 try:
-    import requests
     from github import Github
 
     try:
         from github import Auth
     except Exception:  # pragma: no cover - older PyGithub
         Auth = None
-except ImportError:
-    print("ERROR: Required libraries not installed.")
-    print("Please run: pip install requests PyGithub")
-    sys.exit(1)
+except ImportError:  # pragma: no cover
+    # This script is used by workflows that install PyGithub explicitly, but
+    # the wider repo/test environment may not include it by default.
+    Github = None
+    Auth = None
 
 # Configuration constants
 SIGNATURE_SEARCH_WORDS = 3  # Number of words from signature to use in search query
@@ -72,6 +74,11 @@ class IssueCreator:
         dry_run: bool = False,
         min_security_severity: Optional[str] = None,
     ):
+        if Github is None:
+            raise RuntimeError(
+                "PyGithub is required to use IssueCreator. "
+                "Install with: pip install PyGithub"
+            )
         self.owner = owner
         self.repo = repo
         self.dry_run = dry_run
