@@ -122,7 +122,8 @@ def load_and_prepare_dataset(file_path, tokenizer):
     try:
         # Load from JSON Lines file
         # Expected format per line: {"log_data": {parsed_log_dict}, "label": "bot" or "human"}
-        raw_dataset = load_dataset(  # nosec B615 - local JSON file, no remote download
+        # Local JSON dataset only (local_files_only=True); no remote download.
+        raw_dataset = load_dataset(  # nosec B615
             "json",
             data_files=file_path,
             split="train",
@@ -248,9 +249,10 @@ def fine_tune_model():
     # 1. Load Tokenizer
     try:
         print(f"Loading tokenizer for base model: {BASE_MODEL_NAME}")
+        # model_revision is validated as a commit hash by resolve_model_revision().
         tokenizer = AutoTokenizer.from_pretrained(
             BASE_MODEL_NAME,
-            revision=model_revision,  # nosec B615 - revision validated above.
+            revision=model_revision,  # nosec B615
         )
     except Exception as e:
         print(f"ERROR: Failed to load tokenizer '{BASE_MODEL_NAME}': {e}")
@@ -272,7 +274,7 @@ def fine_tune_model():
         model = AutoModelForSequenceClassification.from_pretrained(
             BASE_MODEL_NAME,
             num_labels=2,
-            revision=model_revision,  # nosec B615 - revision validated above.
+            revision=model_revision,  # nosec B615
         )
     except Exception as e:
         print(f"ERROR: Failed to load base model '{BASE_MODEL_NAME}': {e}")

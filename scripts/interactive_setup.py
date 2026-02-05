@@ -158,14 +158,16 @@ def main() -> None:
     print("Generating secrets...")
     if is_windows:
         secrets_script = root / "scripts" / "windows" / "Generate-Secrets.ps1"
-        subprocess.run(  # nosec - controlled script call
+        # Controlled script call (repo-local path, fixed argv).
+        subprocess.run(  # nosec B603
             ["powershell", "-File", str(secrets_script)],
             cwd=str(root),
             check=True,
         )
     else:
         secrets_script = root / "scripts" / "linux" / "generate_secrets.sh"
-        subprocess.run(  # nosec - controlled script call
+        # Controlled script call (repo-local path, fixed argv).
+        subprocess.run(  # nosec B603
             ["bash", str(secrets_script), "--update-env"],
             cwd=str(root),
             check=True,
@@ -182,14 +184,16 @@ def main() -> None:
     if resp == "y":
         if is_windows:
             quickstart_script = root / "scripts" / "windows" / "quickstart_dev.ps1"
-            subprocess.run(  # nosec - controlled script call
+            # Controlled script call (repo-local path, fixed argv).
+            subprocess.run(  # nosec B603
                 ["powershell", "-File", str(quickstart_script)],
                 cwd=str(root),
                 check=True,
             )
         else:
             quickstart_script = root / "scripts" / "linux" / "quickstart_dev.sh"
-            subprocess.run(  # nosec - controlled script call
+            # Controlled script call (repo-local path, fixed argv).
+            subprocess.run(  # nosec B603
                 ["bash", str(quickstart_script)], cwd=str(root), check=True
             )
 
@@ -203,14 +207,16 @@ def main() -> None:
     if resp == "y":
         if is_windows:
             deploy_script = root / "scripts" / "windows" / "quick_deploy.ps1"
-            subprocess.run(  # nosec - controlled script call
+            # Controlled script call (repo-local path, fixed argv).
+            subprocess.run(  # nosec B603
                 ["powershell", "-File", str(deploy_script)],
                 cwd=str(root),
                 check=True,
             )
         else:
             deploy_script = root / "scripts" / "linux" / "quick_deploy.sh"
-            subprocess.run(  # nosec - controlled script call
+            # Controlled script call (repo-local path, fixed argv).
+            subprocess.run(  # nosec B603
                 ["bash", str(deploy_script)], cwd=str(root), check=True
             )
 
