@@ -132,7 +132,9 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 | --- | --- | --- |
 | `ALERT_METHOD` | `none` | How the AI Service sends notifications |
 | `ALERT_GENERIC_WEBHOOK_URL` | *(none)* | Generic webhook target |
+| `ALERT_GENERIC_WEBHOOK_URL_FILE` | *(none)* | File containing generic webhook target |
 | `ALERT_SLACK_WEBHOOK_URL` | *(none)* | Slack webhook target |
+| `ALERT_SLACK_WEBHOOK_URL_FILE` | *(none)* | File containing Slack webhook target |
 | `ALERT_SMTP_HOST` | `mailhog` | SMTP server hostname |
 | `ALERT_SMTP_PORT` | `587` | SMTP server port |
 | `ALERT_SMTP_USER` | *(none)* | SMTP username |

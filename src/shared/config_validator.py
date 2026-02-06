@@ -362,15 +362,23 @@ class ConfigLoader:
                 errors.append("ALERT_EMAIL_TO required when ALERT_METHOD=email")
 
         if config.alert_method == AlertMethod.SLACK:
-            if not os.getenv("ALERT_SLACK_WEBHOOK_URL"):
+            if not (
+                os.getenv("ALERT_SLACK_WEBHOOK_URL")
+                or os.getenv("ALERT_SLACK_WEBHOOK_URL_FILE")
+                or os.getenv("ALERT_SLACK_WEBHOOK_URL_FILE_VAULT_PATH")
+            ):
                 errors.append(
-                    "ALERT_SLACK_WEBHOOK_URL required when ALERT_METHOD=slack"
+                    "ALERT_SLACK_WEBHOOK_URL (or *_FILE / *_VAULT_PATH) required when ALERT_METHOD=slack"
                 )
 
         if config.alert_method == AlertMethod.WEBHOOK:
-            if not os.getenv("ALERT_GENERIC_WEBHOOK_URL"):
+            if not (
+                os.getenv("ALERT_GENERIC_WEBHOOK_URL")
+                or os.getenv("ALERT_GENERIC_WEBHOOK_URL_FILE")
+                or os.getenv("ALERT_GENERIC_WEBHOOK_URL_FILE_VAULT_PATH")
+            ):
                 errors.append(
-                    "ALERT_GENERIC_WEBHOOK_URL required when ALERT_METHOD=webhook"
+                    "ALERT_GENERIC_WEBHOOK_URL (or *_FILE / *_VAULT_PATH) required when ALERT_METHOD=webhook"
                 )
 
         jwt_algorithms = [
