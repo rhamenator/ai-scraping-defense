@@ -8,6 +8,11 @@ on:
         required: false
         type: boolean
         default: true
+      include_dependabot:
+        description: 'Also create issues from open Dependabot vulnerability alerts'
+        required: false
+        type: boolean
+        default: false
       min_security_severity:
         description: 'Only create issues at or above this security severity'
         required: false
@@ -55,20 +60,37 @@ jobs:
             echo "min_severity=--min-security-severity $MIN_SEVERITY" >> $GITHUB_OUTPUT
             echo "min_severity_label=$MIN_SEVERITY" >> $GITHUB_OUTPUT
           else
-            echo "min_severity=" >> $GITHUB_OUTPUT
-            echo "min_severity_label=all" >> $GITHUB_OUTPUT
+            if [[ "${{ github.event_name }}" == "schedule" ]]; then
+              # Default scheduled runs to high+ severity to avoid spamming issues.
+              echo "min_severity=--min-security-severity high" >> $GITHUB_OUTPUT
+              echo "min_severity_label=high" >> $GITHUB_OUTPUT
+            else
+              echo "min_severity=" >> $GITHUB_OUTPUT
+              echo "min_severity_label=all" >> $GITHUB_OUTPUT
+            fi
           fi
 
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
             # Scheduled runs are in live mode
             echo "dry_run=" >> $GITHUB_OUTPUT
             echo "mode_label=LIVE" >> $GITHUB_OUTPUT
+            echo "dependabot=--include-dependabot" >> $GITHUB_OUTPUT
           elif [[ "${{ inputs.dry_run }}" == "true" ]]; then
             echo "dry_run=--dry-run" >> $GITHUB_OUTPUT
             echo "mode_label=DRY RUN" >> $GITHUB_OUTPUT
+            if [[ "${{ inputs.include_dependabot }}" == "true" ]]; then
+              echo "dependabot=--include-dependabot" >> $GITHUB_OUTPUT
+            else
+              echo "dependabot=" >> $GITHUB_OUTPUT
+            fi
           else
             echo "dry_run=" >> $GITHUB_OUTPUT
             echo "mode_label=LIVE" >> $GITHUB_OUTPUT
+            if [[ "${{ inputs.include_dependabot }}" == "true" ]]; then
+              echo "dependabot=--include-dependabot" >> $GITHUB_OUTPUT
+            else
+              echo "dependabot=" >> $GITHUB_OUTPUT
+            fi
           fi
 
       - name: Create issues from security alerts
@@ -80,7 +102,8 @@ jobs:
             --owner ${{ github.repository_owner }} \
             --repo ${{ github.event.repository.name }} \
             ${{ steps.mode.outputs.dry_run }} \
-            ${{ steps.mode.outputs.min_severity }}
+            ${{ steps.mode.outputs.min_severity }} \
+            ${{ steps.mode.outputs.dependabot }}
 
       - name: Summary
         if: always()

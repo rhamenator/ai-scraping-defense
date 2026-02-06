@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Create GitHub Issues from Code Scanning and Secret Scanning Alerts
+Create GitHub Issues from Code Scanning, Secret Scanning, and Dependabot Alerts
 
-This script fetches all open code scanning and secret scanning alerts from a GitHub
+This script fetches all open code scanning, secret scanning, and Dependabot alerts from a GitHub
 repository and creates corresponding GitHub issues for each alert (or group of similar alerts).
 
 Usage:
@@ -18,6 +18,7 @@ Environment:
 Features:
     - Fetches all open code scanning alerts
     - Fetches all open secret scanning alerts
+    - Fetches all open Dependabot alerts (GraphQL; does not require security_events scope)
     - Groups similar alerts to avoid creating duplicate issues
     - Creates well-formatted GitHub issues with:
       - Clear titles
@@ -73,6 +74,7 @@ class IssueCreator:
         token: str,
         dry_run: bool = False,
         min_security_severity: Optional[str] = None,
+        include_dependabot: bool = False,
     ):
         if Github is None:
             raise RuntimeError(
@@ -82,6 +84,7 @@ class IssueCreator:
         self.owner = owner
         self.repo = repo
         self.dry_run = dry_run
+        self.include_dependabot = include_dependabot
         self.min_security_severity = (
             min_security_severity.lower()
             if isinstance(min_security_severity, str)
@@ -112,19 +115,24 @@ class IssueCreator:
         self.stats = {
             "code_scanning_alerts": 0,
             "secret_scanning_alerts": 0,
+            "dependabot_alerts": 0,
             "issues_created": 0,
             "issues_skipped_existing": 0,
         }
 
-    def _passes_min_security_severity(self, alert: Dict) -> bool:
-        """Return True if alert meets minimum security severity."""
+    def _passes_min_security_severity_level(self, level: str) -> bool:
+        """Return True if a severity label meets the configured threshold."""
         if not self.min_security_severity:
             return True
         threshold = SECURITY_SEVERITY_ORDER.get(self.min_security_severity, 0)
-        rule = alert.get("rule", {})
-        level = rule.get("security_severity_level", "")
         rank = SECURITY_SEVERITY_ORDER.get(str(level).lower(), 0)
         return rank >= threshold
+
+    def _passes_min_security_severity(self, alert: Dict) -> bool:
+        """Return True if a code scanning alert meets the minimum severity."""
+        rule = alert.get("rule", {})
+        level = rule.get("security_severity_level", "")
+        return self._passes_min_security_severity_level(str(level))
 
     def log(self, level: str, message: str) -> None:
         """Log a message with timestamp."""
@@ -151,6 +159,12 @@ class IssueCreator:
         first_alert = alerts[0]
         secret_type = first_alert.get("secret_type", "unknown")
         return f"secret-scanning:{self._slug_component(secret_type)}"
+
+    def _dedupe_key_for_dependabot(self, alerts: List[Dict]) -> str:
+        first_alert = alerts[0]
+        advisory = first_alert.get("securityAdvisory") or {}
+        ghsa_id = advisory.get("ghsaId") or "unknown"
+        return f"dependabot:{self._slug_component(ghsa_id)}"
 
     def _load_existing_issue_cache(self) -> None:
         if self._existing_by_dedupe_key is not None:
@@ -184,6 +198,78 @@ class IssueCreator:
         self._existing_by_signature = existing_by_signature
         self._existing_by_code_rule_id = existing_by_code_rule_id
         self._existing_by_secret_type = existing_by_secret_type
+
+    def _graphql(self, query: str, variables: Dict) -> Dict:
+        resp = self.session.post(
+            "https://api.github.com/graphql",
+            json={"query": query, "variables": variables},
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+        if payload.get("errors"):
+            raise RuntimeError(payload["errors"])
+        return payload.get("data") or {}
+
+    def fetch_dependabot_alerts(self) -> List[Dict]:
+        """Fetch open Dependabot vulnerability alerts via GraphQL."""
+        self.log("INFO", "Fetching Dependabot alerts (GraphQL)...")
+        alerts: List[Dict] = []
+
+        query = """
+        query($owner:String!, $name:String!, $cursor:String) {
+          repository(owner:$owner, name:$name) {
+            vulnerabilityAlerts(first:100, after:$cursor, states:OPEN) {
+              pageInfo { hasNextPage endCursor }
+              nodes {
+                createdAt
+                vulnerableManifestFilename
+                vulnerableRequirements
+                securityAdvisory {
+                  ghsaId
+                  summary
+                  severity
+                  permalink
+                }
+                securityVulnerability {
+                  severity
+                  vulnerableVersionRange
+                  firstPatchedVersion { identifier }
+                  package { name ecosystem }
+                }
+              }
+            }
+          }
+        }
+        """
+
+        cursor = None
+        try:
+            while True:
+                data = self._graphql(
+                    query,
+                    {"owner": self.owner, "name": self.repo, "cursor": cursor},
+                )
+                repo = data.get("repository") or {}
+                vulns = repo.get("vulnerabilityAlerts") or {}
+                nodes = vulns.get("nodes") or []
+                alerts.extend(nodes)
+                page = vulns.get("pageInfo") or {}
+                if not page.get("hasNextPage"):
+                    break
+                cursor = page.get("endCursor")
+        except requests.exceptions.HTTPError as e:
+            if getattr(e.response, "status_code", None) == 403:
+                self.log("WARNING", "Dependabot alerts not accessible (403 Forbidden)")
+            else:
+                self.log("ERROR", f"Failed to fetch Dependabot alerts: {e}")
+            return []
+        except Exception as e:
+            self.log("ERROR", f"Error fetching Dependabot alerts ({type(e).__name__})")
+            return []
+
+        self.stats["dependabot_alerts"] = len(alerts)
+        self.log("INFO", "Dependabot alerts fetched")
+        return alerts
 
     def fetch_code_scanning_alerts(self) -> List[Dict]:
         """Fetch all open code scanning alerts."""
@@ -315,6 +401,14 @@ class IssueCreator:
             key = f"{secret_type}:{secret_type_display}"
             grouped[key].append(alert)
 
+        return dict(grouped)
+
+    def group_dependabot_alerts(self, alerts: List[Dict]) -> Dict[str, List[Dict]]:
+        """Group Dependabot alerts by GHSA ID."""
+        grouped = defaultdict(list)
+        for alert in alerts:
+            ghsa_id = ((alert.get("securityAdvisory") or {}).get("ghsaId")) or "unknown"
+            grouped[ghsa_id].append(alert)
         return dict(grouped)
 
     def create_issue_title_for_code_scanning(self, key: str, alerts: List[Dict]) -> str:
@@ -513,6 +607,68 @@ This is a critical security issue that must be addressed immediately.
 
         return body
 
+    def create_issue_title_for_dependabot(
+        self, ghsa_id: str, alerts: List[Dict]
+    ) -> str:
+        advisory = alerts[0].get("securityAdvisory") or {}
+        vuln = alerts[0].get("securityVulnerability") or {}
+        severity = (
+            vuln.get("severity") or advisory.get("severity") or "unknown"
+        ).lower()
+        pkg = (vuln.get("package") or {}).get("name")
+        summary = advisory.get("summary") or "Dependabot alert"
+        if pkg:
+            return f"[Dependabot] {severity}: {pkg} ({ghsa_id})"
+        return f"[Dependabot] {severity}: {summary} ({ghsa_id})"
+
+    def create_issue_body_for_dependabot(self, alerts: List[Dict]) -> str:
+        advisory = alerts[0].get("securityAdvisory") or {}
+        vuln = alerts[0].get("securityVulnerability") or {}
+
+        ghsa_id = advisory.get("ghsaId") or "unknown"
+        severity = (
+            vuln.get("severity") or advisory.get("severity") or "unknown"
+        ).lower()
+        summary = advisory.get("summary") or ""
+        advisory_url = advisory.get("permalink") or ""
+
+        pkg = (vuln.get("package") or {}).get("name", "unknown")
+        ecosystem = (vuln.get("package") or {}).get("ecosystem", "unknown")
+        vuln_range = vuln.get("vulnerableVersionRange") or "unknown"
+        fixed = (vuln.get("firstPatchedVersion") or {}).get("identifier") or "unknown"
+
+        manifests = sorted(
+            {a.get("vulnerableManifestFilename") or "unknown" for a in alerts}
+        )
+
+        body_lines = [
+            f"<!-- alert-group-key: {self._dedupe_key_for_dependabot(alerts)} -->",
+            "",
+            "## Dependabot Alert",
+            "",
+            f"**GHSA ID:** `{ghsa_id}`",
+            f"**Package:** `{pkg}` ({ecosystem})",
+            f"**Severity:** `{severity}`",
+            f"**Vulnerable Range:** `{vuln_range}`",
+            f"**First Patched Version:** `{fixed}`",
+        ]
+        if advisory_url:
+            body_lines.append(f"**Advisory:** {advisory_url}")
+        if summary:
+            body_lines.extend(["", "**Summary**", summary])
+
+        body_lines.extend(["", "**Affected Manifests**"])
+        body_lines.extend([f"- `{m}`" for m in manifests])
+
+        body_lines.extend(
+            [
+                "",
+                "**Recommended Fix**",
+                f"- Upgrade `{pkg}` to at least `{fixed}` (or otherwise remediate the advisory).",
+            ]
+        )
+        return "\n".join(body_lines)
+
     def extract_issue_signature(self, title: str) -> str:
         """
         Extract a signature from issue title for duplicate detection.
@@ -704,6 +860,41 @@ This is a critical security issue that must be addressed immediately.
                 dedupe_key=self._dedupe_key_for_secret_scanning(alert_group),
             )
 
+    def process_dependabot_alerts(self, alerts: List[Dict]) -> None:
+        """Process Dependabot vulnerability alerts and create issues."""
+        if not alerts:
+            self.log("INFO", "No Dependabot alerts to process")
+            return
+
+        self.log("INFO", "Processing Dependabot alerts...")
+        grouped = self.group_dependabot_alerts(alerts)
+
+        for ghsa_id, alert_group in grouped.items():
+            vuln = alert_group[0].get("securityVulnerability") or {}
+            advisory = alert_group[0].get("securityAdvisory") or {}
+            severity = (vuln.get("severity") or advisory.get("severity") or "").lower()
+            severity = severity.replace("moderate", "medium")
+            if not self._passes_min_security_severity_level(severity):
+                continue
+
+            title = self.create_issue_title_for_dependabot(ghsa_id, alert_group)
+            body = self.create_issue_body_for_dependabot(alert_group)
+
+            labels = ["security", "dependabot"]
+            if severity in {"critical", "high"}:
+                labels.append("priority: high")
+            elif severity == "medium":
+                labels.append("priority: medium")
+            else:
+                labels.append("priority: low")
+
+            self.create_github_issue(
+                title,
+                body,
+                labels,
+                dedupe_key=self._dedupe_key_for_dependabot(alert_group),
+            )
+
     def generate_summary(self):
         """Generate and print a summary of the execution."""
         print("\n" + "=" * 70)
@@ -718,6 +909,7 @@ This is a critical security issue that must be addressed immediately.
         # Do not log the exact number of secret scanning alerts to avoid exposing
         # potentially sensitive information in clear text logs.
         print("  Secret Scanning Alerts Found: (redacted)")
+        print(f"  Dependabot Alerts Found: {self.stats['dependabot_alerts']}")
         print(f"  Issues Created: {self.stats['issues_created']}")
         print(
             f"  Issues Skipped (already exist): {self.stats['issues_skipped_existing']}"
@@ -736,10 +928,14 @@ This is a critical security issue that must be addressed immediately.
         # Fetch alerts
         code_alerts = self.fetch_code_scanning_alerts()
         secret_alerts = self.fetch_secret_scanning_alerts()
+        dependabot_alerts = (
+            self.fetch_dependabot_alerts() if self.include_dependabot else []
+        )
 
         # Process alerts and create issues
         self.process_code_scanning_alerts(code_alerts)
         self.process_secret_scanning_alerts(secret_alerts)
+        self.process_dependabot_alerts(dependabot_alerts)
 
         # Print summary
         self.generate_summary()
@@ -747,7 +943,7 @@ This is a critical security issue that must be addressed immediately.
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Create GitHub issues from code scanning and secret scanning alerts",
+        description="Create GitHub issues from code scanning, secret scanning, and Dependabot alerts",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -766,6 +962,11 @@ def main():
         choices=["low", "medium", "high", "critical"],
         help="Only create issues for alerts at or above this security severity level",
     )
+    parser.add_argument(
+        "--include-dependabot",
+        action="store_true",
+        help="Also create issues from open Dependabot vulnerability alerts (GraphQL).",
+    )
 
     args = parser.parse_args()
 
@@ -776,7 +977,9 @@ def main():
             "ERROR: GitHub token is required. Provide via --token or GITHUB_TOKEN env var"
         )
         print("Create a token at: https://github.com/settings/tokens/new")
-        print("Required scopes: repo, security_events")
+        print(
+            "Required scopes: repo (security_events needed for code/secret scanning REST)"
+        )
         sys.exit(1)
 
     # Create and run issue creator
@@ -787,6 +990,7 @@ def main():
             token,
             args.dry_run,
             min_security_severity=args.min_security_severity,
+            include_dependabot=args.include_dependabot,
         )
         creator.run()
     except KeyboardInterrupt:
