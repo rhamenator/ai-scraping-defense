@@ -42,6 +42,7 @@ def _request(
     for key, value in (headers or {}).items():
         req.add_header(key, value)
     try:
+        # nosec B310 - base URL scheme is validated to http(s) only.
         with urllib.request.urlopen(req, data=data, timeout=timeout) as resp:
             body = resp.read(1024 * 1024)
             resp_headers = {k.lower(): v for k, v in resp.headers.items()}
