@@ -20,6 +20,16 @@ def _now() -> float:
     return time.time()
 
 
+def _validate_base_url(base_url: str) -> str:
+    parsed = urllib.parse.urlparse(base_url)
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("base URL must use http:// or https://")
+    if not parsed.netloc:
+        raise ValueError("base URL must include a host")
+    # Normalize away fragments to avoid confusing output.
+    return urllib.parse.urlunparse(parsed._replace(fragment=""))
+
+
 def _request(
     url: str,
     *,
@@ -72,7 +82,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", dest="json_output", action="store_true")
     args = parser.parse_args(argv)
 
-    base_url = args.base_url
+    try:
+        base_url = _validate_base_url(args.base_url)
+    except ValueError as exc:
+        print(f"[stack-probe] invalid base_url: {exc}", file=sys.stderr)
+        return 2
     timeout = args.timeout
     results: dict[str, object] = {"base_url": base_url, "checks": []}
     failures: list[str] = []
