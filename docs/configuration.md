@@ -126,6 +126,23 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 
 > **Note:** `SYSTEM_SEED` must be set to a unique value. The Tarpit API raises an error if the default placeholder is used.
 
+## Security Middleware
+
+These settings apply to services created via `src.shared.middleware.create_app()`.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ENABLE_HTTPS` | `false` | Redirect HTTP requests to HTTPS and enable HSTS |
+| `RATE_LIMIT_REQUESTS` | `100` | Requests allowed per client IP per window |
+| `RATE_LIMIT_WINDOW` | `60` | Rate limit window size in seconds |
+| `MAX_BODY_SIZE` | `1048576` | Max request body size in bytes |
+| `SECURITY_HTTPS_REDIRECT_CANONICAL_HOST` | *(none)* | Optional canonical `host[:port]` for HTTPS redirects |
+| `SECURITY_HTTPS_REDIRECT_ALLOWED_HOSTS` | *(none)* | Optional comma-separated list of allowed `host[:port]` values for HTTPS redirects |
+| `SECURITY_MAX_PATH_LENGTH` | `2048` | Max URL path length in bytes (0 disables the check) |
+| `SECURITY_MAX_QUERY_STRING_LENGTH` | `4096` | Max query string length in bytes (0 disables the check) |
+| `SECURITY_MAX_HEADER_COUNT` | `100` | Max number of request headers (0 disables the check) |
+| `SECURITY_MAX_HEADER_VALUE_LENGTH` | `8192` | Max single header value length in bytes (0 disables the check) |
+
 ## Alerts and Webhooks
 
 | Variable | Default | Description |
