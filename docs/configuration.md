@@ -143,6 +143,12 @@ These settings apply to services created via `src.shared.middleware.create_app()
 | `SECURITY_MAX_HEADER_COUNT` | `100` | Max number of request headers (0 disables the check) |
 | `SECURITY_MAX_HEADER_VALUE_LENGTH` | `8192` | Max single header value length in bytes (0 disables the check) |
 
+## Error Handling
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ERROR_INCLUDE_DETAILS` | `false` | Include error `details` fields in HTTP responses (recommended: keep `false` in production) |
+
 ## Alerts and Webhooks
 
 | Variable | Default | Description |
