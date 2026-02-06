@@ -143,6 +143,20 @@ These settings apply to services created via `src.shared.middleware.create_app()
 | `SECURITY_MAX_HEADER_COUNT` | `100` | Max number of request headers (0 disables the check) |
 | `SECURITY_MAX_HEADER_VALUE_LENGTH` | `8192` | Max single header value length in bytes (0 disables the check) |
 
+## JWT Authentication
+
+JWT verification is used by some internal APIs (for example, the escalation engine endpoints guarded by `src.shared.authz.require_jwt`).
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `AUTH_JWT_ALGORITHMS` | `HS256` | Comma-separated list of allowed JWT algorithms |
+| `AUTH_JWT_SECRET` | *(none)* | Secret used for HS* algorithms |
+| `AUTH_JWT_SECRET_FILE` | *(none)* | File containing the secret used for HS* algorithms |
+| `AUTH_JWT_PUBLIC_KEY` | *(none)* | Public key used for RS*/ES*/EdDSA algorithms |
+| `AUTH_JWT_PUBLIC_KEY_FILE` | *(none)* | File containing the public key used for RS*/ES*/EdDSA algorithms |
+| `AUTH_JWT_ISSUER` | *(none)* | Optional expected `iss` claim |
+| `AUTH_JWT_AUDIENCE` | *(none)* | Optional expected `aud` claim |
+
 ## Error Handling
 
 | Variable | Default | Description |

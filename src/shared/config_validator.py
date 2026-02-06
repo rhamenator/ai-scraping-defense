@@ -249,6 +249,9 @@ class ConfigLoader:
             enable_waf=env.get("ENABLE_WAF", "true").lower() == "true",
             waf_rules_path=env.get("WAF_RULES_PATH"),
             jwt_secret=env.get("AUTH_JWT_SECRET"),
+            jwt_secret_file=env.get("AUTH_JWT_SECRET_FILE"),
+            jwt_public_key=env.get("AUTH_JWT_PUBLIC_KEY"),
+            jwt_public_key_file=env.get("AUTH_JWT_PUBLIC_KEY_FILE"),
             jwt_issuer=env.get("AUTH_JWT_ISSUER"),
             jwt_audience=env.get("AUTH_JWT_AUDIENCE"),
             admin_ui_username=env.get("ADMIN_UI_USERNAME"),
@@ -381,15 +384,56 @@ class ConfigLoader:
                     "ALERT_GENERIC_WEBHOOK_URL (or *_FILE / *_VAULT_PATH) required when ALERT_METHOD=webhook"
                 )
 
-        jwt_algorithms = [
-            alg.strip()
-            for alg in os.getenv("AUTH_JWT_ALGORITHMS", "HS256").split(",")
-            if alg.strip()
-        ]
-        if jwt_algorithms and any(
-            alg not in JWT_ALGORITHMS_ALLOWED for alg in jwt_algorithms
-        ):
-            errors.append("AUTH_JWT_ALGORITHMS contains unsupported values")
+        jwt_configured = any(
+            os.getenv(name)
+            for name in (
+                "AUTH_JWT_SECRET",
+                "AUTH_JWT_SECRET_FILE",
+                "AUTH_JWT_PUBLIC_KEY",
+                "AUTH_JWT_PUBLIC_KEY_FILE",
+                "AUTH_JWT_ISSUER",
+                "AUTH_JWT_AUDIENCE",
+            )
+        ) or ("AUTH_JWT_ALGORITHMS" in os.environ)
+        if jwt_configured:
+            jwt_algorithms = [
+                alg.strip()
+                for alg in os.getenv("AUTH_JWT_ALGORITHMS", "HS256").split(",")
+                if alg.strip()
+            ]
+            if jwt_algorithms and any(
+                alg not in JWT_ALGORITHMS_ALLOWED for alg in jwt_algorithms
+            ):
+                errors.append("AUTH_JWT_ALGORITHMS contains unsupported values")
+            else:
+                uses_hs = any(alg.startswith("HS") for alg in jwt_algorithms)
+                uses_asym = any(not alg.startswith("HS") for alg in jwt_algorithms)
+                if uses_hs and uses_asym:
+                    errors.append(
+                        "AUTH_JWT_ALGORITHMS cannot mix HS* with asymmetric algorithms"
+                    )
+                if uses_hs:
+                    secret = config.security.jwt_secret or self._load_secret(
+                        config.security.jwt_secret_file
+                    )
+                    if not secret:
+                        errors.append(
+                            "AUTH_JWT_SECRET (or AUTH_JWT_SECRET_FILE) required for HS* algorithms"
+                        )
+                    elif len(secret) < 32:
+                        errors.append("AUTH_JWT_SECRET must be at least 32 characters")
+                if uses_asym:
+                    public_key = config.security.jwt_public_key or self._load_secret(
+                        config.security.jwt_public_key_file
+                    )
+                    pem_secret = (
+                        config.security.jwt_secret
+                        and config.security.jwt_secret.strip().startswith("-----BEGIN")
+                    )
+                    if not (public_key or pem_secret):
+                        errors.append(
+                            "AUTH_JWT_PUBLIC_KEY (or AUTH_JWT_PUBLIC_KEY_FILE) required for asymmetric algorithms"
+                        )
 
         enable_external_api = (
             os.getenv("ENABLE_EXTERNAL_API_CLASSIFICATION", "true").lower() == "true"
