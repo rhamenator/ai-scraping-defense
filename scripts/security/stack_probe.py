@@ -11,9 +11,8 @@ import argparse
 import json
 import sys
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
+from http.client import HTTPConnection, HTTPSConnection
 
 
 def _now() -> float:
@@ -38,19 +37,24 @@ def _request(
     data: bytes | None = None,
     timeout: float = 10.0,
 ) -> tuple[int, dict[str, str], bytes]:
-    req = urllib.request.Request(url, method=method)
-    for key, value in (headers or {}).items():
-        req.add_header(key, value)
+    parsed = urllib.parse.urlparse(url)
+    port = parsed.port
+    if port is None:
+        port = 443 if parsed.scheme == "https" else 80
+    path = parsed.path or "/"
+    if parsed.query:
+        path = f"{path}?{parsed.query}"
+
+    conn_cls = HTTPSConnection if parsed.scheme == "https" else HTTPConnection
+    conn = conn_cls(parsed.hostname, port, timeout=timeout)
     try:
-        # nosec B310 - base URL scheme is validated to http(s) only.
-        with urllib.request.urlopen(req, data=data, timeout=timeout) as resp:
-            body = resp.read(1024 * 1024)
-            resp_headers = {k.lower(): v for k, v in resp.headers.items()}
-            return resp.getcode(), resp_headers, body
-    except urllib.error.HTTPError as exc:
-        body = exc.read(1024 * 1024) if exc.fp else b""
-        resp_headers = {k.lower(): v for k, v in exc.headers.items()}
-        return int(exc.code), resp_headers, body
+        conn.request(method, path, body=data, headers=headers or {})
+        resp = conn.getresponse()
+        body = resp.read(1024 * 1024)
+        resp_headers = {k.lower(): v for k, v in resp.getheaders()}
+        return resp.status, resp_headers, body
+    finally:
+        conn.close()
 
 
 def _join(base_url: str, path: str) -> str:
