@@ -11,6 +11,14 @@ import requests
 logger = logging.getLogger(__name__)
 
 
+def _looks_like_zip(content: bytes) -> bool:
+    return content.startswith((b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08"))
+
+
+def _looks_like_gzip(content: bytes) -> bool:
+    return content.startswith(b"\x1f\x8b")
+
+
 def download_and_extract_crs(url: str, dest_dir: str) -> bool:
     """Download and extract the OWASP Core Rule Set archive."""
     if not url:
@@ -23,6 +31,15 @@ def download_and_extract_crs(url: str, dest_dir: str) -> bool:
     except requests.exceptions.RequestException as exc:
         logger.error("Failed to download CRS archive from %s: %s", url, exc)
         return False
+
+    if url.endswith(".zip"):
+        if not _looks_like_zip(response.content):
+            logger.error("CRS archive does not look like a ZIP file: %s", url)
+            return False
+    else:
+        if not _looks_like_gzip(response.content):
+            logger.error("CRS archive does not look like a gzip file: %s", url)
+            return False
 
     with tempfile.TemporaryDirectory() as tmpdir:
         archive_path = os.path.join(tmpdir, "crs_archive")
