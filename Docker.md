@@ -10,10 +10,10 @@ Instead of creating a separate, complex Dockerfile for each microservice, we use
 
 This file's only responsibility is to create a lean, optimized base image for all Python services. It performs the following steps:
 
-1. Starts from the official python:3.11-slim image.  
-2. Sets up the working directory and PYTHONPATH.  
-3. Copies and installs all dependencies from requirements.txt.  
-4. Copies the entire src/ directory into the image.  
+1. Starts from the official python:3.11-slim image.
+2. Sets up the working directory and PYTHONPATH.
+3. Copies and installs all dependencies from requirements.txt.
+4. Copies the entire src/ directory into the image.
 5. Copies the scripts/linux/docker-entrypoint.sh script for services that need it.
 
 This approach significantly reduces build times and ensures that all Python services run in an identical, consistent environment.
@@ -26,9 +26,9 @@ For local development, we use docker-compose.yaml to orchestrate the entire appl
 
 Key features of our Docker Compose setup:
 
-* **Service Definitions:** Each microservice (e.g., ai\_service, escalation\_engine), data store (redis, postgres), and third-party tool (mailhog) is defined as a service.  
-* **Image Reusability:** All Python services use the same build configuration, pointing to the root Dockerfile. The specific application to run is determined by the command key for each service.  
-* **Configuration via .env:** The compose file is kept clean by loading all environment variables (ports, passwords, API keys) from a .env file. This separates configuration from orchestration.  
+* **Service Definitions:** Each microservice (e.g., ai\_service, escalation\_engine), data store (redis, postgres), and third-party tool (mailhog) is defined as a service.
+* **Image Reusability:** All Python services use the same build configuration, pointing to the root Dockerfile. The specific application to run is determined by the command key for each service.
+* **Configuration via .env:** The compose file is kept clean by loading all environment variables (ports, passwords, API keys) from a .env file. This separates configuration from orchestration.
 * **Live Reloading:** The volumes key is used to mount the local src directory directly into the containers (./src:/app/src). This allows you to edit your Python code on your host machine and see the changes immediately without rebuilding the image.
 
 ## **Production Deployment**

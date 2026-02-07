@@ -1,12 +1,13 @@
 # test/escalation/escalation_engine.test.py
-import unittest
-from unittest.mock import patch, MagicMock, AsyncMock
-import httpx
 import datetime
 import json
-from fastapi.testclient import TestClient
-import sys
 import os
+import sys
+import unittest
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import httpx
+from fastapi.testclient import TestClient
 
 # Add the project root to the path to help static analysis tools find the modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
@@ -14,7 +15,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from src.escalation import escalation_engine
 
 # Correctly import only the existing classes from the module
-from src.escalation.escalation_engine import app, RequestMetadata, ValidationError
+from src.escalation.escalation_engine import RequestMetadata, ValidationError, app
 
 
 class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
@@ -439,7 +440,9 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         self.mocks["classify_with_external_api"].return_value = True
         with (
             patch("escalation.escalation_engine.ENABLE_LOCAL_LLM_CLASSIFICATION", True),
-            patch("escalation.escalation_engine.ENABLE_EXTERNAL_API_CLASSIFICATION", False),
+            patch(
+                "escalation.escalation_engine.ENABLE_EXTERNAL_API_CLASSIFICATION", False
+            ),
             patch("escalation.escalation_engine.external_api_adapter", MagicMock()),
             patch(
                 "escalation.escalation_engine.run_heuristic_and_model_analysis",

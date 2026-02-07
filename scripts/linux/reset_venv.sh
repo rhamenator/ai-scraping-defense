@@ -45,4 +45,3 @@ echo -e "\n--- Step 5: Installing project dependencies from requirements.txt ---
 echo -e "\n---"
 echo "Virtual environment reset successfully!"
 echo "To activate it, run: source .venv/bin/activate"
-

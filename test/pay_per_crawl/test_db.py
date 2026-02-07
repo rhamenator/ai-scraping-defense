@@ -1,8 +1,8 @@
+import gc
 import os
 import sqlite3
 import tempfile
 import unittest
-import gc
 from typing import Dict, Optional
 
 from src.pay_per_crawl import db

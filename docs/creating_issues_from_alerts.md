@@ -157,9 +157,9 @@ Statistics:
 ```markdown
 ## Security Alert: hardcoded_bind_all_interfaces
 
-**Rule ID:** `B104`  
-**Severity:** MEDIUM  
-**Security Severity:** 5.3  
+**Rule ID:** `B104`
+**Severity:** MEDIUM
+**Security Severity:** 5.3
 
 ### Description
 Possible binding to all interfaces.
@@ -190,7 +190,7 @@ Binding to 0.0.0.0 exposes the service to all network interfaces...
 ```markdown
 ## Secret Scanning Alert: GitHub Personal Access Token
 
-**Secret Type:** `github_personal_access_token`  
+**Secret Type:** `github_personal_access_token`
 **Number of Locations:** 2
 
 ### ⚠️ CRITICAL: Immediate Action Required
@@ -320,7 +320,7 @@ jobs:
     steps:
       - name: Run CodeQL
         # ... CodeQL scan steps ...
-      
+
       - name: Create issues from alerts
         if: success()
         run: |

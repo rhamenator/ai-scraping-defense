@@ -40,7 +40,7 @@ If you encounter setup issues, see [Troubleshooting](troubleshooting.md) for com
 First, clone the project from GitHub to your local machine.
 
 ``` bash
-git clone [https://github.com/your-username/ai-scraping-defense.git](https://github.com/your-username/ai-scraping-defense.git)  
+git clone [https://github.com/your-username/ai-scraping-defense.git](https://github.com/your-username/ai-scraping-defense.git)
 cd ai-scraping-defense
 ```
 
@@ -83,7 +83,7 @@ To bring the stack up, only a handful of settings must be reviewed in `.env`:
 - `REAL_BACKEND_HOSTS` can supply a comma-separated list of backend servers for load balancing. Use `REAL_BACKEND_HOST` for a single destination.
 - `ALERT_SMTP_PASSWORD_FILE` or `ALERT_SMTP_PASSWORD` if you plan to send alert emails via SMTP.
   - `PROMPT_ROUTER_PORT`, `PROMETHEUS_PORT`, `GRAFANA_PORT`, and `WATCHTOWER_INTERVAL` control the optional monitoring and routing services. Adjust them if the defaults conflict with other local services.
-  
+
     For a full list of variables see the [Configuration Reference](configuration.md).
 
 Prometheus uses a static configuration file (`monitoring/prometheus.yml`) to define scrape targets. Environment variable substitution isn't supported, so edit that file directly if your service names or ports differ from the defaults.
@@ -102,7 +102,7 @@ The quickstart setup scripts call this command for you.
 
 To keep your project's Python dependencies isolated, we use a virtual environment. A setup script is provided to automate this process.
 
-* **On Linux or macOS:**  
+* **On Linux or macOS:**
   **You may need to run this with sudo to install system dependencies**
 
 ```bash
@@ -157,7 +157,7 @@ docker-compose up --build -d
 docker-compose up --build -d
 ```
 
-* --build: This tells Docker Compose to build the Python service image using the Dockerfile.  
+* --build: This tells Docker Compose to build the Python service image using the Dockerfile.
 * -d: This runs the containers in detached mode (in the background).
 
 ### **6. Accessing the Services**

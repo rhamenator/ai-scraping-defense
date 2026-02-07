@@ -47,25 +47,19 @@ pub fn generate_realistic_filename() -> PyResult<String> {
     let prefix = FILENAME_PREFIXES[rng.random_range(0..FILENAME_PREFIXES.len())];
     let suffix = FILENAME_SUFFIXES[rng.random_range(0..FILENAME_SUFFIXES.len())];
     let random_hash: String = rand_string(8).to_lowercase();
-    Ok(format!(
-        "{}{}{}{}",
-        prefix, suffix, random_hash, FILENAME_EXT
-    ))
+    Ok(format!("{prefix}{suffix}{random_hash}{FILENAME_EXT}"))
 }
 
 /// Generate file content with SIMD optimization enabled.
 /// The compiler auto-vectorizes byte operations and string concatenation.
 pub fn generate_file_content(name: &str, target_size: usize) -> Vec<u8> {
     let mut rng = rand::rng();
-    let mut content = format!("// Fake module: {}\n(function() {{\n", name);
+    let mut content = format!("// Fake module: {name}\n(function() {{\n");
     let vars = rng.random_range(5..20);
     for _ in 0..vars {
         let var_name = rand_string(rng.random_range(4..10));
-        content.push_str(&format!(
-            "  var {} = {}\n",
-            var_name,
-            rng.random_range(0..1000)
-        ));
+        let value = rng.random_range(0..1000);
+        content.push_str(&format!("  var {var_name} = {value}\n"));
     }
     content.push_str("})();\n");
     let mut bytes = content.into_bytes();
@@ -83,12 +77,12 @@ pub fn create_fake_js_zip(
 ) -> PyResult<Option<String>> {
     let out_dir = output_dir.unwrap_or_else(|| DEFAULT_ARCHIVE_DIR.to_string());
     fs::create_dir_all(&out_dir).map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Failed to create dir: {}", e))
+        PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Failed to create dir: {e}"))
     })?;
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-    let archive_path = Path::new(&out_dir).join(format!("assets_{}.zip", timestamp));
+    let archive_path = Path::new(&out_dir).join(format!("assets_{timestamp}.zip"));
     let file = File::create(&archive_path).map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Failed to create zip: {}", e))
+        PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Failed to create zip: {e}"))
     })?;
     let mut zip = zip::ZipWriter::new(file);
     let options = FileOptions::<ExtendedFileOptions>::default()
@@ -99,15 +93,14 @@ pub fn create_fake_js_zip(
         let size = rng.random_range(5 * 1024..50 * 1024);
         let content = generate_file_content(&name, size);
         // Clone options for each file (required by zip crate API)
-        zip.start_file(name, options.clone()).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Zip error: {}", e))
-        })?;
+        zip.start_file(name, options.clone())
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Zip error: {e}")))?;
         zip.write_all(&content).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Write error: {}", e))
+            PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Write error: {e}"))
         })?;
     }
     zip.finish().map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Finish zip error: {}", e))
+        PyErr::new::<pyo3::exceptions::PyIOError, _>(format!("Finish zip error: {e}"))
     })?;
     Ok(Some(archive_path.to_string_lossy().to_string()))
 }

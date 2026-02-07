@@ -1,6 +1,8 @@
 import io
 import logging
+
 from src.shared import log_filter
+
 
 def test_sensitive_data_formatter_masks_data():
     logger = logging.getLogger("test_logger")
@@ -20,7 +22,7 @@ def test_sensitive_data_formatter_masks_data():
     assert "api_key=<redacted>" in message
     assert "password=<redacted>" in message
 
-    
+
 def test_invalid_ip_not_redacted():
     logger = logging.getLogger("invalid_ip")
     stream = io.StringIO()

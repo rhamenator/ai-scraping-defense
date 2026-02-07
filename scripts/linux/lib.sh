@@ -79,4 +79,3 @@ wait_for_mariadb() {
     sleep 2
   done
 }
-

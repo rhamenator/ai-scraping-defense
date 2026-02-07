@@ -41,4 +41,3 @@ function Wait-MariaDB {
     }
     Write-Warning "Timeout waiting for MariaDB in $Container"
 }
-

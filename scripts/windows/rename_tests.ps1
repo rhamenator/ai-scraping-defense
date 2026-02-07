@@ -28,23 +28,23 @@ Get-ChildItem -Path $testDirectory -Recurse -Filter "*.test.py" | ForEach-Object
     # For each file found...
     $oldFile = $_
     $directory = $oldFile.DirectoryName
-    
+
     # Get the base name (filename without the final .py extension)
     # e.g., "admin_ui.test"
-    $baseName = $oldFile.BaseName 
-    
+    $baseName = $oldFile.BaseName
+
     # Remove the '.test' suffix to get the core module name
     # e.g., "admin_ui"
     $moduleName = $baseName.Replace(".test", "")
-    
+
     # Construct the new, correct filename
     # e.g., "test_admin_ui.py"
     $newFileName = "test_$($moduleName).py"
-    
+
     try {
         # Rename the file using its full path and the new file name
         Rename-Item -Path $oldFile.FullName -NewName $newFileName -ErrorAction Stop
-        
+
         # Print a success message
         Write-Host "Renamed: $($oldFile.Name) -> $($newFileName)" -ForegroundColor Green
     }

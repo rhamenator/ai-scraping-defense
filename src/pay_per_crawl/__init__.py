@@ -31,5 +31,5 @@ __all__ = [
     "AuthorizeNetGateway",
     "get_payment_gateway",
     "tokenize_card",
-    "secure_hash"
+    "secure_hash",
 ]

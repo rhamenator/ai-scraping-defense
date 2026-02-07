@@ -33,6 +33,8 @@ LOCKOUT_DURATION = int(os.getenv("ADMIN_UI_LOCKOUT_DURATION", "900"))
 SESSION_TTL = int(os.getenv("ADMIN_UI_SESSION_TTL", "3600"))
 SESSION_MAX_CONCURRENT = int(os.getenv("ADMIN_UI_SESSION_MAX_CONCURRENT", "3"))
 SESSION_COOKIE_NAME = os.getenv("ADMIN_UI_SESSION_COOKIE", "admin_ui_session")
+SESSION_COOKIE_PATH = "/"
+SESSION_COOKIE_SAMESITE = "Strict"
 
 
 def _lockout_key(username: str) -> str:
@@ -378,7 +380,8 @@ def _set_session_cookie(
             max_age=SESSION_TTL,
             httponly=True,
             secure=True,
-            samesite="Strict",
+            samesite=SESSION_COOKIE_SAMESITE,
+            path=SESSION_COOKIE_PATH,
         )
 
 
@@ -449,5 +452,12 @@ async def logout(
     redis_conn = get_redis_connection()
     session_id = request.cookies.get(SESSION_COOKIE_NAME)
     _clear_session(redis_conn, session_id)
-    response.delete_cookie(SESSION_COOKIE_NAME)
+    # Browsers only delete cookies when the attributes match (path/samesite/secure).
+    response.delete_cookie(
+        SESSION_COOKIE_NAME,
+        path=SESSION_COOKIE_PATH,
+        secure=True,
+        httponly=True,
+        samesite=SESSION_COOKIE_SAMESITE,
+    )
     return {"status": "ok"}

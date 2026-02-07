@@ -30,4 +30,3 @@ if (-not (Get-WebConfigurationProperty -pspath $sitePath -filter "system.webServ
 }
 
 Write-Host 'Proxy rules configured.' -ForegroundColor Green
-

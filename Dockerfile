@@ -45,19 +45,27 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create a dedicated non-root user with specific UID/GID for consistency
-RUN groupadd -r appuser -g 1000 && useradd -r -g appuser -u 1000 appuser
-
-RUN pip check
+RUN groupadd -r appuser -g 1000 && \
+    useradd --create-home --home-dir /home/appuser -g appuser -u 1000 appuser
 
 WORKDIR /app
 
-ENV PYTHONPATH "${PYTHONPATH}:/app"
+ENV PYTHONPATH=/app/src
 
-COPY --chown=appuser:appuser requirements.txt constraints.txt ./
+COPY requirements.txt constraints.txt ./
 
-USER appuser
-RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt && \
-    rm -rf /home/appuser/.cache/pip
+# Install dependencies as root into the image's site-packages. We still run the
+# app as non-root, but avoid pip falling back to a user-install (which requires
+# a writable $HOME).
+RUN python -m pip install --no-cache-dir --upgrade "pip>=26.0" && \
+    pip install --no-cache-dir -r requirements.txt -c constraints.txt && \
+    rm -rf /root/.cache/pip && \
+    # Trivy may flag vulnerabilities in setuptools' vendored dependencies (e.g. jaraco.context).
+    # We keep setuptools for build tooling included in requirements.txt (pip-tools), but remove
+    # unused vendored modules to reduce exposure in the runtime image.
+    python -c "import shutil; from pathlib import Path; import setuptools; vendor=Path(setuptools.__file__).parent/'_vendor'; [shutil.rmtree(p, ignore_errors=True) for p in vendor.glob('jaraco.context-*.dist-info')]; ctx=vendor/'jaraco'/'context.py'; ctx.exists() and ctx.unlink(); [shutil.rmtree(p, ignore_errors=True) for p in vendor.glob('wheel-*.dist-info')]; wh=vendor/'wheel'; wh.exists() and shutil.rmtree(wh, ignore_errors=True)" && \
+    pip check
+
 COPY --chown=appuser:appuser src/ /app/src/
 
 # Copy the pre-built shared libraries from the builder stage

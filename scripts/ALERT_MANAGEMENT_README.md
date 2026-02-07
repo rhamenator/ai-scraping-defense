@@ -303,15 +303,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      
+
       - name: Install dependencies
         run: pip install requests PyGithub
-      
+
       - name: Run alert management
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -320,7 +320,7 @@ jobs:
             --owner ${{ github.repository_owner }} \
             --repo ${{ github.event.repository.name }} \
             --dry-run
-      
+
       - name: Upload report
         uses: actions/upload-artifact@v3
         with:

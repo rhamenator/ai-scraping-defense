@@ -1,5 +1,6 @@
 # Optional Kubernetes support.
-# Note: The official kubernetes client currently requires urllib3<2.4.0,
-# which carries known CVEs. Use only if you accept that trade-off.
+# Note: kubernetes 35.x no longer caps urllib3<2.4.0 (it currently requires
+# urllib3!=2.6.0,>=1.24.2). This avoids forcing older urllib3 versions just
+# to enable Kubernetes support.
 -r requirements.txt
-kubernetes~=34.1
+kubernetes~=35.0

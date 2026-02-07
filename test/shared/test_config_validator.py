@@ -64,6 +64,60 @@ class TestConfigLoader(unittest.TestCase):
         self.assertEqual(config.tarpit.min_delay_sec, 0.5)
         self.assertEqual(config.escalation.threshold, 0.9)
 
+    def test_validate_slack_alerts_accepts_webhook_file(self):
+        env = self.minimal_env.copy()
+        env.update(
+            {
+                "ALERT_METHOD": "slack",
+                "APP_ENV": "testing",
+                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            webhook_file = Path(tmpdir) / "slack_webhook.txt"
+            webhook_file.write_text("https://example.invalid/webhook", encoding="utf-8")
+
+            loader = ConfigLoader(strict=True)
+            config = loader.load_from_env(env)
+            with patch.dict(
+                os.environ,
+                {
+                    "ALERT_SLACK_WEBHOOK_URL_FILE": str(webhook_file),
+                    "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
+                },
+            ):
+                ok, errors = loader.validate_config(config)
+
+        self.assertTrue(ok, f"Expected config to be valid, got errors={errors}")
+
+    def test_validate_webhook_alerts_accepts_webhook_file(self):
+        env = self.minimal_env.copy()
+        env.update(
+            {
+                "ALERT_METHOD": "webhook",
+                "APP_ENV": "testing",
+                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            webhook_file = Path(tmpdir) / "generic_webhook.txt"
+            webhook_file.write_text("https://example.invalid/webhook", encoding="utf-8")
+
+            loader = ConfigLoader(strict=True)
+            config = loader.load_from_env(env)
+            with patch.dict(
+                os.environ,
+                {
+                    "ALERT_GENERIC_WEBHOOK_URL_FILE": str(webhook_file),
+                    "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
+                },
+            ):
+                ok, errors = loader.validate_config(config)
+
+        self.assertTrue(ok, f"Expected config to be valid, got errors={errors}")
+
     def test_load_with_secrets(self):
         """Test loading configuration with secret files."""
         with tempfile.TemporaryDirectory() as tmpdir:

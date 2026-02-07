@@ -9,12 +9,12 @@ except Exception:  # pragma: no cover
 import json
 import logging
 import os
-import secrets
 from typing import List, Optional
 
 from fastapi import Header, HTTPException
 from pydantic import BaseModel, IPvAnyAddress
 
+from src.shared.api_key_auth import is_api_key_valid, load_api_key
 from src.shared.middleware import create_app
 from src.shared.observability import HealthCheckResult, register_health_check
 
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 PUBLIC_BLOCKLIST_FILE = os.getenv(
     "PUBLIC_BLOCKLIST_FILE", "./data/public_blocklist.json"
 )
-PUBLIC_BLOCKLIST_API_KEY = os.getenv("PUBLIC_BLOCKLIST_API_KEY")
+PUBLIC_BLOCKLIST_API_KEY = load_api_key("PUBLIC_BLOCKLIST_API_KEY")
 PUBLIC_BLOCKLIST_LIST_REQUIRES_KEY = (
     os.getenv("PUBLIC_BLOCKLIST_LIST_REQUIRES_KEY", "false").lower() == "true"
 )
@@ -124,7 +124,7 @@ def get_list_authenticated(x_api_key: Optional[str] = Header(None)) -> dict:
     """Return blocklist requiring API key when enabled."""
     if not PUBLIC_BLOCKLIST_API_KEY:
         raise HTTPException(status_code=503, detail="Service misconfigured")
-    if not x_api_key or not secrets.compare_digest(x_api_key, PUBLIC_BLOCKLIST_API_KEY):
+    if not is_api_key_valid(x_api_key, PUBLIC_BLOCKLIST_API_KEY):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
     return {"ips": sorted(BLOCKLIST_IPS)}
 
@@ -137,7 +137,7 @@ def report_ip(report: IPReport, x_api_key: Optional[str] = Header(None)) -> dict
     """
     if not PUBLIC_BLOCKLIST_API_KEY:
         raise HTTPException(status_code=503, detail="Service misconfigured")
-    if not x_api_key or not secrets.compare_digest(x_api_key, PUBLIC_BLOCKLIST_API_KEY):
+    if not is_api_key_valid(x_api_key, PUBLIC_BLOCKLIST_API_KEY):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
     BLOCKLIST_IPS.add(str(report.ip))
     _save_blocklist(sorted(BLOCKLIST_IPS))

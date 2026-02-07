@@ -35,7 +35,7 @@ find_args+=(-type f -name "*.py" -print)
 while IFS= read -r py_file; do
     # Get the directory containing the file
     dir=$(dirname "$py_file")
-    
+
     # Walk up from the file's directory to the project root
     while [ "$dir" != "." ] && [ "$dir" != "/" ]; do
         # Add the directory to our list if it's not already there

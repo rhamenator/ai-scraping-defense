@@ -9,6 +9,7 @@ import time
 from collections import deque
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import quote
 
 from cachetools import TTLCache
 from fastapi import FastAPI
@@ -64,6 +65,89 @@ def _load_security_settings() -> SecuritySettings:
 def _header_override(name: str, default: str) -> str:
     value = os.getenv(name)
     return value if value else default
+
+
+def _parse_non_negative_int(name: str, default: int) -> int:
+    """Parse an integer env var allowing 0 to disable a check."""
+
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        parsed = int(value)
+    except ValueError:
+        raise ValueError(
+            f"Environment variable {name} must be an integer, got {value!r}"
+        )
+    if parsed < 0:
+        raise ValueError(
+            f"Environment variable {name} must be a non-negative integer, got {parsed!r}"
+        )
+    return parsed
+
+
+def _parse_host_list(name: str) -> list[str]:
+    """Parse a comma-separated list of hosts or host:port values."""
+
+    raw = os.getenv(name, "")
+    hosts = [entry.strip().lower() for entry in raw.split(",") if entry.strip()]
+    seen: set[str] = set()
+    unique: list[str] = []
+    for host in hosts:
+        if host not in seen:
+            seen.add(host)
+            unique.append(host)
+    return unique
+
+
+class RequestTargetLimitMiddleware(BaseHTTPMiddleware):
+    """Reject requests with unusually large request targets or headers."""
+
+    def __init__(
+        self,
+        app: FastAPI,
+        *,
+        max_path_length: int,
+        max_query_string_length: int,
+        max_header_count: int,
+        max_header_value_length: int,
+    ) -> None:
+        super().__init__(app)
+        self.max_path_length = max_path_length
+        self.max_query_string_length = max_query_string_length
+        self.max_header_count = max_header_count
+        self.max_header_value_length = max_header_value_length
+
+    async def dispatch(self, request: Request, call_next):
+        if self.max_path_length:
+            raw_path = request.scope.get("raw_path") or request.url.path.encode()
+            if len(raw_path) > self.max_path_length:
+                return JSONResponse(
+                    status_code=414, content={"detail": "Request-URI too long"}
+                )
+
+        if self.max_query_string_length:
+            query = request.scope.get("query_string", b"")
+            if len(query) > self.max_query_string_length:
+                return JSONResponse(
+                    status_code=414, content={"detail": "Request-URI too long"}
+                )
+
+        headers = request.scope.get("headers", [])
+        if self.max_header_count and len(headers) > self.max_header_count:
+            return JSONResponse(
+                status_code=431, content={"detail": "Request header fields too large"}
+            )
+
+        if self.max_header_value_length:
+            for _, value in headers:
+                if len(value) > self.max_header_value_length:
+                    return JSONResponse(
+                        status_code=431,
+                        content={"detail": "Request header fields too large"},
+                    )
+
+        return await call_next(request)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -196,6 +280,18 @@ def add_security_middleware(
     if gdpr_enabled:
         app.add_middleware(GDPRComplianceMiddleware)
 
+    app.add_middleware(
+        RequestTargetLimitMiddleware,
+        max_path_length=_parse_non_negative_int("SECURITY_MAX_PATH_LENGTH", 2048),
+        max_query_string_length=_parse_non_negative_int(
+            "SECURITY_MAX_QUERY_STRING_LENGTH", 4096
+        ),
+        max_header_count=_parse_non_negative_int("SECURITY_MAX_HEADER_COUNT", 100),
+        max_header_value_length=_parse_non_negative_int(
+            "SECURITY_MAX_HEADER_VALUE_LENGTH", 8192
+        ),
+    )
+
     app.add_middleware(BodySizeLimitMiddleware, max_body_size=settings.max_body_size)
     app.add_middleware(
         RateLimitMiddleware,
@@ -203,6 +299,8 @@ def add_security_middleware(
         window_seconds=settings.rate_limit_window,
     )
     if settings.enable_https:
+        canonical = os.getenv("SECURITY_HTTPS_REDIRECT_CANONICAL_HOST", "").strip()
+        allowed_hosts = _parse_host_list("SECURITY_HTTPS_REDIRECT_ALLOWED_HOSTS")
 
         @app.middleware("http")
         async def _enforce_https(request, call_next):
@@ -211,8 +309,30 @@ def add_security_middleware(
                 forwarded.split(",")[0].strip() if forwarded else request.url.scheme
             )
             if scheme != "https":
+                current_netloc = (request.url.netloc or "").lower()
+                target_netloc = current_netloc
+                if canonical:
+                    target_netloc = canonical
+                elif allowed_hosts:
+                    if current_netloc not in allowed_hosts:
+                        target_netloc = allowed_hosts[0]
+                        logger.warning(
+                            "HTTPS redirect host %r not in allowlist; redirecting to %r",
+                            current_netloc,
+                            target_netloc,
+                        )
+
+                safe_path = quote(request.url.path, safe="/%")
                 return RedirectResponse(
-                    url=str(request.url.replace(scheme="https")), status_code=307
+                    url=str(
+                        request.url.replace(
+                            scheme="https",
+                            netloc=target_netloc,
+                            path=safe_path,
+                            query=request.url.query,
+                        )
+                    ),
+                    status_code=307,
                 )
             return await call_next(request)
 

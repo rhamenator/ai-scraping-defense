@@ -1,5 +1,8 @@
 FROM openresty/openresty:alpine
 
+# Bring Alpine packages up to date to pick up security fixes in base libraries.
+RUN apk update && apk upgrade --no-cache
+
 # Create required directories with correct permissions
 RUN mkdir -p /usr/local/openresty/nginx/logs \
     && chown -R nobody:nobody /usr/local/openresty/nginx/logs \

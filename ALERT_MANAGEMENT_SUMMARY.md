@@ -22,7 +22,7 @@ A sophisticated Python script (28KB, 850+ lines) that:
 
 **Fetches Alerts:**
 - Code scanning alerts
-- Secret scanning alerts  
+- Secret scanning alerts
 - Dependabot alerts
 
 **Identifies Duplicates:**

@@ -731,6 +731,13 @@ class TestAdminUISessions(unittest.TestCase):
             cookies={auth.SESSION_COOKIE_NAME: session_cookie},
         )
         self.assertEqual(response.status_code, 200)
+        set_cookie = response.headers.get("set-cookie", "")
+        self.assertIn(f"{auth.SESSION_COOKIE_NAME}=", set_cookie)
+        self.assertIn("Max-Age=0", set_cookie)
+        self.assertIn("Path=/", set_cookie)
+        self.assertIn("HttpOnly", set_cookie)
+        self.assertIn("Secure", set_cookie)
+        self.assertIn("SameSite=Strict", set_cookie)
 
         response = self.client.get(
             "/", auth=self.auth, cookies={auth.SESSION_COOKIE_NAME: session_cookie}
