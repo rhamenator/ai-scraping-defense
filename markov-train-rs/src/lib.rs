@@ -75,9 +75,8 @@ fn get_word_id(
 
 #[pyfunction]
 fn train_from_corpus_rs(corpus_path: String) -> PyResult<()> {
-    let mut client = connect_db().map_err(|e| {
-        pyo3::exceptions::PyRuntimeError::new_err(format!("DB connect error: {e}"))
-    })?;
+    let mut client = connect_db()
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("DB connect error: {e}")))?;
 
     let file = File::open(&corpus_path)
         .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))?;
@@ -113,9 +112,8 @@ fn train_from_corpus_rs(corpus_path: String) -> PyResult<()> {
             if word.len() > 100 {
                 continue;
             }
-            let next_id = get_word_id(&mut client, &mut cache, &word).map_err(|e| {
-                pyo3::exceptions::PyRuntimeError::new_err(format!("DB error: {e}"))
-            })?;
+            let next_id = get_word_id(&mut client, &mut cache, &word)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("DB error: {e}")))?;
             batch.push((p1, p2, next_id));
             if batch.len() >= BATCH_SIZE {
                 for (a, b, c) in &batch {
