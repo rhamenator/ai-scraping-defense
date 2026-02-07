@@ -40,6 +40,8 @@ RUN apt-get update && \
         git \
         gcc \
         g++ \
+        make \
+        pkg-config \
         cmake && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

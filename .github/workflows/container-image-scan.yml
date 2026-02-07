@@ -48,14 +48,14 @@ jobs:
         with:
           image-ref: ${{ matrix.image.name }}:scan
           format: sarif
-          output: trivy-${{ matrix.image.name }}.sarif
+          output: ${{ github.workspace }}/trivy-${{ matrix.image.name }}.sarif
           severity: CRITICAL,HIGH
           ignore-unfixed: true
       - name: Check SARIF Exists
         id: sarif_exists
         if: always()
         run: |
-          if test -f "trivy-${{ matrix.image.name }}.sarif"; then
+          if test -f "${{ github.workspace }}/trivy-${{ matrix.image.name }}.sarif"; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -65,14 +65,14 @@ jobs:
         if: always() && steps.sarif_exists.outputs.exists == 'true'
         with:
           name: trivy-sarif-${{ matrix.image.name }}
-          path: trivy-${{ matrix.image.name }}.sarif
+          path: ${{ github.workspace }}/trivy-${{ matrix.image.name }}.sarif
           if-no-files-found: ignore
           retention-days: 7
       - name: Upload Trivy results
         uses: github/codeql-action/upload-sarif@ce729e4d353d580e6cacd6a8cf2921b72e5e310a
         if: always() && steps.sarif_exists.outputs.exists == 'true'
         with:
-          sarif_file: trivy-${{ matrix.image.name }}.sarif
+          sarif_file: ${{ github.workspace }}/trivy-${{ matrix.image.name }}.sarif
           category: trivy-${{ matrix.image.name }}
       - name: Scan image with Trivy (table)
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
@@ -88,7 +88,7 @@ jobs:
         with:
           image-ref: ${{ matrix.image.name }}:scan
           format: json
-          output: trivy-${{ matrix.image.name }}.json
+          output: ${{ github.workspace }}/trivy-${{ matrix.image.name }}.json
           severity: CRITICAL,HIGH,MEDIUM,LOW
           ignore-unfixed: true
           exit-code: "0"
@@ -97,6 +97,6 @@ jobs:
         if: always()
         with:
           name: trivy-json-${{ matrix.image.name }}
-          path: trivy-${{ matrix.image.name }}.json
+          path: ${{ github.workspace }}/trivy-${{ matrix.image.name }}.json
           if-no-files-found: ignore
           retention-days: 7
