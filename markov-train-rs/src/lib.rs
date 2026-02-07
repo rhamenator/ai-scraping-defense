@@ -27,10 +27,7 @@ fn connect_db() -> Result<Client, postgres::Error> {
     let db = env::var("PG_DBNAME").unwrap_or_else(|_| "markovdb".into());
     let user = env::var("PG_USER").unwrap_or_else(|_| "markovuser".into());
     let password = get_pg_password().unwrap_or_default();
-    let conn_str = format!(
-        "host={} port={} dbname={} user={} password={}",
-        host, port, db, user, password
-    );
+    let conn_str = format!("host={host} port={port} dbname={db} user={user} password={password}");
     Client::connect(&conn_str, NoTls)
 }
 
@@ -79,11 +76,11 @@ fn get_word_id(
 #[pyfunction]
 fn train_from_corpus_rs(corpus_path: String) -> PyResult<()> {
     let mut client = connect_db().map_err(|e| {
-        pyo3::exceptions::PyRuntimeError::new_err(format!("DB connect error: {}", e))
+        pyo3::exceptions::PyRuntimeError::new_err(format!("DB connect error: {e}"))
     })?;
 
     let file = File::open(&corpus_path)
-        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}", e)))?;
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))?;
     let reader = BufReader::new(file);
 
     // Remove standalone apostrophes and hyphens (not part of words)
@@ -105,7 +102,7 @@ fn train_from_corpus_rs(corpus_path: String) -> PyResult<()> {
     let stmt = client.prepare("INSERT INTO markov_sequences (p1, p2, next_id, freq) VALUES ($1, $2, $3, 1) ON CONFLICT (p1, p2, next_id) DO UPDATE SET freq = markov_sequences.freq + 1;").unwrap();
 
     for line in reader.lines() {
-        let line = line.map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}", e)))?;
+        let line = line.map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))?;
         let words = tokenize_text(&line, &re2, &re3);
         if words.is_empty() {
             continue;
@@ -117,7 +114,7 @@ fn train_from_corpus_rs(corpus_path: String) -> PyResult<()> {
                 continue;
             }
             let next_id = get_word_id(&mut client, &mut cache, &word).map_err(|e| {
-                pyo3::exceptions::PyRuntimeError::new_err(format!("DB error: {}", e))
+                pyo3::exceptions::PyRuntimeError::new_err(format!("DB error: {e}"))
             })?;
             batch.push((p1, p2, next_id));
             if batch.len() >= BATCH_SIZE {

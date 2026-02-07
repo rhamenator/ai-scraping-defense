@@ -19,9 +19,9 @@ fn get_connection(db: u32) -> redis::RedisResult<redis::Connection> {
     let host = env::var("REDIS_HOST").unwrap_or_else(|_| "localhost".into());
     let password = get_password();
     let url = if let Some(pw) = password {
-        format!("redis://:{}@{}:{}/{}", pw, host, 6379, db)
+        format!("redis://:{pw}@{host}:6379/{db}")
     } else {
-        format!("redis://{}:{}/{}", host, 6379, db)
+        format!("redis://{host}:6379/{db}")
     };
     let client = redis::Client::open(url)?;
     client.get_connection()

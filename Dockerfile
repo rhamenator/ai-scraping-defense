@@ -50,7 +50,7 @@ RUN groupadd -r appuser -g 1000 && \
 
 WORKDIR /app
 
-ENV PYTHONPATH "${PYTHONPATH}:/app"
+ENV PYTHONPATH=/app/src
 
 COPY requirements.txt constraints.txt ./
 
