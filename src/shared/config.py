@@ -322,6 +322,7 @@ class Config:
     )
     ESCALATION_API_KEY: Optional[str] = field(
         default_factory=lambda: os.getenv("ESCALATION_API_KEY")
+        or get_secret("ESCALATION_API_KEY_FILE")
     )
     ESCALATION_WEBHOOK_URL: Optional[str] = field(
         default_factory=lambda: os.getenv("ESCALATION_WEBHOOK_URL")
