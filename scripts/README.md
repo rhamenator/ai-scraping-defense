@@ -99,6 +99,19 @@ python scripts/create_code_scanning_issues.py
 
 For other scripts in this directory, refer to their individual documentation or inline comments.
 
+### scripts/ci/watch_actions_run.py
+
+**Purpose**: Terminal progress indicator for long-running GitHub Actions checks.
+
+**Usage**:
+```bash
+# Watch a specific run id
+python scripts/ci/watch_actions_run.py --run-id 1234567890 --show-jobs
+
+# Watch the latest run for a workflow on main
+python scripts/ci/watch_actions_run.py --workflow security-controls.yml --branch main --show-jobs
+```
+
 ## Common Requirements
 
 Most security-related scripts in this directory require:
