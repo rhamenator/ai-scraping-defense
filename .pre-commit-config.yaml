@@ -18,6 +18,6 @@ repos:
     rev: v4.6.0
     hooks:
       - id: mixed-line-ending
-        args: ["--fix=lf"]
+        args: ["--fix=auto"]
       - id: end-of-file-fixer
       - id: trailing-whitespace
