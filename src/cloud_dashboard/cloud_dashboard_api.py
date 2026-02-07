@@ -4,7 +4,6 @@ import asyncio
 import json
 import logging
 import os
-import secrets
 from contextlib import asynccontextmanager
 from json import JSONDecodeError
 from typing import Any, Dict, List
@@ -14,6 +13,7 @@ from fastapi.responses import JSONResponse
 from redis.exceptions import RedisError
 from starlette.websockets import WebSocketState
 
+from src.shared.api_key_auth import is_api_key_valid, load_api_key
 from src.shared.config import tenant_key
 from src.shared.middleware import create_app
 from src.shared.observability import (
@@ -104,14 +104,12 @@ async def _redis_health() -> HealthCheckResult:
     return HealthCheckResult.healthy()
 
 
-API_KEY = os.getenv("CLOUD_DASHBOARD_API_KEY")
+API_KEY = load_api_key("CLOUD_DASHBOARD_API_KEY")
 
 
 @app.post("/register")
 async def register_installation(payload: Dict[str, Any], request: Request):
-    if API_KEY and not secrets.compare_digest(
-        request.headers.get("X-API-Key", ""), API_KEY
-    ):
+    if API_KEY and not is_api_key_valid(request.headers.get("X-API-Key"), API_KEY):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
 
     installation_id = _validate_installation_id(payload.get("installation_id"))
@@ -140,9 +138,7 @@ async def register_installation(payload: Dict[str, Any], request: Request):
 
 @app.post("/metrics")
 async def push_metrics(payload: Dict[str, Any], request: Request):
-    if API_KEY and not secrets.compare_digest(
-        request.headers.get("X-API-Key", ""), API_KEY
-    ):
+    if API_KEY and not is_api_key_valid(request.headers.get("X-API-Key"), API_KEY):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
 
     installation_id = _validate_installation_id(payload.get("installation_id"))
@@ -175,9 +171,7 @@ async def push_metrics(payload: Dict[str, Any], request: Request):
 
 @app.get("/metrics/{installation_id}")
 async def get_metrics(installation_id: str, request: Request):
-    if API_KEY and not secrets.compare_digest(
-        request.headers.get("X-API-Key", ""), API_KEY
-    ):
+    if API_KEY and not is_api_key_valid(request.headers.get("X-API-Key"), API_KEY):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     installation_id = _validate_installation_id(installation_id)
     if not installation_id:
@@ -204,9 +198,7 @@ async def get_metrics(installation_id: str, request: Request):
 
 @app.websocket("/ws/{installation_id}")
 async def metrics_websocket(websocket: WebSocket, installation_id: str):
-    if API_KEY and not secrets.compare_digest(
-        websocket.headers.get("X-API-Key", ""), API_KEY
-    ):
+    if API_KEY and not is_api_key_valid(websocket.headers.get("X-API-Key"), API_KEY):
         await websocket.close(code=1008)
         return
     if not _validate_installation_id(installation_id):

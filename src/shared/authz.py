@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Iterable, Optional
 
 from fastapi import HTTPException, Request, status
@@ -32,6 +33,59 @@ ALGORITHMS_DEFAULT = [alg for alg in ALGORITHMS_DEFAULT if alg in ALGORITHMS_ALL
 JWT_SECRET = os.getenv("AUTH_JWT_SECRET")
 JWT_ISSUER = os.getenv("AUTH_JWT_ISSUER")
 JWT_AUDIENCE = os.getenv("AUTH_JWT_AUDIENCE")
+JWT_SECRET_FILE = os.getenv("AUTH_JWT_SECRET_FILE")
+JWT_PUBLIC_KEY = os.getenv("AUTH_JWT_PUBLIC_KEY")
+JWT_PUBLIC_KEY_FILE = os.getenv("AUTH_JWT_PUBLIC_KEY_FILE")
+
+
+def _read_secret_file(path: str | None) -> str | None:
+    if not path:
+        return None
+    try:
+        return Path(path).read_text(encoding="utf-8").strip() or None
+    except OSError:
+        return None
+
+
+def _is_hmac_algorithm(alg: str) -> bool:
+    return alg.upper().startswith("HS")
+
+
+def _looks_like_pem(value: str) -> bool:
+    return value.strip().startswith("-----BEGIN")
+
+
+def _jwt_verification_key(algorithms: list[str]) -> str | None:
+    """Return the key material to verify JWT signatures.
+
+    For HMAC (HS*) algorithms this uses AUTH_JWT_SECRET / AUTH_JWT_SECRET_FILE.
+    For asymmetric algorithms (RS*/ES*/EdDSA) this uses AUTH_JWT_PUBLIC_KEY /
+    AUTH_JWT_PUBLIC_KEY_FILE, with a compatibility fallback to AUTH_JWT_SECRET if
+    it looks like a PEM key.
+    """
+
+    algs = [a.strip() for a in algorithms if a.strip()]
+    if not algs:
+        return None
+
+    uses_hs = any(_is_hmac_algorithm(a) for a in algs)
+    uses_asym = any(not _is_hmac_algorithm(a) for a in algs)
+    if uses_hs and uses_asym:
+        # Ambiguous and likely misconfigured.
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="JWT algorithms mix HMAC and asymmetric types",
+        )
+
+    if uses_hs:
+        return JWT_SECRET or _read_secret_file(JWT_SECRET_FILE)
+
+    # Asymmetric: prefer explicit public key vars.
+    return (
+        JWT_PUBLIC_KEY
+        or _read_secret_file(JWT_PUBLIC_KEY_FILE)
+        or (JWT_SECRET if JWT_SECRET and _looks_like_pem(JWT_SECRET) else None)
+    )
 
 
 def _extract_bearer_token(request: Request) -> Optional[str]:
@@ -59,7 +113,7 @@ def verify_jwt_from_request(
     *,
     raise_on_missing: bool = True,
 ) -> dict:
-    if jwt is None or not JWT_SECRET:
+    if jwt is None:
         if raise_on_missing:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -71,6 +125,14 @@ def verify_jwt_from_request(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="JWT algorithms not configured",
         )
+    key = _jwt_verification_key(ALGORITHMS_DEFAULT)
+    if not key:
+        if raise_on_missing:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="JWT auth not configured",
+            )
+        return {}
     token = _extract_bearer_token(request)
     if not token:
         raise HTTPException(
@@ -80,7 +142,7 @@ def verify_jwt_from_request(
         options = {"require": ["exp", "iat"]}
         claims = jwt.decode(
             token,
-            JWT_SECRET,
+            key,
             algorithms=ALGORITHMS_DEFAULT,
             audience=JWT_AUDIENCE if JWT_AUDIENCE else None,
             issuer=JWT_ISSUER if JWT_ISSUER else None,

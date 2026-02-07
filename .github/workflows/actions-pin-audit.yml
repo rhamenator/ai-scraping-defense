@@ -39,7 +39,7 @@ jobs:
               ["1af3b93b68", "15bc44a978", "4bd300feb6", "7ff0d1eeb3"]
             ),
             "actions/setup-python": "".join(
-              ["a26af69be9", "51a213d495", "a4c3e4e402", "2e16d87065"]
+              ["a309ff8b42", "6b58ec0e2a", "45f0f869d4", "6889d02405"]
             ),
             "actions/upload-artifact": "".join(
               ["330a01c490", "aca151604b", "8cf639adc7", "6d48f6c5d4"]

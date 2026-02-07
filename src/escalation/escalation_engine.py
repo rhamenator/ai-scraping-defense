@@ -34,6 +34,7 @@ except Exception:
     geoip2 = None
     GEOIP_AVAILABLE = False
 
+from src.shared.api_key_auth import is_api_key_valid
 from src.shared.authz import require_jwt, verify_jwt_from_request
 from src.shared.config import CONFIG
 from src.shared.decision_db import record_decision
@@ -986,7 +987,7 @@ async def handle_escalation(
     api_key = request.headers.get("X-API-Key")
     configured_key = _current_api_key()
     if configured_key:
-        if api_key == configured_key:
+        if is_api_key_valid(api_key, configured_key):
             pass  # Authorized via API key
         else:
             # If API key missing/invalid, JWT dependency above must be valid
@@ -1247,7 +1248,9 @@ async def admin_reload_plugins(
     _jwt=Depends(require_jwt(required_roles=["admin", "engine:admin"])),
 ):
     configured_key = _current_api_key()
-    if configured_key and request.headers.get("X-API-Key") != configured_key:
+    if configured_key and not is_api_key_valid(
+        request.headers.get("X-API-Key"), configured_key
+    ):
         # Accept legacy API key; otherwise, JWT dependency covers authz
         if not _jwt:
             raise HTTPException(status_code=401, detail="Unauthorized")

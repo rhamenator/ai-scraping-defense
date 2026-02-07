@@ -57,7 +57,8 @@ COPY requirements.txt constraints.txt ./
 # Install dependencies as root into the image's site-packages. We still run the
 # app as non-root, but avoid pip falling back to a user-install (which requires
 # a writable $HOME).
-RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt && \
+RUN python -m pip install --no-cache-dir --upgrade "pip>=26.0" && \
+    pip install --no-cache-dir -r requirements.txt -c constraints.txt && \
     rm -rf /root/.cache/pip && \
     # Trivy may flag vulnerabilities in setuptools' vendored dependencies (e.g. jaraco.context).
     # We keep setuptools for build tooling included in requirements.txt (pip-tools), but remove

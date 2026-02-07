@@ -1,9 +1,9 @@
 import os
-import secrets
 from typing import Dict
 
 from fastapi import Header, HTTPException
 
+from src.shared.api_key_auth import is_api_key_valid, load_api_key
 from src.shared.config import CONFIG
 from src.shared.middleware import create_app
 from src.shared.observability import (
@@ -78,8 +78,8 @@ def _generate_recommendations(metrics: Dict[str, float]) -> Dict[str, int]:
 async def recommendations(
     x_api_key: str | None = Header(default=None, alias="X-API-Key")
 ) -> Dict[str, Dict[str, int]]:
-    expected = os.getenv("RECOMMENDER_API_KEY")
-    if expected and (not x_api_key or not secrets.compare_digest(x_api_key, expected)):
+    expected = load_api_key("RECOMMENDER_API_KEY")
+    if expected and not is_api_key_valid(x_api_key, expected):
         raise HTTPException(status_code=401, detail="Invalid API key")
     with trace_span("config_recommender.fetch_metrics"):
         raw = get_metrics()

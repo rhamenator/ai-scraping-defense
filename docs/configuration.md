@@ -126,13 +126,52 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 
 > **Note:** `SYSTEM_SEED` must be set to a unique value. The Tarpit API raises an error if the default placeholder is used.
 
+## Security Middleware
+
+These settings apply to services created via `src.shared.middleware.create_app()`.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ENABLE_HTTPS` | `false` | Redirect HTTP requests to HTTPS and enable HSTS |
+| `RATE_LIMIT_REQUESTS` | `100` | Requests allowed per client IP per window |
+| `RATE_LIMIT_WINDOW` | `60` | Rate limit window size in seconds |
+| `MAX_BODY_SIZE` | `1048576` | Max request body size in bytes |
+| `SECURITY_HTTPS_REDIRECT_CANONICAL_HOST` | *(none)* | Optional canonical `host[:port]` for HTTPS redirects |
+| `SECURITY_HTTPS_REDIRECT_ALLOWED_HOSTS` | *(none)* | Optional comma-separated list of allowed `host[:port]` values for HTTPS redirects |
+| `SECURITY_MAX_PATH_LENGTH` | `2048` | Max URL path length in bytes (0 disables the check) |
+| `SECURITY_MAX_QUERY_STRING_LENGTH` | `4096` | Max query string length in bytes (0 disables the check) |
+| `SECURITY_MAX_HEADER_COUNT` | `100` | Max number of request headers (0 disables the check) |
+| `SECURITY_MAX_HEADER_VALUE_LENGTH` | `8192` | Max single header value length in bytes (0 disables the check) |
+
+## JWT Authentication
+
+JWT verification is used by some internal APIs (for example, the escalation engine endpoints guarded by `src.shared.authz.require_jwt`).
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `AUTH_JWT_ALGORITHMS` | `HS256` | Comma-separated list of allowed JWT algorithms |
+| `AUTH_JWT_SECRET` | *(none)* | Secret used for HS* algorithms |
+| `AUTH_JWT_SECRET_FILE` | *(none)* | File containing the secret used for HS* algorithms |
+| `AUTH_JWT_PUBLIC_KEY` | *(none)* | Public key used for RS*/ES*/EdDSA algorithms |
+| `AUTH_JWT_PUBLIC_KEY_FILE` | *(none)* | File containing the public key used for RS*/ES*/EdDSA algorithms |
+| `AUTH_JWT_ISSUER` | *(none)* | Optional expected `iss` claim |
+| `AUTH_JWT_AUDIENCE` | *(none)* | Optional expected `aud` claim |
+
+## Error Handling
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ERROR_INCLUDE_DETAILS` | `false` | Include error `details` fields in HTTP responses (recommended: keep `false` in production) |
+
 ## Alerts and Webhooks
 
 | Variable | Default | Description |
 | --- | --- | --- |
 | `ALERT_METHOD` | `none` | How the AI Service sends notifications |
 | `ALERT_GENERIC_WEBHOOK_URL` | *(none)* | Generic webhook target |
+| `ALERT_GENERIC_WEBHOOK_URL_FILE` | *(none)* | File containing generic webhook target |
 | `ALERT_SLACK_WEBHOOK_URL` | *(none)* | Slack webhook target |
+| `ALERT_SLACK_WEBHOOK_URL_FILE` | *(none)* | File containing Slack webhook target |
 | `ALERT_SMTP_HOST` | `mailhog` | SMTP server hostname |
 | `ALERT_SMTP_PORT` | `587` | SMTP server port |
 | `ALERT_SMTP_USER` | *(none)* | SMTP username |

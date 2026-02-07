@@ -4,7 +4,7 @@ cargo-features = ["edition2024"]
 name = "jszip-rs"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.87"
+rust-version = "1.88"
 build = "build.rs"
 
 [lib]

@@ -25,6 +25,11 @@ Both `scripts/linux/security_scan.sh` and the new **`scripts/windows/security_sc
 Static configuration checks validate against `config/security_hardening.yaml` to
 ensure baseline hardening expectations are met in `docker-compose.yaml`.
 
+The scan scripts also run lightweight, dependency-free HTTP probes via
+`scripts/security/stack_probe.py` and store results in `reports/stack_probe_*.json`.
+This helps catch regressions (unexpected 5xx responses, missing headers, etc.) even
+when heavyweight scanners are not installed.
+
 Some tools require extra prerequisites: Go for ProjectDiscovery utilities
 (`nuclei`, `katana`, `httpx`, `amass`, `dalfox`), Node.js for `snyk`, and
 wordlists such as Seclists/DirBuster for directory and parameter fuzzing.

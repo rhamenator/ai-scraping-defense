@@ -43,6 +43,11 @@ if ($DockerImage) { $SafeImage = $DockerImage -replace '[:/]', '_' }
 $ErrorActionPreference = 'Stop'
 if (-not (Test-Path 'reports')) { New-Item -ItemType Directory 'reports' | Out-Null }
 
+Write-Host '=== 0. HTTP Stack Probe (quick regression checks) ==='
+if ((Get-Command python -ErrorAction SilentlyContinue) -and (Test-Path 'scripts/security/stack_probe.py')) {
+    python scripts/security/stack_probe.py --base-url $WebUrl --json *> "reports/stack_probe_${SafeWeb}.json" || $true
+} else { Write-Warning 'python or scripts/security/stack_probe.py not found. Skipping stack probe.' }
+
 Write-Host '=== 1. Nmap Scan (version, OS, common vulns) ==='
 if (Get-Command nmap -ErrorAction SilentlyContinue) {
     nmap -A -p $Ports --script=vuln -oN "reports/nmap_${SafeTarget}.txt" $Target
@@ -239,6 +244,9 @@ Write-Host '=== 36. Static Security Configuration Checks ==='
 if ((Get-Command python -ErrorAction SilentlyContinue) -and (Test-Path 'scripts/security/run_static_security_checks.py')) {
     python scripts/security/run_static_security_checks.py *> "reports/static_security_checks.txt" || $true
 } else { Write-Warning 'python or static security checks script not found. Skipping.' }
+if ((Get-Command python -ErrorAction SilentlyContinue) -and (Test-Path 'scripts/security/verify_dependencies.py')) {
+    python scripts/security/verify_dependencies.py *> "reports/dependency_verify.txt" || $true
+} else { Write-Warning 'python or dependency verification script not found. Skipping.' }
 
 Write-Host '=== 37. API Security Test Suite ==='
 if ($ApiBaseUrl -and (Test-Path 'scripts/windows/api_security_test.ps1')) {

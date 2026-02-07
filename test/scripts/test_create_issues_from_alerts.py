@@ -79,6 +79,28 @@ class TestCreateIssuesFromAlerts(unittest.TestCase):
             body,
         )
 
+    def test_dependabot_body_includes_dedupe_marker(self):
+        creator = self._creator()
+        alerts = [
+            {
+                "vulnerableManifestFilename": "requirements.lock",
+                "securityAdvisory": {
+                    "ghsaId": "GHSA-aaaa-bbbb-cccc",
+                    "summary": "Example advisory",
+                    "severity": "HIGH",
+                    "permalink": "https://example.invalid/advisory",
+                },
+                "securityVulnerability": {
+                    "severity": "HIGH",
+                    "vulnerableVersionRange": "< 1.2.3",
+                    "firstPatchedVersion": {"identifier": "1.2.3"},
+                    "package": {"name": "examplepkg", "ecosystem": "PIP"},
+                },
+            }
+        ]
+        body = creator.create_issue_body_for_dependabot(alerts)
+        self.assertIn("alert-group-key: dependabot:GHSA-aaaa-bbbb-cccc", body)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -63,6 +63,16 @@ fi
 
 mkdir -p reports
 
+echo "=== 0. HTTP Stack Probe (quick regression checks) ==="
+if command -v python3 >/dev/null 2>&1 && [[ -f "scripts/security/stack_probe.py" ]]; then
+    python3 scripts/security/stack_probe.py \
+        --base-url "$WEB_URL" \
+        --json \
+        > "reports/stack_probe_${SAFE_WEB}.json" 2>&1 || true
+else
+    echo "python3 or scripts/security/stack_probe.py not found. Skipping stack probe."
+fi
+
 echo "=== 1. Nmap Scan (version, OS, common vulns) ==="
 if command -v nmap >/dev/null 2>&1; then
     nmap -A -p "$PORTS" --script=vuln -oN "reports/nmap_${SAFE_TARGET}.txt" "$TARGET"
@@ -363,6 +373,12 @@ if command -v python3 >/dev/null 2>&1 && [[ -f "scripts/security/run_static_secu
         > "reports/static_security_checks.txt" 2>&1 || true
 else
     echo "python3 or static security checks script not found. Skipping."
+fi
+if command -v python3 >/dev/null 2>&1 && [[ -f "scripts/security/verify_dependencies.py" ]]; then
+    python3 scripts/security/verify_dependencies.py \
+        > "reports/dependency_verify.txt" 2>&1 || true
+else
+    echo "python3 or dependency verification script not found. Skipping."
 fi
 
 echo "=== 37. API Security Test Suite ==="

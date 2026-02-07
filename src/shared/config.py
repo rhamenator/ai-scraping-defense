@@ -245,9 +245,11 @@ class Config:
     )
     ALERT_GENERIC_WEBHOOK_URL: Optional[str] = field(
         default_factory=lambda: os.getenv("ALERT_GENERIC_WEBHOOK_URL")
+        or get_secret("ALERT_GENERIC_WEBHOOK_URL_FILE")
     )
     ALERT_SLACK_WEBHOOK_URL: Optional[str] = field(
         default_factory=lambda: os.getenv("ALERT_SLACK_WEBHOOK_URL")
+        or get_secret("ALERT_SLACK_WEBHOOK_URL_FILE")
     )
     ALERT_SMTP_HOST: str = field(
         default_factory=lambda: os.getenv("ALERT_SMTP_HOST", "mailhog")
@@ -320,6 +322,7 @@ class Config:
     )
     ESCALATION_API_KEY: Optional[str] = field(
         default_factory=lambda: os.getenv("ESCALATION_API_KEY")
+        or get_secret("ESCALATION_API_KEY_FILE")
     )
     ESCALATION_WEBHOOK_URL: Optional[str] = field(
         default_factory=lambda: os.getenv("ESCALATION_WEBHOOK_URL")

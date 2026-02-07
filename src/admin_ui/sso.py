@@ -14,6 +14,14 @@ except Exception:  # pragma: no cover - dependency missing in some envs
     InvalidTokenError = Exception  # type: ignore
 
 
+def _is_hmac_algorithm(alg: str) -> bool:
+    return alg.upper().startswith("HS")
+
+
+def _looks_like_pem(value: str) -> bool:
+    return value.strip().startswith("-----BEGIN")
+
+
 def _sso_enabled() -> bool:
     return os.getenv("ADMIN_UI_SSO_ENABLED", "false").lower() == "true"
 
@@ -47,25 +55,41 @@ def _oidc_user(request: Request) -> Optional[dict[str, Any]]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="OIDC auth not configured",
         )
-    secret = os.getenv("ADMIN_UI_OIDC_JWT_SECRET") or get_secret(
-        "ADMIN_UI_OIDC_JWT_SECRET_FILE"
-    )
-    if not secret:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="OIDC JWT secret not configured",
-        )
     algorithms = [
         alg.strip()
         for alg in os.getenv("ADMIN_UI_OIDC_ALGORITHMS", "RS256").split(",")
         if alg.strip()
     ]
+    uses_hs = any(_is_hmac_algorithm(alg) for alg in algorithms)
+    uses_asym = any(not _is_hmac_algorithm(alg) for alg in algorithms)
+    if uses_hs and uses_asym:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="OIDC algorithms mix HMAC and asymmetric types",
+        )
+
+    secret = os.getenv("ADMIN_UI_OIDC_JWT_SECRET") or get_secret(
+        "ADMIN_UI_OIDC_JWT_SECRET_FILE"
+    )
+    public_key = os.getenv("ADMIN_UI_OIDC_JWT_PUBLIC_KEY") or get_secret(
+        "ADMIN_UI_OIDC_JWT_PUBLIC_KEY_FILE"
+    )
+    key = (
+        secret
+        if uses_hs
+        else (public_key or (secret if secret and _looks_like_pem(secret) else None))
+    )
+    if not key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="OIDC JWT verification key not configured",
+        )
     issuer = os.getenv("ADMIN_UI_OIDC_ISSUER") or None
     audience = os.getenv("ADMIN_UI_OIDC_AUDIENCE") or None
     try:
         claims = jwt.decode(
             token,
-            secret,
+            key,
             algorithms=algorithms,
             issuer=issuer,
             audience=audience,
