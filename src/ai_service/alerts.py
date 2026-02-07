@@ -300,9 +300,8 @@ async def _send_slack_alert_legacy(event_data: "WebhookEvent") -> None:
             },
         )
     except httpx.HTTPError as e:
-        log_error(
-            f"Failed to send Slack alert to {ALERT_SLACK_WEBHOOK_URL} for IP {ip}", e
-        )
+        # Do not log the webhook URL: it is a credential-bearing secret.
+        log_error(f"Failed to send Slack alert for IP {ip}", e)
     except Exception as e:  # pragma: no cover - unexpected
         log_error(f"Unexpected error sending Slack alert for IP {ip}", e)
 

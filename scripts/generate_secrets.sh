@@ -71,7 +71,7 @@ store_in_vault() {
 
   # Use KV v2 API
   local url="${vault_addr}/v1/${mount_point}/data/${path}"
-  
+
   # Read existing secret to merge with new value
   local existing_data=""
   local existing_response
@@ -85,7 +85,7 @@ store_in_vault() {
   # Merge new key-value with existing data
   local merged_data
   merged_data=$(echo "$existing_data" | jq --arg key "$key" --arg value "$value" '. + {($key): $value}')
-  
+
   # Write to Vault
   local response
   response=$(curl -s -w "\n%{http_code}" -X POST \
@@ -93,10 +93,10 @@ store_in_vault() {
     -H "Content-Type: application/json" \
     -d "{\"data\": $merged_data}" \
     "${url}")
-  
+
   local http_code
   http_code=$(echo "$response" | tail -n1)
-  
+
   if [ "$http_code" = "200" ] || [ "$http_code" = "204" ]; then
     echo -e "${GREEN}✓${NC} Stored ${path}:${key} in Vault"
     return 0
@@ -200,7 +200,7 @@ echo -e "${GREEN}✓${NC} Created Nginx htpasswd file"
 # Store in Vault if enabled
 if [ "$use_vault" = true ]; then
   echo -e "${CYAN}Storing secrets in Vault...${NC}"
-  
+
   store_in_vault "${vault_path_prefix}/database/postgres" "user" "$POSTGRES_USER"
   store_in_vault "${vault_path_prefix}/database/postgres" "database" "$POSTGRES_DB"
   store_in_vault "${vault_path_prefix}/database/postgres" "password" "$POSTGRES_PASSWORD"
@@ -218,7 +218,7 @@ if [ "$use_vault" = true ]; then
   store_in_vault "${vault_path_prefix}/llm/google" "api_key" "$GOOGLE_API_KEY"
   store_in_vault "${vault_path_prefix}/llm/cohere" "api_key" "$COHERE_API_KEY"
   store_in_vault "${vault_path_prefix}/llm/mistral" "api_key" "$MISTRAL_API_KEY"
-  
+
   echo -e "${GREEN}✓${NC} All secrets stored in Vault"
 fi
 
@@ -333,7 +333,7 @@ if [ "$update_env" = true ]; then
   if [ ! -f "$ENV_FILE" ] && [ -f "$ROOT_DIR/sample.env" ]; then
     cp "$ROOT_DIR/sample.env" "$ENV_FILE"
   fi
-  
+
   echo -e "${CYAN}Updating ${ENV_FILE}...${NC}"
   update_var POSTGRES_PASSWORD "$POSTGRES_PASSWORD" "$ENV_FILE"
   update_var REDIS_PASSWORD "$REDIS_PASSWORD" "$ENV_FILE"

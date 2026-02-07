@@ -43,4 +43,3 @@ jobs:
       run_tests: ${{ inputs.run_tests }}
       create_issue_on_failure: ${{ inputs.create_issue_on_failure }}
       base_branch: ${{ inputs.base_branch }}
-

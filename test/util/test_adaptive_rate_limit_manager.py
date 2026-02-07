@@ -1,7 +1,7 @@
+import os
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
-import tempfile
-import os
 
 from src.util import adaptive_rate_limit_manager as manager
 

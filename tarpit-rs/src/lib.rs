@@ -20,10 +20,7 @@ fn get_connection() -> Result<Client, postgres::Error> {
     let db = env::var("PG_DBNAME").unwrap_or_else(|_| "markovdb".into());
     let user = env::var("PG_USER").unwrap_or_else(|_| "markovuser".into());
     let password = get_pg_password().unwrap_or_default();
-    let conn_str = format!(
-        "host={} port={} dbname={} user={} password={}",
-        host, port, db, user, password
-    );
+    let conn_str = format!("host={host} port={port} dbname={db} user={user} password={password}");
     Client::connect(&conn_str, NoTls)
 }
 
@@ -173,12 +170,16 @@ fn generate_page() -> String {
             text = "Resource Link".into();
         }
         let safe = html_escape::encode_text(&text);
-        link_html.push_str(&format!("    <li><a href=\"{}\">{}</a></li>\n", link, safe));
+        link_html.push_str(&format!("    <li><a href=\"{link}\">{safe}</a></li>\n"));
     }
     link_html.push_str("</ul>\n");
     let title = rand_string(8);
-    format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><title>{} - System Documentation</title><meta name=\"robots\" content=\"noindex, nofollow\"></head><body><h1>{}</h1>{}<h2>Further Reading:</h2>{}<a href=\"/internal-docs/admin\" class=\"footer-link\">Admin Console</a></body></html>",
-        title, title, content, link_html)
+    format!(
+        "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\">\
+<title>{title} - System Documentation</title><meta name=\"robots\" content=\"noindex, nofollow\">\
+</head><body><h1>{title}</h1>{content}<h2>Further Reading:</h2>{link_html}\
+<a href=\"/internal-docs/admin\" class=\"footer-link\">Admin Console</a></body></html>",
+    )
 }
 
 #[pyfunction]

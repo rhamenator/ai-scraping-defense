@@ -29,4 +29,3 @@ defense_network() {
   done
   docker network ls --format '{{.Name}}' | grep -E '(^defense_network$|_defense_network$)' | head -n1
 }
-

@@ -1,12 +1,13 @@
 # test/tarpit/rotating_archive.test.py
-import unittest
-from unittest.mock import patch, MagicMock
-import os
-import time
-import tempfile
-import shutil
-from src.tarpit import rotating_archive
 import importlib
+import os
+import shutil
+import tempfile
+import time
+import unittest
+from unittest.mock import MagicMock, patch
+
+from src.tarpit import rotating_archive
 
 
 class TestRotatingArchiveComprehensive(unittest.TestCase):

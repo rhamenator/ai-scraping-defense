@@ -1,12 +1,14 @@
 # test/util/corpus_wikipedia_updater.test.py
-from wikipedia.exceptions import DisambiguationError
-from src.util import corpus_wikipedia_updater
-import unittest
-from unittest.mock import patch, MagicMock, mock_open
 import os
+import shutil
 import sys
 import tempfile
-import shutil
+import unittest
+from unittest.mock import MagicMock, mock_open, patch
+
+from wikipedia.exceptions import DisambiguationError
+
+from src.util import corpus_wikipedia_updater
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))

@@ -4,7 +4,7 @@ cargo-features = ["edition2024"]
 name = "jszip-rs"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.87"
+rust-version = "1.88"
 build = "build.rs"
 
 [lib]
@@ -14,7 +14,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 pyo3 = { version = "0.27.2", features = ["abi3-py37", "extension-module", "auto-initialize"] }
-zip = "7.1"
+zip = "7.3"
 rand = "0.9"
 chrono = "0.4"
 tempfile = "3"

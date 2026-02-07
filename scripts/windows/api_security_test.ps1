@@ -185,7 +185,7 @@ if ($OpenApiSpec) {
     try {
         $spec = Invoke-WebRequest -Uri $OpenApiSpec -UseBasicParsing
         $spec.Content | Out-File 'reports/api/openapi_spec.json'
-        
+
         if (Get-Command schemathesis -ErrorAction SilentlyContinue) {
             Write-Host 'Running Schemathesis tests...'
             schemathesis run $OpenApiSpec --base-url=$BaseUrl --checks all > 'reports/api/schemathesis.txt' 2>&1

@@ -44,9 +44,9 @@ binaryData:
     vars:
       address-groups:
         HOME_NET: "[any]"
-    
+
     default-log-dir: /var/log/suricata
-    
+
     autogroups: yes
 
     rule-files:
@@ -60,5 +60,3 @@ binaryData:
           types:
             - alert
             - http
-
-

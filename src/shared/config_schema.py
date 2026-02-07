@@ -191,6 +191,9 @@ class SecurityConfig(BaseModel):
     enable_waf: bool = Field(default=True)
     waf_rules_path: Optional[str] = None
     jwt_secret: Optional[str] = Field(default=None, repr=False)
+    jwt_secret_file: Optional[str] = None
+    jwt_public_key: Optional[str] = Field(default=None, repr=False)
+    jwt_public_key_file: Optional[str] = None
     jwt_issuer: Optional[str] = None
     jwt_audience: Optional[str] = None
     admin_ui_username: Optional[str] = None

@@ -5,7 +5,6 @@ before forwarding to the configured backend. Intended for use with IIS
 when a custom HttpModule is not desired.
 """
 
-import ipaddress
 import logging
 import os
 from dataclasses import dataclass
@@ -186,6 +185,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     import uvicorn
 
-    default_host = str(ipaddress.IPv4Address(0))
-    host = os.getenv("IIS_GATEWAY_HOST", default_host)
+    # Default to loopback to avoid accidentally exposing the gateway on all interfaces.
+    # For containerized deployments you can set IIS_GATEWAY_HOST=0.0.0.0 explicitly.
+    host = os.getenv("IIS_GATEWAY_HOST", "127.0.0.1")
     uvicorn.run(app, host=host, port=9000)

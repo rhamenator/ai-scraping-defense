@@ -19,4 +19,3 @@ The fingerprinting code only records user agent details locally and does **not**
 ## Reporting a False Positive
 
 If your antivirus flags or quarantines the file, submit a false positive report to the vendor. Provide the file path and explain that it is part of an open-source research project for detecting malicious bots. Most vendors offer online portals or an email address for sample submissions.
-

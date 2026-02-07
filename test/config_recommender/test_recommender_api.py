@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import patch
+
 from fastapi.testclient import TestClient
+
 from src.config_recommender import recommender_api
 
 
