@@ -234,14 +234,14 @@ This document provides a visual representation of how the alert management syste
 
 ### Dry-Run Mode
 ```
-User Action → Check Prerequisites → Fetch Data → Analyze → 
+User Action → Check Prerequisites → Fetch Data → Analyze →
 Generate Report → Display "DRY RUN" → No Changes Made
 ```
 
 ### Live Mode
 ```
-User Action → Check Prerequisites → Fetch Data → Analyze → 
-Close Duplicates → Update Items → Generate Report → 
+User Action → Check Prerequisites → Fetch Data → Analyze →
+Close Duplicates → Update Items → Generate Report →
 Display "LIVE" → Changes Applied
 ```
 

@@ -7,6 +7,7 @@ implementation lightweight (no hard dependency on OpenTelemetry)
 so it can run in constrained environments while still emitting
 structured data that external collectors can scrape.
 """
+
 from __future__ import annotations
 
 import json
@@ -288,7 +289,9 @@ def _determine_status(results: list[tuple[HealthCheck, HealthCheckResult]]) -> s
 
 
 def _add_metrics_route(app: FastAPI, settings: ObservabilitySettings) -> None:
-    if any(getattr(route, "path", None) == settings.metrics_path for route in app.routes):
+    if any(
+        getattr(route, "path", None) == settings.metrics_path for route in app.routes
+    ):
         return
 
     @app.get(settings.metrics_path, include_in_schema=False)
@@ -298,7 +301,9 @@ def _add_metrics_route(app: FastAPI, settings: ObservabilitySettings) -> None:
 
 
 def _add_traces_route(app: FastAPI, settings: ObservabilitySettings) -> None:
-    if any(getattr(route, "path", None) == settings.traces_path for route in app.routes):
+    if any(
+        getattr(route, "path", None) == settings.traces_path for route in app.routes
+    ):
         return
 
     @app.get(settings.traces_path, include_in_schema=False)
@@ -308,7 +313,9 @@ def _add_traces_route(app: FastAPI, settings: ObservabilitySettings) -> None:
 
 
 def _add_health_route(app: FastAPI, settings: ObservabilitySettings) -> None:
-    if any(getattr(route, "path", None) == settings.health_path for route in app.routes):
+    if any(
+        getattr(route, "path", None) == settings.health_path for route in app.routes
+    ):
         return
 
     @app.get(settings.health_path, include_in_schema=False)
@@ -323,7 +330,9 @@ def _add_health_route(app: FastAPI, settings: ObservabilitySettings) -> None:
                 result = await _run_health_check(check)
             except Exception as exc:  # pragma: no cover - defensive
                 logging.getLogger(__name__).exception(
-                    "Health check '%s' failed", check.name, extra={"extra_fields": {"error": str(exc)}}
+                    "Health check '%s' failed",
+                    check.name,
+                    extra={"extra_fields": {"error": str(exc)}},
                 )
                 result = HealthCheckResult.unhealthy({"error": str(exc)})
             results.append((check, result))
@@ -368,9 +377,8 @@ def configure_observability(
 
     @app.middleware("http")
     async def observability_middleware(request: Request, call_next):
-        request_id = (
-            request.headers.get(settings.request_id_header)
-            or str(uuid.uuid4())
+        request_id = request.headers.get(settings.request_id_header) or str(
+            uuid.uuid4()
         )
         trace_id = request.headers.get(settings.trace_id_header) or request_id
         span_id = request.headers.get(settings.span_id_header) or uuid.uuid4().hex
@@ -409,7 +417,9 @@ def configure_observability(
             span.duration = duration
             state.record_span(span)
             record_request(request.method, endpoint, status_code)
-            REQUEST_LATENCY.labels(method=request.method, endpoint=endpoint).observe(duration)
+            REQUEST_LATENCY.labels(method=request.method, endpoint=endpoint).observe(
+                duration
+            )
             logger.info(
                 "Handled request",
                 extra={
@@ -473,7 +483,9 @@ class PerformanceMetrics:
             "metric_name": self.metric_name,
             "service": self.service,
             "value": self.value,
-            "timestamp": datetime.fromtimestamp(self.timestamp, tz=timezone.utc).isoformat(),
+            "timestamp": datetime.fromtimestamp(
+                self.timestamp, tz=timezone.utc
+            ).isoformat(),
         }
         if self.percentile_p50 is not None:
             payload["percentile_p50"] = self.percentile_p50
@@ -503,7 +515,9 @@ class PerformanceInsight:
             "metric_name": self.metric_name,
             "description": self.description,
             "severity": self.severity,
-            "timestamp": datetime.fromtimestamp(self.timestamp, tz=timezone.utc).isoformat(),
+            "timestamp": datetime.fromtimestamp(
+                self.timestamp, tz=timezone.utc
+            ).isoformat(),
             "metadata": self.metadata,
         }
 
@@ -529,7 +543,9 @@ class PerformancePrediction:
             "predicted_value": self.predicted_value,
             "confidence": self.confidence,
             "forecast_horizon": self.forecast_horizon,
-            "timestamp": datetime.fromtimestamp(self.timestamp, tz=timezone.utc).isoformat(),
+            "timestamp": datetime.fromtimestamp(
+                self.timestamp, tz=timezone.utc
+            ).isoformat(),
             "metadata": self.metadata,
         }
 
@@ -610,7 +626,11 @@ class PerformanceAnalytics:
                 description=f"Performance degradation detected: {metric_name} increased from {baseline:.3f} to {value:.3f}",
                 severity="warning",
                 timestamp=time.time(),
-                metadata={"baseline": baseline, "current": value, "deviation": deviation},
+                metadata={
+                    "baseline": baseline,
+                    "current": value,
+                    "deviation": deviation,
+                },
             )
             self._insights.append(insight)
             PERFORMANCE_INSIGHTS_GENERATED.labels(
@@ -641,9 +661,9 @@ class PerformanceAnalytics:
         # Normalize to -1, 0, 1
         trend = max(-1.0, min(1.0, slope * 10))
 
-        PERFORMANCE_TREND.labels(metric_name=metric_name, service=self.service_name).set(
-            trend
-        )
+        PERFORMANCE_TREND.labels(
+            metric_name=metric_name, service=self.service_name
+        ).set(trend)
         return trend
 
     def generate_prediction(

@@ -2,8 +2,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from src.shared.model_adapters import MCPAdapter
 from src.shared.mcp_client import MCPClientError
+from src.shared.model_adapters import MCPAdapter
 
 
 class TestMCPAdapter(unittest.TestCase):

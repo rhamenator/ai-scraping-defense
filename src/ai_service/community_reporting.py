@@ -54,6 +54,7 @@ async def report_ip_to_community(ip: str, reason: str, details: Dict) -> bool:
     # Apply GDPR data minimization before reporting
     try:
         from src.shared.gdpr import get_gdpr_manager
+
         gdpr = get_gdpr_manager()
         details = gdpr.minimize_data(details)
     except Exception as e:
@@ -69,7 +70,11 @@ async def report_ip_to_community(ip: str, reason: str, details: Dict) -> bool:
     categories = "18"  # Default: Brute-Force
     if "scan" in reason.lower():
         categories = "14"
-    if "scraping" in reason.lower() or "crawler" in reason.lower() or "llm" in reason.lower():
+    if (
+        "scraping" in reason.lower()
+        or "crawler" in reason.lower()
+        or "llm" in reason.lower()
+    ):
         categories = "19"
     if "honeypot" in reason.lower():
         categories = "22"

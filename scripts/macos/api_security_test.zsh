@@ -148,7 +148,7 @@ echo "=== 11. OpenAPI/Swagger Spec Testing ==="
 if [[ -n "$OPENAPI_SPEC" ]]; then
     echo "Fetching OpenAPI specification..."
     curl -s "$OPENAPI_SPEC" > "reports/api/openapi_spec.json" || echo "Failed to fetch OpenAPI spec"
-    
+
     # Use Schemathesis if available
     if command -v schemathesis >/dev/null 2>&1; then
         echo "Running Schemathesis tests..."

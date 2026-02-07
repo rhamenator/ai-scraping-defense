@@ -32,17 +32,18 @@ jobs:
             context: prompt-router
             dockerfile: prompt-router/Dockerfile
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - name: Build image for scanning
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
         with:
           context: ${{ matrix.image.context }}
           file: ${{ matrix.image.dockerfile }}
           tags: ${{ matrix.image.name }}:scan
           load: true
       - name: Scan image with Trivy (SARIF)
+        id: trivy_sarif
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
         with:
           image-ref: ${{ matrix.image.name }}:scan
@@ -50,9 +51,26 @@ jobs:
           output: trivy-${{ matrix.image.name }}.sarif
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-      - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@528ca598d956c91826bd742262cdfc5d02b77710
+      - name: Check SARIF Exists
+        id: sarif_exists
         if: always()
+        run: |
+          if test -f "trivy-${{ matrix.image.name }}.sarif"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload SARIF Artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        if: always() && steps.sarif_exists.outputs.exists == 'true'
+        with:
+          name: trivy-sarif-${{ matrix.image.name }}
+          path: trivy-${{ matrix.image.name }}.sarif
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@ce729e4d353d580e6cacd6a8cf2921b72e5e310a
+        if: always() && steps.sarif_exists.outputs.exists == 'true'
         with:
           sarif_file: trivy-${{ matrix.image.name }}.sarif
           category: trivy-${{ matrix.image.name }}
@@ -64,3 +82,21 @@ jobs:
           severity: CRITICAL,HIGH,MEDIUM
           ignore-unfixed: true
           exit-code: "0"
+      - name: Scan image with Trivy (JSON)
+        id: trivy_json
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+        with:
+          image-ref: ${{ matrix.image.name }}:scan
+          format: json
+          output: trivy-${{ matrix.image.name }}.json
+          severity: CRITICAL,HIGH,MEDIUM,LOW
+          ignore-unfixed: true
+          exit-code: "0"
+      - name: Upload JSON Artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        if: always()
+        with:
+          name: trivy-json-${{ matrix.image.name }}
+          path: trivy-${{ matrix.image.name }}.json
+          if-no-files-found: ignore
+          retention-days: 7

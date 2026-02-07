@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Create GitHub Issues from Code Scanning and Secret Scanning Alerts
+Create GitHub Issues from Code Scanning, Secret Scanning, and Dependabot Alerts
 
-This script fetches all open code scanning and secret scanning alerts from a GitHub
+This script fetches all open code scanning, secret scanning, and Dependabot alerts from a GitHub
 repository and creates corresponding GitHub issues for each alert (or group of similar alerts).
 
 Usage:
@@ -18,6 +18,7 @@ Environment:
 Features:
     - Fetches all open code scanning alerts
     - Fetches all open secret scanning alerts
+    - Fetches all open Dependabot alerts (GraphQL; does not require security_events scope)
     - Groups similar alerts to avoid creating duplicate issues
     - Creates well-formatted GitHub issues with:
       - Clear titles
@@ -38,18 +39,20 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Dict, List, Optional
 
+import requests
+
 try:
-    import requests
     from github import Github
 
     try:
         from github import Auth
     except Exception:  # pragma: no cover - older PyGithub
         Auth = None
-except ImportError:
-    print("ERROR: Required libraries not installed.")
-    print("Please run: pip install requests PyGithub")
-    sys.exit(1)
+except ImportError:  # pragma: no cover
+    # This script is used by workflows that install PyGithub explicitly, but
+    # the wider repo/test environment may not include it by default.
+    Github = None
+    Auth = None
 
 # Configuration constants
 SIGNATURE_SEARCH_WORDS = 3  # Number of words from signature to use in search query
@@ -71,10 +74,17 @@ class IssueCreator:
         token: str,
         dry_run: bool = False,
         min_security_severity: Optional[str] = None,
+        include_dependabot: bool = False,
     ):
+        if Github is None:
+            raise RuntimeError(
+                "PyGithub is required to use IssueCreator. "
+                "Install with: pip install PyGithub"
+            )
         self.owner = owner
         self.repo = repo
         self.dry_run = dry_run
+        self.include_dependabot = include_dependabot
         self.min_security_severity = (
             min_security_severity.lower()
             if isinstance(min_security_severity, str)
@@ -95,28 +105,171 @@ class IssueCreator:
         )
         self.base_url = f"https://api.github.com/repos/{owner}/{repo}"
 
+        # Cache open issues once to avoid GitHub Search API abuse limits.
+        self._existing_by_dedupe_key = None
+        self._existing_by_signature = None
+        self._existing_by_code_rule_id = None
+        self._existing_by_secret_type = None
+
         # Track statistics
         self.stats = {
             "code_scanning_alerts": 0,
             "secret_scanning_alerts": 0,
+            "dependabot_alerts": 0,
             "issues_created": 0,
             "issues_skipped_existing": 0,
         }
 
-    def _passes_min_security_severity(self, alert: Dict) -> bool:
-        """Return True if alert meets minimum security severity."""
+    def _passes_min_security_severity_level(self, level: str) -> bool:
+        """Return True if a severity label meets the configured threshold."""
         if not self.min_security_severity:
             return True
         threshold = SECURITY_SEVERITY_ORDER.get(self.min_security_severity, 0)
-        rule = alert.get("rule", {})
-        level = rule.get("security_severity_level", "")
         rank = SECURITY_SEVERITY_ORDER.get(str(level).lower(), 0)
         return rank >= threshold
+
+    def _passes_min_security_severity(self, alert: Dict) -> bool:
+        """Return True if a code scanning alert meets the minimum severity."""
+        rule = alert.get("rule", {})
+        level = rule.get("security_severity_level", "")
+        return self._passes_min_security_severity_level(str(level))
 
     def log(self, level: str, message: str) -> None:
         """Log a message with timestamp."""
         timestamp = datetime.now().strftime("%H:%M:%S")
         print(f"[{timestamp}] {level}: {message}")
+
+    @staticmethod
+    def _slug_component(value: str) -> str:
+        """Normalize a string for use in a dedupe key (no spaces)."""
+        value = str(value or "").strip()
+        value = re.sub(r"\s+", "_", value)
+        return value or "unknown"
+
+    def _dedupe_key_for_code_scanning(self, alerts: List[Dict]) -> str:
+        first_alert = alerts[0]
+        rule = first_alert.get("rule", {})
+        rule_id = rule.get("id", "unknown")
+        severity = rule.get("severity", "unknown")
+        tool_name = first_alert.get("tool", {}).get("name", "unknown")
+        tool_slug = self._slug_component(tool_name)
+        return f"code-scanning:{tool_slug}:{rule_id}:{severity}"
+
+    def _dedupe_key_for_secret_scanning(self, alerts: List[Dict]) -> str:
+        first_alert = alerts[0]
+        secret_type = first_alert.get("secret_type", "unknown")
+        return f"secret-scanning:{self._slug_component(secret_type)}"
+
+    def _dedupe_key_for_dependabot(self, alerts: List[Dict]) -> str:
+        first_alert = alerts[0]
+        advisory = first_alert.get("securityAdvisory") or {}
+        ghsa_id = advisory.get("ghsaId") or "unknown"
+        return f"dependabot:{self._slug_component(ghsa_id)}"
+
+    def _load_existing_issue_cache(self) -> None:
+        if self._existing_by_dedupe_key is not None:
+            return
+        self.log("INFO", "Loading open issues cache for dedupe...")
+
+        existing_by_dedupe_key = {}
+        existing_by_signature = {}
+        existing_by_code_rule_id = {}
+        existing_by_secret_type = {}
+        marker_re = re.compile(r"alert-group-key:\s*(.+?)\s*(?:-->|$)")
+        rule_id_re = re.compile(r"\*\*Rule ID:\*\*\s*`([^`]+)`")
+        secret_type_re = re.compile(r"\*\*Secret Type:\*\*\s*`([^`]+)`")
+
+        for issue in self.repository.get_issues(state="open"):
+            sig = self.extract_issue_signature(issue.title).lower()
+            existing_by_signature.setdefault(sig, issue)
+            body = issue.body or ""
+            match = marker_re.search(body)
+            if match:
+                key = match.group(1).strip()
+                existing_by_dedupe_key.setdefault(key, issue)
+            match = rule_id_re.search(body)
+            if match:
+                existing_by_code_rule_id.setdefault(match.group(1).strip(), issue)
+            match = secret_type_re.search(body)
+            if match:
+                existing_by_secret_type.setdefault(match.group(1).strip(), issue)
+
+        self._existing_by_dedupe_key = existing_by_dedupe_key
+        self._existing_by_signature = existing_by_signature
+        self._existing_by_code_rule_id = existing_by_code_rule_id
+        self._existing_by_secret_type = existing_by_secret_type
+
+    def _graphql(self, query: str, variables: Dict) -> Dict:
+        resp = self.session.post(
+            "https://api.github.com/graphql",
+            json={"query": query, "variables": variables},
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+        if payload.get("errors"):
+            raise RuntimeError(payload["errors"])
+        return payload.get("data") or {}
+
+    def fetch_dependabot_alerts(self) -> List[Dict]:
+        """Fetch open Dependabot vulnerability alerts via GraphQL."""
+        self.log("INFO", "Fetching Dependabot alerts (GraphQL)...")
+        alerts: List[Dict] = []
+
+        query = """
+        query($owner:String!, $name:String!, $cursor:String) {
+          repository(owner:$owner, name:$name) {
+            vulnerabilityAlerts(first:100, after:$cursor, states:OPEN) {
+              pageInfo { hasNextPage endCursor }
+              nodes {
+                createdAt
+                vulnerableManifestFilename
+                vulnerableRequirements
+                securityAdvisory {
+                  ghsaId
+                  summary
+                  severity
+                  permalink
+                }
+                securityVulnerability {
+                  severity
+                  vulnerableVersionRange
+                  firstPatchedVersion { identifier }
+                  package { name ecosystem }
+                }
+              }
+            }
+          }
+        }
+        """
+
+        cursor = None
+        try:
+            while True:
+                data = self._graphql(
+                    query,
+                    {"owner": self.owner, "name": self.repo, "cursor": cursor},
+                )
+                repo = data.get("repository") or {}
+                vulns = repo.get("vulnerabilityAlerts") or {}
+                nodes = vulns.get("nodes") or []
+                alerts.extend(nodes)
+                page = vulns.get("pageInfo") or {}
+                if not page.get("hasNextPage"):
+                    break
+                cursor = page.get("endCursor")
+        except requests.exceptions.HTTPError as e:
+            if getattr(e.response, "status_code", None) == 403:
+                self.log("WARNING", "Dependabot alerts not accessible (403 Forbidden)")
+            else:
+                self.log("ERROR", f"Failed to fetch Dependabot alerts: {e}")
+            return []
+        except Exception as e:
+            self.log("ERROR", f"Error fetching Dependabot alerts ({type(e).__name__})")
+            return []
+
+        self.stats["dependabot_alerts"] = len(alerts)
+        self.log("INFO", "Dependabot alerts fetched")
+        return alerts
 
     def fetch_code_scanning_alerts(self) -> List[Dict]:
         """Fetch all open code scanning alerts."""
@@ -250,6 +403,14 @@ class IssueCreator:
 
         return dict(grouped)
 
+    def group_dependabot_alerts(self, alerts: List[Dict]) -> Dict[str, List[Dict]]:
+        """Group Dependabot alerts by GHSA ID."""
+        grouped = defaultdict(list)
+        for alert in alerts:
+            ghsa_id = ((alert.get("securityAdvisory") or {}).get("ghsaId")) or "unknown"
+            grouped[ghsa_id].append(alert)
+        return dict(grouped)
+
     def create_issue_title_for_code_scanning(self, key: str, alerts: List[Dict]) -> str:
         """Generate issue title for code scanning alert group."""
         first_alert = alerts[0]
@@ -259,10 +420,19 @@ class IssueCreator:
         severity = rule.get("severity", "unknown").upper()
         tool_name = first_alert.get("tool", {}).get("name", "CodeQL")
 
-        if len(alerts) == 1:
-            return f"[Security] {tool_name}: {rule_name} ({severity})"
+        # Include rule_id to avoid collapsing different rules with similar display names.
+        if str(rule_name).strip() and str(rule_name).strip() != str(rule_id).strip():
+            rule_display = f"{rule_id}: {rule_name}"
         else:
-            return f"[Security] {tool_name}: {rule_name} - {len(alerts)} occurrences ({severity})"
+            rule_display = str(rule_id)
+
+        if len(alerts) == 1:
+            return f"[Security] {tool_name}: {rule_display} ({severity})"
+        else:
+            return (
+                f"[Security] {tool_name}: {rule_display} - "
+                f"{len(alerts)} occurrences ({severity})"
+            )
 
     def create_issue_body_for_code_scanning(self, alerts: List[Dict]) -> str:
         """Generate issue body for code scanning alert group."""
@@ -276,9 +446,12 @@ class IssueCreator:
         severity = rule.get("severity", "unknown")
         security_severity = rule.get("security_severity_level", "N/A")
         help_text = rule.get("help", "")
+        alert_group_key = self._dedupe_key_for_code_scanning(alerts)
 
         # Build the issue body
-        body = f"""## Security Alert: {rule_name}
+        body = f"""<!-- alert-group-key: {alert_group_key} -->
+
+## Security Alert: {rule_name}
 
 **Rule ID:** `{rule_id}`
 **Severity:** {severity.upper()}
@@ -358,8 +531,11 @@ This alert was found in {len(alerts)} location(s):
         first_alert = alerts[0]
         secret_type = first_alert.get("secret_type", "unknown")
         secret_type_display = first_alert.get("secret_type_display_name", secret_type)
+        alert_group_key = self._dedupe_key_for_secret_scanning(alerts)
 
-        body = f"""## Secret Scanning Alert: {secret_type_display}
+        body = f"""<!-- alert-group-key: {alert_group_key} -->
+
+## Secret Scanning Alert: {secret_type_display}
 
 **Secret Type:** `{secret_type}`
 **Number of Locations:** {len(alerts)}
@@ -431,6 +607,68 @@ This is a critical security issue that must be addressed immediately.
 
         return body
 
+    def create_issue_title_for_dependabot(
+        self, ghsa_id: str, alerts: List[Dict]
+    ) -> str:
+        advisory = alerts[0].get("securityAdvisory") or {}
+        vuln = alerts[0].get("securityVulnerability") or {}
+        severity = (
+            vuln.get("severity") or advisory.get("severity") or "unknown"
+        ).lower()
+        pkg = (vuln.get("package") or {}).get("name")
+        summary = advisory.get("summary") or "Dependabot alert"
+        if pkg:
+            return f"[Dependabot] {severity}: {pkg} ({ghsa_id})"
+        return f"[Dependabot] {severity}: {summary} ({ghsa_id})"
+
+    def create_issue_body_for_dependabot(self, alerts: List[Dict]) -> str:
+        advisory = alerts[0].get("securityAdvisory") or {}
+        vuln = alerts[0].get("securityVulnerability") or {}
+
+        ghsa_id = advisory.get("ghsaId") or "unknown"
+        severity = (
+            vuln.get("severity") or advisory.get("severity") or "unknown"
+        ).lower()
+        summary = advisory.get("summary") or ""
+        advisory_url = advisory.get("permalink") or ""
+
+        pkg = (vuln.get("package") or {}).get("name", "unknown")
+        ecosystem = (vuln.get("package") or {}).get("ecosystem", "unknown")
+        vuln_range = vuln.get("vulnerableVersionRange") or "unknown"
+        fixed = (vuln.get("firstPatchedVersion") or {}).get("identifier") or "unknown"
+
+        manifests = sorted(
+            {a.get("vulnerableManifestFilename") or "unknown" for a in alerts}
+        )
+
+        body_lines = [
+            f"<!-- alert-group-key: {self._dedupe_key_for_dependabot(alerts)} -->",
+            "",
+            "## Dependabot Alert",
+            "",
+            f"**GHSA ID:** `{ghsa_id}`",
+            f"**Package:** `{pkg}` ({ecosystem})",
+            f"**Severity:** `{severity}`",
+            f"**Vulnerable Range:** `{vuln_range}`",
+            f"**First Patched Version:** `{fixed}`",
+        ]
+        if advisory_url:
+            body_lines.append(f"**Advisory:** {advisory_url}")
+        if summary:
+            body_lines.extend(["", "**Summary**", summary])
+
+        body_lines.extend(["", "**Affected Manifests**"])
+        body_lines.extend([f"- `{m}`" for m in manifests])
+
+        body_lines.extend(
+            [
+                "",
+                "**Recommended Fix**",
+                f"- Upgrade `{pkg}` to at least `{fixed}` (or otherwise remediate the advisory).",
+            ]
+        )
+        return "\n".join(body_lines)
+
     def extract_issue_signature(self, title: str) -> str:
         """
         Extract a signature from issue title for duplicate detection.
@@ -469,7 +707,9 @@ This is a critical security issue that must be addressed immediately.
         # Clean up and return
         return signature.strip()
 
-    def check_existing_issue(self, title: str) -> Optional[object]:
+    def check_existing_issue(
+        self, title: str, *, dedupe_key: Optional[str] = None
+    ) -> Optional[object]:
         """
         Check if an issue with similar title already exists.
 
@@ -477,24 +717,28 @@ This is a critical security issue that must be addressed immediately.
         titles have different formatting or counts.
         """
         try:
-            # Extract signature for this title
-            signature = self.extract_issue_signature(title)
+            self._load_existing_issue_cache()
 
-            # Search for open issues with any part of the signature
-            # Use the first significant words from the signature
-            search_terms = " ".join(signature.split()[:SIGNATURE_SEARCH_WORDS])
-            query = f"repo:{self.owner}/{self.repo} is:issue is:open {search_terms} in:title"
-            results = self.gh.search_issues(query)
+            if dedupe_key:
+                existing = self._existing_by_dedupe_key.get(dedupe_key)
+                if existing:
+                    return existing
+                if dedupe_key.startswith("code-scanning:"):
+                    # Back-compat: older issues may not have a marker but do include Rule ID.
+                    parts = dedupe_key.split(":", 3)
+                    if len(parts) >= 3:
+                        rule_id = parts[2]
+                        existing = self._existing_by_code_rule_id.get(rule_id)
+                        if existing:
+                            return existing
+                if dedupe_key.startswith("secret-scanning:"):
+                    secret_type = dedupe_key.split(":", 1)[1]
+                    existing = self._existing_by_secret_type.get(secret_type)
+                    if existing:
+                        return existing
 
-            for issue in results:
-                # Extract signature from existing issue
-                existing_signature = self.extract_issue_signature(issue.title)
-
-                # Check if signatures match closely
-                if signature.lower() == existing_signature.lower():
-                    return issue
-
-            return None
+            signature = self.extract_issue_signature(title).lower()
+            return self._existing_by_signature.get(signature)
         except Exception as e:
             self.log(
                 "WARNING",
@@ -502,11 +746,18 @@ This is a critical security issue that must be addressed immediately.
             )
             return None
 
-    def create_github_issue(self, title: str, body: str, labels: List[str]) -> bool:
+    def create_github_issue(
+        self,
+        title: str,
+        body: str,
+        labels: List[str],
+        *,
+        dedupe_key: Optional[str] = None,
+    ) -> bool:
         """Create a GitHub issue."""
         try:
             # Check if similar issue already exists
-            existing = self.check_existing_issue(title)
+            existing = self.check_existing_issue(title, dedupe_key=dedupe_key)
             if existing:
                 self.log("SKIP", f"Issue already exists: #{existing.number}")
                 self.stats["issues_skipped_existing"] += 1
@@ -574,7 +825,12 @@ This is a critical security issue that must be addressed immediately.
                     labels.append("priority: low")
 
             # Create the issue
-            self.create_github_issue(title, body, labels)
+            self.create_github_issue(
+                title,
+                body,
+                labels,
+                dedupe_key=self._dedupe_key_for_code_scanning(alert_group),
+            )
 
     def process_secret_scanning_alerts(self, alerts: List[Dict]):
         """Process secret scanning alerts and create issues."""
@@ -597,7 +853,47 @@ This is a critical security issue that must be addressed immediately.
             labels = ["security", "secret-scanning", "priority: critical"]
 
             # Create the issue
-            self.create_github_issue(title, body, labels)
+            self.create_github_issue(
+                title,
+                body,
+                labels,
+                dedupe_key=self._dedupe_key_for_secret_scanning(alert_group),
+            )
+
+    def process_dependabot_alerts(self, alerts: List[Dict]) -> None:
+        """Process Dependabot vulnerability alerts and create issues."""
+        if not alerts:
+            self.log("INFO", "No Dependabot alerts to process")
+            return
+
+        self.log("INFO", "Processing Dependabot alerts...")
+        grouped = self.group_dependabot_alerts(alerts)
+
+        for ghsa_id, alert_group in grouped.items():
+            vuln = alert_group[0].get("securityVulnerability") or {}
+            advisory = alert_group[0].get("securityAdvisory") or {}
+            severity = (vuln.get("severity") or advisory.get("severity") or "").lower()
+            severity = severity.replace("moderate", "medium")
+            if not self._passes_min_security_severity_level(severity):
+                continue
+
+            title = self.create_issue_title_for_dependabot(ghsa_id, alert_group)
+            body = self.create_issue_body_for_dependabot(alert_group)
+
+            labels = ["security", "dependabot"]
+            if severity in {"critical", "high"}:
+                labels.append("priority: high")
+            elif severity == "medium":
+                labels.append("priority: medium")
+            else:
+                labels.append("priority: low")
+
+            self.create_github_issue(
+                title,
+                body,
+                labels,
+                dedupe_key=self._dedupe_key_for_dependabot(alert_group),
+            )
 
     def generate_summary(self):
         """Generate and print a summary of the execution."""
@@ -613,6 +909,7 @@ This is a critical security issue that must be addressed immediately.
         # Do not log the exact number of secret scanning alerts to avoid exposing
         # potentially sensitive information in clear text logs.
         print("  Secret Scanning Alerts Found: (redacted)")
+        print(f"  Dependabot Alerts Found: {self.stats['dependabot_alerts']}")
         print(f"  Issues Created: {self.stats['issues_created']}")
         print(
             f"  Issues Skipped (already exist): {self.stats['issues_skipped_existing']}"
@@ -631,10 +928,14 @@ This is a critical security issue that must be addressed immediately.
         # Fetch alerts
         code_alerts = self.fetch_code_scanning_alerts()
         secret_alerts = self.fetch_secret_scanning_alerts()
+        dependabot_alerts = (
+            self.fetch_dependabot_alerts() if self.include_dependabot else []
+        )
 
         # Process alerts and create issues
         self.process_code_scanning_alerts(code_alerts)
         self.process_secret_scanning_alerts(secret_alerts)
+        self.process_dependabot_alerts(dependabot_alerts)
 
         # Print summary
         self.generate_summary()
@@ -642,7 +943,7 @@ This is a critical security issue that must be addressed immediately.
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Create GitHub issues from code scanning and secret scanning alerts",
+        description="Create GitHub issues from code scanning, secret scanning, and Dependabot alerts",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -661,6 +962,11 @@ def main():
         choices=["low", "medium", "high", "critical"],
         help="Only create issues for alerts at or above this security severity level",
     )
+    parser.add_argument(
+        "--include-dependabot",
+        action="store_true",
+        help="Also create issues from open Dependabot vulnerability alerts (GraphQL).",
+    )
 
     args = parser.parse_args()
 
@@ -671,7 +977,9 @@ def main():
             "ERROR: GitHub token is required. Provide via --token or GITHUB_TOKEN env var"
         )
         print("Create a token at: https://github.com/settings/tokens/new")
-        print("Required scopes: repo, security_events")
+        print(
+            "Required scopes: repo (security_events needed for code/secret scanning REST)"
+        )
         sys.exit(1)
 
     # Create and run issue creator
@@ -682,6 +990,7 @@ def main():
             token,
             args.dry_run,
             min_security_severity=args.min_security_severity,
+            include_dependabot=args.include_dependabot,
         )
         creator.run()
     except KeyboardInterrupt:

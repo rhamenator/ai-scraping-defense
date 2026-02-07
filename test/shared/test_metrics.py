@@ -189,7 +189,9 @@ class TestPerformanceMetrics(unittest.TestCase):
     def test_performance_baseline_gauge(self):
         """Test performance baseline gauge."""
         gauge = metrics.PERFORMANCE_BASELINE
-        metrics.set_gauge_metric(gauge, 0.5, labels={"metric_name": "latency", "service": "api"})
+        metrics.set_gauge_metric(
+            gauge, 0.5, labels={"metric_name": "latency", "service": "api"}
+        )
         self.assertEqual(
             self.registry.get_sample_value(
                 gauge._name, {"metric_name": "latency", "service": "api"}
@@ -200,7 +202,9 @@ class TestPerformanceMetrics(unittest.TestCase):
     def test_performance_anomaly_score_gauge(self):
         """Test performance anomaly score gauge."""
         gauge = metrics.PERFORMANCE_ANOMALY_SCORE
-        metrics.set_gauge_metric(gauge, 0.8, labels={"metric_name": "latency", "service": "api"})
+        metrics.set_gauge_metric(
+            gauge, 0.8, labels={"metric_name": "latency", "service": "api"}
+        )
         self.assertEqual(
             self.registry.get_sample_value(
                 gauge._name, {"metric_name": "latency", "service": "api"}
@@ -211,7 +215,9 @@ class TestPerformanceMetrics(unittest.TestCase):
     def test_performance_trend_gauge(self):
         """Test performance trend gauge."""
         gauge = metrics.PERFORMANCE_TREND
-        metrics.set_gauge_metric(gauge, -0.5, labels={"metric_name": "latency", "service": "api"})
+        metrics.set_gauge_metric(
+            gauge, -0.5, labels={"metric_name": "latency", "service": "api"}
+        )
         self.assertEqual(
             self.registry.get_sample_value(
                 gauge._name, {"metric_name": "latency", "service": "api"}
@@ -243,7 +249,8 @@ class TestPerformanceMetrics(unittest.TestCase):
         )
         self.assertEqual(
             self.registry.get_sample_value(
-                f"{counter._name}_total", {"prediction_type": "capacity", "service": "api"}
+                f"{counter._name}_total",
+                {"prediction_type": "capacity", "service": "api"},
             ),
             1.0,
         )
@@ -256,7 +263,8 @@ class TestPerformanceMetrics(unittest.TestCase):
         )
         self.assertEqual(
             self.registry.get_sample_value(
-                f"{counter._name}_total", {"insight_type": "degradation", "service": "api"}
+                f"{counter._name}_total",
+                {"insight_type": "degradation", "service": "api"},
             ),
             1.0,
         )

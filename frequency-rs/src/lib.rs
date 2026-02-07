@@ -19,9 +19,9 @@ fn get_connection(db: u32) -> redis::RedisResult<redis::Connection> {
     let host = env::var("REDIS_HOST").unwrap_or_else(|_| "localhost".into());
     let password = get_password();
     let url = if let Some(pw) = password {
-        format!("redis://:{}@{}:{}/{}", pw, host, 6379, db)
+        format!("redis://:{pw}@{host}:6379/{db}")
     } else {
-        format!("redis://{}:{}/{}", host, 6379, db)
+        format!("redis://{host}:6379/{db}")
     };
     let client = redis::Client::open(url)?;
     client.get_connection()
@@ -37,14 +37,14 @@ fn query_frequency(
     let mut con = get_connection(db)?;
     let now = chrono::Utc::now().timestamp_micros() as f64 / 1_000_000.0;
     let window_start = now - window_seconds as f64;
-    let key = format!("{}{}", prefix, ip);
-    let now_str = format!("{:.6}", now);
+    let key = format!("{prefix}{ip}");
+    let now_str = format!("{now:.6}");
 
     let mut pipe = redis::pipe();
     pipe.cmd("ZREMRANGEBYSCORE")
         .arg(&key)
         .arg("-inf")
-        .arg(format!("({}", window_start))
+        .arg(format!("({window_start}"))
         .cmd("ZADD")
         .arg(&key)
         .arg(now)
@@ -97,8 +97,7 @@ fn get_realtime_frequency_features(
     match query_frequency(&ip, db, window_seconds, &prefix, ttl) {
         Ok(res) => Ok(res),
         Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
-            "Redis error: {}",
-            e
+            "Redis error: {e}"
         ))),
     }
 }

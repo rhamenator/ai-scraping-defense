@@ -43,10 +43,10 @@ python scripts/manage_alerts_issues_prs.py \
 
 ## What the Script Does
 
-✅ **Finds duplicate security alerts** and consolidates them  
-✅ **Finds duplicate issues** and closes them with superseding notes  
-✅ **Finds duplicate PRs** and closes them with superseding notes  
-✅ **Diagnoses error-state alerts** and suggests fixes  
+✅ **Finds duplicate security alerts** and consolidates them
+✅ **Finds duplicate issues** and closes them with superseding notes
+✅ **Finds duplicate PRs** and closes them with superseding notes
+✅ **Diagnoses error-state alerts** and suggests fixes
 ✅ **Generates detailed report** of all actions
 
 ## Output Example
@@ -75,13 +75,13 @@ STATISTICS:
 
 ## Common Issues
 
-**"403 Forbidden"**  
+**"403 Forbidden"**
 → Your token needs the `security_events` scope
 
-**"Module not found"**  
+**"Module not found"**
 → Run: `pip install requests PyGithub`
 
-**"404 Not Found"**  
+**"404 Not Found"**
 → Feature not enabled (informational, not an error)
 
 ## Full Documentation

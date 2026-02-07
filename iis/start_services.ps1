@@ -35,4 +35,3 @@ foreach ($svc in $services) {
 }
 
 Write-Host "All services launched." -ForegroundColor Cyan
-

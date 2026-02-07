@@ -153,6 +153,25 @@ class TestRulesFetcher(unittest.TestCase):
                 os.path.exists(os.path.join(tmpdir, "rules", "example.conf"))
             )
 
+    def test_download_and_extract_crs_rejects_zip_with_invalid_magic(self):
+        self.mock_get.return_value = MockResponse(b"not-a-zip", 200)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = rules_fetcher.download_and_extract_crs(
+                "http://example.com/crs.zip", tmpdir
+            )
+            self.assertFalse(result)
+
+    def test_download_and_extract_crs_rejects_gzip_with_invalid_magic(self):
+        # Starts with ZIP magic but URL indicates gzip/tar.
+        self.mock_get.return_value = MockResponse(b"PK\x03\x04not-a-gzip", 200)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = rules_fetcher.download_and_extract_crs(
+                "http://example.com/crs.tar.gz", tmpdir
+            )
+            self.assertFalse(result)
+
     def test_download_and_extract_crs_prevents_tar_path_traversal(self):
         tar_bytes = io.BytesIO()
         with tarfile.open(fileobj=tar_bytes, mode="w:gz") as tf:

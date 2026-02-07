@@ -1,4 +1,5 @@
 from typing import Optional
+
 from src.escalation.escalation_engine import RequestMetadata
 
 

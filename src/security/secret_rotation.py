@@ -87,7 +87,7 @@ class SecretRotationService:
             secret_value = (
                 secret_value[:pos]
                 + secrets.choice(string.ascii_uppercase)
-                + secret_value[pos + 1:]
+                + secret_value[pos + 1 :]
             )
 
         if policy.include_lowercase and not any(c.islower() for c in secret_value):
@@ -95,7 +95,7 @@ class SecretRotationService:
             secret_value = (
                 secret_value[:pos]
                 + secrets.choice(string.ascii_lowercase)
-                + secret_value[pos + 1:]
+                + secret_value[pos + 1 :]
             )
 
         if policy.include_digits and not any(c.isdigit() for c in secret_value):
@@ -103,7 +103,7 @@ class SecretRotationService:
             secret_value = (
                 secret_value[:pos]
                 + secrets.choice(string.digits)
-                + secret_value[pos + 1:]
+                + secret_value[pos + 1 :]
             )
 
         if policy.include_special and not any(
@@ -113,7 +113,7 @@ class SecretRotationService:
             secret_value = (
                 secret_value[:pos]
                 + secrets.choice("!@#$%^&*()-_=+[]{}|;:,.<>?")
-                + secret_value[pos + 1:]
+                + secret_value[pos + 1 :]
             )
 
         return secret_value

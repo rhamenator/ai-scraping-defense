@@ -28,14 +28,36 @@ Usage Example:
     })
 """
 
+import hashlib
 import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 from .http_client import AsyncHttpClient, httpx
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_endpoint_for_logs(url: str) -> str:
+    """Return a non-sensitive identifier for an alert endpoint.
+
+    Webhook URLs commonly embed credentials/tokens in their path. Logging the full URL
+    leaks secrets to logs and crash reports. We log only the origin plus a short
+    stable fingerprint to aid debugging without disclosure.
+    """
+    try:
+        parsed = urlparse(url)
+        origin = (
+            f"{parsed.scheme}://{parsed.netloc}"
+            if parsed.scheme and parsed.netloc
+            else "<invalid-url>"
+        )
+    except Exception:  # pragma: no cover - defensive
+        origin = "<invalid-url>"
+    fp = hashlib.sha256(url.encode("utf-8")).hexdigest()[:10]
+    return f"{origin} (id={fp})"
 
 
 class AlertDeliveryError(Exception):
@@ -167,7 +189,8 @@ class HttpAlertSender:
         payload = self.format_alert_payload(alert_data)
         headers = self.prepare_headers(additional_headers)
 
-        logger.info(f"Sending alert to {self.webhook_url}")
+        safe_endpoint = _safe_endpoint_for_logs(self.webhook_url)
+        logger.info("Sending alert to %s", safe_endpoint)
 
         max_attempts = max(1, max_attempts)
         max_retries = max_attempts - 1
@@ -189,15 +212,16 @@ class HttpAlertSender:
             response.raise_for_status()
 
             logger.info(
-                f"Alert delivered successfully to {self.webhook_url} "
-                f"(Status: {response.status_code})"
+                "Alert delivered successfully to %s (Status: %s)",
+                safe_endpoint,
+                response.status_code,
             )
             return True
 
         except httpx.TimeoutException:
             logger.error(
                 "Timeout delivering alert to %s (attempts %s)",
-                self.webhook_url,
+                safe_endpoint,
                 max_attempts,
             )
 
@@ -207,7 +231,7 @@ class HttpAlertSender:
             )
             logger.error(
                 "HTTP error delivering alert to %s (Status: %s, attempts %s). Response: %s",
-                self.webhook_url,
+                safe_endpoint,
                 e.response.status_code,
                 max_attempts,
                 response_body,
@@ -216,7 +240,7 @@ class HttpAlertSender:
         except httpx.RequestError as e:
             logger.error(
                 "Request error delivering alert to %s (attempts %s): %s",
-                self.webhook_url,
+                safe_endpoint,
                 max_attempts,
                 e,
             )
@@ -224,7 +248,7 @@ class HttpAlertSender:
         except Exception as e:
             logger.error(
                 "Unexpected error delivering alert to %s (attempts %s): %s",
-                self.webhook_url,
+                safe_endpoint,
                 max_attempts,
                 e,
             )

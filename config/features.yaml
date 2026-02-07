@@ -12,107 +12,107 @@ features:
     enabled: true
     description: "Enable catch-all tarpit for unknown bot traffic"
     requires: []
-    
+
   ai_labyrinth:
     enabled: true
     description: "Enable AI-generated labyrinth for advanced bot trapping"
     requires: ["tarpit_catch_all"]
-    
+
   fingerprinting:
     enabled: true
     description: "Enable browser fingerprinting for bot detection"
     requires: []
-    
+
   behavioral_analysis:
     enabled: true
     description: "Enable behavioral analysis for traffic patterns"
     requires: []
-  
+
   # ML and AI features
   llm_escalation:
     enabled: true
     description: "Enable LLM-based threat escalation analysis"
     requires: []
-    
+
   tarpit_llm_generator:
     enabled: false
     description: "Use LLM to generate tarpit content (resource intensive)"
     requires: ["tarpit_catch_all"]
-    
+
   ml_anomaly_detection:
     enabled: false
     description: "Enable ML-based anomaly detection"
     requires: []
-  
+
   # Integration features
   ip_reputation:
     enabled: false
     description: "Enable external IP reputation service integration"
     requires: []
-    
+
   community_blocklist:
     enabled: true
     description: "Enable community blocklist sharing"
     requires: []
-    
+
   community_reporting:
     enabled: true
     description: "Enable reporting threats to community"
     requires: ["community_blocklist"]
-  
+
   # Security features
   captcha_trigger:
     enabled: false
     description: "Enable CAPTCHA challenges for suspicious traffic"
     requires: []
-    
+
   waf_integration:
     enabled: true
     description: "Enable Web Application Firewall integration"
     requires: []
-    
+
   adaptive_rate_limiting:
     enabled: true
     description: "Enable adaptive rate limiting based on traffic patterns"
     requires: []
-    
+
   fail2ban_integration:
     enabled: true
     description: "Enable Fail2Ban integration for automated blocking"
     requires: []
-  
+
   # Advanced features
   plugin_system:
     enabled: true
     description: "Enable custom plugin support"
     requires: []
-    
+
   pay_per_crawl:
     enabled: false
     description: "Enable authenticated crawler access with billing"
     requires: []
-    
+
   cloud_cdn:
     enabled: false
     description: "Enable cloud CDN integration"
     requires: []
-    
+
   managed_tls:
     enabled: true
     description: "Enable automatic TLS certificate management"
     requires: []
-  
+
   # Monitoring and observability
   prometheus_metrics:
     enabled: true
     description: "Enable Prometheus metrics export"
     requires: []
-    
+
   grafana_dashboard:
     enabled: true
     description: "Enable Grafana dashboard"
     requires: ["prometheus_metrics"]
-    
+
   audit_logging:
     enabled: true
     description: "Enable detailed audit logging"
@@ -134,7 +134,7 @@ environments:
         enabled: false
       fail2ban_integration:
         enabled: false
-        
+
   staging:
     overrides:
       tarpit_llm_generator:
@@ -147,7 +147,7 @@ environments:
         enabled: true  # Test billing features
       cloud_cdn:
         enabled: false  # Keep CDN off in staging
-        
+
   production:
     overrides:
       tarpit_llm_generator:
@@ -171,11 +171,11 @@ rollouts:
   ml_anomaly_detection:
     strategy: "percentage"
     percentage: 0  # Start at 0%, gradually increase
-    
+
   pay_per_crawl:
     strategy: "allowlist"
     allowed_tenants: []  # Empty = disabled for all
-    
+
 # Feature dependencies validation
 # System will automatically disable dependent features if requirements are not met
 dependency_validation:

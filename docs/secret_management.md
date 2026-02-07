@@ -49,7 +49,7 @@ The `VaultClient` class provides:
   - Token authentication (development/testing)
   - AppRole authentication (applications)
   - Kubernetes authentication (K8s deployments)
-  
+
 - **KV v2 Operations**:
   - Read/Write secrets with versioning
   - List secrets at a path
@@ -69,7 +69,7 @@ Automated rotation with:
   - Rotation period (days)
   - Password complexity requirements
   - Custom generators for special formats
-  
+
 - **Hooks**: Pre/post rotation callbacks
   - Update dependent services
   - Invalidate caches
@@ -98,7 +98,7 @@ Ensures secrets meet security policies:
   - Age compliance (max age limits)
   - Version compliance (max version count)
   - Rotation tracking (metadata presence)
-  
+
 - **Prometheus Metrics**:
   - `vault_secret_age_days`
   - `vault_secret_compliance_score`

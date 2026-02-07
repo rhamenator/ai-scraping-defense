@@ -194,7 +194,7 @@ if [ $EXIT_CODE -eq 0 ]; then
     print_success "Alert management completed successfully"
     echo ""
     print_info "Report file: alert_management_report_*.txt"
-    
+
     if [ "$DRY_RUN" = "true" ]; then
         echo ""
         print_info "This was a DRY RUN. No changes were made."

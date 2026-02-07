@@ -59,4 +59,3 @@ case "$PROXY" in
 esac
 
 echo "Stack is now serving on port 80 via $PROXY."
-

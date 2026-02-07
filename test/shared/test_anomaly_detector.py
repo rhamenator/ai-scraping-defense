@@ -1,10 +1,11 @@
-import unittest
-import numpy as np
-from sklearn.ensemble import IsolationForest
-import joblib
+import gc
 import os
 import tempfile
-import gc
+import unittest
+
+import joblib
+import numpy as np
+from sklearn.ensemble import IsolationForest
 
 from src.shared.anomaly_detector import AnomalyDetector
 
@@ -20,8 +21,8 @@ class TestAnomalyDetector(unittest.TestCase):
         tmp.close()
         joblib.dump(model, tmp_path)
         detector = AnomalyDetector(tmp_path)
-        normal = {'f1': 0.0, 'f2': 0.0}
-        outlier = {'f1': 5.0, 'f2': 5.0}
+        normal = {"f1": 0.0, "f2": 0.0}
+        outlier = {"f1": 5.0, "f2": 5.0}
         score_norm = detector.score(normal)
         score_out = detector.score(outlier)
         del detector
@@ -30,5 +31,5 @@ class TestAnomalyDetector(unittest.TestCase):
         self.assertLess(score_norm, score_out)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
