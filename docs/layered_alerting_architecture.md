@@ -171,7 +171,9 @@ success_count = await multi_sender.send_alert_to_all(alert_data)
 
 The system continues to use existing environment variables:
 - `ALERT_SLACK_WEBHOOK_URL` - Slack webhook URL
+- `ALERT_SLACK_WEBHOOK_URL_FILE` - Path to a secret file containing the Slack webhook URL
 - `ALERT_GENERIC_WEBHOOK_URL` - Generic webhook URL
+- `ALERT_GENERIC_WEBHOOK_URL_FILE` - Path to a secret file containing the generic webhook URL
 - `ALERT_METHOD` - Alert method selection (`slack`, `webhook`, `smtp`, `none`)
 
 ### Dependencies

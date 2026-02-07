@@ -25,7 +25,7 @@ def iter_text_lines(
 
         if size < min_size_bytes:
             for line in handle:
-                yield line.rstrip("\n")
+                yield line.rstrip("\r\n")
             return
 
         with mmap.mmap(handle.fileno(), 0, access=mmap.ACCESS_READ) as mm:
@@ -33,4 +33,4 @@ def iter_text_lines(
                 raw = mm.readline()
                 if not raw:
                     break
-                yield raw.decode(encoding, errors).rstrip("\n")
+                yield raw.decode(encoding, errors).rstrip("\r\n")

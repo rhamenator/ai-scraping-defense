@@ -222,7 +222,8 @@ async def csp_header(request: Request, call_next):
             max_age=session_ttl,
             httponly=True,
             secure=True,
-            samesite="Strict",
+            samesite=auth_routes.SESSION_COOKIE_SAMESITE,
+            path=auth_routes.SESSION_COOKIE_PATH,
         )
     return response
 
@@ -309,6 +310,7 @@ async def settings_page(
         httponly=True,
         secure=True,
         samesite="Strict",
+        path="/",
         max_age=CSRF_COOKIE_TTL,
     )
     return response
@@ -387,6 +389,7 @@ async def plugins_page(request: Request, user: str = Depends(require_auth)):
         httponly=True,
         secure=True,
         samesite="Strict",
+        path="/",
         max_age=CSRF_COOKIE_TTL,
     )
     return response

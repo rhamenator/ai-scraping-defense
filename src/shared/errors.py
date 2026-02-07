@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import os
 import uuid
 from http import HTTPStatus
 from typing import Any
@@ -12,6 +14,8 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .observability import get_request_id
+
+logger = logging.getLogger(__name__)
 
 ERROR_CODE_BY_STATUS = {
     400: "invalid_request",
@@ -52,6 +56,17 @@ def _request_id_from_request(request: Request) -> tuple[str, str]:
     return request_id, header_name
 
 
+def _include_error_details() -> bool:
+    """Whether to include error details in HTTP responses.
+
+    Default is intentionally conservative: detailed errors can leak sensitive
+    information to unauthenticated clients. Developers can enable details for
+    debugging in trusted environments.
+    """
+
+    return os.getenv("ERROR_INCLUDE_DETAILS", "false").lower() == "true"
+
+
 def _build_payload(
     *,
     message: str,
@@ -82,7 +97,9 @@ def register_error_handlers(app: FastAPI) -> None:
             if isinstance(exc.detail, str)
             else _status_phrase(exc.status_code)
         )
-        details = None if isinstance(exc.detail, str) else exc.detail
+        details = None
+        if not isinstance(exc.detail, str) and _include_error_details():
+            details = exc.detail
         request_id, header_name = _request_id_from_request(request)
         payload = _build_payload(
             message=message,
@@ -116,6 +133,12 @@ def register_error_handlers(app: FastAPI) -> None:
         request: Request, exc: Exception
     ) -> JSONResponse:
         request_id, header_name = _request_id_from_request(request)
+        logger.exception(
+            "Unhandled exception request_id=%s method=%s path=%s",
+            request_id,
+            request.method,
+            request.url.path,
+        )
         payload = _build_payload(
             message="Internal server error",
             code=_error_code(500),
