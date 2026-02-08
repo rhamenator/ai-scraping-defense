@@ -8,6 +8,9 @@
 # =============================================================================
 set -euo pipefail
 
+# Prefer the system Docker Engine on servers (avoid Docker Desktop context).
+DOCKER_CONTEXT=${DOCKER_CONTEXT:-default}
+
 # Update REAL_BACKEND_HOST to point at the fake_website container
 if grep -q '^REAL_BACKEND_HOST=' .env; then
   sed -i.bak 's|^REAL_BACKEND_HOST=.*|REAL_BACKEND_HOST=http://fake_website:80|' .env && rm -f .env.bak
@@ -44,8 +47,8 @@ HTML
 fi
 
 # Launch the test site container
-if [ ! "$(docker ps -q -f name=fake_website)" ]; then
-  docker run -d --name fake_website \
+if [ ! "$(docker --context "${DOCKER_CONTEXT}" ps -q -f name=fake_website)" ]; then
+  docker --context "${DOCKER_CONTEXT}" run -d --name fake_website \
     --network "$NETWORK_NAME" \
     -p 8081:80 \
     -v "$(pwd)/test_site:/usr/share/nginx/html:ro" \
