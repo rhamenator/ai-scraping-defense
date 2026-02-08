@@ -18,7 +18,7 @@
 # --- Configuration ---
 GREEN='\033[0;32m'; YELLOW='\033[0;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 K8S_DIR="$ROOT_DIR/kubernetes"; mkdir -p "$K8S_DIR"; OUTPUT_FILE="$K8S_DIR/secrets.yaml"
 HTPASSWD_OUTPUT_FILE="$ROOT_DIR/nginx/.htpasswd"
 

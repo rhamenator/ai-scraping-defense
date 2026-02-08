@@ -30,6 +30,7 @@ MANIFEST
 ./secrets/
 secrets/
 kubernetes/secrets.yaml
+scripts/kubernetes/secrets.yaml
 .htpasswd
 nginx/certs/*.key
 nginx/certs/*.crt
