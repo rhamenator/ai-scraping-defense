@@ -25,6 +25,11 @@ fi
 
 echo "Restoring from: $SNAPSHOT_DIR"
 
+if [ "$(id -u)" -ne 0 ]; then
+  echo "This script must be run with sudo (it restores into /etc and restarts services)." >&2
+  exit 1
+fi
+
 if command -v systemctl >/dev/null 2>&1; then
   sudo systemctl stop apache2 >/dev/null 2>&1 || true
   sudo systemctl stop nginx >/dev/null 2>&1 || true
