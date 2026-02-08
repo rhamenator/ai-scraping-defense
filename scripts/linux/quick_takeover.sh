@@ -27,6 +27,23 @@ fi
 
 PROXY=${1:-nginx}
 
+# Detect runtime support for no-new-privileges; keep containers launchable on
+# engines that reject no-new-privileges:true.
+if [ -z "${NO_NEW_PRIVILEGES:-}" ]; then
+  if $(docker_ctx) run --rm --security-opt no-new-privileges:true alpine:3.20 true >/dev/null 2>&1; then
+    export NO_NEW_PRIVILEGES=true
+  else
+    export NO_NEW_PRIVILEGES=false
+    echo "Runtime does not support no-new-privileges:true; setting NO_NEW_PRIVILEGES=false."
+  fi
+fi
+
+# Snapshot host webserver config before takeover unless explicitly disabled.
+if [ "${TAKEOVER_SNAPSHOT:-1}" = "1" ]; then
+  echo "Creating pre-takeover host webserver snapshot..."
+  bash "$SCRIPT_DIR/webserver_snapshot.sh"
+fi
+
 # Determine if sudo is needed for systemctl
 if [ "$(id -u)" -eq 0 ]; then
   SUDO=""

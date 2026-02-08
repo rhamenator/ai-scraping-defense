@@ -30,13 +30,16 @@ services:
   nginx_proxy:
     image: openresty/openresty:1.21.4.1-alpine
     container_name: nginx_proxy
-    user: nobody
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
     cap_drop:
       - ALL
     cap_add:
       - NET_BIND_SERVICE
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_READ_SEARCH
     tmpfs:
       - /tmp
       - /var/run
@@ -44,17 +47,17 @@ services:
       - "${NGINX_HTTP_PORT:-80}:80"
       - "${NGINX_HTTPS_PORT:-443}:443"
     healthcheck:
-      test:
-        ["CMD", "curl", "-f", "http://localhost:${NGINX_HTTP_PORT:-80}/health"]
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1/ >/dev/null 2>&1"]
       interval: 30s
       timeout: 10s
       retries: 3
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro
+      - ./nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
       - ./nginx/lua:/etc/nginx/lua:ro
       - ./nginx/certs:/etc/nginx/certs:ro
       - ./nginx/.htpasswd:/etc/nginx/secrets/.htpasswd:ro
       - ./waf:/etc/nginx/modsecurity:ro
+      - ./docs_ui:/usr/share/nginx/html/docs_ui:ro
       - ./secrets:/run/secrets:ro
       # Restored Nginx cache volumes for stability and performance
       - nginx_client_body_temp:/var/run/openresty/nginx-client-body
@@ -124,6 +127,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
+      - ./scripts/linux/docker-entrypoint.sh:/app/docker-entrypoint.sh
       - ./secrets:/run/secrets:ro
     depends_on:
       - escalation_engine
@@ -131,7 +135,7 @@ services:
       - defense_network
     restart: unless-stopped
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
     cap_drop:
       - ALL
     read_only: true
@@ -181,7 +185,7 @@ services:
       - defense_network
     restart: unless-stopped
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
     cap_drop:
       - ALL
     read_only: true
@@ -190,10 +194,8 @@ services:
     healthcheck:
       test:
         [
-          "CMD",
-          "curl",
-          "-f",
-          "http://localhost:${ESCALATION_ENGINE_PORT:-8003}/health",
+          "CMD-SHELL",
+          "curl -s http://localhost:${ESCALATION_ENGINE_PORT:-8003}/health | grep -Eq '\"status\":\"(healthy|degraded)\"'",
         ]
       interval: 30s
       timeout: 10s
@@ -218,6 +220,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./archives:/app/archives
+      - ./scripts/linux/docker-entrypoint.sh:/app/docker-entrypoint.sh
       - ./secrets:/run/secrets:ro
     depends_on:
       postgres:
@@ -228,7 +231,7 @@ services:
       - defense_network
     restart: unless-stopped
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
     cap_drop:
       - ALL
     read_only: true
@@ -251,7 +254,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: admin_ui
-    command: ["python", "src/admin_ui/admin_ui.py"]
+    command: ["python", "-m", "src.admin_ui.admin_ui"]
     env_file:
       - .env
     ports:
@@ -259,6 +262,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
+      - ./scripts/linux/docker-entrypoint.sh:/app/docker-entrypoint.sh
       - ./secrets:/run/secrets:ro
     depends_on:
       redis:
@@ -269,7 +273,7 @@ services:
       - defense_network
     restart: unless-stopped
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
     cap_drop:
       - ALL
     read_only: true
@@ -277,7 +281,12 @@ services:
       - /tmp
     healthcheck:
       test:
-        ["CMD", "curl", "-f", "http://localhost:${ADMIN_UI_PORT:-5002}/health"]
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:${ADMIN_UI_PORT:-5002}/observability/health",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -306,7 +315,7 @@ services:
       - defense_network
     restart: unless-stopped
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
     cap_drop:
       - ALL
     read_only: true
@@ -338,7 +347,7 @@ services:
       - defense_network
     restart: unless-stopped
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
     cap_drop:
       - ALL
     read_only: true
@@ -376,7 +385,7 @@ services:
       - defense_network
     restart: unless-stopped
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
     cap_drop:
       - ALL
     read_only: true
@@ -406,7 +415,7 @@ services:
       - defense_network
     restart: unless-stopped
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
     cap_drop:
       - ALL
     read_only: true
@@ -444,7 +453,7 @@ services:
       - defense_network
     restart: unless-stopped
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
     cap_drop:
       - ALL
     read_only: true

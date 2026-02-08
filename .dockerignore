@@ -88,5 +88,28 @@ mnt/
 
 # 15. Project-specific patterns
 # (Add more as needed for your project)
+.venv/
+.tmp/
+__pycache__/
+**/__pycache__/
+**/.pytest_cache/
+**/target/
+jszip-rs/
+archives/
+backups/
+chats/
+logs/
+crawler_registry.db
+alert_management_report_*.txt
+architecture_problems_batch*.json
+code_quality_problems_batch*.json
+compliance_problems.json
+issue_milestone_assignments.json
+operations_problems_batch*.json
+performance_problems_batch*.json
+problem_file_map.json
+problems.txt
+security_problems_batch*.json
+locked.log
 
 # End of .dockerignore
