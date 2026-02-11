@@ -88,7 +88,7 @@ To bring the stack up, only a handful of settings must be reviewed in `.env`:
 
 Prometheus uses a static configuration file (`monitoring/prometheus.yml`) to define scrape targets. Environment variable substitution isn't supported, so edit that file directly if your service names or ports differ from the defaults.
 
-The `[scripts/interactive_setup.py](../scripts/interactive_setup.py)` helper referenced above will prompt for these values and update `.env` automatically.
+The `[scripts/interactive_setup.py](../scripts/interactive_setup.py)` helper referenced above will prompt for these values and update `.env` automatically. If you need to stop midway (for example, to obtain Cloudflare credentials), type `pause` at a prompt or interrupt the script and rerun it; setup progress is resumed from `.interactive_setup_state.json`.
 
 You can verify the file at any time using the validator:
 
@@ -248,7 +248,7 @@ When using an external provider, populate the matching API key variable (e.g., `
 The `.env` file also contains toggles for several optional integrations:
 
 - **Web Application Firewall** (`ENABLE_WAF`) mounts ModSecurity rules specified by `WAF_RULES_PATH`.
-- **Global CDN** (`ENABLE_GLOBAL_CDN`) connects to a provider using `CLOUD_CDN_API_TOKEN`.
+- **Global CDN** (`ENABLE_GLOBAL_CDN`) uses Cloudflare and requires `CLOUD_CDN_ZONE_ID` plus `CLOUD_CDN_API_TOKEN` (or `CLOUD_CDN_API_TOKEN_FILE`).
 - **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) sends suspicious traffic to the local escalation engine. The optional `ddos_guard.py` script watches Nginx logs for high request rates, classifies floods as HTTP-based or volumetric, and reports attackers. Data can also be forwarded to a third-party service if a provider URL and API key are supplied.
 - **Managed TLS** (`ENABLE_MANAGED_TLS`) automatically issues certificates using `TLS_PROVIDER` and `TLS_EMAIL`.
 - **CAPTCHA Verification** activates when `CAPTCHA_SECRET` is supplied.

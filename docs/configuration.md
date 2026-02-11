@@ -111,6 +111,18 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 | `DEBUG` | `false` | Enable debug mode in services |
 | `TENANT_ID` | `default` | Namespace prefix for multi-tenant setups |
 
+## Global CDN (Cloudflare)
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ENABLE_GLOBAL_CDN` | `false` | Enable CDN cache operations |
+| `CLOUD_CDN_PROVIDER` | `cloudflare` | CDN provider (currently `cloudflare` only) |
+| `CLOUD_CDN_ZONE_ID` | *(none)* | Cloudflare zone ID used to construct purge endpoint |
+| `CLOUD_CDN_API_TOKEN` | *(none)* | Cloudflare API token with cache purge permissions |
+| `CLOUD_CDN_API_TOKEN_FILE` | *(none)* | File path containing the Cloudflare API token |
+| `CDN_PURGE_URL` | *(derived)* | Optional explicit purge endpoint override |
+| `REQUIRE_CLOUDFLARE_ACCOUNT` | `false` | Fail environment validation unless Cloudflare integration is configured |
+
 ## Tarpit and Blocklist
 
 | Variable | Default | Description |

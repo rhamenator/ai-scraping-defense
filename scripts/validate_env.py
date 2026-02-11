@@ -46,6 +46,10 @@ PROVIDER_KEYS = {
 }
 
 
+def _is_truthy(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def validate_env(env: Mapping[str, str] | None = None) -> list[str]:
     env = env or os.environ
     errors: list[str] = []
@@ -79,6 +83,27 @@ def validate_env(env: Mapping[str, str] | None = None) -> list[str]:
         errors.append("REAL_BACKEND_HOST or REAL_BACKEND_HOSTS must be set")
     if not env.get("PROMPT_ROUTER_HOST"):
         errors.append("PROMPT_ROUTER_HOST is missing or empty")
+
+    enable_global_cdn = _is_truthy(env.get("ENABLE_GLOBAL_CDN"))
+    require_cloudflare = _is_truthy(env.get("REQUIRE_CLOUDFLARE_ACCOUNT"))
+    if enable_global_cdn or require_cloudflare:
+        provider = (env.get("CLOUD_CDN_PROVIDER") or "cloudflare").strip().lower()
+        if provider != "cloudflare":
+            errors.append(
+                "CLOUD_CDN_PROVIDER must be cloudflare when CDN integration is enabled"
+            )
+        if not (env.get("CLOUD_CDN_API_TOKEN") or env.get("CLOUD_CDN_API_TOKEN_FILE")):
+            errors.append(
+                "CLOUD_CDN_API_TOKEN or CLOUD_CDN_API_TOKEN_FILE is required when CDN integration is enabled"
+            )
+        if not (env.get("CLOUD_CDN_ZONE_ID") or env.get("CDN_PURGE_URL")):
+            errors.append(
+                "CLOUD_CDN_ZONE_ID (or explicit CDN_PURGE_URL) is required when CDN integration is enabled"
+            )
+        if require_cloudflare and not enable_global_cdn:
+            errors.append(
+                "ENABLE_GLOBAL_CDN must be true when REQUIRE_CLOUDFLARE_ACCOUNT=true"
+            )
 
     return errors
 
