@@ -220,6 +220,9 @@ class Config:
     TAR_PIT_MAX_DELAY_SEC: float = field(
         default_factory=lambda: float(os.getenv("TAR_PIT_MAX_DELAY_SEC", 1.2))
     )
+    TAR_PIT_MAX_STREAM_SECONDS: float = field(
+        default_factory=lambda: float(os.getenv("TAR_PIT_MAX_STREAM_SECONDS", 60.0))
+    )
     SYSTEM_SEED: str = field(
         default_factory=lambda: os.getenv(
             "SYSTEM_SEED", "default_system_seed_value_change_me"

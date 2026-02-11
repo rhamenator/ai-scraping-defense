@@ -136,6 +136,21 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
         self.mocks["log_honeypot_hit"].assert_called_once()
         self.mocks["generate_dynamic_tarpit_page"].assert_called_once()
 
+    async def test_slow_stream_respects_duration_limit(self):
+        """The tarpit stream should stop once the hard duration ceiling is reached."""
+        import src.tarpit.tarpit_api as tarpit_api
+
+        content = "\n".join([f"line-{i}" for i in range(20)])
+        chunks = []
+
+        with patch("src.tarpit.tarpit_api.MIN_STREAM_DELAY_SEC", 0.2), patch(
+            "src.tarpit.tarpit_api.MAX_STREAM_DELAY_SEC", 0.2
+        ), patch("src.tarpit.tarpit_api.MAX_STREAM_DURATION_SEC", 0.01):
+            async for chunk in tarpit_api.slow_stream_content(content):
+                chunks.append(chunk)
+
+        self.assertLessEqual(len(chunks), 1)
+
     def test_health_check_healthy(self):
         """Test the health check endpoint when all dependencies are healthy."""
         self.mock_redis_hops.ping.return_value = True

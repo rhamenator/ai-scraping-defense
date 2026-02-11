@@ -17,6 +17,13 @@ spec:
             image: your-registry/ai-scraping-defense:latest
             imagePullPolicy: Always
             command: ["python", "-m", "src.util.rules_fetcher"]
+            resources:
+              requests:
+                cpu: "100m"
+                memory: "128Mi"
+              limits:
+                cpu: "500m"
+                memory: "512Mi"
             env:
             - name: CRS_DOWNLOAD_URL
               value: "https://github.com/coreruleset/coreruleset/archive/refs/heads/v3.3/main.tar.gz"

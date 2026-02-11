@@ -82,6 +82,7 @@ class TestTarpitConfig(unittest.TestCase):
         config = TarpitConfig(min_delay_sec=0.5, max_delay_sec=1.5)
         self.assertEqual(config.min_delay_sec, 0.5)
         self.assertEqual(config.max_delay_sec, 1.5)
+        self.assertEqual(config.max_stream_seconds, 60.0)
 
     def test_invalid_delay_range(self):
         """Test tarpit with min_delay > max_delay."""
@@ -95,6 +96,14 @@ class TestTarpitConfig(unittest.TestCase):
 
         with self.assertRaises(ValidationError):
             TarpitConfig(max_delay_sec=20.0)
+
+    def test_max_stream_seconds_bounds(self):
+        """Test tarpit stream hard-limit bounds."""
+        with self.assertRaises(ValidationError):
+            TarpitConfig(max_stream_seconds=0.0)
+
+        with self.assertRaises(ValidationError):
+            TarpitConfig(max_stream_seconds=3601.0)
 
 
 class TestEscalationConfig(unittest.TestCase):

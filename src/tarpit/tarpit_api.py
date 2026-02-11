@@ -7,6 +7,7 @@ import os
 import random
 import re
 import secrets
+import time
 from typing import Dict
 
 import httpx
@@ -185,6 +186,7 @@ else:
 ESCALATION_ENDPOINT = CONFIG.ESCALATION_ENDPOINT
 MIN_STREAM_DELAY_SEC = CONFIG.TAR_PIT_MIN_DELAY_SEC
 MAX_STREAM_DELAY_SEC = CONFIG.TAR_PIT_MAX_DELAY_SEC
+MAX_STREAM_DURATION_SEC = max(1.0, CONFIG.TAR_PIT_MAX_STREAM_SECONDS)
 SYSTEM_SEED = CONFIG.SYSTEM_SEED
 DEFAULT_SYSTEM_SEED = "default_system_seed_value_change_me"
 
@@ -301,11 +303,22 @@ def _random_delay(min_delay: float, max_delay: float) -> float:
 
 
 async def slow_stream_content(content: str):
+    started_at = time.monotonic()
     lines = content.split("\n")
     for line in lines:
+        elapsed = time.monotonic() - started_at
+        remaining = MAX_STREAM_DURATION_SEC - elapsed
+        if remaining <= 0:
+            logger.warning(
+                "Tarpit stream duration limit reached (%.2fs); closing response",
+                MAX_STREAM_DURATION_SEC,
+            )
+            break
         yield line + "\n"
         delay = _random_delay(MIN_STREAM_DELAY_SEC, MAX_STREAM_DELAY_SEC)
-        await asyncio.sleep(delay)
+        sleep_for = min(delay, max(0.0, remaining))
+        if sleep_for > 0:
+            await asyncio.sleep(sleep_for)
 
 
 def trigger_ip_block(ip: str, reason: str):

@@ -37,6 +37,13 @@ spec:
       - name: postgres
         image: postgres:15-alpine
         imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
         ports:
         - containerPort: 5432
           name: postgres
