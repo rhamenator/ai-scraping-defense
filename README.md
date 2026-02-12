@@ -379,11 +379,21 @@ Several integrations are disabled by default to keep the stack lightweight. You 
 If your ISP blocks inbound hosting ports, expose the local stack through Cloudflare Tunnel:
 
 ```bash
-# Quick temporary URL (trycloudflare.com)
+# Linux quick temporary URL (trycloudflare.com)
 ./scripts/linux/start_cloudflare_tunnel.sh
 
-# Named tunnel with your existing Cloudflare Zero Trust tunnel token
+# Linux named tunnel with your existing Cloudflare Zero Trust tunnel token
 CLOUDFLARE_TUNNEL_TOKEN=<your_token> ./scripts/linux/start_cloudflare_tunnel.sh
+```
+
+```zsh
+# macOS
+./scripts/macos/start_cloudflare_tunnel.zsh
+```
+
+```powershell
+# Windows PowerShell
+.\scripts\windows\start_cloudflare_tunnel.ps1
 ```
 
 ## Project Structure

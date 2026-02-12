@@ -45,6 +45,7 @@ The script runs Trivy, Gitleaks, and Grype scans and stores reports in the `secu
 - `quick_deploy.zsh` – deploy the stack to a Kubernetes cluster.
 - `quick_proxy.zsh` – start the stack with a reverse proxy.
 - `quick_takeover.zsh` – stop local web servers and expose the stack on port 80.
+- `start_cloudflare_tunnel.zsh` – expose the local stack publicly through Cloudflare Tunnel without opening inbound ports.
 - `setup_fake_website.zsh` – launch a fake backend site for testing.
 - `post_takeover_test_site.zsh` – attach a sample site after running `quick_takeover.zsh`.
 

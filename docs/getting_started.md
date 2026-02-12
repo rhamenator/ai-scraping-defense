@@ -260,11 +260,21 @@ The `.env` file also contains toggles for several optional integrations:
 If your ISP blocks inbound web ports (common on residential plans), use Cloudflare Tunnel so the server only makes outbound connections:
 
 ```bash
-# quick temporary public URL
+# Linux quick temporary public URL
 ./scripts/linux/start_cloudflare_tunnel.sh
 
-# named tunnel (stable hostname configured in Cloudflare Zero Trust)
+# Linux named tunnel (stable hostname configured in Cloudflare Zero Trust)
 CLOUDFLARE_TUNNEL_TOKEN=<your_tunnel_token> ./scripts/linux/start_cloudflare_tunnel.sh
+```
+
+```zsh
+# macOS quick tunnel
+./scripts/macos/start_cloudflare_tunnel.zsh
+```
+
+```powershell
+# Windows quick tunnel
+.\scripts\windows\start_cloudflare_tunnel.ps1
 ```
 
 By default the tunnel forwards to `http://localhost:${NGINX_HTTP_PORT}`. Override with:
