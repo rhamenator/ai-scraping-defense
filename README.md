@@ -376,6 +376,16 @@ Several integrations are disabled by default to keep the stack lightweight. You 
 - **LLM Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) – Use an LLM to generate fake pages when a model URI is provided.
 - **Admin UI Two-Factor Auth** – Set `ADMIN_UI_2FA_SECRET` (or `ADMIN_UI_2FA_SECRET_FILE`) and provide a TOTP in the `X-2FA-Code` header.
 
+If your ISP blocks inbound hosting ports, expose the local stack through Cloudflare Tunnel:
+
+```bash
+# Quick temporary URL (trycloudflare.com)
+./scripts/linux/start_cloudflare_tunnel.sh
+
+# Named tunnel with your existing Cloudflare Zero Trust tunnel token
+CLOUDFLARE_TUNNEL_TOKEN=<your_token> ./scripts/linux/start_cloudflare_tunnel.sh
+```
+
 ## Project Structure
 
 - `src/`: Contains all Python source code for the microservices.

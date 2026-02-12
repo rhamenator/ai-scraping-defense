@@ -19,6 +19,7 @@ The following variables from `.env` are the minimum values to review or set manu
 | `REAL_BACKEND_HOSTS` | Comma-separated list of backend servers; overrides `REAL_BACKEND_HOST` |
 | `REAL_BACKEND_HOST` | Fallback single backend when `REAL_BACKEND_HOSTS` is empty |
 | `ENABLE_GLOBAL_CDN` / `CLOUD_CDN_ZONE_ID` / `CLOUD_CDN_API_TOKEN` | Enable Cloudflare purge integration with required zone/token |
+| `CLOUDFLARE_TUNNEL_TOKEN` | Optional token for `scripts/linux/start_cloudflare_tunnel.sh` named tunnel mode |
 | `ALERT_SMTP_PASSWORD_FILE` / `ALERT_SMTP_PASSWORD` | Credentials for sending alert emails |
 | `WATCHTOWER_INTERVAL` | Interval (in seconds) for the Watchtower update checker |
 

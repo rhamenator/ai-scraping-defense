@@ -255,6 +255,24 @@ The `.env` file also contains toggles for several optional integrations:
 - **LLM-Generated Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) require a `TARPIT_LLM_MODEL_URI`.
 - **Admin UI Two-Factor Auth** requires `ADMIN_UI_2FA_SECRET` and a TOTP in the `X-2FA-Code` header.
 
+### **Cloudflare Tunnel (for ISP Port Blocks)**
+
+If your ISP blocks inbound web ports (common on residential plans), use Cloudflare Tunnel so the server only makes outbound connections:
+
+```bash
+# quick temporary public URL
+./scripts/linux/start_cloudflare_tunnel.sh
+
+# named tunnel (stable hostname configured in Cloudflare Zero Trust)
+CLOUDFLARE_TUNNEL_TOKEN=<your_tunnel_token> ./scripts/linux/start_cloudflare_tunnel.sh
+```
+
+By default the tunnel forwards to `http://localhost:${NGINX_HTTP_PORT}`. Override with:
+
+```bash
+CLOUDFLARE_TUNNEL_TARGET_URL=http://localhost:8080 ./scripts/linux/start_cloudflare_tunnel.sh
+```
+
 ## **Running Local LLM Containers**
 
 Docker Compose includes service definitions for the `llama3` and `mixtral` models via the Ollama project. They are disabled by default but can be started manually:

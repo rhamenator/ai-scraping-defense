@@ -122,6 +122,8 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 | `CLOUD_CDN_API_TOKEN_FILE` | *(none)* | File path containing the Cloudflare API token |
 | `CDN_PURGE_URL` | *(derived)* | Optional explicit purge endpoint override |
 | `REQUIRE_CLOUDFLARE_ACCOUNT` | `false` | Fail environment validation unless Cloudflare integration is configured |
+| `CLOUDFLARE_TUNNEL_TOKEN` | *(none)* | Optional token used by `scripts/linux/start_cloudflare_tunnel.sh` for named tunnels |
+| `CLOUDFLARE_TUNNEL_TARGET_URL` | `http://localhost:${NGINX_HTTP_PORT}` | Optional origin URL for Cloudflare Tunnel script |
 
 ## Tarpit and Blocklist
 
