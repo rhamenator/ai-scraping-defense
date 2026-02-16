@@ -44,7 +44,7 @@ jobs:
           load: true
       - name: Scan image with Trivy (SARIF)
         id: trivy_sarif
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+        uses: aquasecurity/trivy-action@c1824fd6edce30d7ab345a9989de00bbd46ef284
         with:
           image-ref: ${{ matrix.image.name }}:scan
           format: sarif
@@ -75,7 +75,7 @@ jobs:
           sarif_file: ${{ github.workspace }}/trivy-${{ matrix.image.name }}.sarif
           category: trivy-${{ matrix.image.name }}
       - name: Scan image with Trivy (table)
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+        uses: aquasecurity/trivy-action@c1824fd6edce30d7ab345a9989de00bbd46ef284
         with:
           image-ref: ${{ matrix.image.name }}:scan
           format: table
@@ -84,7 +84,7 @@ jobs:
           exit-code: "0"
       - name: Scan image with Trivy (JSON)
         id: trivy_json
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+        uses: aquasecurity/trivy-action@c1824fd6edce30d7ab345a9989de00bbd46ef284
         with:
           image-ref: ${{ matrix.image.name }}:scan
           format: json
