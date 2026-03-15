@@ -63,6 +63,8 @@ This project provides a multi-layered, microservice-based defense system against
 
 - `ci-tests.yml` is the primary cross-platform validation workflow for pushes to `main` and pull requests.
 - `tests.yml` now serves as a dedicated Rust nightly smoke workflow instead of duplicating the main PR test path.
+- `security-attack-regression.yml` is the deterministic PR-time ingress regression gate; it boots the Compose stack locally and asserts expected security behaviour.
+- `kali-security-sweep.yml` is the broader external attack sweep intended for a self-hosted Kali runner against a preview or staging target.
 - tagged releases publish signed container images through `/.github/workflows/release-images.yml`.
 
 See [docs/release_checklist.md](docs/release_checklist.md) and [docs/release_artifacts.md](docs/release_artifacts.md) for the expected release process and artifact policy.
