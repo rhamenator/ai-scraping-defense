@@ -7,12 +7,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$ROOT_DIR"
 
-if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "Unsupported OS: $(uname -s). This installer supports macOS only." >&2
-  echo "Use scripts/linux/*.sh on Linux or scripts/windows/*.ps1 on Windows." >&2
-  exit 1
-fi
-
 source "$SCRIPT_DIR/lib.zsh"
 
 PROXY="nginx"
@@ -140,6 +134,12 @@ main() {
       exit 2
       ;;
   esac
+
+  if [[ "$(uname -s)" != "Darwin" ]]; then
+    echo "Unsupported OS: $(uname -s). This installer supports macOS only." >&2
+    echo "Use scripts/linux/*.sh on Linux or scripts/windows/*.ps1 on Windows." >&2
+    exit 1
+  fi
 
   echo "=== AI Scraping Defense: macOS Installer ==="
   verify_prerequisites
