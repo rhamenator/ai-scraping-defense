@@ -196,7 +196,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl -fsS -H 'X-Forwarded-Proto: https' http://localhost:${ESCALATION_ENGINE_PORT:-8003}/health | grep -Eq '\"status\":\"(ok|degraded)\"'",
+          "curl -sS -H 'X-Forwarded-Proto: https' http://localhost:${ESCALATION_ENGINE_PORT:-8003}/health | grep -Eq '\"status\":\"(ok|degraded)\"'",
         ]
       interval: 30s
       timeout: 10s

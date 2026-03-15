@@ -137,6 +137,10 @@ def test_https_redirected_services_have_proxy_aware_healthchecks():
             "X-Forwarded-Proto: https" in command
         ), f"{service_name} healthcheck must bypass HTTPS redirect loops"
 
+    escalation_command = " ".join(services["escalation_engine"]["healthcheck"]["test"])
+    assert "curl -sS" in escalation_command
+    assert "curl -fsS" not in escalation_command
+
 
 def test_kubernetes_workloads_define_resource_limits():
     missing = []
