@@ -17,7 +17,12 @@ Every FastAPI service now exposes a shared observability surface:
 Import the dashboards in `monitoring/grafana` to visualise the new metrics and
 configure Loki/Tempo to ingest logs and traces if desired.
 
-Watchtower runs alongside these containers and automatically checks for new Docker images every minute, restarting services when updates are available. Remove the `watchtower` section from `docker-compose.yaml` if you prefer manual updates.
+Watchtower runs alongside these containers and checks for new images every
+minute. Because the third-party service images in `docker-compose.yaml` are
+now pinned to explicit `tag@digest` references, Watchtower will not roll those
+services forward until you intentionally refresh the pinned tag or digest in
+the repository. Remove the `watchtower` section from `docker-compose.yaml` if
+you prefer fully manual updates.
 
 ```env
 # excerpt from sample.env

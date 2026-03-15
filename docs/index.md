@@ -45,12 +45,19 @@ graph TD
 To get a full understanding of the project, please review the following documents:
 
 - [**Getting Started**](getting_started.md)**:** The essential first step. This guide provides detailed instructions for setting up the complete development environment on your local machine using Docker Compose.
+- [**Installer Contract**](installer_contract.md)**:** Shared smoke-test and uninstall expectations for platform installers.
+- [**Linux Installer**](linux_installer.md)**:** Guided Linux setup, smoke validation, and uninstall/rollback commands.
+- [**Windows Installer**](windows_installer.md)**:** Guided Windows setup, Docker Desktop validation, and uninstall commands.
+- [**macOS Installer**](macos_installer.md)**:** Guided macOS setup, Docker Desktop validation, and uninstall commands.
+- [**Ubuntu Reverse Proxy Deployment**](ubuntu_reverse_proxy.md)**:** Recommended Ubuntu Server topology when host Apache or nginx already owns ports 80/443.
 - [**Test to Production Guide**](test_to_production.md)**:** How to graduate from local testing to a secure production deployment.
 - [**System Architecture**](architecture.md)**:** A high-level overview of the different components of the system and how they fit together. This is the best place to start to understand the overall design.
 - [**Key Data Flows**](key_data_flows.md)**:** This document explains the lifecycle of a request as it moves through our defense layers, from initial filtering to deep analysis.
 - [**Model Adapter Guide**](model_adapter_guide.md)**:** A technical deep-dive into the flexible Model Adapter pattern, which allows the system to easily switch between different machine learning models and LLM providers.
 - [**Prompt Router**](prompt_router.md)**:** Explains how LLM requests are routed between local containers and the cloud.
 - [**Monitoring Stack**](monitoring_stack.md)**:** Using Prometheus, Grafana, and Watchtower for observability and automatic updates.
+- [**Release Checklist**](release_checklist.md)**:** Practical validation steps before cutting a tagged release.
+- [**Release Artifacts**](release_artifacts.md)**:** Semver tags, GHCR image publication, signatures, and provenance policy.
 - [**Kubernetes Deployment**](kubernetes_deployment.md)**:** A step-by-step guide for deploying the entire application stack to a production-ready Kubernetes cluster.
 - [**Fail2ban**](fail2ban.md)**:** Configuration and deployment instructions for the optional firewall banning service.
 - [**Web Application Firewall**](waf_setup.md)**:** How to load ModSecurity rules and enable request filtering.

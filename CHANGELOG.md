@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 * **Threat Model Document:** Added docs/threat_model.md and linked from the README.
 * **Automated Dependency Scanning:** Added Dependabot configuration and pip-audit workflow.
+* **Release Artifact Policy:** Added a tagged container-image release workflow plus release artifact and checklist documentation.
 
 
 ### Changed
@@ -16,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Markov Training Utility:** Removed `rag/train_markov_postgres.py` and now build the Markov model using the Rust `markov-train-rs` crate via `train_from_corpus_rs`.
 * **Environment Variables:** Replaced deprecated `TARPIT_MAX_HOPS` and `TARPIT_HOP_WINDOW_SECONDS` with `TAR_PIT_MAX_HOPS` and `TAR_PIT_HOP_WINDOW_SECONDS`.
 * **Documentation:** Updated repository references to highlight `src/`, `scripts/`, and `rag/` directories.
+* **CI Test Scope:** Consolidated the main cross-platform test path into `ci-tests.yml` and repurposed `tests.yml` into a dedicated Rust nightly smoke workflow to avoid redundant PR checks.
+* **Generated Artifacts:** Stopped tracking generated IIS `.NET` NuGet files from `iis/DefenseModule/obj/`.
 
 ## **[0.0.5] - 2025-05-25**
 

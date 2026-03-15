@@ -1,0 +1,116 @@
+name: release-images
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Set Up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Log In To GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive Release Image Tags
+        id: refs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          image_name="ghcr.io/${GITHUB_REPOSITORY,,}"
+          ref_name="${GITHUB_REF_NAME}"
+          version="${ref_name#v}"
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tags must follow v<semver>; received '$ref_name'." >&2
+            exit 1
+          fi
+
+          tags=(
+            "${image_name}:${ref_name}"
+            "${image_name}:${version}"
+          )
+
+          if [[ "$version" != *-* ]]; then
+            tags+=(
+              "${image_name}:${version%.*}"
+              "${image_name}:latest"
+            )
+          fi
+
+          {
+            echo "image_name=${image_name}"
+            echo "version=${version}"
+            echo "primary_tag=${image_name}:${ref_name}"
+            echo "tags<<EOF"
+            printf '%s\n' "${tags[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build And Push Release Image
+        id: build
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294
+        with:
+          context: .
+          push: true
+          sbom: true
+          provenance: false
+          tags: ${{ steps.refs.outputs.tags }}
+          labels: |
+            org.opencontainers.image.title=ai-scraping-defense
+            org.opencontainers.image.description=AI Scraping Defense runtime
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.refs.outputs.version }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@f713795cb21599bc4e5c4b58cbad1da852d7eeb9
+
+      - name: Sign Release Image
+        env:
+          IMAGE_NAME: ${{ steps.refs.outputs.image_name }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          cosign sign --yes "${IMAGE_NAME}@${IMAGE_DIGEST}"
+
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661
+        with:
+          subject-name: ${{ steps.refs.outputs.image_name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Summarize Release Artifacts
+        env:
+          IMAGE_NAME: ${{ steps.refs.outputs.image_name }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE_TAGS: ${{ steps.refs.outputs.tags }}
+        run: |
+          {
+            echo "Published release image:"
+            echo ""
+            echo "- \`${IMAGE_NAME}@${IMAGE_DIGEST}\`"
+            echo ""
+            echo "Tags:"
+            while IFS= read -r tag; do
+              echo "- \`${tag}\`"
+            done <<< "${IMAGE_TAGS}"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -15,10 +15,13 @@ Below are solutions for common issues encountered when setting up or running the
 
 - **Module not found**
   - Install dependencies with `pip install -r requirements.txt`
+- **`llamacpp://` adapter reports that `llama-cpp-python` is not installed**
+  - Install the optional local inference dependencies with `pip install -r requirements-local-llm.txt -c constraints.txt`
 - **Permission denied writing files**
   - Verify file paths exist and adjust ownership with `chown` or run commands with `sudo`
 - **Could not build wheels for psycopg2 or llama-cpp-python**
   - Install system build tools inside the container or host: `build-essential`, `cmake`, `python3-dev`, `libpq-dev`, `libxml2-dev`, `libxslt1-dev`, `libc6-dev`, `git`
+  - `psycopg2` is part of the base install; `llama-cpp-python` is only needed when you opt into `requirements-local-llm.txt`
 - **Pydantic deprecation warnings from google-genai**
   - These warnings are filtered in `pytest.ini` and do not affect functionality
   - The warnings originate from the `google-genai` dependency using deprecated Pydantic patterns (issue googleapis/python-genai#1579)

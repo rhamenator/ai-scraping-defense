@@ -8,6 +8,40 @@ from scripts import operations_toolkit
 
 
 class TestOperationsToolkit(unittest.TestCase):
+    def test_run_command_dry_run_skips_subprocess(self):
+        with patch("scripts.operations_toolkit.subprocess.run") as mock_run:
+            result = operations_toolkit.run_command(
+                ["kubectl", "get", "pods"], execute=False
+            )
+
+        mock_run.assert_not_called()
+        self.assertEqual(result.command, ["kubectl", "get", "pods"])
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.stderr, "")
+
+    def test_run_command_executes_without_shell(self):
+        completed = MagicMock(returncode=0, stdout="ok", stderr="")
+
+        with patch(
+            "scripts.operations_toolkit.subprocess.run", return_value=completed
+        ) as mock_run:
+            result = operations_toolkit.run_command(
+                ["kubectl", "get", "pods"], execute=True
+            )
+
+        mock_run.assert_called_once_with(
+            ["kubectl", "get", "pods"],
+            cwd=None,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.command, ["kubectl", "get", "pods"])
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "ok")
+        self.assertEqual(result.stderr, "")
+
     def test_backup_returns_timestamped_path(self):
         """Test that backup() returns the timestamped directory path."""
         with tempfile.TemporaryDirectory() as tmp:

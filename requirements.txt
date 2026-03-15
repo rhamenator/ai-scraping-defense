@@ -33,10 +33,12 @@ wikipedia~=1.4
 python-multipart~=0.0.22
 cachetools~=5.5
 prometheus-client~=0.24
-PyJWT~=2.10
+PyJWT>=2.12.0,<3.0
 PyYAML~=6.0
 defusedxml~=0.7
 cbor2>=5.8.0
+cryptography>=46.0.5,<47.0
+pyasn1>=0.6.2,<1.0
 
 # Secret Management
 hvac~=2.3
@@ -56,7 +58,6 @@ evaluate>=0.4,<1.0
 
 # Local LLM Libraries
 ollama~=0.6
-llama-cpp-python~=0.3; platform_system == "Linux" and platform_machine == "x86_64"
 
 # --- Optional: Alert Management Script ---
 # Uncomment if you want to run scripts/manage_alerts_issues_prs.py
@@ -69,7 +70,7 @@ wheel>=0.46.2
 pytest~=8.4
 pytest-asyncio~=1.1
 flake8~=7.3
-black~=26.1
+black>=26.3.1,<27.0
 coverage~=7.13
 pre-commit~=4.5
 isort~=5.13
