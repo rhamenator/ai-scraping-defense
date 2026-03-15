@@ -100,6 +100,10 @@ def validate_env(env: Mapping[str, str] | None = None) -> list[str]:
             errors.append(
                 "CLOUD_CDN_ZONE_ID (or explicit CDN_PURGE_URL) is required when CDN integration is enabled"
             )
+        if not env.get("SECURITY_CDN_TRUSTED_PROXY_CIDRS"):
+            errors.append(
+                "SECURITY_CDN_TRUSTED_PROXY_CIDRS is required when CDN integration is enabled"
+            )
         if require_cloudflare and not enable_global_cdn:
             errors.append(
                 "ENABLE_GLOBAL_CDN must be true when REQUIRE_CLOUDFLARE_ACCOUNT=true"

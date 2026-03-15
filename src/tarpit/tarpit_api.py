@@ -27,6 +27,7 @@ from src.shared.observability import (
     trace_span,
 )
 from src.shared.redis_client import get_redis_connection
+from src.shared.request_identity import resolve_request_identity
 
 from .bad_api_generator import register_bad_endpoints
 
@@ -219,6 +220,30 @@ BLOCKLIST_TTL_SECONDS = CONFIG.BLOCKLIST_TTL_SECONDS
 ENABLE_TARPIT_CATCH_ALL = CONFIG.ENABLE_TARPIT_CATCH_ALL
 
 
+def _disable_tarpit_for_trusted_cdn() -> bool:
+    return os.getenv("SECURITY_DISABLE_TARPIT_FOR_TRUSTED_CDN", "true").lower() == (
+        "true"
+    )
+
+
+def _trusted_cdn_containment_action() -> str:
+    action = os.getenv("SECURITY_EDGE_CDN_CONTAINMENT_ACTION", "block").strip().lower()
+    if action in {"block", "throttle"}:
+        return action
+    logger.warning(
+        "Invalid SECURITY_EDGE_CDN_CONTAINMENT_ACTION %r; using block", action
+    )
+    return "block"
+
+
+def _trusted_cdn_retry_after_seconds() -> int:
+    try:
+        value = int(os.getenv("SECURITY_EDGE_CDN_RETRY_AFTER_SECONDS", "120"))
+    except ValueError:
+        return 120
+    return max(1, value)
+
+
 # --- THIS IS THE SOLE REFACTORING CHANGE ---
 # Replaced the manual Redis Connection Pools with calls to the centralized client.
 redis_hops = get_redis_connection(db_number=REDIS_DB_TAR_PIT_HOPS)
@@ -379,7 +404,8 @@ async def tarpit_handler(request: Request, path: str = ""):
 
     if not ENABLE_TARPIT_CATCH_ALL and path:
         raise HTTPException(status_code=404)
-    client_ip = request.client.host if request.client else "unknown"
+    identity = resolve_request_identity(request)
+    client_ip = identity.client_ip
     user_agent = request.headers.get("user-agent", "unknown")[:500]  # Limit length
     referer = request.headers.get("referer", "-")[:2048]  # Limit length
     requested_path = str(request.url.path)[:2048]  # Limit length
@@ -423,6 +449,9 @@ async def tarpit_handler(request: Request, path: str = ""):
     )
     honeypot_details = {
         "ip": client_ip,
+        "peer_ip": identity.peer_ip,
+        "via_trusted_cdn": identity.via_trusted_cdn,
+        "identity_source_header": identity.source_header,
         "user_agent": user_agent,
         "method": http_method,
         "path": requested_path,
@@ -491,6 +520,29 @@ async def tarpit_handler(request: Request, path: str = ""):
             ESCALATION_ENDPOINT,
             e,
         )
+
+    if identity.via_trusted_cdn and _disable_tarpit_for_trusted_cdn():
+        action = _trusted_cdn_containment_action()
+        logger.info(
+            "Bypassing origin tarpit for trusted CDN request from %s via %s with %s action",
+            client_ip,
+            identity.peer_ip,
+            action,
+        )
+        response = HTMLResponse(
+            content=(
+                "<html><head><title>Access Restricted</title></head>"
+                "<body>Request rate limited.</body></html>"
+                if action == "throttle"
+                else "<html><head><title>Forbidden</title></head>"
+                "<body>Access denied.</body></html>"
+            ),
+            status_code=429 if action == "throttle" else 403,
+        )
+        response.headers["Cache-Control"] = "no-store, private"
+        if action == "throttle":
+            response.headers["Retry-After"] = str(_trusted_cdn_retry_after_seconds())
+        return response
 
     content = "<html><body>Tarpit Error</body></html>"
     if CONFIG.ENABLE_AI_LABYRINTH and LABYRINTH_AVAILABLE:
