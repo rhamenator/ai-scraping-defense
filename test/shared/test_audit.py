@@ -71,6 +71,9 @@ class TestAuditLogging(unittest.TestCase):
                 importlib.reload(audit)
                 with patch.object(audit, "record_security_event") as mock_record_event:
                     audit.log_event("user", "action", {"path": "/admin"})
+                for h in list(audit.logger.handlers):
+                    audit.logger.removeHandler(h)
+                    h.close()
 
         mock_record_event.assert_called_once()
         self.assertEqual(mock_record_event.call_args.kwargs["action"], "action")
