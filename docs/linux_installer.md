@@ -52,16 +52,17 @@ Regenerate local secrets:
 
 ## Smoke Contract
 
-The installer calls:
+The installer calls the shared contract defined in
+[installer_contract.md](installer_contract.md):
+
+```bash
+python scripts/installer_smoke_test.py --platform linux --proxy nginx
+```
+
+For shell compatibility, the Linux wrapper remains:
 
 ```bash
 scripts/linux/stack_smoke_test.sh --proxy nginx
-```
-
-or:
-
-```bash
-scripts/linux/stack_smoke_test.sh --proxy apache
 ```
 
 Success output is line-oriented and intended to be human-readable:
