@@ -1,5 +1,5 @@
 # --- Builder Stage: Rust + Python 3 for building Rust libraries ---
-FROM rust@sha256:7e322aa1b876cbb977e0df46812af6c4e8be2efbfb2ce3712c28a93ba2968726 AS builder
+FROM rust:1.94.0-trixie@sha256:7e322aa1b876cbb977e0df46812af6c4e8be2efbfb2ce3712c28a93ba2968726 AS builder
 
 # Install Python 3 and pip for PyO3 build scripts
 RUN apt-get update && apt-get install -y python3 python3-pip
