@@ -16,8 +16,15 @@ spec:
     spec:
       containers:
       - name: suricata
-        image: jasonish/suricata:latest
+        image: jasonish/suricata:8.0.3@sha256:3f7b2f06e4667e4149deb34c52f278213a4a9b74bf926939aa5cbfc6c595dca0
         imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
         securityContext:
           capabilities:
             add: ["NET_ADMIN", "NET_RAW"]

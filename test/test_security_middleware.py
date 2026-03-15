@@ -81,10 +81,12 @@ def test_body_size_limit_enforced():
     client = TestClient(_build_app(settings))
 
     small_payload = b"12345"
-    assert client.post("/echo", data=small_payload).json()["size"] == len(small_payload)
+    assert client.post("/echo", content=small_payload).json()["size"] == len(
+        small_payload
+    )
 
     large_payload = b"x" * 64
-    response = client.post("/echo", data=large_payload)
+    response = client.post("/echo", content=large_payload)
     assert response.status_code == 413
     assert response.json()["detail"] == "Request body too large"
 

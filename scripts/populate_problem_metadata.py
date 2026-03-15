@@ -4,12 +4,15 @@ import sqlite3
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 
 # Configuration
 JSON_FILE = "problem_file_map.json"
 DB_FILE = "problem_file_map.db"
 API_KEY = os.environ.get("GEMINI_API_KEY")
 STATE_FILE = "metadata_population_state.json"
+GEMINI_API_HOST = "generativelanguage.googleapis.com"
+GEMINI_API_TIMEOUT_SECONDS = 30
 
 # Category-specific severity criteria
 SEVERITY_CRITERIA = {
@@ -35,10 +38,15 @@ def call_gemini(prompt):
     for model in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={API_KEY}"
         try:
+            parsed = urlparse(url)
+            if parsed.scheme != "https" or parsed.hostname != GEMINI_API_HOST:
+                raise ValueError("Refusing to call unexpected Gemini endpoint")
             req = urllib.request.Request(
                 url, data=json.dumps(data).encode("utf-8"), headers=headers
             )
-            with urllib.request.urlopen(req) as response:
+            with urllib.request.urlopen(  # nosec B310 - HTTPS scheme and host are validated above
+                req, timeout=GEMINI_API_TIMEOUT_SECONDS
+            ) as response:
                 result = json.loads(response.read().decode("utf-8"))
                 if "candidates" in result and result["candidates"]:
                     return result["candidates"][0]["content"]["parts"][0]["text"]

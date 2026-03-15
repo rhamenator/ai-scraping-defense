@@ -36,14 +36,14 @@ class TestAuthz(unittest.TestCase):
             self.skipTest("PyJWT not installed")
 
         env = {
-            "AUTH_JWT_SECRET": "valid-secret",
+            "AUTH_JWT_SECRET": "valid-secret-with-at-least-32-bytes",
             "AUTH_JWT_ALGORITHMS": "HS256",
         }
         authz = self._reload_authz(env)
         now = int(time.time())
         token = pyjwt.encode(
             {"exp": now + 60, "iat": now},
-            "wrong-secret",
+            "wrong-secret-with-at-least-32-bytes",
             algorithm="HS256",
         )
 
@@ -61,14 +61,14 @@ class TestAuthz(unittest.TestCase):
             self.skipTest("PyJWT not installed")
 
         env = {
-            "AUTH_JWT_SECRET": "valid-secret",
+            "AUTH_JWT_SECRET": "valid-secret-with-at-least-32-bytes",
             "AUTH_JWT_ALGORITHMS": "none",
         }
         authz = self._reload_authz(env)
         now = int(time.time())
         token = pyjwt.encode(
             {"exp": now + 60, "iat": now},
-            "valid-secret",
+            "valid-secret-with-at-least-32-bytes",
             algorithm="HS256",
         )
 
@@ -87,7 +87,7 @@ class TestAuthz(unittest.TestCase):
 
         now = int(time.time())
         with tempfile.NamedTemporaryFile("w", delete=False) as handle:
-            handle.write("file-secret-value")
+            handle.write("file-secret-value-with-at-least-32-bytes")
             secret_path = handle.name
         try:
             env = {
@@ -97,7 +97,7 @@ class TestAuthz(unittest.TestCase):
             authz = self._reload_authz(env)
             token = pyjwt.encode(
                 {"exp": now + 60, "iat": now, "roles": ["admin"]},
-                "file-secret-value",
+                "file-secret-value-with-at-least-32-bytes",
                 algorithm="HS256",
             )
 
