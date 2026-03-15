@@ -263,7 +263,7 @@ Follow these steps if you prefer to configure everything yourself.
     database at `secrets/local_secrets.db`. Delete this file or answer **n**
     during the prompt to disable the database and clear stored values.
 
-    Open `.env` and review the defaults. Set `TENANT_ID` for isolated deployments and add any API keys you plan to use. For **production** deployments update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443`. Use `REAL_BACKEND_HOSTS` to supply a comma-separated list of backend servers for load balancing or `REAL_BACKEND_HOST` for a single destination.
+    Open `.env` and review the defaults. Set `TENANT_ID` for isolated deployments and add any API keys you plan to use. The sample file now defaults the containerized Nginx proxy to `8088`/`8443` so it can coexist with host Apache or nginx on Ubuntu. For **production** or takeover deployments, update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443` once the stack is the only web listener on the host. Use `REAL_BACKEND_HOSTS` to supply a comma-separated list of backend servers for load balancing or `REAL_BACKEND_HOST` for a single destination. See [docs/ubuntu_reverse_proxy.md](docs/ubuntu_reverse_proxy.md) for the recommended host reverse-proxy topology.
 For a full walkthrough of bringing the stack live, review [docs/test_to_production.md](docs/test_to_production.md).
 
 3. **Set Up Python Virtual Environment:**
@@ -375,8 +375,9 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     - **Cloud Dashboard:** `http://localhost:5006`
     - **Cloud Proxy:** `http://localhost:8008`
     - **Prompt Router:** `http://localhost:8009`
-    - **Your Application:** `http://localhost:8080`
-    - **HTTPS (if enabled):** `https://localhost:8443`
+    - **Nginx Proxy (recommended):** `http://localhost:8088`
+    - **Nginx Proxy HTTPS (if enabled):** `https://localhost:8443`
+    - **Apache Proxy (optional alternative):** `http://localhost:8080`
 
 ## Optional Features
 
