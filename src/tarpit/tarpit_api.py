@@ -348,6 +348,12 @@ async def slow_stream_content(content: str):
         sleep_for = min(delay, max(0.0, remaining))
         if sleep_for > 0:
             await asyncio.sleep(sleep_for)
+            if sleep_for < delay:
+                logger.warning(
+                    "Tarpit stream duration limit reached (%.2fs); closing response",
+                    MAX_STREAM_DURATION_SEC,
+                )
+                break
 
 
 def trigger_ip_block(ip: str, reason: str):

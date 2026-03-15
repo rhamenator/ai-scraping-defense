@@ -6,13 +6,18 @@ import unittest
 from unittest.mock import patch
 
 
+def _close_audit_handlers(audit_module) -> None:
+    for handler in list(audit_module.logger.handlers):
+        audit_module.logger.removeHandler(handler)
+        handler.flush()
+        handler.close()
+
+
 class TestAuditLogging(unittest.TestCase):
     def tearDown(self):
         # Clean up logger handlers if audit module was imported
         if hasattr(self, "audit"):
-            for h in list(self.audit.logger.handlers):
-                self.audit.logger.removeHandler(h)
-                h.close()
+            _close_audit_handlers(self.audit)
 
     def test_log_event_writes_expected_format(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -21,15 +26,12 @@ class TestAuditLogging(unittest.TestCase):
                 from src.shared import audit
 
                 self.audit = audit
-                for h in list(audit.logger.handlers):
-                    audit.logger.removeHandler(h)
+                _close_audit_handlers(audit)
                 importlib.reload(audit)
                 audit.log_event("user", "action", {"foo": "bar"})
             with open(log_file, encoding="utf-8") as f:
                 line = f.read().strip()
-            for h in list(audit.logger.handlers):
-                audit.logger.removeHandler(h)
-                h.close()
+            _close_audit_handlers(audit)
         self.assertIn('user\taction\t{"foo": "bar"}', line)
 
     def test_log_event_masks_sensitive_data(self):
@@ -39,8 +41,7 @@ class TestAuditLogging(unittest.TestCase):
                 from src.shared import audit
 
                 self.audit = audit
-                for h in list(audit.logger.handlers):
-                    audit.logger.removeHandler(h)
+                _close_audit_handlers(audit)
                 importlib.reload(audit)
                 audit.log_event(
                     "user",
@@ -49,9 +50,7 @@ class TestAuditLogging(unittest.TestCase):
                 )
             with open(log_file, encoding="utf-8") as f:
                 line = f.read()
-            for h in list(audit.logger.handlers):
-                audit.logger.removeHandler(h)
-                h.close()
+            _close_audit_handlers(audit)
         assert "192.168.0.1" not in line
         assert "ABC123" not in line
         assert "secret" not in line
@@ -66,14 +65,11 @@ class TestAuditLogging(unittest.TestCase):
                 from src.shared import audit
 
                 self.audit = audit
-                for h in list(audit.logger.handlers):
-                    audit.logger.removeHandler(h)
+                _close_audit_handlers(audit)
                 importlib.reload(audit)
                 with patch.object(audit, "record_security_event") as mock_record_event:
                     audit.log_event("user", "action", {"path": "/admin"})
-                for h in list(audit.logger.handlers):
-                    audit.logger.removeHandler(h)
-                    h.close()
+                _close_audit_handlers(audit)
 
         mock_record_event.assert_called_once()
         self.assertEqual(mock_record_event.call_args.kwargs["action"], "action")
