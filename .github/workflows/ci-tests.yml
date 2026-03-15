@@ -127,7 +127,13 @@ jobs:
         if: hashFiles('nginx/*.conf') != '' || hashFiles('nginx/**/*.conf') != ''
         run: |
           tmpdir="$(mktemp -d)"
-          mkdir -p "$tmpdir/logs" "$tmpdir/run"
+          mkdir -p \
+            "$tmpdir/logs" \
+            "$tmpdir/run/openresty/nginx-client-body" \
+            "$tmpdir/cache/proxy_temp" \
+            "$tmpdir/cache/fastcgi_temp" \
+            "$tmpdir/cache/uwsgi_temp" \
+            "$tmpdir/cache/scgi_temp"
           docker run --rm \
             -v "$PWD/nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro" \
             -v "$PWD/nginx/lua:/etc/nginx/lua:ro" \
@@ -135,7 +141,12 @@ jobs:
             -v "$PWD/nginx/.htpasswd:/etc/nginx/secrets/.htpasswd:ro" \
             -v "$tmpdir/logs:/var/log/nginx" \
             -v "$tmpdir/run:/var/run" \
-            openresty/openresty:1.21.4.1-alpine \
+            -v "$tmpdir/run/openresty/nginx-client-body:/var/run/openresty/nginx-client-body" \
+            -v "$tmpdir/cache/proxy_temp:/var/cache/nginx/proxy_temp" \
+            -v "$tmpdir/cache/fastcgi_temp:/var/cache/nginx/fastcgi_temp" \
+            -v "$tmpdir/cache/uwsgi_temp:/var/cache/nginx/uwsgi_temp" \
+            -v "$tmpdir/cache/scgi_temp:/var/cache/nginx/scgi_temp" \
+            openresty/openresty:1.29.2.1-alpine \
             openresty -t
           rm -rf "$tmpdir"
       - name: Set up Helm

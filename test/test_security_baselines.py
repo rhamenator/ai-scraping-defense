@@ -114,6 +114,33 @@ def test_compose_mounts_secret_directory_read_only():
                 assert volume.endswith(":ro"), "Secrets volume must be read-only"
 
 
+def test_python_edge_services_use_builtin_health_probes():
+    compose = _load_compose()
+    services = compose.get("services", {})
+    for service_name in ("cloud_proxy", "prompt_router"):
+        healthcheck = services[service_name]["healthcheck"]["test"]
+        assert healthcheck[:2] == ["CMD", "python"]
+        command = " ".join(healthcheck)
+        assert "urllib.request" in command
+
+
+def test_https_redirected_services_have_proxy_aware_healthchecks():
+    compose = _load_compose()
+    services = compose.get("services", {})
+    for service_name in ("ai_service", "escalation_engine"):
+        healthcheck = services[service_name]["healthcheck"]["test"]
+        command = (
+            " ".join(healthcheck) if isinstance(healthcheck, list) else str(healthcheck)
+        )
+        assert (
+            "X-Forwarded-Proto" in command and "https" in command
+        ), f"{service_name} healthcheck must bypass HTTPS redirect loops"
+
+    escalation_command = " ".join(services["escalation_engine"]["healthcheck"]["test"])
+    assert "curl -sS" in escalation_command
+    assert "curl -fsS" not in escalation_command
+
+
 def test_kubernetes_workloads_define_resource_limits():
     missing = []
     for manifest_path, kind, container in _iter_kubernetes_workload_containers():

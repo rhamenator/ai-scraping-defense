@@ -147,7 +147,9 @@ services:
         [
           "CMD",
           "curl",
-          "-f",
+          "-fsS",
+          "-H",
+          "X-Forwarded-Proto: https",
           "http://localhost:${AI_SERVICE_PORT:-8000}/health",
         ]
       interval: 30s
@@ -194,7 +196,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl -s http://localhost:${ESCALATION_ENGINE_PORT:-8003}/health | grep -Eq '\"status\":\"(healthy|degraded)\"'",
+          "curl -sS -H 'X-Forwarded-Proto: https' http://localhost:${ESCALATION_ENGINE_PORT:-8003}/health | grep -Eq '\"status\":\"(ok|degraded)\"'",
         ]
       interval: 30s
       timeout: 10s
@@ -419,7 +421,13 @@ services:
     tmpfs:
       - /tmp
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; req = urllib.request.Request('http://localhost:8008/health', headers={'X-Forwarded-Proto': 'https'}); resp = urllib.request.urlopen(req, timeout=5); raise SystemExit(0 if resp.status == 200 else 1)",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -460,9 +468,9 @@ services:
       test:
         [
           "CMD",
-          "curl",
-          "-f",
-          "http://localhost:${PROMPT_ROUTER_PORT:-8009}/health",
+          "python",
+          "-c",
+          "import urllib.request; req = urllib.request.Request('http://localhost:${PROMPT_ROUTER_PORT:-8009}/health', headers={'X-Forwarded-Proto': 'https'}); resp = urllib.request.urlopen(req, timeout=5); raise SystemExit(0 if resp.status == 200 else 1)",
         ]
       interval: 30s
       timeout: 10s
