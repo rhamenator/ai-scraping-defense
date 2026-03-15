@@ -4,18 +4,18 @@ This guide will walk you through setting up the AI Scraping Defense project for 
 
 ## **Quick Local Setup**
 
-Run the helper script after cloning the repository:
+Run the helper installer after cloning the repository:
 
 ```bash
 git clone https://github.com/your-username/ai-scraping-defense.git
 cd ai-scraping-defense
-sudo ./scripts/linux/quickstart_dev.sh  # Linux
-./scripts/macos/quickstart_dev.zsh      # macOS
+sudo ./scripts/linux/install.sh         # Linux
+./scripts/macos/install.zsh             # macOS
 ```
 
-On Windows, run `scripts\\windows\\quickstart_dev.ps1` from an **Administrator PowerShell** window instead of the shell script.
+On Windows, run `scripts\\windows\\install.ps1` from an **Administrator PowerShell** window instead of the shell script.
 
-The script copies `sample.env`, generates secrets, installs dependencies, and launches Docker Compose.
+The Linux installer copies `sample.env`, generates secrets when needed, installs dependencies, launches Docker Compose through the selected reverse-proxy helper, and runs the Linux smoke test.
 If you encounter setup issues, see [Troubleshooting](troubleshooting.md) for common fixes.
 
 ## **Project Structure**
@@ -64,7 +64,7 @@ python [scripts/interactive_setup.py](../scripts/interactive_setup.py)
 When run, the helper can store your secrets in a SQLite database at `secrets/local_secrets.db`. Delete this file or answer **n** to disable or clear the stored values.
 
 
-Now, open the .env file in your code editor. For now, you can leave the default values as they are. This is where you would add your real API keys for services like OpenAI or Mistral when you're ready to use them. For **production** deployments, update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443` so the proxy listens on the standard web ports.
+Now, open the .env file in your code editor. For now, you can leave the default values as they are. This is where you would add your real API keys for services like OpenAI or Mistral when you're ready to use them. The sample file defaults `NGINX_HTTP_PORT` and `NGINX_HTTPS_PORT` to `8088` and `8443` so the stack can coexist with a host Apache or nginx service during Ubuntu testing. For **production** or takeover deployments, update those values to `80` and `443` so the proxy listens on the standard web ports.
 
 For a step-by-step path from local testing to a hardened production environment, see [test_to_production.md](test_to_production.md).
 #### **Minimal Required Variables**
@@ -77,7 +77,7 @@ To bring the stack up, only a handful of settings must be reviewed in `.env`:
   - `mistral://mistral-large-latest`
 - The API key matching your chosen provider: `OPENAI_API_KEY`, `MISTRAL_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or `COHERE_API_KEY`.
 - `EXTERNAL_API_KEY` for optional integrations.
-- Port values such as `NGINX_HTTP_PORT`, `NGINX_HTTPS_PORT`, and `ADMIN_UI_PORT` typically work as-is.
+- Port values such as `NGINX_HTTP_PORT`, `NGINX_HTTPS_PORT`, and `ADMIN_UI_PORT` typically work as-is for local testing. On Ubuntu hosts that already run Apache or nginx, keep the default `8088`/`8443` mapping or choose another unused pair.
 - `PROMPT_ROUTER_HOST` and `PROMPT_ROUTER_PORT` define where the Escalation Engine sends its LLM requests.
 - `PROMETHEUS_PORT` and `GRAFANA_PORT` control the monitoring dashboard ports.
 - `REAL_BACKEND_HOSTS` can supply a comma-separated list of backend servers for load balancing. Use `REAL_BACKEND_HOST` for a single destination.
