@@ -7,7 +7,7 @@ version tracking, expiration monitoring, and automated cleanup.
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from src.shared.vault_client import VaultClient, get_vault_client
@@ -64,7 +64,7 @@ class SecretLifecycleManager:
                 return None
 
             created_dt = datetime.fromisoformat(created_time.replace("Z", "+00:00"))
-            age = datetime.utcnow() - created_dt.replace(tzinfo=None)
+            age = datetime.now(UTC) - created_dt
             return age
 
         except Exception as e:

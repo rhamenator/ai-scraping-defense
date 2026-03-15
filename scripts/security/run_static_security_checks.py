@@ -55,6 +55,21 @@ def _load_hardening_baseline() -> Dict[str, Any]:
     return merged
 
 
+def _matches_required_value(actual: Any, expected: str) -> bool:
+    """Allow compose hardening tokens to use env expansion with safe defaults."""
+    actual_value = str(actual)
+    if actual_value == expected:
+        return True
+    if expected == "no-new-privileges:true":
+        return bool(
+            re.fullmatch(
+                r"no-new-privileges:\$\{[A-Z0-9_]+(?::-[Tt][Rr][Uu][Ee])?\}",
+                actual_value,
+            )
+        )
+    return False
+
+
 def ensure_inventory_is_current() -> None:
     json_path = PROJECT_ROOT / "security_problems_batch1.json"
     markdown_path = PROJECT_ROOT / "docs/security/security_inventory_batch1.md"
@@ -111,7 +126,7 @@ def ensure_compose_security() -> None:
             _fail(f"docker-compose missing service definition for {service_name}")
         security_opt = service.get("security_opt", [])
         for token in required_security_opt:
-            if token not in security_opt:
+            if not any(_matches_required_value(opt, token) for opt in security_opt):
                 _fail(f"{service_name} missing security_opt entry: {token}")
         cap_drop = service.get("cap_drop", [])
         for cap in required_cap_drop:
