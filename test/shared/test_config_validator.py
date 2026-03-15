@@ -50,6 +50,9 @@ class TestConfigLoader(unittest.TestCase):
                 "TAR_PIT_MAX_DELAY_SEC": "2.0",
                 "TAR_PIT_MAX_STREAM_SECONDS": "45.0",
                 "ESCALATION_THRESHOLD": "0.9",
+                "ESCALATION_THROTTLE_THRESHOLD": "0.93",
+                "ESCALATION_TARPIT_THRESHOLD": "0.96",
+                "ESCALATION_BLOCK_THRESHOLD": "0.99",
                 "ENABLE_TARPIT_CATCH_ALL": "true",
                 "ENABLE_FINGERPRINTING": "true",
             }
@@ -65,6 +68,7 @@ class TestConfigLoader(unittest.TestCase):
         self.assertEqual(config.tarpit.min_delay_sec, 0.5)
         self.assertEqual(config.tarpit.max_stream_seconds, 45.0)
         self.assertEqual(config.escalation.threshold, 0.9)
+        self.assertEqual(config.escalation.throttle_threshold, 0.93)
 
     def test_validate_slack_alerts_accepts_webhook_file(self):
         env = self.minimal_env.copy()
@@ -119,6 +123,19 @@ class TestConfigLoader(unittest.TestCase):
                 ok, errors = loader.validate_config(config)
 
         self.assertTrue(ok, f"Expected config to be valid, got errors={errors}")
+
+    def test_validate_rejects_bad_escalation_threshold_order(self):
+        env = self.minimal_env.copy()
+        env.update(
+            {
+                "ESCALATION_THRESHOLD": "0.9",
+                "ESCALATION_THROTTLE_THRESHOLD": "0.8",
+            }
+        )
+
+        loader = ConfigLoader(strict=True)
+        with self.assertRaises(ConfigValidationError):
+            loader.load_from_env(env)
 
     def test_load_with_secrets(self):
         """Test loading configuration with secret files."""

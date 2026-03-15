@@ -224,6 +224,9 @@ class ConfigLoader:
         ]
         return EscalationConfig(
             threshold=float(env.get("ESCALATION_THRESHOLD", 0.8)),
+            throttle_threshold=float(env.get("ESCALATION_THROTTLE_THRESHOLD", 0.85)),
+            tarpit_threshold=float(env.get("ESCALATION_TARPIT_THRESHOLD", 0.92)),
+            block_threshold=float(env.get("ESCALATION_BLOCK_THRESHOLD", 0.98)),
             api_key=env.get("ESCALATION_API_KEY"),
             webhook_url=env.get("ESCALATION_WEBHOOK_URL"),
             webhook_allowed_domains=allowed_domains,
@@ -359,6 +362,19 @@ class ConfigLoader:
                 errors.append(
                     "CAPTCHA_SECRET required when ENABLE_CAPTCHA_TRIGGER=true"
                 )
+
+        if config.escalation.threshold > config.escalation.throttle_threshold:
+            errors.append(
+                "ESCALATION_THRESHOLD must be <= ESCALATION_THROTTLE_THRESHOLD"
+            )
+        if config.escalation.throttle_threshold > config.escalation.tarpit_threshold:
+            errors.append(
+                "ESCALATION_THROTTLE_THRESHOLD must be <= ESCALATION_TARPIT_THRESHOLD"
+            )
+        if config.escalation.tarpit_threshold > config.escalation.block_threshold:
+            errors.append(
+                "ESCALATION_TARPIT_THRESHOLD must be <= ESCALATION_BLOCK_THRESHOLD"
+            )
 
         # Validate alert configuration
         if config.alert_method == AlertMethod.EMAIL:

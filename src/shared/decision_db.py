@@ -83,12 +83,17 @@ def record_decision(
             ),
         )
     try:
+        severity = "info"
+        if "block" in action or "tarpit" in action:
+            severity = "high"
+        elif "throttle" in action:
+            severity = "warning"
         record_security_event(
             "security_decision",
             actor=tid,
             action=action,
             source=source,
-            severity="high" if action in {"block", "tarpit"} else "info",
+            severity=severity,
             payload={
                 "tenant_id": tid,
                 "ip": ip,
