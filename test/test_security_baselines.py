@@ -89,6 +89,11 @@ def test_nginx_enforces_https_and_headers():
     assert "add_header X-Frame-Options" in config
     assert "return 301 https://$host$request_uri;" in config
     assert "limit_req_zone" in config
+    assert "client_body_temp_path /var/run/openresty/nginx-client-body;" in config
+    assert "proxy_temp_path /var/cache/nginx/proxy_temp;" in config
+    assert "fastcgi_temp_path /var/cache/nginx/fastcgi_temp;" in config
+    assert "uwsgi_temp_path /var/cache/nginx/uwsgi_temp;" in config
+    assert "scgi_temp_path /var/cache/nginx/scgi_temp;" in config
 
 
 def test_compose_services_drop_privileges():
