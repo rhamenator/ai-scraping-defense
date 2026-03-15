@@ -8,6 +8,8 @@ on:
       ref:
         description: "Git ref to run against"
         required: false
+  push:
+    branches: ["main"]
   pull_request:
     branches: ["main"]
 permissions:
@@ -20,6 +22,8 @@ jobs:
     permissions:
       contents: read
       checks: write
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN || '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -44,7 +48,14 @@ jobs:
           if [ -f setup.py ]; then pip install -e .; fi
           pip install kubernetes
           pip install pytest pytest-cov
-          pytest -q test/
+          pytest -q test/ --cov=src --cov-report=xml
+      - name: Upload coverage
+        if: env.CODECOV_TOKEN != ''
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
+        with:
+          files: coverage.xml
+          token: ${{ env.CODECOV_TOKEN }}
+          fail_ci_if_error: true
       - name: Rust tests
         if: hashFiles('**/Cargo.toml') != ''
         env:

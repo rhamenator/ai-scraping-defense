@@ -59,6 +59,14 @@ This project provides a multi-layered, microservice-based defense system against
 - The legacy `security-autofix.yml` now delegates to the generic autofixer for compatibility.
 - The `security-controls` workflow acts as the security baseline gate. See `docs/SECURITY_BASELINE_GATE.md`.
 
+## Release Path
+
+- `ci-tests.yml` is the primary cross-platform validation workflow for pushes to `main` and pull requests.
+- `tests.yml` now serves as a dedicated Rust nightly smoke workflow instead of duplicating the main PR test path.
+- tagged releases publish signed container images through `/.github/workflows/release-images.yml`.
+
+See [docs/release_checklist.md](docs/release_checklist.md) and [docs/release_artifacts.md](docs/release_artifacts.md) for the expected release process and artifact policy.
+
 ## Architecture Overview
 
 The following diagram provides a high-level view of how the major components interact. Note that the AI Service merely receives webhook data and enqueues it for the Escalation Engine, which performs the actual analysis. See [docs/architecture.md](docs/architecture.md) for a deeper explanation.
@@ -210,6 +218,13 @@ The script generates secrets, installs Python requirements with
 `pip install -r requirements.txt -c constraints.txt`, re-runs
 `python scripts/validate_env.py`, and launches Docker Compose for you.
 The stack requires Rust 1.78.0. `mise` (or `rustup`) installs this toolchain automatically.
+
+If you want local GGUF inference through the `llamacpp://` adapter, install the
+optional native dependency set after the base environment is ready:
+
+```bash
+pip install -r requirements-local-llm.txt -c constraints.txt
+```
 If you see a warning about `idiomatic_version_file_enable_tools`, silence it with:
 
 ```bash
