@@ -127,6 +127,24 @@ class TestEscalationConfig(unittest.TestCase):
         with self.assertRaises(ValidationError):
             EscalationConfig(threshold=1.5)
 
+    def test_threshold_order(self):
+        """Escalation thresholds should increase monotonically."""
+        config = EscalationConfig(
+            threshold=0.8,
+            throttle_threshold=0.85,
+            tarpit_threshold=0.9,
+            block_threshold=0.95,
+        )
+        self.assertEqual(config.block_threshold, 0.95)
+
+        with self.assertRaises(ValidationError):
+            EscalationConfig(
+                threshold=0.8,
+                throttle_threshold=0.75,
+                tarpit_threshold=0.9,
+                block_threshold=0.95,
+            )
+
 
 class TestCaptchaConfig(unittest.TestCase):
     """Test CAPTCHA configuration."""

@@ -24,6 +24,8 @@ class TestIISGateway(unittest.TestCase):
 
         self.redis_mock = MagicMock()
         self.gateway.redis_client = self.redis_mock
+        self.redis_mock.get.return_value = None
+        self.redis_mock.ttl.return_value = 60
 
         self.escalate_patch = patch("src.iis_gateway.main.escalate", new=AsyncMock())
         self.escalate_patch.start()
@@ -57,6 +59,42 @@ class TestIISGateway(unittest.TestCase):
         self.assertEqual(resp1.status_code, 403)
         self.assertEqual(resp2.status_code, 403)
         self.redis_mock.exists.assert_called_once()
+
+    def test_throttled_ip_returns_retry_after(self):
+        self.redis_mock.exists.return_value = False
+        self.redis_mock.get.return_value = '{"rate_limit_per_minute": 1}'
+        self.redis_mock.ttl.side_effect = [33, 33]
+        self.redis_mock.incr.return_value = 2
+        self.redis_mock.expire.return_value = True
+
+        resp = self.client.get("/throttled")
+
+        self.assertEqual(resp.status_code, 429)
+        self.assertEqual(resp.headers["retry-after"], "33")
+
+    def test_throttle_uses_override_limit_without_hard_deny(self):
+        self.redis_mock.exists.return_value = False
+        self.redis_mock.get.return_value = '{"rate_limit_per_minute": 3}'
+        self.redis_mock.ttl.return_value = 45
+        self.redis_mock.incr.side_effect = [1, 2, 3, 4]
+        self.redis_mock.expire.return_value = True
+
+        with patch.object(self.gateway.settings, "RATE_LIMIT_PER_MINUTE", 0):
+            self.assertEqual(self.client.get("/limited").status_code, 200)
+            self.assertEqual(self.client.get("/limited").status_code, 200)
+            self.assertEqual(self.client.get("/limited").status_code, 200)
+            resp = self.client.get("/limited")
+
+        self.assertEqual(resp.status_code, 429)
+        self.assertEqual(resp.headers["retry-after"], "45")
+
+    def test_throttle_lookup_redis_error_returns_503(self):
+        self.redis_mock.exists.return_value = False
+        self.redis_mock.get.side_effect = self.gateway.RedisError("boom")
+
+        resp = self.client.get("/throttle-error")
+
+        self.assertEqual(resp.status_code, 503)
 
     def test_proxy_sanitizes_spoofed_forward_headers(self):
         self.redis_mock.exists.return_value = False
