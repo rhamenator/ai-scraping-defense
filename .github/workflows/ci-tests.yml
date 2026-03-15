@@ -8,6 +8,8 @@ on:
       ref:
         description: "Git ref to run against"
         required: false
+  push:
+    branches: ["main"]
   pull_request:
     branches: ["main"]
 permissions:
@@ -20,6 +22,8 @@ jobs:
     permissions:
       contents: read
       checks: write
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN || '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -44,7 +48,14 @@ jobs:
           if [ -f setup.py ]; then pip install -e .; fi
           pip install kubernetes
           pip install pytest pytest-cov
-          pytest -q test/
+          pytest -q test/ --cov=src --cov-report=xml
+      - name: Upload coverage
+        if: env.CODECOV_TOKEN != ''
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
+        with:
+          files: coverage.xml
+          token: ${{ env.CODECOV_TOKEN }}
+          fail_ci_if_error: true
       - name: Rust tests
         if: hashFiles('**/Cargo.toml') != ''
         env:
@@ -114,7 +125,19 @@ jobs:
           fi
       - name: Validate NGINX configs (syntax only)
         if: hashFiles('nginx/*.conf') != '' || hashFiles('nginx/**/*.conf') != ''
-        run: docker run --rm -v "$PWD/nginx:/etc/nginx:ro" nginx:stable nginx -t -c /etc/nginx/nginx.conf
+        run: |
+          tmpdir="$(mktemp -d)"
+          mkdir -p "$tmpdir/logs" "$tmpdir/run"
+          docker run --rm \
+            -v "$PWD/nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro" \
+            -v "$PWD/nginx/lua:/etc/nginx/lua:ro" \
+            -v "$PWD/nginx/certs:/etc/nginx/certs:ro" \
+            -v "$PWD/nginx/.htpasswd:/etc/nginx/secrets/.htpasswd:ro" \
+            -v "$tmpdir/logs:/var/log/nginx" \
+            -v "$tmpdir/run:/var/run" \
+            openresty/openresty:1.21.4.1-alpine \
+            openresty -t
+          rm -rf "$tmpdir"
       - name: Set up Helm
         if: hashFiles('helm/**') != ''
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4

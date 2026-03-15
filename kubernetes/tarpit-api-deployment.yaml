@@ -27,6 +27,13 @@ spec:
       labels:
         app: tarpit-api
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: tarpit-api
         image: your-registry/ai-scraping-defense:latest
@@ -53,6 +60,11 @@ spec:
             port: 8001
           initialDelaySeconds: 10
           periodSeconds: 10
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
         envFrom:
         - configMapRef:
             name: app-config
@@ -91,7 +103,11 @@ spec:
         - name: archives-storage
           mountPath: /app/archives
           readOnly: true
+        - name: tmp
+          mountPath: /tmp
       volumes:
       - name: archives-storage
         persistentVolumeClaim:
           claimName: archives-pvc
+      - name: tmp
+        emptyDir: {}

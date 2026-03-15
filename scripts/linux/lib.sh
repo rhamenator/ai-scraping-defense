@@ -100,3 +100,20 @@ wait_for_mariadb() {
     sleep 2
   done
 }
+
+supports_no_new_privileges() {
+  $(docker_ctx) run --rm --security-opt no-new-privileges:true alpine:3.20 true >/dev/null 2>&1
+}
+
+ensure_no_new_privileges_env() {
+  if [ -n "${NO_NEW_PRIVILEGES:-}" ]; then
+    return 0
+  fi
+
+  if supports_no_new_privileges; then
+    export NO_NEW_PRIVILEGES=true
+  else
+    export NO_NEW_PRIVILEGES=false
+    echo "Runtime does not support no-new-privileges:true; setting NO_NEW_PRIVILEGES=false."
+  fi
+}
