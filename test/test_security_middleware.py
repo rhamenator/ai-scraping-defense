@@ -127,6 +127,43 @@ def test_https_redirect_uses_allowlist_when_configured(monkeypatch):
     assert response.headers["location"].startswith("https://good.test/ping")
 
 
+def test_https_redirect_ignores_spoofed_forwarded_proto_from_untrusted_client(
+    monkeypatch,
+):
+    settings = SecuritySettings(
+        rate_limit_requests=5,
+        rate_limit_window=60,
+        max_body_size=1024,
+        enable_https=True,
+    )
+    client = TestClient(_build_app(settings))
+
+    response = client.get(
+        "/ping",
+        headers={"X-Forwarded-Proto": "https"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 307
+    assert response.headers["location"].startswith("https://testserver/ping")
+
+
+def test_https_redirect_trusts_forwarded_proto_from_configured_proxy(monkeypatch):
+    monkeypatch.setenv("SECURITY_TRUSTED_PROXY_CIDRS", "127.0.0.0/8")
+    settings = SecuritySettings(
+        rate_limit_requests=5,
+        rate_limit_window=60,
+        max_body_size=1024,
+        enable_https=True,
+    )
+    client = TestClient(_build_app(settings), client=("127.0.0.1", 50000))
+
+    response = client.get("/ping", headers={"X-Forwarded-Proto": "https"})
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_request_target_limit_rejects_long_paths(monkeypatch):
     monkeypatch.setenv("SECURITY_MAX_PATH_LENGTH", "10")
     settings = SecuritySettings(
