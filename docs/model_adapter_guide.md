@@ -18,7 +18,7 @@ The format is `scheme://path_or_model_name`.
 | `mistral`       | `mistral://mistral-large-latest`                 | `MistralAdapter`      | Uses the Mistral API with the specified model.   |
 | `google-gemini` | `google-gemini://gemini-1.5-flash`               | `GoogleGeminiAdapter` | Uses the Google GenAI SDK with the specified model. |
 | `ollama`        | `ollama://llama3`                                | `OllamaAdapter`       | Connects to a local Ollama server to use a model. |
-| `llamacpp`      | `llamacpp:///app/models/model.gguf`              | `LlamaCppAdapter`     | Loads a local `gguf` model with llama-cpp-python. |
+| `llamacpp`      | `llamacpp:///app/models/model.gguf`              | `LlamaCppAdapter`     | Loads a local `gguf` model with llama-cpp-python. Install `requirements-local-llm.txt` first. |
 | `local-llm`     | `local-llm://http://localhost:8000/v1/chat/completions` | `LocalLLMApiAdapter` | Sends prompts to a locally hosted OpenAI-compatible API. |
 | `external-api`  | `external-api://https://example.com/predict`     | `ExternalAPIAdapter`  | Calls the system's external classification API.  |
 | `mcp`           | `mcp://risk-scorer/classify`                     | `MCPAdapter`          | Invokes a Model Context Protocol tool via websocket or stdio. |

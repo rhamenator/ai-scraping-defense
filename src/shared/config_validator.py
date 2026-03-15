@@ -204,6 +204,7 @@ class ConfigLoader:
         return TarpitConfig(
             min_delay_sec=float(env.get("TAR_PIT_MIN_DELAY_SEC", 0.6)),
             max_delay_sec=float(env.get("TAR_PIT_MAX_DELAY_SEC", 1.2)),
+            max_stream_seconds=float(env.get("TAR_PIT_MAX_STREAM_SECONDS", 60.0)),
             max_hops=int(env.get("TAR_PIT_MAX_HOPS", 250)),
             hop_window_seconds=int(env.get("TAR_PIT_HOP_WINDOW_SECONDS", 86400)),
             enable_catch_all=env.get("ENABLE_TARPIT_CATCH_ALL", "true").lower()
