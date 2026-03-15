@@ -45,6 +45,7 @@ graph TD
 To get a full understanding of the project, please review the following documents:
 
 - [**Getting Started**](getting_started.md)**:** The essential first step. This guide provides detailed instructions for setting up the complete development environment on your local machine using Docker Compose.
+- [**Installer Contract**](installer_contract.md)**:** Shared smoke-test and uninstall expectations for platform installers.
 - [**Linux Installer**](linux_installer.md)**:** Guided Linux setup, smoke validation, and uninstall/rollback commands.
 - [**Ubuntu Reverse Proxy Deployment**](ubuntu_reverse_proxy.md)**:** Recommended Ubuntu Server topology when host Apache or nginx already owns ports 80/443.
 - [**Test to Production Guide**](test_to_production.md)**:** How to graduate from local testing to a secure production deployment.
