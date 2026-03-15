@@ -48,13 +48,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y apache2-utils
           cp sample.env .env
+          ATTACK_CI_LLM_HOST="mock_external_api:4010"
           cat <<'EOF' >> .env
           ENABLE_HTTPS=true
           RATE_LIMIT_REQUESTS=3
           RATE_LIMIT_WINDOW=60
           SHARED_SECRET=attack-ci-secret
-          LOCAL_LLM_URL=http://mock_external_api:4010/analyze
           EOF
+          printf 'LOCAL_LLM_URL=http://%s/analyze\n' "$ATTACK_CI_LLM_HOST" >> .env
           bash ./scripts/linux/generate_secrets.sh --update-env
       - name: Start compose stack
         run: |
