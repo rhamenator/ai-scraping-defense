@@ -4,18 +4,18 @@ This guide will walk you through setting up the AI Scraping Defense project for 
 
 ## **Quick Local Setup**
 
-Run the helper script after cloning the repository:
+Run the helper installer after cloning the repository:
 
 ```bash
 git clone https://github.com/your-username/ai-scraping-defense.git
 cd ai-scraping-defense
-sudo ./scripts/linux/quickstart_dev.sh  # Linux
+sudo ./scripts/linux/install.sh         # Linux
 ./scripts/macos/quickstart_dev.zsh      # macOS
 ```
 
 On Windows, run `scripts\\windows\\quickstart_dev.ps1` from an **Administrator PowerShell** window instead of the shell script.
 
-The script copies `sample.env`, generates secrets, installs dependencies, and launches Docker Compose.
+The Linux installer copies `sample.env`, generates secrets when needed, installs dependencies, launches Docker Compose through the selected reverse-proxy helper, and runs the Linux smoke test.
 If you encounter setup issues, see [Troubleshooting](troubleshooting.md) for common fixes.
 
 ## **Project Structure**

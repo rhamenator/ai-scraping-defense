@@ -8,7 +8,33 @@ cd "$ROOT_DIR"
 # shellcheck source=scripts/linux/lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
-echo "=== Stack Smoke Test (Linux) ==="
+PROXY="nginx"
+
+usage() {
+  cat <<'USAGE'
+Usage: scripts/linux/stack_smoke_test.sh [--proxy nginx|apache]
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --proxy)
+      PROXY="${2:-}"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+echo "=== Stack Smoke Test (Linux / ${PROXY}) ==="
 
 assert_running_and_healthy() {
   local container="$1"
@@ -29,18 +55,38 @@ assert_running_and_healthy() {
   echo "[OK] $container is running (health=$health)"
 }
 
-for svc in postgres_markov_db redis_store admin_ui escalation_engine tarpit_api nginx_proxy; do
+core_services=(postgres_markov_db redis_store admin_ui escalation_engine tarpit_api)
+case "$PROXY" in
+  nginx)
+    proxy_container="nginx_proxy"
+    ;;
+  apache)
+    proxy_container="apache_proxy"
+    ;;
+  *)
+    echo "[FAIL] Unsupported proxy: ${PROXY}" >&2
+    exit 2
+    ;;
+esac
+
+for svc in "${core_services[@]}" "$proxy_container"; do
   assert_running_and_healthy "$svc"
 done
 
-http_port=$($(docker_ctx) inspect -f '{{(index (index .NetworkSettings.Ports "80/tcp") 0).HostPort}}' nginx_proxy)
-https_port=$($(docker_ctx) inspect -f '{{(index (index .NetworkSettings.Ports "443/tcp") 0).HostPort}}' nginx_proxy)
+http_port=$(
+  $(docker_ctx) inspect -f '{{(index (index .NetworkSettings.Ports "80/tcp") 0).HostPort}}' "$proxy_container"
+)
 
 curl -fsS "http://127.0.0.1:${http_port}/" >/dev/null
-echo "[OK] nginx_proxy HTTP is reachable on port ${http_port}"
+echo "[OK] ${proxy_container} HTTP is reachable on port ${http_port}"
 
-curl -kfsS "https://127.0.0.1:${https_port}/" >/dev/null
-echo "[OK] nginx_proxy HTTPS is reachable on port ${https_port}"
+if [ "$PROXY" = "nginx" ]; then
+  https_port=$(
+    $(docker_ctx) inspect -f '{{(index (index .NetworkSettings.Ports "443/tcp") 0).HostPort}}' nginx_proxy
+  )
+  curl -kfsS "https://127.0.0.1:${https_port}/" >/dev/null
+  echo "[OK] nginx_proxy HTTPS is reachable on port ${https_port}"
+fi
 
 $(docker_ctx) exec admin_ui curl -fsS "http://127.0.0.1:5002/observability/health" >/dev/null
 echo "[OK] admin_ui health endpoint is reachable"
