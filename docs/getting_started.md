@@ -152,6 +152,14 @@ With the configuration and secrets in place, you can now build and start all the
 docker-compose up --build -d
 ```
 
+If you are running Docker from a snap-packaged Linux install and the Python
+services fail with `exec /app/docker-entrypoint.sh: operation not permitted`,
+launch the stack with the local override file instead:
+
+``` bash
+docker compose -f docker-compose.yaml -f docker-compose.local.yaml up --build -d
+```
+
 ``` PowerShell
 # On Windows (in a PowerShell terminal)
 docker-compose up --build -d
