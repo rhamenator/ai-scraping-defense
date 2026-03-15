@@ -58,7 +58,7 @@ certifi==2025.7.14
     #   httpcore
     #   httpx
     #   requests
-cffi==1.17.1
+cffi==2.0.0
     # via cryptography
 cfgv==3.5.0
     # via pre-commit
