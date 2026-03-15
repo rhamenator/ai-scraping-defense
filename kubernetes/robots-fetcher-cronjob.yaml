@@ -20,6 +20,13 @@ spec:
             imagePullPolicy: Always
             # Updated command to run the robots fetcher script.
             command: ["python", "src/util/robots_fetcher.py"]
+            resources:
+              requests:
+                cpu: "50m"
+                memory: "64Mi"
+              limits:
+                cpu: "250m"
+                memory: "256Mi"
             env:
             - name: REAL_BACKEND_HOST
               value: "http://nginx-proxy.ai-defense.svc.cluster.local"
