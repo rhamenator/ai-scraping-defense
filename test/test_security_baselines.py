@@ -126,7 +126,6 @@ def test_compose_mounts_secret_directory_read_only():
                 assert volume.endswith(":ro"), "Secrets volume must be read-only"
 
 
-<<<<<<< HEAD
 def test_https_redirected_services_have_proxy_aware_healthchecks():
     compose = _load_compose()
     services = compose.get("services", {})
