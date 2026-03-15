@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from .log_filter import configure_sensitive_logging
+from .security_events import record_security_event
 
 LOG_PATH = os.getenv("AUDIT_LOG_FILE", "/app/logs/audit.log")
 _audit_log_available = False
@@ -68,3 +69,13 @@ def log_event(user: str, action: str, details: Optional[dict] = None) -> None:
     if details:
         msg += "\t" + json.dumps(details, sort_keys=True)
     logger.info(msg)
+    try:
+        record_security_event(
+            "audit_event",
+            actor=user,
+            action=action,
+            source="audit",
+            payload=details or {},
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Failed to persist audit security event: %s", exc)
