@@ -189,7 +189,7 @@ installs dependencies, and starts Docker Compose. See
    ```powershell
    git clone https://github.com/your-username/ai-scraping-defense.git
    cd ai-scraping-defense
-   .\scripts\windows\quickstart_dev.ps1
+   .\scripts\windows\install.ps1
    ```
 4. After the containers start, browse to [http://localhost:5002](http://localhost:5002) to access the Admin UI.
 5. If Docker commands are not found, verify Docker Desktop is running and try `docker version`.
@@ -212,7 +212,7 @@ sudo ./scripts/linux/install.sh          # Linux
 
 For the security testing environment, a helper `scripts/linux/security_setup.sh` script installs all Python requirements and security tools used by `scripts/linux/security_scan.sh`.
 
-On Windows, open an **Administrator PowerShell** window and run `scripts\windows\quickstart_dev.ps1` instead.
+On Windows, open an **Administrator PowerShell** window and run `scripts\windows\install.ps1` instead.
 
 The Linux installer generates local secrets, installs Python requirements with
 `pip install -r requirements.txt -c constraints.txt`, re-runs

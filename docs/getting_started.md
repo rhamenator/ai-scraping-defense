@@ -13,7 +13,7 @@ sudo ./scripts/linux/install.sh         # Linux
 ./scripts/macos/quickstart_dev.zsh      # macOS
 ```
 
-On Windows, run `scripts\\windows\\quickstart_dev.ps1` from an **Administrator PowerShell** window instead of the shell script.
+On Windows, run `scripts\\windows\\install.ps1` from an **Administrator PowerShell** window instead of the shell script.
 
 The Linux installer copies `sample.env`, generates secrets when needed, installs dependencies, launches Docker Compose through the selected reverse-proxy helper, and runs the Linux smoke test.
 If you encounter setup issues, see [Troubleshooting](troubleshooting.md) for common fixes.
