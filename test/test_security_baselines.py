@@ -10,6 +10,17 @@ RESTRICTED_WORKLOADS = BASELINE["kubernetes"]["restricted_workloads"]
 KUBERNETES_EXCEPTIONS = set(BASELINE["kubernetes"]["documented_exceptions"])
 INSTALLER_CALL_TOKENS = BASELINE["installers"]["required_call_tokens"]
 NETWORK_EXPOSURE = BASELINE["network_exposure"]
+HTTPS_REDIRECTED_HEALTHCHECK_SERVICES = {
+    "ai_service",
+    "admin_ui",
+    "captcha_service",
+    "cloud_dashboard",
+    "cloud_proxy",
+    "config_recommender",
+    "escalation_engine",
+    "prompt_router",
+    "tarpit_api",
+}
 
 
 def _load_compose() -> dict:
@@ -113,6 +124,20 @@ def test_compose_mounts_secret_directory_read_only():
         for volume in volumes:
             if isinstance(volume, str) and volume.startswith("./secrets:/run/secrets"):
                 assert volume.endswith(":ro"), "Secrets volume must be read-only"
+
+
+<<<<<<< HEAD
+def test_https_redirected_services_have_proxy_aware_healthchecks():
+    compose = _load_compose()
+    services = compose.get("services", {})
+    for service_name in HTTPS_REDIRECTED_HEALTHCHECK_SERVICES:
+        healthcheck = services[service_name]["healthcheck"]["test"]
+        command = (
+            " ".join(healthcheck) if isinstance(healthcheck, list) else str(healthcheck)
+        )
+        assert (
+            "X-Forwarded-Proto: https" in command
+        ), f"{service_name} healthcheck must bypass HTTPS redirect loops"
 
 
 def test_compose_network_exposure_is_fully_documented():
