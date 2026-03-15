@@ -9,6 +9,17 @@ COMPOSE_EXCEPTIONS = set(BASELINE["compose"]["documented_exceptions"])
 RESTRICTED_WORKLOADS = BASELINE["kubernetes"]["restricted_workloads"]
 KUBERNETES_EXCEPTIONS = set(BASELINE["kubernetes"]["documented_exceptions"])
 INSTALLER_CALL_TOKENS = BASELINE["installers"]["required_call_tokens"]
+HTTPS_REDIRECTED_HEALTHCHECK_SERVICES = {
+    "ai_service",
+    "admin_ui",
+    "captcha_service",
+    "cloud_dashboard",
+    "cloud_proxy",
+    "config_recommender",
+    "escalation_engine",
+    "prompt_router",
+    "tarpit_api",
+}
 
 
 def _load_compose() -> dict:
@@ -77,6 +88,11 @@ def test_nginx_enforces_https_and_headers():
     assert "add_header X-Frame-Options" in config
     assert "return 301 https://$host$request_uri;" in config
     assert "limit_req_zone" in config
+    assert "client_body_temp_path /var/run/openresty/nginx-client-body;" in config
+    assert "proxy_temp_path /var/cache/nginx/proxy_temp;" in config
+    assert "fastcgi_temp_path /var/cache/nginx/fastcgi_temp;" in config
+    assert "uwsgi_temp_path /var/cache/nginx/uwsgi_temp;" in config
+    assert "scgi_temp_path /var/cache/nginx/scgi_temp;" in config
 
 
 def test_compose_services_drop_privileges():
@@ -112,6 +128,33 @@ def test_compose_mounts_secret_directory_read_only():
         for volume in volumes:
             if isinstance(volume, str) and volume.startswith("./secrets:/run/secrets"):
                 assert volume.endswith(":ro"), "Secrets volume must be read-only"
+
+
+def test_python_edge_services_use_builtin_health_probes():
+    compose = _load_compose()
+    services = compose.get("services", {})
+    for service_name in ("cloud_proxy", "prompt_router"):
+        healthcheck = services[service_name]["healthcheck"]["test"]
+        assert healthcheck[:2] == ["CMD", "python"]
+        command = " ".join(healthcheck)
+        assert "urllib.request" in command
+
+
+def test_https_redirected_services_have_proxy_aware_healthchecks():
+    compose = _load_compose()
+    services = compose.get("services", {})
+    for service_name in HTTPS_REDIRECTED_HEALTHCHECK_SERVICES:
+        healthcheck = services[service_name]["healthcheck"]["test"]
+        command = (
+            " ".join(healthcheck) if isinstance(healthcheck, list) else str(healthcheck)
+        )
+        assert (
+            "X-Forwarded-Proto" in command and "https" in command
+        ), f"{service_name} healthcheck must bypass HTTPS redirect loops"
+
+    escalation_command = " ".join(services["escalation_engine"]["healthcheck"]["test"])
+    assert "curl -sS" in escalation_command
+    assert "curl -fsS" not in escalation_command
 
 
 def test_kubernetes_workloads_define_resource_limits():

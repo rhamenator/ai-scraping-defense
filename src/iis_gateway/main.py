@@ -5,6 +5,7 @@ before forwarding to the configured backend. Intended for use with IIS
 when a custom HttpModule is not desired.
 """
 
+import json
 import logging
 import os
 from dataclasses import dataclass
@@ -16,6 +17,7 @@ from fastapi import Request, Response
 from fastapi.responses import PlainTextResponse
 from redis.exceptions import RedisError
 
+from src.shared.containment import THROTTLE_KEY_PREFIX
 from src.shared.middleware import create_app
 from src.shared.observability import (
     HealthCheckResult,
@@ -103,10 +105,40 @@ def ip_blocked(ip: str) -> bool:
     return blocked
 
 
-async def rate_limited(ip: str) -> bool:
-    limit = settings.RATE_LIMIT_PER_MINUTE
+def get_ip_throttle_state(ip: str) -> dict | None:
+    key = f"{THROTTLE_KEY_PREFIX}{ip}"
+    try:
+        payload = redis_client.get(key)
+        if not payload:
+            return None
+        ttl_seconds = redis_client.ttl(key)
+    except RedisError:
+        logger.exception("Redis throttle lookup failed")
+        raise
+
+    metadata = json.loads(payload)
+    if not isinstance(metadata, dict):
+        logger.warning("Unexpected throttle metadata type for %s", ip)
+        return None
+    metadata["ttl_seconds"] = ttl_seconds
+    return metadata
+
+
+def _effective_rate_limit(limit_override: int | None) -> int:
+    base_limit = settings.RATE_LIMIT_PER_MINUTE
+    if limit_override is None or limit_override <= 0:
+        return base_limit
+    if base_limit <= 0:
+        return limit_override
+    return min(base_limit, limit_override)
+
+
+async def rate_limited(
+    ip: str, *, limit_override: int | None = None
+) -> tuple[bool, int | None]:
+    limit = _effective_rate_limit(limit_override)
     if limit <= 0:
-        return False
+        return False, None
     key = f"{settings.TENANT_ID}:ratelimit:{ip}"
     try:
         with trace_span(
@@ -117,11 +149,16 @@ async def rate_limited(ip: str) -> bool:
                 redis_client.expire(key, 60)
             if count > limit:
                 await escalate(ip, "RateLimit")
-                return True
+                retry_after = redis_client.ttl(key)
+                if not isinstance(retry_after, int) or retry_after < 0:
+                    retry_after = 60
+                elif retry_after == 0:
+                    retry_after = 1
+                return True, retry_after
     except RedisError:
         logger.exception("Redis rate limit update failed")
         raise
-    return False
+    return False, None
 
 
 async def escalate(ip: str, reason: str) -> None:
@@ -174,12 +211,20 @@ async def proxy(path: str, request: Request) -> Response:
     try:
         if ip_blocked(client_ip):
             return PlainTextResponse("Forbidden", status_code=403)
-    except RedisError:
-        return PlainTextResponse("Service Unavailable", status_code=503)
-
-    try:
-        if await rate_limited(client_ip):
-            return PlainTextResponse("Too Many Requests", status_code=429)
+        throttle_state = get_ip_throttle_state(client_ip)
+        throttle_limit = None
+        if throttle_state:
+            raw_limit = throttle_state.get("rate_limit_per_minute")
+            throttle_limit = raw_limit if isinstance(raw_limit, int) else None
+        limited, retry_after = await rate_limited(
+            client_ip, limit_override=throttle_limit
+        )
+        if limited:
+            return PlainTextResponse(
+                "Too Many Requests",
+                status_code=429,
+                headers={"Retry-After": str(retry_after)},
+            )
     except RedisError:
         return PlainTextResponse("Service Unavailable", status_code=503)
 
