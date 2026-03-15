@@ -176,7 +176,7 @@ installs dependencies, and starts Docker Compose. See
    ```bash
    git clone https://github.com/your-username/ai-scraping-defense.git
    cd ai-scraping-defense
-    ./scripts/macos/quickstart_dev.zsh
+    ./scripts/macos/install.zsh
    ```
 4. When the containers finish starting, visit [http://localhost:5002](http://localhost:5002) to open the Admin UI.
 5. If containers fail to start, confirm Docker Desktop is running by opening the Docker menu.
@@ -206,7 +206,7 @@ cp sample.env .env
 python scripts/validate_env.py
 
 sudo ./scripts/linux/install.sh          # Linux
-./scripts/macos/quickstart_dev.zsh   # macOS
+./scripts/macos/install.zsh          # macOS
 
 ```
 
