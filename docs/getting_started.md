@@ -10,7 +10,7 @@ Run the helper installer after cloning the repository:
 git clone https://github.com/your-username/ai-scraping-defense.git
 cd ai-scraping-defense
 sudo ./scripts/linux/install.sh         # Linux
-./scripts/macos/quickstart_dev.zsh      # macOS
+./scripts/macos/install.zsh             # macOS
 ```
 
 On Windows, run `scripts\\windows\\install.ps1` from an **Administrator PowerShell** window instead of the shell script.

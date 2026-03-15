@@ -31,7 +31,8 @@ contract and exit non-zero.
   to `scripts/installer_smoke_test.py`
 - `windows`: implemented via `scripts/windows/stack_smoke_test.ps1`, which delegates
   to `scripts/installer_smoke_test.py`
-- `macos`: pending installer wrapper
+- `macos`: implemented via `scripts/macos/stack_smoke_test.zsh`, which delegates
+  to `scripts/installer_smoke_test.py`
 
 ## Required Checks
 
