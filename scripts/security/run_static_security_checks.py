@@ -13,8 +13,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import yaml  # noqa: E402
 
-from src.security_audit.inventory import generate_inventory_markdown  # noqa: E402
-
 
 def _fail(message: str) -> None:
     print(f"[security-check] {message}", file=sys.stderr)
@@ -68,15 +66,6 @@ def _matches_required_value(actual: Any, expected: str) -> bool:
             )
         )
     return False
-
-
-def ensure_inventory_is_current() -> None:
-    json_path = PROJECT_ROOT / "security_problems_batch1.json"
-    markdown_path = PROJECT_ROOT / "docs/security/security_inventory_batch1.md"
-    expected = generate_inventory_markdown(json_path)
-    recorded = markdown_path.read_text()
-    if expected != recorded:
-        _fail("Security inventory markdown is stale. Re-run the generator.")
 
 
 def ensure_nginx_headers_and_limits() -> None:
@@ -172,7 +161,6 @@ def ensure_no_plaintext_secrets() -> None:
 
 
 CHECKS: Iterable[Callable[[], None]] = (
-    ensure_inventory_is_current,
     ensure_nginx_headers_and_limits,
     ensure_compose_security,
     ensure_no_plaintext_secrets,

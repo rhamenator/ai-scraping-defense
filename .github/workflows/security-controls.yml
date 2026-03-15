@@ -42,7 +42,7 @@ jobs:
           bandit -q -r src
       - name: Targeted security tests
         run: |
-          pytest test/test_security_baselines.py test/test_security_middleware.py test/test_security_inventory.py
+          pytest test/test_security_baselines.py test/test_security_middleware.py
       - name: Dependency audit
         run: |
           pip-audit

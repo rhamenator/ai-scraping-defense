@@ -1,8 +1,8 @@
 # Security Monitoring, Audit Logging, and Incident Response
 
-This runbook operationalizes the controls enumerated in
-`security_problems_batch1.json` by defining how they are monitored, logged,
-and escalated in production.
+This runbook operationalizes the current security baseline and active
+security backlog by defining how controls are monitored, logged, and escalated
+in production.
 
 ## Telemetry and Monitoring
 
@@ -127,7 +127,7 @@ print(f'Average Score: {report[\"average_score\"]:.1f}')
 
 ## Continuous Improvement
 
-- Integrate new findings from subsequent security batches by regenerating the
-  inventory (`python src/security_audit/inventory.py`).
+- Integrate new findings from active issues, CI security workflows, and staged
+  attack-simulation runs.
 - Track remediation status in the governance dashboard with owners, due dates,
   and verification artifacts from CI/CD runs.
