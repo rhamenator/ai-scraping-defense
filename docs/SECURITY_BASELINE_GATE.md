@@ -10,7 +10,6 @@ runs on pull requests and mainline pushes and must be green before merge.
 - Targeted tests:
   - `test/test_security_baselines.py`
   - `test/test_security_middleware.py`
-  - `test/test_security_inventory.py`
 - `pip-audit`
 - Trivy filesystem scan (container-scan job)
 - Trivy config scan (compose-config-scan job)
