@@ -124,6 +124,7 @@ class TarpitConfig(BaseModel):
 
     min_delay_sec: float = Field(default=0.6, ge=0.0, le=10.0)
     max_delay_sec: float = Field(default=1.2, ge=0.0, le=10.0)
+    max_stream_seconds: float = Field(default=60.0, ge=1.0, le=3600.0)
     max_hops: int = Field(default=250, ge=1, le=10000)
     hop_window_seconds: int = Field(default=86400, ge=60)
     enable_catch_all: bool = Field(default=True)

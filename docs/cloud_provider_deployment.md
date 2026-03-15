@@ -108,3 +108,12 @@ Customize environment variables such as `PROJECT_ID`, `CLUSTER_NAME`, and `GKE_Z
 
 For non-GKE deployments, set `KUBE_CONTEXT` to the target cluster context and
 `KUBE_NAMESPACE` to the desired namespace before running the scripts.
+
+## Cost and Abuse Guardrails
+
+To avoid "denial-of-wallet" scenarios during sustained attacks:
+
+- Configure autoscaling ceilings (max replicas / max node count) for your cluster.
+- Set cloud billing alerts and spend budgets before exposing the service publicly.
+- Place volumetric DDoS protection in front of the cluster when possible.
+- Keep tarpit responses bounded (`TAR_PIT_MAX_STREAM_SECONDS`) so egress cannot grow indefinitely per request.
