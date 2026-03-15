@@ -45,6 +45,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  echo "Unsupported OS: $(uname -s). This uninstaller supports macOS only." >&2
+  echo "Use scripts/linux/*.sh on Linux or scripts/windows/*.ps1 on Windows." >&2
+  exit 1
+fi
+
 down_args=(down --remove-orphans)
 if [[ "$PURGE_DATA" == true ]]; then
   down_args+=(--volumes)

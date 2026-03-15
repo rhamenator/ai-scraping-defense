@@ -77,7 +77,7 @@ verify_prerequisites() {
     exit 1
   fi
 
-  if ! compose >/dev/null 2>&1; then
+  if ! $(compose) version >/dev/null 2>&1; then
     echo "docker compose is required." >&2
     exit 1
   fi
@@ -146,6 +146,7 @@ main() {
 
   if [[ "$FORCE_ENV" == true || ! -f .env ]]; then
     cp sample.env .env
+    chmod 600 .env
     echo "Prepared .env from sample.env"
   fi
 
@@ -156,6 +157,7 @@ main() {
   else
     echo "Reusing existing local secrets. Pass --regenerate-secrets to replace them."
   fi
+  chmod 600 .env
 
   if [[ "$SKIP_VENV_RESET" == false ]]; then
     "$SCRIPT_DIR/reset_venv.zsh"
