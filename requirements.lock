@@ -303,7 +303,7 @@ pyjwt[crypto]==2.12.1
     # via
     #   -r requirements.txt
     #   mcp
-pyopenssl==25.1.0
+pyopenssl==25.3.0
     # via webauthn
 pyotp==2.9.0
     # via -r requirements.txt
