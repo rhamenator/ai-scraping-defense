@@ -58,3 +58,19 @@ class TestAuditLogging(unittest.TestCase):
         assert '"ip": "[REDACTED_IP]"' in line
         assert '"api_key": "<redacted>"' in line
         assert '"password": "<redacted>"' in line
+
+    def test_log_event_persists_security_event(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_file = os.path.join(tmpdir, "audit.log")
+            with patch.dict(os.environ, {"AUDIT_LOG_FILE": log_file}):
+                from src.shared import audit
+
+                self.audit = audit
+                for h in list(audit.logger.handlers):
+                    audit.logger.removeHandler(h)
+                importlib.reload(audit)
+                with patch.object(audit, "record_security_event") as mock_record_event:
+                    audit.log_event("user", "action", {"path": "/admin"})
+
+        mock_record_event.assert_called_once()
+        self.assertEqual(mock_record_event.call_args.kwargs["action"], "action")
