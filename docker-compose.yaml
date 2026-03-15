@@ -194,7 +194,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl -s http://localhost:${ESCALATION_ENGINE_PORT:-8003}/health | grep -Eq '\"status\":\"(healthy|degraded)\"'",
+          "curl -s http://localhost:${ESCALATION_ENGINE_PORT:-8003}/health | grep -Eq '\"status\":\"(ok|degraded)\"'",
         ]
       interval: 30s
       timeout: 10s

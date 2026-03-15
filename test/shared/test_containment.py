@@ -50,3 +50,17 @@ class TestContainmentHelpers(unittest.TestCase):
 
         self.assertFalse(result)
         mock_redis.assert_not_called()
+
+    def test_apply_ip_throttle_rejects_non_positive_ttl(self):
+        redis_mock = MagicMock()
+        with patch.object(containment, "get_redis_connection", return_value=redis_mock):
+            result = containment.apply_ip_throttle(
+                "8.8.4.4",
+                reason="heuristic throttle",
+                score=0.9,
+                source="heuristic_score",
+                ttl_seconds=0,
+            )
+
+        self.assertFalse(result)
+        redis_mock.setex.assert_not_called()

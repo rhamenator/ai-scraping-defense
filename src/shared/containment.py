@@ -48,8 +48,20 @@ def apply_ip_throttle(
         logger.error("Redis unavailable. Cannot throttle IP %s.", ip_address)
         return False
 
-    effective_ttl = ttl_seconds or THROTTLE_TTL_SECONDS
-    effective_limit = rate_limit_per_minute or THROTTLE_RATE_LIMIT_PER_MINUTE
+    effective_ttl = THROTTLE_TTL_SECONDS if ttl_seconds is None else ttl_seconds
+    effective_limit = (
+        THROTTLE_RATE_LIMIT_PER_MINUTE
+        if rate_limit_per_minute is None
+        else rate_limit_per_minute
+    )
+    if effective_ttl <= 0:
+        logger.error("Invalid throttle TTL %s for IP %s.", effective_ttl, ip_address)
+        return False
+    if effective_limit <= 0:
+        logger.error(
+            "Invalid throttle rate limit %s for IP %s.", effective_limit, ip_address
+        )
+        return False
     key = f"{THROTTLE_KEY_PREFIX}{ip_address}"
     payload = {
         "reason": reason,
@@ -82,15 +94,12 @@ def get_ip_throttle(ip_address: str) -> dict[str, Any] | None:
         return None
 
     key = f"{THROTTLE_KEY_PREFIX}{ip_address}"
-    try:
-        payload = redis_conn.get(key)
-        if not payload:
-            return None
-        ttl_seconds = redis_conn.ttl(key)
-        metadata = json.loads(payload)
-        if isinstance(metadata, dict):
-            metadata["ttl_seconds"] = ttl_seconds
-            return metadata
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.error("Failed to read throttle state for IP %s: %s", ip_address, exc)
+    payload = redis_conn.get(key)
+    if not payload:
+        return None
+    ttl_seconds = redis_conn.ttl(key)
+    metadata = json.loads(payload)
+    if isinstance(metadata, dict):
+        metadata["ttl_seconds"] = ttl_seconds
+        return metadata
     return None

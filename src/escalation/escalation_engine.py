@@ -313,11 +313,14 @@ async def _apply_containment_action(
     )
 
     if level == "block":
-        applied = add_ip_to_blocklist(metadata_req.ip, reason, payload)
+        applied = await asyncio.to_thread(
+            add_ip_to_blocklist, metadata_req.ip, reason, payload
+        )
     elif level == "tarpit":
-        applied = flag_suspicious_ip(metadata_req.ip, reason)
+        applied = await asyncio.to_thread(flag_suspicious_ip, metadata_req.ip, reason)
     elif level == "throttle":
-        applied = apply_ip_throttle(
+        applied = await asyncio.to_thread(
+            apply_ip_throttle,
             metadata_req.ip,
             reason=reason,
             score=score,
