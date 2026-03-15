@@ -125,7 +125,19 @@ jobs:
           fi
       - name: Validate NGINX configs (syntax only)
         if: hashFiles('nginx/*.conf') != '' || hashFiles('nginx/**/*.conf') != ''
-        run: docker run --rm -v "$PWD/nginx:/etc/nginx:ro" nginx:stable nginx -t -c /etc/nginx/nginx.conf
+        run: |
+          tmpdir="$(mktemp -d)"
+          mkdir -p "$tmpdir/logs" "$tmpdir/run"
+          docker run --rm \
+            -v "$PWD/nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro" \
+            -v "$PWD/nginx/lua:/etc/nginx/lua:ro" \
+            -v "$PWD/nginx/certs:/etc/nginx/certs:ro" \
+            -v "$PWD/nginx/.htpasswd:/etc/nginx/secrets/.htpasswd:ro" \
+            -v "$tmpdir/logs:/var/log/nginx" \
+            -v "$tmpdir/run:/var/run" \
+            openresty/openresty:1.21.4.1-alpine \
+            openresty -t
+          rm -rf "$tmpdir"
       - name: Set up Helm
         if: hashFiles('helm/**') != ''
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4

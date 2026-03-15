@@ -71,3 +71,10 @@ Recommended operator behavior:
 3. For production, pin deployments to the verified digest.
 4. Roll forward within the same major version unless release notes explicitly state otherwise.
 5. Keep the previous verified digest available for rollback.
+
+## Third-Party Image Pins
+
+The repository pins floating third-party images in `docker-compose.yaml` and
+builder images in `Dockerfile` to immutable digests. Refresh those pins only as
+an intentional change after reviewing the upstream release notes and rerunning
+the repo's compose, security-scan, and release validations.

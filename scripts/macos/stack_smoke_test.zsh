@@ -1,7 +1,9 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env zsh
+set -e
+set -u
+set -o pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$ROOT_DIR"
 
@@ -9,7 +11,7 @@ PROXY="nginx"
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/linux/stack_smoke_test.sh [--proxy nginx|apache]
+Usage: scripts/macos/stack_smoke_test.zsh [--proxy nginx|apache]
 USAGE
 }
 
@@ -32,8 +34,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 PYTHON_BIN="./.venv/bin/python"
-if [ ! -x "$PYTHON_BIN" ]; then
+if [[ ! -x "$PYTHON_BIN" ]]; then
   PYTHON_BIN="python3"
 fi
 
-exec "$PYTHON_BIN" scripts/installer_smoke_test.py --platform linux --proxy "$PROXY"
+exec "$PYTHON_BIN" scripts/installer_smoke_test.py --platform macos --proxy "$PROXY"
