@@ -10,12 +10,13 @@ structured data that external collectors can scrape.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
 import time
 import uuid
-from collections import deque
+from collections import defaultdict, deque
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -189,6 +190,37 @@ class ObservabilityState:
 
     def record_span(self, span: SpanContext) -> None:
         self.trace_buffer.append(span)
+
+
+class WebSocketConnectionLimiter:
+    """Track concurrent websocket connections with optional keyed limits."""
+
+    def __init__(self, *, max_total: int = 0, max_per_key: int = 0) -> None:
+        self.max_total = max_total
+        self.max_per_key = max_per_key
+        self._total = 0
+        self._counts: dict[str, int] = defaultdict(int)
+        self._lock = asyncio.Lock()
+
+    async def try_acquire(self, key: str = "__global__") -> bool:
+        async with self._lock:
+            if self.max_total and self._total >= self.max_total:
+                return False
+            if self.max_per_key and self._counts[key] >= self.max_per_key:
+                return False
+            self._total += 1
+            self._counts[key] += 1
+            return True
+
+    async def release(self, key: str = "__global__") -> None:
+        async with self._lock:
+            count = self._counts.get(key, 0)
+            if count <= 1:
+                self._counts.pop(key, None)
+            elif count > 1:
+                self._counts[key] = count - 1
+            if self._total > 0:
+                self._total -= 1
 
 
 def _get_or_create_state(app: FastAPI) -> ObservabilityState:
@@ -758,6 +790,7 @@ __all__ = [
     "ObservabilitySettings",
     "register_health_check",
     "HealthCheckResult",
+    "WebSocketConnectionLimiter",
     "trace_span",
     "get_request_id",
     "get_current_span",
