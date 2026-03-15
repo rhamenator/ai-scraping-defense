@@ -10,6 +10,11 @@ Below are solutions for common issues encountered when setting up or running the
 - **Ports already in use**
   - Check running containers with `docker ps`
   - Update the port values in `.env` to unused numbers
+- **`exec /app/docker-entrypoint.sh: operation not permitted` on Linux**
+  - This has been observed with some snap-packaged Docker installs when the
+    Python services run with `read_only: true`
+  - Use the local override: `docker compose -f docker-compose.yaml -f docker-compose.local.yaml up -d`
+  - Keep the base `docker-compose.yaml` for CI and production-like runs
 
 ## Python issues
 

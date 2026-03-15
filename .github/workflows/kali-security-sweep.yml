@@ -1,0 +1,70 @@
+name: Kali Security Sweep
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Target host or IP for network-oriented scans"
+        required: false
+      web_url:
+        description: "Public base URL to probe"
+        required: false
+      docker_image:
+        description: "Optional container image to scan"
+        required: false
+      code_dir:
+        description: "Source directory for static scans"
+        required: false
+        default: "."
+  schedule:
+    - cron: "20 6 * * *"
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}
+  cancel-in-progress: false
+jobs:
+  kali-sweep:
+    runs-on: [self-hosted, linux, kali]
+    timeout-minutes: 120
+    env:
+      TARGET: ${{ inputs.target || secrets.SECURITY_SCAN_TARGET || '' }}
+      WEB_URL: ${{ inputs.web_url || secrets.SECURITY_SCAN_WEB_URL || '' }}
+      DOCKER_IMAGE: ${{ inputs.docker_image || secrets.SECURITY_SCAN_DOCKER_IMAGE || '' }}
+      CODE_DIR: ${{ inputs.code_dir || '.' }}
+      SQLMAP_URL: ${{ secrets.SECURITY_SCAN_SQLMAP_URL || '' }}
+      API_BASE_URL: ${{ secrets.SECURITY_SCAN_API_BASE_URL || '' }}
+      OPENAPI_SPEC_URL: ${{ secrets.SECURITY_SCAN_OPENAPI_SPEC_URL || '' }}
+      LLM_ENDPOINT: ${{ secrets.SECURITY_SCAN_LLM_ENDPOINT || '' }}
+      LLM_AUTH_TOKEN: ${{ secrets.SECURITY_SCAN_LLM_AUTH_TOKEN || '' }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Validate scan target
+        run: |
+          if [ -z "$TARGET" ]; then
+            echo "TARGET is required. Provide workflow input 'target' or SECURITY_SCAN_TARGET."
+            exit 1
+          fi
+          if [ -z "$WEB_URL" ]; then
+            echo "WEB_URL is required. Provide workflow input 'web_url' or SECURITY_SCAN_WEB_URL."
+            exit 1
+          fi
+      - name: Run Kali security sweep
+        run: |
+          mkdir -p reports
+          bash ./scripts/linux/security_scan.sh \
+            "$TARGET" \
+            "$WEB_URL" \
+            "$DOCKER_IMAGE" \
+            "$CODE_DIR" \
+            "$SQLMAP_URL" \
+            "$API_BASE_URL" \
+            "$OPENAPI_SPEC_URL" \
+            "$LLM_ENDPOINT" \
+            "$LLM_AUTH_TOKEN"
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: kali-security-sweep-reports
+          path: reports/
+          if-no-files-found: ignore

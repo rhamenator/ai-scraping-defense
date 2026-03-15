@@ -63,6 +63,8 @@ This project provides a multi-layered, microservice-based defense system against
 
 - `ci-tests.yml` is the primary cross-platform validation workflow for pushes to `main` and pull requests.
 - `tests.yml` now serves as a dedicated Rust nightly smoke workflow instead of duplicating the main PR test path.
+- `security-attack-regression.yml` is the deterministic PR-time ingress regression gate; it boots the Compose stack locally and asserts expected security behaviour.
+- `kali-security-sweep.yml` is the broader external attack sweep intended for a self-hosted Kali runner against a preview or staging target.
 - tagged releases publish signed container images through `/.github/workflows/release-images.yml`.
 
 See [docs/release_checklist.md](docs/release_checklist.md) and [docs/release_artifacts.md](docs/release_artifacts.md) for the expected release process and artifact policy.
@@ -308,7 +310,7 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     ```
 
 4. **Generate Secrets:**
-    Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console. When run with `--update-env` (as in the interactive setup), the script also updates `.env` and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose.
+    Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console. When run with `--update-env` (as in the interactive setup), the script also updates `.env` and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose. Those two Compose-mounted files are written with container-readable permissions for local and CI use.
 
     The local setup scripts lock down the `secrets/` directory (Unix chmod or
     Windows ACLs). If you store secrets elsewhere, you can leave these files

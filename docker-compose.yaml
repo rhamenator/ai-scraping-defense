@@ -158,7 +158,6 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: escalation_engine
-    entrypoint: ["/app/docker-entrypoint.sh"]
     command:
       [
         "uvicorn",
@@ -174,7 +173,6 @@ services:
       - ./src:/app/src
       - ./models:/app/models
       - ./data:/app/data
-      - ./scripts/linux/docker-entrypoint.sh:/app/docker-entrypoint.sh
       - ./secrets:/run/secrets:ro
     depends_on:
       postgres:
@@ -220,7 +218,6 @@ services:
     volumes:
       - ./src:/app/src
       - ./archives:/app/archives
-      - ./scripts/linux/docker-entrypoint.sh:/app/docker-entrypoint.sh
       - ./secrets:/run/secrets:ro
     depends_on:
       postgres:
@@ -262,7 +259,6 @@ services:
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
-      - ./scripts/linux/docker-entrypoint.sh:/app/docker-entrypoint.sh
       - ./secrets:/run/secrets:ro
     depends_on:
       redis:
