@@ -43,6 +43,7 @@ services:
     tmpfs:
       - /tmp
       - /var/run
+    read_only: true
     ports:
       - "${NGINX_HTTP_PORT:-80}:80"
       - "${NGINX_HTTPS_PORT:-443}:443"
@@ -530,6 +531,13 @@ services:
     networks:
       - defense_network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
 
   fail2ban:
     image: crazymax/fail2ban:1.1.0@sha256:a1476ec3587dd7c6756d8cdb448fb0a262c242042d8a71557da6b5aa7aecd911

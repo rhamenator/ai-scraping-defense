@@ -2,11 +2,17 @@ version: 1
 
 compose:
   required_services:
+    - nginx_proxy
     - ai_service
     - escalation_engine
     - tarpit_api
+    - admin_ui
+    - captcha_service
+    - cloud_dashboard
     - cloud_proxy
     - config_recommender
+    - prompt_router
+    - blocklist_sync
 
   service_requirements:
     security_opt:
@@ -21,3 +27,65 @@ compose:
   secret_volume_prefixes:
     - "./secrets:/run/secrets"
   secret_volume_readonly: true
+  documented_exceptions:
+    mailhog: "Developer SMTP sink only; upstream image remains a documented dev-only exception."
+    mock_external_api: "CI and local mock dependency; not shipped as part of the hardened production path."
+    apache_proxy: "Alternate local proxy path pending dedicated hardened image/runtime profile."
+    postgres: "Stateful upstream database container uses its own writable runtime layout and entrypoint."
+    redis: "Stateful upstream cache container uses its own writable runtime layout and entrypoint."
+    fail2ban: "Requires host networking and NET_ADMIN/NET_RAW for ban enforcement."
+    suricata: "Requires packet-capture privileges and host networking."
+    traefik: "Third-party ingress control plane with Docker socket access."
+    llama3: "Optional local LLM runtime with model cache and upstream runtime constraints."
+    mixtral: "Optional local LLM runtime with model cache and upstream runtime constraints."
+    prometheus: "Third-party metrics store with upstream runtime profile."
+    grafana: "Third-party dashboard service with persistent writable data directory."
+    watchtower: "Host-level update controller with Docker socket access."
+
+kubernetes:
+  restricted_workloads:
+    admin-ui-deployment.yaml:
+      - admin-ui
+    ai-service-deployment.yaml:
+      - ai-service
+    archive-rotator-deployment.yaml:
+      - archive-rotator
+    corpus-updater-cronjob.yaml:
+      - corpus-updater
+    escalation-engine-deployment.yaml:
+      - escalation-engine
+    markov-model-trainer.yaml:
+      - markov-trainer
+    robots-fetcher-cronjob.yaml:
+      - robots-fetcher
+    tarpit-api-deployment.yaml:
+      - tarpit-api
+    waf-rules-fetcher-cronjob.yaml:
+      - owasp-crs-fetcher
+  documented_exceptions:
+    fail2ban-deployment.yaml: "Requires NET_ADMIN/NET_RAW to enforce bans."
+    nginx-deployment.yaml: "Ingress container still binds 80/443 directly and needs a dedicated capability exception path."
+    postgres-statefulset.yaml: "Stateful upstream database workload with writable storage and upstream runtime defaults."
+    redis-statefulset.yaml: "Stateful upstream cache workload with writable storage and upstream runtime defaults."
+    suricata-deployment.yaml: "Requires packet-capture privileges and relaxed runtime settings."
+
+installers:
+  required_call_tokens:
+    scripts/linux/install.sh:
+      - ensure_no_new_privileges_env
+    scripts/linux/quick_proxy.sh:
+      - ensure_no_new_privileges_env
+    scripts/linux/quick_takeover.sh:
+      - ensure_no_new_privileges_env
+    scripts/macos/install.zsh:
+      - ensure_no_new_privileges_env
+    scripts/macos/quick_proxy.zsh:
+      - ensure_no_new_privileges_env
+    scripts/macos/quick_takeover.zsh:
+      - ensure_no_new_privileges_env
+    scripts/windows/install.ps1:
+      - Ensure-NoNewPrivileges
+    scripts/windows/quick_proxy.ps1:
+      - Ensure-NoNewPrivileges
+    scripts/windows/quick_takeover.ps1:
+      - Ensure-NoNewPrivileges

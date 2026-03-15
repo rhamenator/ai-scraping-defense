@@ -2,14 +2,13 @@ from pathlib import Path
 
 import yaml
 
-HARDENED_SERVICES = {
-    "ai_service",
-    "escalation_engine",
-    "tarpit_api",
-    "cloud_proxy",
-    "config_recommender",
-}
 WORKLOAD_KINDS = {"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}
+BASELINE = yaml.safe_load(Path("config/security_hardening.yaml").read_text())
+HARDENED_SERVICES = set(BASELINE["compose"]["required_services"])
+COMPOSE_EXCEPTIONS = set(BASELINE["compose"]["documented_exceptions"])
+RESTRICTED_WORKLOADS = BASELINE["kubernetes"]["restricted_workloads"]
+KUBERNETES_EXCEPTIONS = set(BASELINE["kubernetes"]["documented_exceptions"])
+INSTALLER_CALL_TOKENS = BASELINE["installers"]["required_call_tokens"]
 
 
 def _load_compose() -> dict:
@@ -98,6 +97,13 @@ def test_compose_services_drop_privileges():
         assert any(str(volume).endswith(":ro") for volume in volumes)
 
 
+def test_compose_services_have_full_hardening_coverage():
+    compose = _load_compose()
+    services = set(compose.get("services", {}))
+
+    assert services == HARDENED_SERVICES | COMPOSE_EXCEPTIONS
+
+
 def test_compose_mounts_secret_directory_read_only():
     compose = _load_compose()
     services = compose.get("services", {})
@@ -124,15 +130,19 @@ def test_kubernetes_workloads_define_resource_limits():
     )
 
 
-def test_selected_kubernetes_workloads_define_restricted_security_contexts():
-    required_workloads = {
-        "tarpit-api-deployment.yaml": {"tarpit-api"},
-        "waf-rules-fetcher-cronjob.yaml": {"owasp-crs-fetcher"},
+def test_kubernetes_workloads_have_full_hardening_coverage():
+    discovered = {
+        manifest_path.name for manifest_path, _, _ in _iter_kubernetes_workload_specs()
     }
-    seen = {name: set() for name in required_workloads}
+
+    assert discovered == set(RESTRICTED_WORKLOADS) | KUBERNETES_EXCEPTIONS
+
+
+def test_selected_kubernetes_workloads_define_restricted_security_contexts():
+    seen = {name: set() for name in RESTRICTED_WORKLOADS}
 
     for manifest_path, _, pod_spec in _iter_kubernetes_workload_specs():
-        required_containers = required_workloads.get(manifest_path.name)
+        required_containers = RESTRICTED_WORKLOADS.get(manifest_path.name)
         if not required_containers:
             continue
 
@@ -140,6 +150,7 @@ def test_selected_kubernetes_workloads_define_restricted_security_contexts():
         assert pod_security_context.get("runAsNonRoot") is True
         assert pod_security_context.get("runAsUser") == 1000
         assert pod_security_context.get("runAsGroup") == 1000
+        assert pod_security_context.get("fsGroup") == 1000
         assert pod_security_context.get("seccompProfile", {}).get("type") == (
             "RuntimeDefault"
         )
@@ -162,5 +173,12 @@ def test_selected_kubernetes_workloads_define_restricted_security_contexts():
             }
             assert volume_mounts.get("tmp", {}).get("mountPath") == "/tmp"
 
-    for manifest_name, container_names in required_workloads.items():
-        assert seen[manifest_name] == container_names
+    for manifest_name, container_names in RESTRICTED_WORKLOADS.items():
+        assert seen[manifest_name] == set(container_names)
+
+
+def test_installer_scripts_preserve_no_new_privileges_detection():
+    for relative_path, tokens in INSTALLER_CALL_TOKENS.items():
+        contents = Path(relative_path).read_text()
+        for token in tokens:
+            assert token in contents

@@ -11,6 +11,13 @@ spec:
     spec:
       template:
         spec:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
           containers:
           - name: markov-trainer
             image: your-registry/ai-scraping-defense:latest
@@ -24,6 +31,11 @@ spec:
               limits:
                 cpu: "1000m"
                 memory: "2Gi"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: ["ALL"]
             envFrom:
             - configMapRef:
                 name: app-config
@@ -36,8 +48,12 @@ spec:
             - name: corpus-storage
               mountPath: /corpus_data
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
           restartPolicy: OnFailure
           volumes:
           - name: corpus-storage
             persistentVolumeClaim:
               claimName: corpus-data-pvc
+          - name: tmp
+            emptyDir: {}

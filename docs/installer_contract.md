@@ -10,6 +10,17 @@ Platform wrappers may still exist for operator convenience, but they should
 delegate to this shared contract where possible instead of re-implementing the
 health checks independently.
 
+## Runtime Hardening Contract
+
+Installers and proxy helpers must preserve the runtime hardening baseline rather
+than silently weakening it. In practice that means:
+
+- Linux and macOS entrypoints call `ensure_no_new_privileges_env`
+- Windows entrypoints call `Ensure-NoNewPrivileges`
+- any unavoidable local-runtime exception (for example the documented
+  `docker-compose.local.yaml` workaround for snap-packaged Docker) is explicit
+  and opt-in rather than baked into the default install path
+
 ## Required Success Output
 
 Installers should surface smoke-test results as line-oriented text:
