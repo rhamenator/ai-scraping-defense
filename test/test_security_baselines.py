@@ -48,6 +48,30 @@ def _iter_kubernetes_workload_containers():
                 yield manifest_path, kind, container
 
 
+def _iter_kubernetes_workload_specs():
+    for manifest_path in Path("kubernetes").glob("*.y*ml"):
+        for document in yaml.safe_load_all(manifest_path.read_text()):
+            if not isinstance(document, dict):
+                continue
+            kind = document.get("kind")
+            if kind not in WORKLOAD_KINDS:
+                continue
+
+            spec = document.get("spec") or {}
+            if kind in {"Deployment", "StatefulSet", "DaemonSet", "Job"}:
+                pod_spec = ((spec.get("template") or {}).get("spec")) or {}
+            else:
+                pod_spec = (
+                    (
+                        ((spec.get("jobTemplate") or {}).get("spec") or {}).get(
+                            "template"
+                        )
+                    )
+                    or {}
+                ).get("spec", {})
+            yield manifest_path, kind, pod_spec
+
+
 def test_nginx_enforces_https_and_headers():
     config = Path("nginx/nginx.conf").read_text()
     assert "Strict-Transport-Security" in config
@@ -98,3 +122,45 @@ def test_kubernetes_workloads_define_resource_limits():
         "All Kubernetes workload containers must define resources.requests and "
         "resources.limits: " + ", ".join(sorted(missing))
     )
+
+
+def test_selected_kubernetes_workloads_define_restricted_security_contexts():
+    required_workloads = {
+        "tarpit-api-deployment.yaml": {"tarpit-api"},
+        "waf-rules-fetcher-cronjob.yaml": {"owasp-crs-fetcher"},
+    }
+    seen = {name: set() for name in required_workloads}
+
+    for manifest_path, _, pod_spec in _iter_kubernetes_workload_specs():
+        required_containers = required_workloads.get(manifest_path.name)
+        if not required_containers:
+            continue
+
+        pod_security_context = pod_spec.get("securityContext") or {}
+        assert pod_security_context.get("runAsNonRoot") is True
+        assert pod_security_context.get("runAsUser") == 1000
+        assert pod_security_context.get("runAsGroup") == 1000
+        assert pod_security_context.get("seccompProfile", {}).get("type") == (
+            "RuntimeDefault"
+        )
+
+        containers = pod_spec.get("containers") or []
+        volumes = {volume.get("name"): volume for volume in pod_spec.get("volumes", [])}
+        assert "tmp" in volumes and "emptyDir" in volumes["tmp"]
+
+        for container in containers:
+            name = container.get("name")
+            if name not in required_containers:
+                continue
+            seen[manifest_path.name].add(name)
+            security_context = container.get("securityContext") or {}
+            assert security_context.get("allowPrivilegeEscalation") is False
+            assert security_context.get("readOnlyRootFilesystem") is True
+            assert security_context.get("capabilities", {}).get("drop") == ["ALL"]
+            volume_mounts = {
+                mount.get("name"): mount for mount in container.get("volumeMounts", [])
+            }
+            assert volume_mounts.get("tmp", {}).get("mountPath") == "/tmp"
+
+    for manifest_name, container_names in required_workloads.items():
+        assert seen[manifest_name] == container_names
