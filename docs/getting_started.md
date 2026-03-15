@@ -119,7 +119,7 @@ This script will create a virtual environment in the .venv directory, install al
 
 ### **4. Generate Local Secrets**
 
-The application requires several secrets to run (e.g., database passwords). A script is provided to generate these securely. It creates `kubernetes/secrets.yaml` and prints the credentials to your console. By default it **does not** modify your `.env` file. When run with `--update-env`, it updates the file and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose. If you used the interactive setup script, this step is performed automatically.
+The application requires several secrets to run (e.g., database passwords). A script is provided to generate these securely. It creates `kubernetes/secrets.yaml` and prints the credentials to your console. By default it **does not** modify your `.env` file. When run with `--update-env`, it updates the file and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose. Those Compose-mounted files are written with container-readable permissions for local and CI runs. If you used the interactive setup script, this step is performed automatically.
 
 * **On Linux or macOS:**
 
