@@ -159,11 +159,11 @@ installs dependencies, and starts Docker Compose. See
 ### Linux
 1. [Install Docker Engine](https://docs.docker.com/engine/install/) and ensure it is running.
 2. Install Python 3.10 or newer (`sudo apt install python3 python3-venv` on Debian-based distros).
-3. Clone the repository and execute the quickstart script:
+3. Clone the repository and execute the Linux installer:
    ```bash
    git clone https://github.com/your-username/ai-scraping-defense.git
    cd ai-scraping-defense
-    sudo ./scripts/linux/quickstart_dev.sh
+   sudo ./scripts/linux/install.sh
    ```
 4. When the containers finish starting, open [http://localhost:5002](http://localhost:5002) to view the Admin UI dashboard.
 5. If you see "Cannot connect to the Docker daemon," start the service with
@@ -196,7 +196,7 @@ installs dependencies, and starts Docker Compose. See
 
 ## Quick Local Setup
 
-Run the automated script after cloning the repository:
+Run the automated installer after cloning the repository:
 
 ```bash
 git clone https://github.com/your-username/ai-scraping-defense.git
@@ -205,7 +205,7 @@ cd ai-scraping-defense
 cp sample.env .env
 python scripts/validate_env.py
 
-sudo ./scripts/linux/quickstart_dev.sh   # Linux
+sudo ./scripts/linux/install.sh          # Linux
 ./scripts/macos/quickstart_dev.zsh   # macOS
 
 ```
@@ -214,9 +214,11 @@ For the security testing environment, a helper `scripts/linux/security_setup.sh`
 
 On Windows, open an **Administrator PowerShell** window and run `scripts\windows\quickstart_dev.ps1` instead.
 
-The script generates secrets, installs Python requirements with
+The Linux installer generates local secrets, installs Python requirements with
 `pip install -r requirements.txt -c constraints.txt`, re-runs
-`python scripts/validate_env.py`, and launches Docker Compose for you.
+`python scripts/validate_env.py`, launches Docker Compose through the selected
+reverse-proxy helper, and runs the Linux smoke test for you. For Linux-specific
+rollback and uninstall steps, see [docs/linux_installer.md](docs/linux_installer.md).
 The stack requires Rust 1.78.0. `mise` (or `rustup`) installs this toolchain automatically.
 
 If you want local GGUF inference through the `llamacpp://` adapter, install the
