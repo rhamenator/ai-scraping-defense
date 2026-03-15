@@ -74,6 +74,9 @@ CLOUD_CDN_PROVIDER=cloudflare
             errors = validate_env.validate_env(env)
             self.assertTrue(any("CLOUD_CDN_API_TOKEN" in e for e in errors))
             self.assertTrue(any("CLOUD_CDN_ZONE_ID" in e for e in errors))
+            self.assertTrue(
+                any("SECURITY_CDN_TRUSTED_PROXY_CIDRS" in e for e in errors)
+            )
 
     def test_global_cdn_allows_token_file_and_zone(self):
         content = """MODEL_URI=sklearn:///model
@@ -89,6 +92,7 @@ ENABLE_GLOBAL_CDN=true
 CLOUD_CDN_PROVIDER=cloudflare
 CLOUD_CDN_API_TOKEN_FILE=/run/secrets/cdn_token
 CLOUD_CDN_ZONE_ID=zone-id
+SECURITY_CDN_TRUSTED_PROXY_CIDRS=173.245.48.0/20,103.21.244.0/22
 """
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".env"
@@ -111,6 +115,7 @@ REQUIRE_CLOUDFLARE_ACCOUNT=true
 CLOUD_CDN_PROVIDER=cloudflare
 CLOUD_CDN_API_TOKEN=test-token
 CLOUD_CDN_ZONE_ID=zone-id
+SECURITY_CDN_TRUSTED_PROXY_CIDRS=173.245.48.0/20
 """
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".env"

@@ -164,6 +164,24 @@ def test_https_redirect_trusts_forwarded_proto_from_configured_proxy(monkeypatch
     assert response.json() == {"status": "ok"}
 
 
+def test_rate_limit_uses_trusted_cdn_client_ip(monkeypatch):
+    monkeypatch.setenv("CLOUD_CDN_PROVIDER", "cloudflare")
+    monkeypatch.setenv("SECURITY_CDN_TRUSTED_PROXY_CIDRS", "127.0.0.0/8")
+    settings = SecuritySettings(
+        rate_limit_requests=1,
+        rate_limit_window=60,
+        max_body_size=1024,
+        enable_https=False,
+    )
+    client = TestClient(_build_app(settings), client=("127.0.0.1", 50000))
+
+    first = client.get("/ping", headers={"CF-Connecting-IP": "203.0.113.25"})
+    second = client.get("/ping", headers={"CF-Connecting-IP": "203.0.113.25"})
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+
+
 def test_request_target_limit_rejects_long_paths(monkeypatch):
     monkeypatch.setenv("SECURITY_MAX_PATH_LENGTH", "10")
     settings = SecuritySettings(

@@ -122,6 +122,8 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 | `CLOUD_CDN_API_TOKEN_FILE` | *(none)* | File path containing the Cloudflare API token |
 | `CDN_PURGE_URL` | *(derived)* | Optional explicit purge endpoint override |
 | `REQUIRE_CLOUDFLARE_ACCOUNT` | `false` | Fail environment validation unless Cloudflare integration is configured |
+| `SECURITY_CDN_TRUSTED_PROXY_CIDRS` | *(none)* | Comma-separated Cloudflare/CDN proxy CIDRs trusted to supply real client IP headers |
+| `SECURITY_CDN_CLIENT_IP_HEADERS` | `CF-Connecting-IP,True-Client-IP,X-Forwarded-For` for Cloudflare | Ordered client IP headers to trust for CDN traffic |
 | `CLOUDFLARE_TUNNEL_TOKEN` | *(none)* | Optional token used by `scripts/linux/start_cloudflare_tunnel.sh` for named tunnels |
 | `CLOUDFLARE_TUNNEL_TARGET_URL` | `http://localhost:${NGINX_HTTP_PORT}` | Optional origin URL for Cloudflare Tunnel script |
 
@@ -157,6 +159,9 @@ These settings apply to services created via `src.shared.middleware.create_app()
 | `SECURITY_MAX_QUERY_STRING_LENGTH` | `4096` | Max query string length in bytes (0 disables the check) |
 | `SECURITY_MAX_HEADER_COUNT` | `100` | Max number of request headers (0 disables the check) |
 | `SECURITY_MAX_HEADER_VALUE_LENGTH` | `8192` | Max single header value length in bytes (0 disables the check) |
+| `SECURITY_DISABLE_TARPIT_FOR_TRUSTED_CDN` | `true` | Return a fast containment response instead of a slow tarpit for trusted CDN traffic |
+| `SECURITY_EDGE_CDN_CONTAINMENT_ACTION` | `block` | CDN-safe origin action for trusted CDN traffic: `block` or `throttle` |
+| `SECURITY_EDGE_CDN_RETRY_AFTER_SECONDS` | `120` | `Retry-After` value when `SECURITY_EDGE_CDN_CONTAINMENT_ACTION=throttle` |
 
 ## JWT Authentication
 
