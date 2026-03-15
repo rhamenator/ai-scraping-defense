@@ -1,5 +1,7 @@
 import asyncio
+import json
 import logging
+import os
 from base64 import b64decode
 
 from fastapi import (
@@ -13,6 +15,10 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBasicCredentials
 
+from src.shared.audit import log_event
+from src.shared.metrics import OPERATIONAL_EVENTS, SECURITY_EVENTS
+from src.shared.observability import WebSocketConnectionLimiter
+
 from .auth import _require_auth_core, require_auth
 from .metrics_admin_ui import get_metrics
 
@@ -20,6 +26,10 @@ logger = logging.getLogger(__name__)
 
 METRICS_TRULY_AVAILABLE = True
 WEBSOCKET_METRICS_INTERVAL = 5
+WEBSOCKET_MAX_CONNECTIONS = int(os.getenv("ADMIN_UI_METRICS_WS_MAX_CONNECTIONS", "5"))
+WEBSOCKET_MAX_MESSAGE_BYTES = int(
+    os.getenv("ADMIN_UI_METRICS_WS_MAX_MESSAGE_BYTES", "65536")
+)
 SECURITY_KPI_PREFIXES = {
     "security_events_total": "security_events_total",
     "errors_total": "errors_total",
@@ -28,6 +38,42 @@ SECURITY_KPI_PREFIXES = {
 }
 
 router = APIRouter()
+WEBSOCKET_LIMITER = WebSocketConnectionLimiter(max_total=WEBSOCKET_MAX_CONNECTIONS)
+
+
+def _websocket_close_try_again_later() -> int:
+    return getattr(status, "WS_1013_TRY_AGAIN_LATER", 1013)
+
+
+def _client_ip(websocket: WebSocket) -> str:
+    client = websocket.client
+    return client.host if client and client.host else "unknown"
+
+
+def _record_websocket_event(action: str, **details) -> None:
+    OPERATIONAL_EVENTS.labels(event_type=f"admin_ui_metrics_ws_{action}").inc()
+    log_event("admin_ui", f"admin_ui_metrics_websocket_{action}", details)
+
+
+def _record_websocket_security_event(action: str, **details) -> None:
+    SECURITY_EVENTS.labels(event_type=f"admin_ui_metrics_ws_{action}").inc()
+    log_event("admin_ui", f"admin_ui_metrics_websocket_{action}", details)
+
+
+async def _send_limited_json(websocket: WebSocket, payload: dict) -> bool:
+    encoded = json.dumps(payload, default=str).encode("utf-8")
+    if WEBSOCKET_MAX_MESSAGE_BYTES and len(encoded) > WEBSOCKET_MAX_MESSAGE_BYTES:
+        _record_websocket_security_event(
+            "payload_too_large",
+            client_ip=_client_ip(websocket),
+            payload_bytes=len(encoded),
+            max_bytes=WEBSOCKET_MAX_MESSAGE_BYTES,
+        )
+        await websocket.send_json({"error": "Metrics payload too large"})
+        await websocket.close(code=_websocket_close_try_again_later())
+        return False
+    await websocket.send_json(payload)
+    return True
 
 
 def _parse_prometheus_metrics(text: str) -> dict:
@@ -93,6 +139,7 @@ async def metrics_endpoint(user: str = Depends(require_auth)):
 @router.websocket("/ws/metrics")
 async def metrics_websocket(websocket: WebSocket):
     """Stream metrics to the client over a WebSocket connection."""
+    client_ip = _client_ip(websocket)
     auth = websocket.headers.get("Authorization")
     if auth:
         try:
@@ -112,26 +159,53 @@ async def metrics_websocket(websocket: WebSocket):
                         x_2fa_code=x_2fa_code,
                         x_2fa_token=x_2fa_token,
                         x_2fa_backup_code=None,
-                        client_ip=websocket.client.host,
+                        client_ip=client_ip,
                     )
                 except HTTPException:
+                    _record_websocket_security_event(
+                        "denied",
+                        client_ip=client_ip,
+                        reason="authentication_failed",
+                    )
                     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
                     return
         except Exception as exc:
             logger.error("Error during websocket auth", exc_info=exc)
+            _record_websocket_security_event(
+                "denied",
+                client_ip=client_ip,
+                reason="invalid_authorization_header",
+            )
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
     else:
+        _record_websocket_security_event(
+            "denied",
+            client_ip=client_ip,
+            reason="missing_authorization_header",
+        )
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
-    await websocket.accept()
-
-    if not METRICS_TRULY_AVAILABLE:
-        await websocket.send_json({"error": "Metrics module not available"})
-        await websocket.close()
+    acquired = await WEBSOCKET_LIMITER.try_acquire()
+    if not acquired:
+        _record_websocket_security_event(
+            "denied",
+            client_ip=client_ip,
+            reason="connection_limit_exceeded",
+        )
+        await websocket.close(code=_websocket_close_try_again_later())
         return
-
     try:
+        await websocket.accept()
+        _record_websocket_event("opened", client_ip=client_ip)
+
+        if not METRICS_TRULY_AVAILABLE:
+            await _send_limited_json(
+                websocket, {"error": "Metrics module not available"}
+            )
+            await websocket.close()
+            return
+
         while True:
             try:
                 metrics_dict = _get_metrics_dict_func()
@@ -140,11 +214,14 @@ async def metrics_websocket(websocket: WebSocket):
                     "An error occurred in the websocket metrics endpoint",
                     exc_info=exc,
                 )
-                await websocket.send_json({"error": "An internal error occurred"})
+                await _send_limited_json(
+                    websocket, {"error": "An internal error occurred"}
+                )
                 await websocket.close()
                 break
 
-            await websocket.send_json(metrics_dict)
+            if not await _send_limited_json(websocket, metrics_dict):
+                break
 
             if isinstance(metrics_dict, dict) and metrics_dict.get("error"):
                 await websocket.close()
@@ -156,3 +233,6 @@ async def metrics_websocket(websocket: WebSocket):
                 break
     except WebSocketDisconnect:  # pragma: no cover - normal disconnect
         pass
+    finally:
+        await WEBSOCKET_LIMITER.release()
+        _record_websocket_event("closed", client_ip=client_ip)

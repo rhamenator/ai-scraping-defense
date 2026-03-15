@@ -10,8 +10,10 @@ from unittest.mock import MagicMock, patch
 import bcrypt
 import pyotp
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from src.admin_ui import admin_ui, auth, blocklist, metrics, webauthn
+from src.shared.observability import WebSocketConnectionLimiter
 
 
 class TestAdminUIComprehensive(unittest.TestCase):
@@ -560,6 +562,52 @@ class TestAdminUIComprehensive(unittest.TestCase):
             data = websocket.receive_json()
         self.assertEqual(data, {"active_connections": 5})
         mock_get_metrics.assert_called()
+
+    @patch("src.admin_ui.metrics.log_event")
+    def test_metrics_websocket_rejects_missing_auth(self, mock_log_event):
+        """WebSocket should reject clients that do not provide auth headers."""
+        with self.assertRaises(WebSocketDisconnect):
+            with self.client.websocket_connect("/ws/metrics"):
+                pass
+        mock_log_event.assert_called()
+        self.assertIn("denied", mock_log_event.call_args.args[1])
+
+    @patch("src.admin_ui.metrics._get_metrics_dict_func")
+    def test_metrics_websocket_rejects_when_connection_limit_exceeded(
+        self, mock_get_metrics
+    ):
+        """WebSocket should reject excess concurrent admin metrics streams."""
+        mock_get_metrics.return_value = {"active_connections": 5}
+        headers = {
+            "Authorization": "Basic YWRtaW46dGVzdHBhc3M=",
+            **self._totp_headers(),
+        }
+        with patch.object(
+            metrics,
+            "WEBSOCKET_LIMITER",
+            WebSocketConnectionLimiter(max_total=1),
+        ):
+            with self.client.websocket_connect("/ws/metrics", headers=headers) as first:
+                self.assertEqual(first.receive_json(), {"active_connections": 5})
+                with self.assertRaises(WebSocketDisconnect):
+                    with self.client.websocket_connect("/ws/metrics", headers=headers):
+                        pass
+
+    @patch("src.admin_ui.metrics._get_metrics_dict_func")
+    def test_metrics_websocket_rejects_oversized_payload(self, mock_get_metrics):
+        """WebSocket should close when a metrics payload exceeds the size cap."""
+        mock_get_metrics.return_value = {"blob": "x" * 128}
+        headers = {
+            "Authorization": "Basic YWRtaW46dGVzdHBhc3M=",
+            **self._totp_headers(),
+        }
+        with patch.object(metrics, "WEBSOCKET_MAX_MESSAGE_BYTES", 32):
+            with self.client.websocket_connect("/ws/metrics", headers=headers) as ws:
+                self.assertEqual(
+                    ws.receive_json(), {"error": "Metrics payload too large"}
+                )
+                with self.assertRaises(WebSocketDisconnect):
+                    ws.receive_json()
 
     @patch("src.admin_ui.metrics.METRICS_TRULY_AVAILABLE", False)
     def test_metrics_websocket_module_unavailable(self):
