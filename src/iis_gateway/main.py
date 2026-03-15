@@ -16,6 +16,7 @@ from fastapi import Request, Response
 from fastapi.responses import PlainTextResponse
 from redis.exceptions import RedisError
 
+from src.shared.containment import get_ip_throttle
 from src.shared.middleware import create_app
 from src.shared.observability import (
     HealthCheckResult,
@@ -103,6 +104,18 @@ def ip_blocked(ip: str) -> bool:
     return blocked
 
 
+def ip_throttled(ip: str) -> tuple[bool, int | None]:
+    throttle_state = get_ip_throttle(ip)
+    if not throttle_state:
+        return False, None
+
+    ttl_seconds = throttle_state.get("ttl_seconds")
+    retry_after = (
+        ttl_seconds if isinstance(ttl_seconds, int) and ttl_seconds > 0 else 60
+    )
+    return True, retry_after
+
+
 async def rate_limited(ip: str) -> bool:
     limit = settings.RATE_LIMIT_PER_MINUTE
     if limit <= 0:
@@ -174,6 +187,13 @@ async def proxy(path: str, request: Request) -> Response:
     try:
         if ip_blocked(client_ip):
             return PlainTextResponse("Forbidden", status_code=403)
+        throttled, retry_after = ip_throttled(client_ip)
+        if throttled:
+            return PlainTextResponse(
+                "Too Many Requests",
+                status_code=429,
+                headers={"Retry-After": str(retry_after)},
+            )
     except RedisError:
         return PlainTextResponse("Service Unavailable", status_code=503)
 

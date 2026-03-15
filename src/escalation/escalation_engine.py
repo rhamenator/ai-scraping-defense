@@ -24,6 +24,7 @@ from src.shared.observability import (
     register_health_check,
     trace_span,
 )
+from src.shared.operational_events import publish_operational_event
 
 # GeoIP
 try:
@@ -34,15 +35,18 @@ except Exception:
     geoip2 = None
     GEOIP_AVAILABLE = False
 
+from src.ai_service.blocklist import add_ip_to_blocklist
 from src.shared.api_key_auth import is_api_key_valid
 from src.shared.authz import require_jwt, verify_jwt_from_request
 from src.shared.config import CONFIG
+from src.shared.containment import apply_ip_throttle
 from src.shared.decision_db import record_decision
 
 # --- Refactored Imports ---
 from src.shared.model_provider import get_model_adapter
 from src.shared.redis_client import get_redis_connection
 from src.shared.request_utils import read_json_body
+from src.tarpit.ip_flagger import flag_suspicious_ip
 
 # --- Setup Logging ---
 logger = logging.getLogger(__name__)
@@ -165,6 +169,9 @@ except ImportError:
 
 # --- Configuration (Preserved) ---
 ESCALATION_THRESHOLD = CONFIG.ESCALATION_THRESHOLD
+ESCALATION_THROTTLE_THRESHOLD = CONFIG.ESCALATION_THROTTLE_THRESHOLD
+ESCALATION_TARPIT_THRESHOLD = CONFIG.ESCALATION_TARPIT_THRESHOLD
+ESCALATION_BLOCK_THRESHOLD = CONFIG.ESCALATION_BLOCK_THRESHOLD
 LOG_LEVEL = CONFIG.LOG_LEVEL
 ESCALATION_API_KEY = CONFIG.ESCALATION_API_KEY
 
@@ -257,6 +264,74 @@ def reload_plugins(allowed: list[str]) -> list[str]:
 HEURISTIC_THRESHOLD_LOW = 0.3
 HEURISTIC_THRESHOLD_MEDIUM = 0.6
 HEURISTIC_THRESHOLD_HIGH = 0.8
+
+
+def _determine_containment_level(score: float) -> str | None:
+    if score >= ESCALATION_BLOCK_THRESHOLD:
+        return "block"
+    if score >= ESCALATION_TARPIT_THRESHOLD:
+        return "tarpit"
+    if score >= ESCALATION_THROTTLE_THRESHOLD:
+        return "throttle"
+    if score >= ESCALATION_THRESHOLD:
+        return "alert"
+    return None
+
+
+def _containment_reason(source: str, score: float, detail: str | None = None) -> str:
+    base = f"{source} containment score={score:.3f}"
+    if detail:
+        return f"{base}; {detail}"
+    return base
+
+
+async def _apply_containment_action(
+    metadata_req: "RequestMetadata",
+    *,
+    score: float,
+    source: str,
+    detail: str | None = None,
+) -> tuple[str, bool]:
+    level = _determine_containment_level(score) or "alert"
+    reason = _containment_reason(source, score, detail)
+    payload = metadata_req.model_dump(mode="json")
+    payload["containment_level"] = level
+    payload["detection_source"] = source
+    payload["score"] = round(score, 3)
+
+    publish_operational_event(
+        "containment_action_applied",
+        {
+            "source": metadata_req.source,
+            "ip": metadata_req.ip,
+            "path": metadata_req.path,
+            "score": round(score, 3),
+            "detection_source": source,
+            "containment_level": level,
+            "detail": detail,
+        },
+    )
+
+    if level == "block":
+        applied = add_ip_to_blocklist(metadata_req.ip, reason, payload)
+    elif level == "tarpit":
+        applied = flag_suspicious_ip(metadata_req.ip, reason)
+    elif level == "throttle":
+        applied = apply_ip_throttle(
+            metadata_req.ip,
+            reason=reason,
+            score=score,
+            source=source,
+            extra_details={"path": metadata_req.path, "method": metadata_req.method},
+        )
+    else:
+        applied = True
+
+    await forward_to_webhook(build_webhook_payload(payload, reason), reason)
+    if applied:
+        return f"containment_{level}_{source}", True
+    return f"containment_{level}_fallback_alert_{source}", True
+
 
 KNOWN_BAD_UAS_ENV = CONFIG.KNOWN_BAD_UAS
 KNOWN_BAD_UAS = [ua.strip() for ua in KNOWN_BAD_UAS_ENV.split(",") if ua.strip()]
@@ -1099,29 +1174,28 @@ async def handle_escalation(
             )
             increment_counter_metric(BOTS_DETECTED_IP_REPUTATION)
             increment_counter_metric(SCORE_ADJUSTED_IP_REPUTATION)
-            action_taken = "webhook_triggered_ip_reputation"
             is_bot_decision = True
             final_score = min(
                 1.0, max(0.0, final_score + IP_REPUTATION_MALICIOUS_SCORE_BONUS)
             )
-            payload = build_webhook_payload(
-                metadata_req.model_dump(mode="json"),
-                f"IP Reputation Malicious (Score: {ip_rep_result.get('score', 'N/A')})",
+            action_taken, is_bot_decision = await _apply_containment_action(
+                metadata_req,
+                score=final_score,
+                source="ip_reputation",
+                detail=(f"ip_reputation_score={ip_rep_result.get('score', 'N/A')}"),
             )
-            await forward_to_webhook(payload, "IP Reputation Malicious")
 
         if is_bot_decision is None:
             final_score = min(1.0, max(0.0, final_score))
 
-            if final_score >= HEURISTIC_THRESHOLD_HIGH:
-                is_bot_decision = True
-                action_taken = "webhook_triggered_high_score"
+            if final_score >= ESCALATION_THRESHOLD:
                 increment_counter_metric(BOTS_DETECTED_HIGH_SCORE)
-                payload = build_webhook_payload(
-                    metadata_req.model_dump(mode="json"),
-                    f"High Combined Score ({final_score:.3f})",
+                action_taken, is_bot_decision = await _apply_containment_action(
+                    metadata_req,
+                    score=final_score,
+                    source="heuristic_score",
+                    detail="high_combined_score",
                 )
-                await forward_to_webhook(payload, "High Combined Score")
             elif final_score < CAPTCHA_SCORE_THRESHOLD_LOW:
                 is_bot_decision = False
                 action_taken = "classified_human_low_score"
@@ -1140,14 +1214,13 @@ async def handle_escalation(
                     f"IP {ip_under_test} requires deeper check (Score: {final_score:.3f})."
                 )
                 if local_llm_result is True:
-                    is_bot_decision = True
-                    action_taken = "webhook_triggered_local_llm"
                     increment_counter_metric(BOTS_DETECTED_LOCAL_LLM)
-                    payload = build_webhook_payload(
-                        metadata_req.model_dump(mode="json"),
-                        "Local LLM Classification",
+                    action_taken, is_bot_decision = await _apply_containment_action(
+                        metadata_req,
+                        score=final_score,
+                        source="local_llm",
+                        detail="local_llm_confirmed_bot",
                     )
-                    await forward_to_webhook(payload, "Local LLM Classification")
                 elif local_llm_result is False:
                     is_bot_decision = False
                     action_taken = "classified_human_local_llm"
@@ -1156,15 +1229,14 @@ async def handle_escalation(
                     action_taken = "local_llm_inconclusive"
                     if external_api_task is not None or external_api_result is not None:
                         if external_api_result is True:
-                            is_bot_decision = True
-                            action_taken = "webhook_triggered_external_api"
                             increment_counter_metric(BOTS_DETECTED_EXTERNAL_API)
-                            payload = build_webhook_payload(
-                                metadata_req.model_dump(mode="json"),
-                                "External API Classification",
-                            )
-                            await forward_to_webhook(
-                                payload, "External API Classification"
+                            action_taken, is_bot_decision = (
+                                await _apply_containment_action(
+                                    metadata_req,
+                                    score=final_score,
+                                    source="external_api",
+                                    detail="external_api_confirmed_bot",
+                                )
                             )
                         elif external_api_result is False:
                             is_bot_decision = False

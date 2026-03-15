@@ -24,6 +24,10 @@ class TestIISGateway(unittest.TestCase):
 
         self.redis_mock = MagicMock()
         self.gateway.redis_client = self.redis_mock
+        self.throttle_patch = patch(
+            "src.iis_gateway.main.get_ip_throttle", return_value=None
+        )
+        self.mock_get_ip_throttle = self.throttle_patch.start()
 
         self.escalate_patch = patch("src.iis_gateway.main.escalate", new=AsyncMock())
         self.escalate_patch.start()
@@ -40,6 +44,7 @@ class TestIISGateway(unittest.TestCase):
     def tearDown(self):
         self.httpx_patch.stop()
         self.escalate_patch.stop()
+        self.throttle_patch.stop()
         self.env.stop()
 
     def test_rate_limit_exceeded(self):
@@ -57,6 +62,18 @@ class TestIISGateway(unittest.TestCase):
         self.assertEqual(resp1.status_code, 403)
         self.assertEqual(resp2.status_code, 403)
         self.redis_mock.exists.assert_called_once()
+
+    def test_throttled_ip_returns_retry_after(self):
+        self.redis_mock.exists.return_value = False
+        self.mock_get_ip_throttle.return_value = {
+            "reason": "threshold hit",
+            "ttl_seconds": 33,
+        }
+
+        resp = self.client.get("/throttled")
+
+        self.assertEqual(resp.status_code, 429)
+        self.assertEqual(resp.headers["retry-after"], "33")
 
     def test_proxy_sanitizes_spoofed_forward_headers(self):
         self.redis_mock.exists.return_value = False
