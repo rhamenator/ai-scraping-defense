@@ -536,7 +536,7 @@ services:
     restart: unless-stopped
 
   fail2ban:
-    image: crazymax/fail2ban:latest
+    image: crazymax/fail2ban@sha256:a1476ec3587dd7c6756d8cdb448fb0a262c242042d8a71557da6b5aa7aecd911
     container_name: fail2ban
     network_mode: "host"
     cap_add:
@@ -552,7 +552,7 @@ services:
       - nginx_proxy
 
   suricata:
-    image: jasonish/suricata:latest
+    image: jasonish/suricata@sha256:3f7b2f06e4667e4149deb34c52f278213a4a9b74bf926939aa5cbfc6c595dca0
     container_name: suricata
     network_mode: "host"
     cap_add:
@@ -584,7 +584,7 @@ services:
     restart: unless-stopped
 
   llama3:
-    image: ollama/ollama:latest
+    image: ollama/ollama@sha256:e23e6499890325d31f3454cdc83f7a613a2423c8a9e167bbafea0b0e3c27d7c6
     container_name: llama3
     command: ["sh", "-c", "ollama pull llama3 && ollama serve"]
     ports:
@@ -607,7 +607,7 @@ services:
     restart: unless-stopped
 
   mixtral:
-    image: ollama/ollama:latest
+    image: ollama/ollama@sha256:e23e6499890325d31f3454cdc83f7a613a2423c8a9e167bbafea0b0e3c27d7c6
     container_name: mixtral
     command: ["sh", "-c", "ollama pull mixtral && ollama serve"]
     ports:
@@ -630,7 +630,7 @@ services:
     restart: unless-stopped
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus@sha256:4a61322ac1103a0e3aea2a61ef1718422a48fa046441f299d71e660a3bc71ae9
     container_name: prometheus
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -641,7 +641,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana@sha256:e932bd6ed0e026595b08483cd0141e5103e1ab7ff8604839ff899b8dc54cabcb
     container_name: grafana
     ports:
       - "${GRAFANA_PORT:-3000}:3000"
@@ -654,7 +654,7 @@ services:
     restart: unless-stopped
 
   watchtower:
-    image: containrrr/watchtower
+    image: containrrr/watchtower@sha256:6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038
     container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
