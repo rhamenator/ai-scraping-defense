@@ -60,7 +60,6 @@ jobs:
         run: |
           docker compose \
             -f docker-compose.yaml \
-            -f .github/compose/security-attack-regression.override.yaml \
             up -d --wait \
             mock_external_api \
             postgres \
@@ -85,14 +84,8 @@ jobs:
         if: always()
         run: |
           mkdir -p artifacts
-          docker compose \
-            -f docker-compose.yaml \
-            -f .github/compose/security-attack-regression.override.yaml \
-            ps > artifacts/compose-ps.txt || true
-          docker compose \
-            -f docker-compose.yaml \
-            -f .github/compose/security-attack-regression.override.yaml \
-            logs --no-color > artifacts/compose.log || true
+          docker compose -f docker-compose.yaml ps > artifacts/compose-ps.txt || true
+          docker compose -f docker-compose.yaml logs --no-color > artifacts/compose.log || true
       - name: Upload compose logs
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
@@ -103,7 +96,4 @@ jobs:
       - name: Tear down compose stack
         if: always()
         run: |
-          docker compose \
-            -f docker-compose.yaml \
-            -f .github/compose/security-attack-regression.override.yaml \
-            down -v --remove-orphans
+          docker compose -f docker-compose.yaml down -v --remove-orphans
