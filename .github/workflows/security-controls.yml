@@ -74,6 +74,7 @@ jobs:
       - name: Trivy filesystem scan
         uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518
         with:
+          version: v0.65.0
           scan-type: fs
           scan-ref: .
           severity: CRITICAL,HIGH
@@ -90,6 +91,7 @@ jobs:
       - name: Trivy config scan
         uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518
         with:
+          version: v0.65.0
           scan-type: config
           scan-ref: .
           severity: CRITICAL,HIGH
