@@ -11,20 +11,43 @@ spec:
     spec:
       template:
         spec:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
           containers:
           - name: corpus-updater
             image: your-registry/ai-scraping-defense:latest
             imagePullPolicy: Always
             # Updated command to run the corpus updater script.
             command: ["python", "src/util/corpus_wikipedia_updater.py"]
+            resources:
+              requests:
+                cpu: "100m"
+                memory: "128Mi"
+              limits:
+                cpu: "500m"
+                memory: "512Mi"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: ["ALL"]
             env:
             - name: CORPUS_FILE_PATH
               value: "/corpus_data/wikipedia_corpus.txt"
             volumeMounts:
             - name: corpus-storage
               mountPath: /corpus_data
+            - name: tmp
+              mountPath: /tmp
           restartPolicy: OnFailure
           volumes:
           - name: corpus-storage
             persistentVolumeClaim:
               claimName: corpus-data-pvc
+          - name: tmp
+            emptyDir: {}

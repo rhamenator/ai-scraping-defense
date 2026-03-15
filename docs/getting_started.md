@@ -4,18 +4,18 @@ This guide will walk you through setting up the AI Scraping Defense project for 
 
 ## **Quick Local Setup**
 
-Run the helper script after cloning the repository:
+Run the helper installer after cloning the repository:
 
 ```bash
 git clone https://github.com/your-username/ai-scraping-defense.git
 cd ai-scraping-defense
-sudo ./scripts/linux/quickstart_dev.sh  # Linux
-./scripts/macos/quickstart_dev.zsh      # macOS
+sudo ./scripts/linux/install.sh         # Linux
+./scripts/macos/install.zsh             # macOS
 ```
 
-On Windows, run `scripts\\windows\\quickstart_dev.ps1` from an **Administrator PowerShell** window instead of the shell script.
+On Windows, run `scripts\\windows\\install.ps1` from an **Administrator PowerShell** window instead of the shell script.
 
-The script copies `sample.env`, generates secrets, installs dependencies, and launches Docker Compose.
+The Linux installer copies `sample.env`, generates secrets when needed, installs dependencies, launches Docker Compose through the selected reverse-proxy helper, and runs the Linux smoke test.
 If you encounter setup issues, see [Troubleshooting](troubleshooting.md) for common fixes.
 
 ## **Project Structure**
@@ -64,7 +64,7 @@ python [scripts/interactive_setup.py](../scripts/interactive_setup.py)
 When run, the helper can store your secrets in a SQLite database at `secrets/local_secrets.db`. Delete this file or answer **n** to disable or clear the stored values.
 
 
-Now, open the .env file in your code editor. For now, you can leave the default values as they are. This is where you would add your real API keys for services like OpenAI or Mistral when you're ready to use them. For **production** deployments, update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443` so the proxy listens on the standard web ports.
+Now, open the .env file in your code editor. For now, you can leave the default values as they are. This is where you would add your real API keys for services like OpenAI or Mistral when you're ready to use them. The sample file defaults `NGINX_HTTP_PORT` and `NGINX_HTTPS_PORT` to `8088` and `8443` so the stack can coexist with a host Apache or nginx service during Ubuntu testing. For **production** or takeover deployments, update those values to `80` and `443` so the proxy listens on the standard web ports.
 
 For a step-by-step path from local testing to a hardened production environment, see [test_to_production.md](test_to_production.md).
 #### **Minimal Required Variables**
@@ -77,7 +77,7 @@ To bring the stack up, only a handful of settings must be reviewed in `.env`:
   - `mistral://mistral-large-latest`
 - The API key matching your chosen provider: `OPENAI_API_KEY`, `MISTRAL_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or `COHERE_API_KEY`.
 - `EXTERNAL_API_KEY` for optional integrations.
-- Port values such as `NGINX_HTTP_PORT`, `NGINX_HTTPS_PORT`, and `ADMIN_UI_PORT` typically work as-is.
+- Port values such as `NGINX_HTTP_PORT`, `NGINX_HTTPS_PORT`, and `ADMIN_UI_PORT` typically work as-is for local testing. On Ubuntu hosts that already run Apache or nginx, keep the default `8088`/`8443` mapping or choose another unused pair.
 - `PROMPT_ROUTER_HOST` and `PROMPT_ROUTER_PORT` define where the Escalation Engine sends its LLM requests.
 - `PROMETHEUS_PORT` and `GRAFANA_PORT` control the monitoring dashboard ports.
 - `REAL_BACKEND_HOSTS` can supply a comma-separated list of backend servers for load balancing. Use `REAL_BACKEND_HOST` for a single destination.
@@ -88,7 +88,7 @@ To bring the stack up, only a handful of settings must be reviewed in `.env`:
 
 Prometheus uses a static configuration file (`monitoring/prometheus.yml`) to define scrape targets. Environment variable substitution isn't supported, so edit that file directly if your service names or ports differ from the defaults.
 
-The `[scripts/interactive_setup.py](../scripts/interactive_setup.py)` helper referenced above will prompt for these values and update `.env` automatically.
+The `[scripts/interactive_setup.py](../scripts/interactive_setup.py)` helper referenced above will prompt for these values and update `.env` automatically. If you need to stop midway (for example, to obtain Cloudflare credentials), type `pause` at a prompt or interrupt the script and rerun it; setup progress is resumed from `.interactive_setup_state.json`.
 
 You can verify the file at any time using the validator:
 
@@ -119,7 +119,7 @@ This script will create a virtual environment in the .venv directory, install al
 
 ### **4. Generate Local Secrets**
 
-The application requires several secrets to run (e.g., database passwords). A script is provided to generate these securely. It creates `kubernetes/secrets.yaml` and prints the credentials to your console. By default it **does not** modify your `.env` file. When run with `--update-env`, it updates the file and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose. If you used the interactive setup script, this step is performed automatically.
+The application requires several secrets to run (e.g., database passwords). A script is provided to generate these securely. It creates `kubernetes/secrets.yaml` and prints the credentials to your console. By default it **does not** modify your `.env` file. When run with `--update-env`, it updates the file and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose. Those Compose-mounted files are written with container-readable permissions for local and CI runs. If you used the interactive setup script, this step is performed automatically.
 
 * **On Linux or macOS:**
 
@@ -150,6 +150,14 @@ With the configuration and secrets in place, you can now build and start all the
 ``` bash
 # On Linux or macOS
 docker-compose up --build -d
+```
+
+If you are running Docker from a snap-packaged Linux install and the Python
+services fail with `exec /app/docker-entrypoint.sh: operation not permitted`,
+launch the stack with the local override file instead:
+
+``` bash
+docker compose -f docker-compose.yaml -f docker-compose.local.yaml up --build -d
 ```
 
 ``` PowerShell
@@ -248,12 +256,40 @@ When using an external provider, populate the matching API key variable (e.g., `
 The `.env` file also contains toggles for several optional integrations:
 
 - **Web Application Firewall** (`ENABLE_WAF`) mounts ModSecurity rules specified by `WAF_RULES_PATH`.
-- **Global CDN** (`ENABLE_GLOBAL_CDN`) connects to a provider using `CLOUD_CDN_API_TOKEN`.
+- **Global CDN** (`ENABLE_GLOBAL_CDN`) uses Cloudflare and requires `CLOUD_CDN_ZONE_ID` plus `CLOUD_CDN_API_TOKEN` (or `CLOUD_CDN_API_TOKEN_FILE`).
 - **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) sends suspicious traffic to the local escalation engine. The optional `ddos_guard.py` script watches Nginx logs for high request rates, classifies floods as HTTP-based or volumetric, and reports attackers. Data can also be forwarded to a third-party service if a provider URL and API key are supplied.
 - **Managed TLS** (`ENABLE_MANAGED_TLS`) automatically issues certificates using `TLS_PROVIDER` and `TLS_EMAIL`.
 - **CAPTCHA Verification** activates when `CAPTCHA_SECRET` is supplied.
 - **LLM-Generated Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) require a `TARPIT_LLM_MODEL_URI`.
 - **Admin UI Two-Factor Auth** requires `ADMIN_UI_2FA_SECRET` and a TOTP in the `X-2FA-Code` header.
+
+### **Cloudflare Tunnel (for ISP Port Blocks)**
+
+If your ISP blocks inbound web ports (common on residential plans), use Cloudflare Tunnel so the server only makes outbound connections:
+
+```bash
+# Linux quick temporary public URL
+./scripts/linux/start_cloudflare_tunnel.sh
+
+# Linux named tunnel (stable hostname configured in Cloudflare Zero Trust)
+CLOUDFLARE_TUNNEL_TOKEN=<your_tunnel_token> ./scripts/linux/start_cloudflare_tunnel.sh
+```
+
+```zsh
+# macOS quick tunnel
+./scripts/macos/start_cloudflare_tunnel.zsh
+```
+
+```powershell
+# Windows quick tunnel
+.\scripts\windows\start_cloudflare_tunnel.ps1
+```
+
+By default the tunnel forwards to `http://localhost:${NGINX_HTTP_PORT}`. Override with:
+
+```bash
+CLOUDFLARE_TUNNEL_TARGET_URL=http://localhost:8080 ./scripts/linux/start_cloudflare_tunnel.sh
+```
 
 ## **Running Local LLM Containers**
 

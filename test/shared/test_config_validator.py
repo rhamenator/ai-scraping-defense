@@ -48,6 +48,7 @@ class TestConfigLoader(unittest.TestCase):
                 "REDIS_PORT": "6380",
                 "TAR_PIT_MIN_DELAY_SEC": "0.5",
                 "TAR_PIT_MAX_DELAY_SEC": "2.0",
+                "TAR_PIT_MAX_STREAM_SECONDS": "45.0",
                 "ESCALATION_THRESHOLD": "0.9",
                 "ENABLE_TARPIT_CATCH_ALL": "true",
                 "ENABLE_FINGERPRINTING": "true",
@@ -62,6 +63,7 @@ class TestConfigLoader(unittest.TestCase):
         self.assertTrue(config.debug)
         self.assertEqual(config.redis.port, 6380)
         self.assertEqual(config.tarpit.min_delay_sec, 0.5)
+        self.assertEqual(config.tarpit.max_stream_seconds, 45.0)
         self.assertEqual(config.escalation.threshold, 0.9)
 
     def test_validate_slack_alerts_accepts_webhook_file(self):

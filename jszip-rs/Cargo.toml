@@ -13,14 +13,14 @@ name = "jszip_rs"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-pyo3 = { version = "0.28.0", features = ["abi3-py37", "extension-module", "auto-initialize"] }
-zip = "7.3"
+pyo3 = { version = "0.28.2", features = ["abi3-py37", "extension-module", "auto-initialize"] }
+zip = "8.2"
 rand = "0.10"
 chrono = "0.4"
 tempfile = "3"
 
 [build-dependencies]
-pyo3-build-config = { version = "0.28.0", features = ["resolve-config"] }
+pyo3-build-config = { version = "0.28.2", features = ["resolve-config"] }
 
 [profile.release]
 opt-level = 3

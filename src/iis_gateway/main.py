@@ -60,6 +60,24 @@ redis_client = redis.Redis(
 )
 
 BLOCK_CACHE = TTLCache(maxsize=10000, ttl=60)
+HOP_BY_HOP_HEADERS = {
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailers",
+    "transfer-encoding",
+    "upgrade",
+}
+FORWARDED_HEADER_NAMES = {
+    "host",
+    "x-forwarded-for",
+    "x-forwarded-host",
+    "x-forwarded-port",
+    "x-forwarded-proto",
+    "x-real-ip",
+}
 
 
 @register_health_check(app, "iis_gateway_redis", critical=True)
@@ -125,6 +143,29 @@ async def escalate(ip: str, reason: str) -> None:
             logger.exception("Escalation failed")
 
 
+def _build_forward_headers(request: Request) -> dict[str, str]:
+    """Build canonical proxy headers and drop spoofable client-supplied values."""
+
+    forwarded_headers = {
+        key: value
+        for key, value in request.headers.items()
+        if key.lower() not in HOP_BY_HOP_HEADERS | FORWARDED_HEADER_NAMES
+    }
+
+    client_ip = request.client.host if request.client else "unknown"
+    forwarded_headers["Host"] = request.headers.get("host", request.url.netloc)
+    forwarded_headers["X-Forwarded-For"] = client_ip
+    forwarded_headers["X-Forwarded-Host"] = request.headers.get(
+        "host", request.url.netloc
+    )
+    scheme = request.url.scheme
+    default_port = 443 if scheme == "https" else 80
+    forwarded_headers["X-Forwarded-Port"] = str(request.url.port or default_port)
+    forwarded_headers["X-Forwarded-Proto"] = scheme
+    forwarded_headers["X-Real-IP"] = client_ip
+    return forwarded_headers
+
+
 @app.api_route(
     "/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
 )
@@ -165,7 +206,7 @@ async def proxy(path: str, request: Request) -> Response:
                 resp = await client.request(
                     request.method,
                     url,
-                    headers=request.headers.raw,
+                    headers=_build_forward_headers(request),
                     content=request.stream(),
                     params=request.query_params,
                 )

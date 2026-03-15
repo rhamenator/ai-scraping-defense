@@ -7,7 +7,7 @@ compliance violations, and generate analytics reports.
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -149,7 +149,7 @@ class SecretComplianceMonitor:
                 )
 
             created_dt = datetime.fromisoformat(created_time.replace("Z", "+00:00"))
-            age = datetime.utcnow() - created_dt.replace(tzinfo=None)
+            age = datetime.now(UTC) - created_dt
             age_days = age.days
 
             # Update metric
@@ -299,7 +299,7 @@ class SecretComplianceMonitor:
             "status": ComplianceStatus.COMPLIANT.value,
             "checks": [],
             "score": 100,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         checks = []
@@ -407,7 +407,7 @@ class SecretComplianceMonitor:
         results = self.audit_multiple_secrets(policies)
 
         report = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "total_secrets": len(results),
             "compliant": sum(
                 1 for r in results if r["status"] == ComplianceStatus.COMPLIANT.value

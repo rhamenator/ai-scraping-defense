@@ -1,14 +1,22 @@
 # Security Monitoring, Audit Logging, and Incident Response
 
-This runbook operationalizes the controls enumerated in
-`security_problems_batch1.json` by defining how they are monitored, logged,
-and escalated in production.
+This runbook operationalizes the current security baseline and active
+security backlog by defining how controls are monitored, logged, and escalated
+in production.
 
 ## Telemetry and Monitoring
 
 - **Log aggregation** – All services emit JSON-formatted audit events via
   `src/shared/audit.py`. Forward `/app/logs/audit.log` and service-specific logs
   to a centralized SIEM (e.g., Elastic, Splunk). Retain logs for 180 days.
+- **Durable security events** – Security-relevant audit, decision, alert-delivery,
+  and operational events are also persisted to `SECURITY_EVENTS_DB_PATH`
+  (default: `/app/data/security_events.db`) through `src/shared/security_events.py`.
+  Export them without scraping ad hoc logs:
+
+  ```bash
+  python scripts/export_security_events.py --output reports/security-events.jsonl
+  ```
 - **Metrics** – Expose FastAPI metrics via `prometheus-client` and scrape
   latency, error rates, and rate-limit violations. Alerts trigger when 5xx rates
   exceed 1% of traffic or rate-limit denials spike for 10 minutes.
@@ -23,6 +31,8 @@ and escalated in production.
 - **Coverage** – All authentication flows log success/failure events via
   `src/shared/audit.log_event`. Ensure API controllers record user ID, IP, and
   action scope.
+- **Export** – JSONL exports redact secrets and direct IP fields before writing
+  investigation artifacts suitable for SIEM ingestion or offline review.
 - **Protection** – File permissions hardened to `600`. Rotate audit logs daily
   and back up to encrypted object storage with bucket policies enforcing
   write-only access from workloads.
@@ -127,7 +137,7 @@ print(f'Average Score: {report[\"average_score\"]:.1f}')
 
 ## Continuous Improvement
 
-- Integrate new findings from subsequent security batches by regenerating the
-  inventory (`python src/security_audit/inventory.py`).
+- Integrate new findings from active issues, CI security workflows, and staged
+  attack-simulation runs.
 - Track remediation status in the governance dashboard with owners, due dates,
   and verification artifacts from CI/CD runs.

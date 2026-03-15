@@ -14,12 +14,31 @@ spec:
           # This job requires special permissions to edit ConfigMaps,
           # so it needs a dedicated ServiceAccount.
           serviceAccountName: configmap-editor-sa
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
           containers:
           - name: robots-fetcher
             image: your-registry/ai-scraping-defense:latest
             imagePullPolicy: Always
             # Updated command to run the robots fetcher script.
             command: ["python", "src/util/robots_fetcher.py"]
+            resources:
+              requests:
+                cpu: "50m"
+                memory: "64Mi"
+              limits:
+                cpu: "250m"
+                memory: "256Mi"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: ["ALL"]
             env:
             - name: REAL_BACKEND_HOST
               value: "http://nginx-proxy.ai-defense.svc.cluster.local"
@@ -31,4 +50,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           restartPolicy: OnFailure
+          volumes:
+          - name: tmp
+            emptyDir: {}

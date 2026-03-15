@@ -32,6 +32,7 @@ class TestIISGateway(unittest.TestCase):
         async_client_instance.request.return_value = MagicMock(
             content=b"ok", status_code=200, headers={}
         )
+        self.async_client_instance = async_client_instance
         self.httpx_patch = patch("src.iis_gateway.main.httpx.AsyncClient")
         self.httpx_mock = self.httpx_patch.start()
         self.httpx_mock.return_value.__aenter__.return_value = async_client_instance
@@ -56,6 +57,33 @@ class TestIISGateway(unittest.TestCase):
         self.assertEqual(resp1.status_code, 403)
         self.assertEqual(resp2.status_code, 403)
         self.redis_mock.exists.assert_called_once()
+
+    def test_proxy_sanitizes_spoofed_forward_headers(self):
+        self.redis_mock.exists.return_value = False
+        self.redis_mock.incr.return_value = 1
+        self.redis_mock.expire.return_value = True
+
+        response = self.client.get(
+            "/proxy-target",
+            headers={
+                "Host": "public.example",
+                "X-Forwarded-For": "8.8.8.8",
+                "X-Forwarded-Proto": "https",
+                "X-Forwarded-Host": "spoofed.example",
+                "X-Forwarded-Port": "443",
+                "X-Real-IP": "7.7.7.7",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        request_call = self.async_client_instance.request.await_args
+        forwarded_headers = request_call.kwargs["headers"]
+        self.assertEqual(forwarded_headers["Host"], "public.example")
+        self.assertEqual(forwarded_headers["X-Forwarded-Host"], "public.example")
+        self.assertEqual(forwarded_headers["X-Forwarded-For"], "testclient")
+        self.assertEqual(forwarded_headers["X-Real-IP"], "testclient")
+        self.assertEqual(forwarded_headers["X-Forwarded-Proto"], "http")
+        self.assertEqual(forwarded_headers["X-Forwarded-Port"], "80")
 
 
 if __name__ == "__main__":

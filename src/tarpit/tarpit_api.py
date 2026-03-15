@@ -7,12 +7,13 @@ import os
 import random
 import re
 import secrets
+import time
 from typing import Dict
 
 import httpx
 from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 # The direct 'redis' import is no longer needed as the client handles it.
 from redis.exceptions import RedisError
@@ -36,7 +37,8 @@ class TarpitPathValidator(BaseModel):
 
     path: str = Field(default="", max_length=2048, description="Request path")
 
-    @validator("path")
+    @field_validator("path")
+    @classmethod
     def sanitize_path(cls, v):
         """Sanitize path to prevent injection attacks."""
         if not v:
@@ -63,7 +65,8 @@ class EscalationMetadata(BaseModel):
     headers: Dict[str, str] = Field(default_factory=dict)
     source: str = Field(default="tarpit_api", max_length=50)
 
-    @validator("ip")
+    @field_validator("ip")
+    @classmethod
     def validate_ip(cls, v):
         """Basic IP validation."""
         if v == "unknown":
@@ -74,7 +77,8 @@ class EscalationMetadata(BaseModel):
             raise ValueError("Invalid IP format")
         return v
 
-    @validator("method")
+    @field_validator("method")
+    @classmethod
     def validate_method(cls, v):
         """Validate HTTP method."""
         allowed_methods = {"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
@@ -83,7 +87,8 @@ class EscalationMetadata(BaseModel):
             return "GET"  # Default to GET for invalid methods
         return v
 
-    @validator("headers")
+    @field_validator("headers")
+    @classmethod
     def sanitize_headers(cls, v):
         """Sanitize header values."""
         sanitized = {}
@@ -185,6 +190,7 @@ else:
 ESCALATION_ENDPOINT = CONFIG.ESCALATION_ENDPOINT
 MIN_STREAM_DELAY_SEC = CONFIG.TAR_PIT_MIN_DELAY_SEC
 MAX_STREAM_DELAY_SEC = CONFIG.TAR_PIT_MAX_DELAY_SEC
+MAX_STREAM_DURATION_SEC = max(1.0, CONFIG.TAR_PIT_MAX_STREAM_SECONDS)
 SYSTEM_SEED = CONFIG.SYSTEM_SEED
 DEFAULT_SYSTEM_SEED = "default_system_seed_value_change_me"
 
@@ -301,11 +307,22 @@ def _random_delay(min_delay: float, max_delay: float) -> float:
 
 
 async def slow_stream_content(content: str):
+    started_at = time.monotonic()
     lines = content.split("\n")
     for line in lines:
+        elapsed = time.monotonic() - started_at
+        remaining = MAX_STREAM_DURATION_SEC - elapsed
+        if remaining <= 0:
+            logger.warning(
+                "Tarpit stream duration limit reached (%.2fs); closing response",
+                MAX_STREAM_DURATION_SEC,
+            )
+            break
         yield line + "\n"
         delay = _random_delay(MIN_STREAM_DELAY_SEC, MAX_STREAM_DELAY_SEC)
-        await asyncio.sleep(delay)
+        sleep_for = min(delay, max(0.0, remaining))
+        if sleep_for > 0:
+            await asyncio.sleep(sleep_for)
 
 
 def trigger_ip_block(ip: str, reason: str):
@@ -440,7 +457,7 @@ async def tarpit_handler(request: Request, path: str = ""):
             headers=dict(request.headers),
             source="tarpit_api",
         )
-        metadata_dict = metadata.dict()
+        metadata_dict = metadata.model_dump()
     except Exception as e:
         logger.error(f"Error creating metadata for IP {client_ip}: {e}")
         # Use a sanitized fallback

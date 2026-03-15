@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
 import os
 import time
@@ -22,6 +23,8 @@ from .errors import register_error_handlers
 from .observability import ObservabilitySettings, configure_observability
 
 logger = logging.getLogger(__name__)
+
+TrustedProxyNetwork = ipaddress.IPv4Network | ipaddress.IPv6Network
 
 
 @dataclass(frozen=True)
@@ -98,6 +101,36 @@ def _parse_host_list(name: str) -> list[str]:
             seen.add(host)
             unique.append(host)
     return unique
+
+
+def _parse_trusted_proxy_networks(name: str) -> list[TrustedProxyNetwork]:
+    """Parse a comma-separated list of trusted proxy IPs or CIDR ranges."""
+
+    raw = os.getenv(name, "")
+    networks: list[TrustedProxyNetwork] = []
+    for entry in raw.split(","):
+        candidate = entry.strip()
+        if not candidate:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(candidate, strict=False))
+        except ValueError as exc:
+            raise ValueError(
+                f"Environment variable {name} contains invalid proxy network {candidate!r}"
+            ) from exc
+    return networks
+
+
+def _request_from_trusted_proxy(
+    request: Request, trusted_proxies: list[TrustedProxyNetwork]
+) -> bool:
+    if not trusted_proxies or request.client is None or not request.client.host:
+        return False
+    try:
+        client_ip = ipaddress.ip_address(request.client.host)
+    except ValueError:
+        return False
+    return any(client_ip in network for network in trusted_proxies)
 
 
 class RequestTargetLimitMiddleware(BaseHTTPMiddleware):
@@ -301,10 +334,15 @@ def add_security_middleware(
     if settings.enable_https:
         canonical = os.getenv("SECURITY_HTTPS_REDIRECT_CANONICAL_HOST", "").strip()
         allowed_hosts = _parse_host_list("SECURITY_HTTPS_REDIRECT_ALLOWED_HOSTS")
+        trusted_proxies = _parse_trusted_proxy_networks("SECURITY_TRUSTED_PROXY_CIDRS")
 
         @app.middleware("http")
         async def _enforce_https(request, call_next):
-            forwarded = request.headers.get("x-forwarded-proto")
+            forwarded = (
+                request.headers.get("x-forwarded-proto")
+                if _request_from_trusted_proxy(request, trusted_proxies)
+                else None
+            )
             scheme = (
                 forwarded.split(",")[0].strip() if forwarded else request.url.scheme
             )

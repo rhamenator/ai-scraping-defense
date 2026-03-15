@@ -1,0 +1,24 @@
+services:
+  ai_service:
+    read_only: false
+
+  escalation_engine:
+    read_only: false
+
+  tarpit_api:
+    read_only: false
+
+  admin_ui:
+    read_only: false
+
+  captcha_service:
+    read_only: false
+
+  cloud_dashboard:
+    read_only: false
+
+  config_recommender:
+    read_only: false
+
+  blocklist_sync:
+    read_only: false

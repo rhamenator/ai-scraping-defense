@@ -12,12 +12,37 @@ spec:
       template:
         spec:
           serviceAccountName: waf-rules-updater-sa
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
           containers:
           - name: owasp-crs-fetcher
             image: your-registry/ai-scraping-defense:latest
             imagePullPolicy: Always
             command: ["python", "-m", "src.util.rules_fetcher"]
+            resources:
+              requests:
+                cpu: "100m"
+                memory: "128Mi"
+              limits:
+                cpu: "500m"
+                memory: "512Mi"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: ["ALL"]
             env:
             - name: CRS_DOWNLOAD_URL
               value: "https://github.com/coreruleset/coreruleset/archive/refs/heads/v3.3/main.tar.gz"
+            volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          volumes:
+          - name: tmp
+            emptyDir: {}
           restartPolicy: OnFailure

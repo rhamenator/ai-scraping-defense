@@ -111,6 +111,20 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 | `DEBUG` | `false` | Enable debug mode in services |
 | `TENANT_ID` | `default` | Namespace prefix for multi-tenant setups |
 
+## Global CDN (Cloudflare)
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ENABLE_GLOBAL_CDN` | `false` | Enable CDN cache operations |
+| `CLOUD_CDN_PROVIDER` | `cloudflare` | CDN provider (currently `cloudflare` only) |
+| `CLOUD_CDN_ZONE_ID` | *(none)* | Cloudflare zone ID used to construct purge endpoint |
+| `CLOUD_CDN_API_TOKEN` | *(none)* | Cloudflare API token with cache purge permissions |
+| `CLOUD_CDN_API_TOKEN_FILE` | *(none)* | File path containing the Cloudflare API token |
+| `CDN_PURGE_URL` | *(derived)* | Optional explicit purge endpoint override |
+| `REQUIRE_CLOUDFLARE_ACCOUNT` | `false` | Fail environment validation unless Cloudflare integration is configured |
+| `CLOUDFLARE_TUNNEL_TOKEN` | *(none)* | Optional token used by `scripts/linux/start_cloudflare_tunnel.sh` for named tunnels |
+| `CLOUDFLARE_TUNNEL_TARGET_URL` | `http://localhost:${NGINX_HTTP_PORT}` | Optional origin URL for Cloudflare Tunnel script |
+
 ## Tarpit and Blocklist
 
 | Variable | Default | Description |
@@ -118,6 +132,7 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 | `ESCALATION_ENDPOINT` | `http://escalation_engine:8003/escalate` | URL used by Nginx Lua to send escalation data |
 | `TAR_PIT_MIN_DELAY_SEC` | `0.6` | Minimum tarpit delay |
 | `TAR_PIT_MAX_DELAY_SEC` | `1.2` | Maximum tarpit delay |
+| `TAR_PIT_MAX_STREAM_SECONDS` | `60.0` | Hard ceiling for one tarpit response stream before it is cut off |
 | `SYSTEM_SEED` | `default_system_seed_value_change_me` | Seed for tarpit text generation; **must be overridden** |
 | `TAR_PIT_MAX_HOPS` | `250` | Max recorded tarpit hops |
 | `TAR_PIT_HOP_WINDOW_SECONDS` | `86400` | Sliding window for hop counts |

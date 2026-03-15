@@ -59,6 +59,16 @@ This project provides a multi-layered, microservice-based defense system against
 - The legacy `security-autofix.yml` now delegates to the generic autofixer for compatibility.
 - The `security-controls` workflow acts as the security baseline gate. See `docs/SECURITY_BASELINE_GATE.md`.
 
+## Release Path
+
+- `ci-tests.yml` is the primary cross-platform validation workflow for pushes to `main` and pull requests.
+- `tests.yml` now serves as a dedicated Rust nightly smoke workflow instead of duplicating the main PR test path.
+- `security-attack-regression.yml` is the deterministic PR-time ingress regression gate; it boots the Compose stack locally and asserts expected security behaviour.
+- `kali-security-sweep.yml` is the broader external attack sweep intended for a self-hosted Kali runner against a preview or staging target.
+- tagged releases publish signed container images through `/.github/workflows/release-images.yml`.
+
+See [docs/release_checklist.md](docs/release_checklist.md) and [docs/release_artifacts.md](docs/release_artifacts.md) for the expected release process and artifact policy.
+
 ## Architecture Overview
 
 The following diagram provides a high-level view of how the major components interact. Note that the AI Service merely receives webhook data and enqueues it for the Escalation Engine, which performs the actual analysis. See [docs/architecture.md](docs/architecture.md) for a deeper explanation.
@@ -151,11 +161,11 @@ installs dependencies, and starts Docker Compose. See
 ### Linux
 1. [Install Docker Engine](https://docs.docker.com/engine/install/) and ensure it is running.
 2. Install Python 3.10 or newer (`sudo apt install python3 python3-venv` on Debian-based distros).
-3. Clone the repository and execute the quickstart script:
+3. Clone the repository and execute the Linux installer:
    ```bash
    git clone https://github.com/your-username/ai-scraping-defense.git
    cd ai-scraping-defense
-    sudo ./scripts/linux/quickstart_dev.sh
+   sudo ./scripts/linux/install.sh
    ```
 4. When the containers finish starting, open [http://localhost:5002](http://localhost:5002) to view the Admin UI dashboard.
 5. If you see "Cannot connect to the Docker daemon," start the service with
@@ -168,7 +178,7 @@ installs dependencies, and starts Docker Compose. See
    ```bash
    git clone https://github.com/your-username/ai-scraping-defense.git
    cd ai-scraping-defense
-    ./scripts/macos/quickstart_dev.zsh
+    ./scripts/macos/install.zsh
    ```
 4. When the containers finish starting, visit [http://localhost:5002](http://localhost:5002) to open the Admin UI.
 5. If containers fail to start, confirm Docker Desktop is running by opening the Docker menu.
@@ -181,14 +191,14 @@ installs dependencies, and starts Docker Compose. See
    ```powershell
    git clone https://github.com/your-username/ai-scraping-defense.git
    cd ai-scraping-defense
-   .\scripts\windows\quickstart_dev.ps1
+   .\scripts\windows\install.ps1
    ```
 4. After the containers start, browse to [http://localhost:5002](http://localhost:5002) to access the Admin UI.
 5. If Docker commands are not found, verify Docker Desktop is running and try `docker version`.
 
 ## Quick Local Setup
 
-Run the automated script after cloning the repository:
+Run the automated installer after cloning the repository:
 
 ```bash
 git clone https://github.com/your-username/ai-scraping-defense.git
@@ -197,19 +207,28 @@ cd ai-scraping-defense
 cp sample.env .env
 python scripts/validate_env.py
 
-sudo ./scripts/linux/quickstart_dev.sh   # Linux
-./scripts/macos/quickstart_dev.zsh   # macOS
+sudo ./scripts/linux/install.sh          # Linux
+./scripts/macos/install.zsh          # macOS
 
 ```
 
 For the security testing environment, a helper `scripts/linux/security_setup.sh` script installs all Python requirements and security tools used by `scripts/linux/security_scan.sh`.
 
-On Windows, open an **Administrator PowerShell** window and run `scripts\windows\quickstart_dev.ps1` instead.
+On Windows, open an **Administrator PowerShell** window and run `scripts\windows\install.ps1` instead.
 
-The script generates secrets, installs Python requirements with
+The Linux installer generates local secrets, installs Python requirements with
 `pip install -r requirements.txt -c constraints.txt`, re-runs
-`python scripts/validate_env.py`, and launches Docker Compose for you.
+`python scripts/validate_env.py`, launches Docker Compose through the selected
+reverse-proxy helper, and runs the Linux smoke test for you. For Linux-specific
+rollback and uninstall steps, see [docs/linux_installer.md](docs/linux_installer.md).
 The stack requires Rust 1.78.0. `mise` (or `rustup`) installs this toolchain automatically.
+
+If you want local GGUF inference through the `llamacpp://` adapter, install the
+optional native dependency set after the base environment is ready:
+
+```bash
+pip install -r requirements-local-llm.txt -c constraints.txt
+```
 If you see a warning about `idiomatic_version_file_enable_tools`, silence it with:
 
 ```bash
@@ -248,7 +267,7 @@ Follow these steps if you prefer to configure everything yourself.
     database at `secrets/local_secrets.db`. Delete this file or answer **n**
     during the prompt to disable the database and clear stored values.
 
-    Open `.env` and review the defaults. Set `TENANT_ID` for isolated deployments and add any API keys you plan to use. For **production** deployments update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443`. Use `REAL_BACKEND_HOSTS` to supply a comma-separated list of backend servers for load balancing or `REAL_BACKEND_HOST` for a single destination.
+    Open `.env` and review the defaults. Set `TENANT_ID` for isolated deployments and add any API keys you plan to use. The sample file now defaults the containerized Nginx proxy to `8088`/`8443` so it can coexist with host Apache or nginx on Ubuntu. For **production** or takeover deployments, update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443` once the stack is the only web listener on the host. Use `REAL_BACKEND_HOSTS` to supply a comma-separated list of backend servers for load balancing or `REAL_BACKEND_HOST` for a single destination. See [docs/ubuntu_reverse_proxy.md](docs/ubuntu_reverse_proxy.md) for the recommended host reverse-proxy topology.
 For a full walkthrough of bringing the stack live, review [docs/test_to_production.md](docs/test_to_production.md).
 
 3. **Set Up Python Virtual Environment:**
@@ -291,7 +310,7 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     ```
 
 4. **Generate Secrets:**
-    Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console. When run with `--update-env` (as in the interactive setup), the script also updates `.env` and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose.
+    Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console. When run with `--update-env` (as in the interactive setup), the script also updates `.env` and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose. Those two Compose-mounted files are written with container-readable permissions for local and CI use.
 
     The local setup scripts lock down the `secrets/` directory (Unix chmod or
     Windows ACLs). If you store secrets elsewhere, you can leave these files
@@ -360,21 +379,42 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     - **Cloud Dashboard:** `http://localhost:5006`
     - **Cloud Proxy:** `http://localhost:8008`
     - **Prompt Router:** `http://localhost:8009`
-    - **Your Application:** `http://localhost:8080`
-    - **HTTPS (if enabled):** `https://localhost:8443`
+    - **Nginx Proxy (recommended):** `http://localhost:8088`
+    - **Nginx Proxy HTTPS (if enabled):** `https://localhost:8443`
+    - **Apache Proxy (optional alternative):** `http://localhost:8080`
 
 ## Optional Features
 
 Several integrations are disabled by default to keep the stack lightweight. You can enable them by editing `.env`:
 
  - **Web Application Firewall** (`ENABLE_WAF`) – Mounts ModSecurity rules from `WAF_RULES_PATH` for additional filtering. See [docs/waf_setup.md](docs/waf_setup.md) for setup steps.
-- **Global CDN** (`ENABLE_GLOBAL_CDN`) – Connects to your CDN provider using `CLOUD_CDN_API_TOKEN` for edge caching.
+- **Global CDN** (`ENABLE_GLOBAL_CDN`) – Uses Cloudflare for edge cache purge integration. Requires `CLOUD_CDN_ZONE_ID` and `CLOUD_CDN_API_TOKEN` (or `CLOUD_CDN_API_TOKEN_FILE`).
 - **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) – The optional `ddos_guard.py` log monitor detects flooding patterns, classifies them as HTTP floods or volumetric attacks, and reports offenders to the local escalation engine. Requests may also be forwarded to an external provider.
 - **Managed TLS** (`ENABLE_MANAGED_TLS`) – Automatically issues certificates via `TLS_PROVIDER` with contact email `TLS_EMAIL`.
 - **CAPTCHA Verification** – Populate `CAPTCHA_SECRET` to activate reCAPTCHA challenges.
 - **Fail2ban** – Start the `fail2ban` container to insert firewall rules based on blocked IPs. See [docs/fail2ban.md](docs/fail2ban.md) for details.
 - **LLM Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) – Use an LLM to generate fake pages when a model URI is provided.
 - **Admin UI Two-Factor Auth** – Set `ADMIN_UI_2FA_SECRET` (or `ADMIN_UI_2FA_SECRET_FILE`) and provide a TOTP in the `X-2FA-Code` header.
+
+If your ISP blocks inbound hosting ports, expose the local stack through Cloudflare Tunnel:
+
+```bash
+# Linux quick temporary URL (trycloudflare.com)
+./scripts/linux/start_cloudflare_tunnel.sh
+
+# Linux named tunnel with your existing Cloudflare Zero Trust tunnel token
+CLOUDFLARE_TUNNEL_TOKEN=<your_token> ./scripts/linux/start_cloudflare_tunnel.sh
+```
+
+```zsh
+# macOS
+./scripts/macos/start_cloudflare_tunnel.zsh
+```
+
+```powershell
+# Windows PowerShell
+.\scripts\windows\start_cloudflare_tunnel.ps1
+```
 
 ## Project Structure
 
