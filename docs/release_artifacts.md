@@ -2,6 +2,11 @@
 
 This document defines the release artifact policy for the Python-based AI Scraping Defense stack.
 
+The default release image and Python environment do not bundle the optional
+`llama-cpp-python` native dependency. Operators that need the `llamacpp://`
+adapter can install [requirements-local-llm.txt](../requirements-local-llm.txt)
+on top of the base environment.
+
 ## Registry
 
 Tagged releases publish container images to GitHub Container Registry:

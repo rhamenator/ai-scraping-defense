@@ -218,6 +218,13 @@ The script generates secrets, installs Python requirements with
 `pip install -r requirements.txt -c constraints.txt`, re-runs
 `python scripts/validate_env.py`, and launches Docker Compose for you.
 The stack requires Rust 1.78.0. `mise` (or `rustup`) installs this toolchain automatically.
+
+If you want local GGUF inference through the `llamacpp://` adapter, install the
+optional native dependency set after the base environment is ready:
+
+```bash
+pip install -r requirements-local-llm.txt -c constraints.txt
+```
 If you see a warning about `idiomatic_version_file_enable_tools`, silence it with:
 
 ```bash

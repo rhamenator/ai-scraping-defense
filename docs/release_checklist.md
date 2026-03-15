@@ -5,6 +5,7 @@ Use this checklist before cutting a tagged release.
 ## Build and Test
 
 - `python3 -m pytest -q test`
+- `pip-audit`
 - `docker build -t ai-scraping-defense:test .`
 - `docker compose config`
 - any Rust crates used in production paths pass `cargo test`

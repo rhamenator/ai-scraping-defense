@@ -16,7 +16,7 @@ import os
 import shlex
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterable, List
 
@@ -63,7 +63,7 @@ def ensure_directory(path: Path) -> None:
 
 
 def backup(args: argparse.Namespace) -> Path:
-    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     destination = Path(args.destination or DEFAULT_BACKUP_DIR) / timestamp
     ensure_directory(destination)
 
@@ -109,7 +109,7 @@ def backup(args: argparse.Namespace) -> Path:
         (state_file).write_text(
             json.dumps(
                 {
-                    "generated_at": datetime.utcnow().isoformat(),
+                    "generated_at": datetime.now(UTC).isoformat(),
                     "postgres_dump": str(postgres_file),
                     "redis_dump": str(redis_file),
                     "kube_context": args.kube_context,
