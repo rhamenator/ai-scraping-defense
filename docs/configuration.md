@@ -83,7 +83,9 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 | --- | --- | --- |
 | `ADMIN_UI_USERNAME` | `admin` | Basic auth username |
 | `ADMIN_UI_PASSWORD_HASH` | *(none)* | bcrypt hash for admin password |
+| `ADMIN_UI_REQUIRE_MFA` | `true` | Require MFA for Admin UI logins unless explicitly disabled for lab-only use |
 | `ADMIN_UI_2FA_SECRET` | *(none)* | TOTP secret for MFA |
+| `ADMIN_UI_SSO_MFA_REQUIRED` | inherits `ADMIN_UI_REQUIRE_MFA` | Override MFA enforcement for Admin UI SSO flows |
 | `WEBAUTHN_RP_ID` | `localhost` | WebAuthn relying party ID |
 | `WEBAUTHN_ORIGIN` | `http://localhost` | WebAuthn origin |
 | `WEBAUTHN_TOKEN_TTL` | `300` | WebAuthn token TTL in seconds |

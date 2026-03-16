@@ -261,7 +261,10 @@ The `.env` file also contains toggles for several optional integrations:
 - **Managed TLS** (`ENABLE_MANAGED_TLS`) automatically issues certificates using `TLS_PROVIDER` and `TLS_EMAIL`.
 - **CAPTCHA Verification** activates when `CAPTCHA_SECRET` is supplied.
 - **LLM-Generated Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) require a `TARPIT_LLM_MODEL_URI`.
-- **Admin UI Two-Factor Auth** requires `ADMIN_UI_2FA_SECRET` and a TOTP in the `X-2FA-Code` header.
+- **Admin UI MFA** is required by default. Set `ADMIN_UI_2FA_SECRET` for the
+  initial bootstrap login, then enroll passkeys/WebAuthn and generate backup
+  codes for recovery. Only set `ADMIN_UI_REQUIRE_MFA=false` for local lab
+  scenarios where password-only admin access is acceptable.
 
 ### **Cloudflare Tunnel (for ISP Port Blocks)**
 

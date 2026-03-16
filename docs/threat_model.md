@@ -83,6 +83,8 @@ The detailed matrix and CI enforcement rules live in
 - Rate limiting, WAF rules, and tarpit endpoints for scraper traffic.
 - SSRF protections and allowlists on outbound requests.
 - MFA/WebAuthn for admin workflows and backup code rotation.
+- Admin UI logins require MFA by default; TOTP bootstraps initial access and
+  backup codes are reserved for single-use recovery.
 - Security scans, audits, and dependency management in CI.
 
 ## Out of Scope
