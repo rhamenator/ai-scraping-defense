@@ -445,6 +445,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
         """Password-only admin auth is rejected unless MFA is explicitly disabled."""
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("ADMIN_UI_2FA_SECRET", None)
+            os.environ.pop("ADMIN_UI_2FA_SECRET_FILE", None)
             response = self.client.get("/", auth=self.auth)
 
         self.assertEqual(response.status_code, 401)
@@ -458,6 +459,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
             clear=False,
         ):
             os.environ.pop("ADMIN_UI_2FA_SECRET", None)
+            os.environ.pop("ADMIN_UI_2FA_SECRET_FILE", None)
             response = self.client.get("/", auth=self.auth)
 
         self.assertEqual(response.status_code, 200)

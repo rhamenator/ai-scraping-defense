@@ -25,7 +25,7 @@ class TestAdminUiSso(unittest.TestCase):
         return {"X-2FA-Code": pyotp.TOTP(secret).now()}
 
     def test_oidc_sso_allows_access(self):
-        totp_secret = "JBSWY3DPEHPK3PXP"
+        totp_secret = pyotp.random_base32()
         with patch.dict(
             os.environ,
             {
@@ -55,7 +55,7 @@ class TestAdminUiSso(unittest.TestCase):
         self.assertEqual(resp.json()["user"], "sso-user")
 
     def test_saml_sso_allows_access(self):
-        totp_secret = "JBSWY3DPEHPK3PXP"
+        totp_secret = pyotp.random_base32()
         with patch.dict(
             os.environ,
             {
