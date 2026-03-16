@@ -62,6 +62,23 @@ DEFAULT_HARDENING_BASELINE: Dict[str, Any] = {
     "installers": {
         "required_call_tokens": {},
     },
+    "network_exposure": {
+        "compose": {
+            "public_edge_services": {},
+            "operator_access_services": {},
+            "development_only_services": {},
+            "internal_only_services": [],
+        },
+        "kubernetes": {
+            "public_services": {},
+            "internal_services": {},
+        },
+        "helm": {
+            "legacy_chart_public_templates": [],
+            "legacy_chart_internal_templates": [],
+            "v9_services_requiring_clusterip": [],
+        },
+    },
 }
 WORKLOAD_KINDS = {"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}
 
@@ -81,6 +98,11 @@ def _load_hardening_baseline() -> Dict[str, Any]:
     merged_installers = dict(DEFAULT_HARDENING_BASELINE.get("installers", {}))
     merged_installers.update(baseline.get("installers", {}))
     merged["installers"] = merged_installers
+    merged_network_exposure = dict(
+        DEFAULT_HARDENING_BASELINE.get("network_exposure", {})
+    )
+    merged_network_exposure.update(baseline.get("network_exposure", {}))
+    merged["network_exposure"] = merged_network_exposure
     return merged
 
 
@@ -311,6 +333,116 @@ def ensure_installer_hardening_hooks() -> None:
                 _fail(f"{relative_path} missing required hardening call: {token}")
 
 
+def ensure_compose_network_exposure() -> None:
+    baseline = _load_hardening_baseline()
+    compose_exposure = baseline.get("network_exposure", {}).get("compose", {})
+    public_edge = compose_exposure.get("public_edge_services", {})
+    operator_access = compose_exposure.get("operator_access_services", {})
+    development_only = compose_exposure.get("development_only_services", {})
+    internal_only = set(compose_exposure.get("internal_only_services", []))
+
+    compose = yaml.safe_load((PROJECT_ROOT / "docker-compose.yaml").read_text())
+    services = compose.get("services", {})
+
+    published_services = {
+        name for name, service in services.items() if service.get("ports")
+    }
+    allowed_published = set(public_edge) | set(operator_access) | set(development_only)
+
+    undocumented_published = sorted(published_services - allowed_published)
+    if undocumented_published:
+        _fail(
+            "docker-compose publishes ports for undocumented services: "
+            + ", ".join(undocumented_published)
+        )
+
+    invalid_internal = sorted(internal_only & published_services)
+    if invalid_internal:
+        _fail(
+            "Internal-only compose services must not publish host ports: "
+            + ", ".join(invalid_internal)
+        )
+
+
+def ensure_kubernetes_network_exposure() -> None:
+    baseline = _load_hardening_baseline()
+    kubernetes_exposure = baseline.get("network_exposure", {}).get("kubernetes", {})
+    public_services = kubernetes_exposure.get("public_services", {})
+    internal_services = kubernetes_exposure.get("internal_services", {})
+
+    discovered_services: Dict[str, str] = {}
+    for manifest_path in sorted((PROJECT_ROOT / "kubernetes").glob("*.y*ml")):
+        for document in yaml.safe_load_all(manifest_path.read_text()):
+            if not isinstance(document, dict) or document.get("kind") != "Service":
+                continue
+            name = (document.get("metadata") or {}).get("name")
+            if not name:
+                continue
+            discovered_services[name] = (document.get("spec") or {}).get(
+                "type", "ClusterIP"
+            )
+
+    expected_services = set(public_services) | set(internal_services)
+    missing = sorted(expected_services - set(discovered_services))
+    extra = sorted(set(discovered_services) - expected_services)
+    if missing:
+        _fail("Missing Kubernetes Service exposure coverage for: " + ", ".join(missing))
+    if extra:
+        _fail(
+            "Unexpected Kubernetes Services missing exposure policy: "
+            + ", ".join(extra)
+        )
+
+    for name, expected_type in public_services.items():
+        if discovered_services.get(name) != expected_type:
+            _fail(
+                f"Kubernetes public service {name} must use type {expected_type}, got {discovered_services.get(name)}"
+            )
+
+    for name, expected_type in internal_services.items():
+        if discovered_services.get(name) != expected_type:
+            _fail(
+                f"Kubernetes internal service {name} must use type {expected_type}, got {discovered_services.get(name)}"
+            )
+
+    for manifest_path, _, pod_spec in _iter_kubernetes_workloads():
+        for container in pod_spec.get("containers") or []:
+            for port in container.get("ports") or []:
+                if "hostPort" in port:
+                    _fail(
+                        f"{manifest_path.name}:{container.get('name')} must not set hostPort"
+                    )
+
+
+def ensure_helm_network_exposure() -> None:
+    baseline = _load_hardening_baseline()
+    helm_exposure = baseline.get("network_exposure", {}).get("helm", {})
+
+    for template in helm_exposure.get("legacy_chart_public_templates", []):
+        template_text = (PROJECT_ROOT / template).read_text()
+        if "type: LoadBalancer" not in template_text:
+            _fail(f"{template} must retain an explicit LoadBalancer edge service")
+
+    for template in helm_exposure.get("legacy_chart_internal_templates", []):
+        template_text = (PROJECT_ROOT / template).read_text()
+        if "type: LoadBalancer" in template_text or "type: NodePort" in template_text:
+            _fail(
+                f"{template} must remain internal-only and avoid public service types"
+            )
+
+    values = yaml.safe_load(
+        (PROJECT_ROOT / "helm/ai-scraping-defense-v9/values.yaml").read_text()
+    )
+    services = values.get("services", {})
+    for service_name in helm_exposure.get("v9_services_requiring_clusterip", []):
+        service_config = services.get(service_name, {})
+        service_type = (service_config.get("service") or {}).get("type", "ClusterIP")
+        if service_type != "ClusterIP":
+            _fail(
+                f"helm/ai-scraping-defense-v9/values.yaml must keep {service_name} as ClusterIP, got {service_type}"
+            )
+
+
 SECRET_PATTERN = re.compile(r"=(?:sk-|AIza|mistral-|coh-|key-for-)")
 
 
@@ -329,7 +461,10 @@ def ensure_no_plaintext_secrets() -> None:
 CHECKS: Iterable[Callable[[], None]] = (
     ensure_nginx_headers_and_limits,
     ensure_compose_security,
+    ensure_compose_network_exposure,
     ensure_kubernetes_runtime_security,
+    ensure_kubernetes_network_exposure,
+    ensure_helm_network_exposure,
     ensure_installer_hardening_hooks,
     ensure_no_plaintext_secrets,
 )

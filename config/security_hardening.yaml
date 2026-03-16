@@ -89,3 +89,56 @@ installers:
       - Ensure-NoNewPrivileges
     scripts/windows/quick_takeover.ps1:
       - Ensure-NoNewPrivileges
+
+network_exposure:
+  compose:
+    public_edge_services:
+      nginx_proxy: "Primary public ingress for HTTP and HTTPS traffic."
+      apache_proxy: "Alternate local ingress path; may be published only for lab or migration scenarios."
+      traefik: "Optional local ingress for LLM routing and dashboard access."
+    operator_access_services:
+      admin_ui: "Operator control plane; must be restricted to trusted operator networks."
+      cloud_dashboard: "Operator-facing dashboard; do not publish to the public internet."
+      prometheus: "Monitoring endpoint for trusted operators and scrapers."
+      grafana: "Monitoring dashboard for trusted operators only."
+    development_only_services:
+      mailhog: "Local SMTP sink for development and demos only."
+      mock_external_api: "Mock integration dependency for CI and local testing."
+      config_recommender: "Local recommendation service for trusted operators."
+      cloud_proxy: "Internal cloud-proxy debug surface; not for public exposure."
+      prompt_router: "Internal inference router debug surface; not for public exposure."
+      postgres: "Local database publication for developer access only."
+      redis: "Local cache publication for developer access only."
+      llama3: "Optional local model runtime for lab usage only."
+      mixtral: "Optional local model runtime for lab usage only."
+    internal_only_services:
+      - ai_service
+      - escalation_engine
+      - tarpit_api
+      - captcha_service
+      - blocklist_sync
+      - fail2ban
+      - suricata
+      - watchtower
+
+  kubernetes:
+    public_services:
+      nginx-proxy: LoadBalancer
+    internal_services:
+      admin-ui: ClusterIP
+      ai-service: ClusterIP
+      escalation-engine: ClusterIP
+      postgres: ClusterIP
+      redis: ClusterIP
+      tarpit-api: ClusterIP
+
+  helm:
+    legacy_chart_public_templates:
+      - helm/ai-scraping-defense/templates/nginx-deployment.yaml
+    legacy_chart_internal_templates:
+      - helm/ai-scraping-defense/templates/ai-service-deployment.yaml
+    v9_services_requiring_clusterip:
+      - core
+      - proxy
+      - cloud_proxy
+      - prompt_router
