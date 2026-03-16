@@ -90,12 +90,15 @@ jobs:
         run: |
           mkdir -p artifacts
           python scripts/security/attack_regression.py \
+            --profile "compose-v1" \
             --nginx-http-base "http://127.0.0.1:8088" \
             --nginx-https-base "https://127.0.0.1:8443" \
             --admin-ui-base "http://127.0.0.1:5002" \
             --prompt-router-base "http://127.0.0.1:8009" \
             --prompt-shared-secret "attack-ci-secret" \
-            --json | tee artifacts/attack-regression.json
+            --allow-host "127.0.0.1" \
+            --output-path artifacts/attack-regression.json \
+            --json | tee artifacts/attack-regression.stdout.json
       - name: Collect compose logs
         if: always()
         run: |
