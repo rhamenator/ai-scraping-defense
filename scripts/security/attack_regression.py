@@ -23,6 +23,10 @@ WAF_BLOCK_STATUSES = {403, 406, 429, 431}
 WEBSOCKET_REJECTION_STATUSES = {400, 401, 403, 426}
 
 
+class RequestCapExceeded(RuntimeError):
+    """Raised when a profile exceeds its allowed outbound request budget."""
+
+
 @dataclass(frozen=True)
 class AttackProfile:
     name: str
@@ -49,7 +53,7 @@ PROFILES = {
                 "admin_ui_large_body_rejected",
                 "prompt_router_rate_limit",
             ),
-            default_max_requests=12,
+            default_max_requests=13,
         ),
         AttackProfile(
             name="staging-v1",
@@ -291,14 +295,14 @@ def main(argv: list[str] | None = None) -> int:
 
     def perform_request(*request_args, **request_kwargs):
         if request_budget["used"] >= request_budget["limit"]:
-            raise RuntimeError("request cap exceeded")
+            raise RequestCapExceeded("request cap exceeded")
         request_budget["used"] += 1
         results["request_budget"]["used"] = request_budget["used"]
         return _request(*request_args, **request_kwargs)
 
     def perform_websocket_probe(url: str, *, timeout: float, verify_tls: bool) -> int:
         if request_budget["used"] >= request_budget["limit"]:
-            raise RuntimeError("request cap exceeded")
+            raise RequestCapExceeded("request cap exceeded")
         request_budget["used"] += 1
         results["request_budget"]["used"] = request_budget["used"]
         return _websocket_handshake_status(
@@ -432,14 +436,26 @@ def main(argv: list[str] | None = None) -> int:
                         data=json.dumps({"prompt": "hi", "input": "hi"}).encode(),
                         timeout=args.timeout,
                     )
+                except RequestCapExceeded as exc:
+                    record(
+                        "prompt_router_rate_limit",
+                        False,
+                        {
+                            "error": str(exc),
+                            "statuses": statuses,
+                        },
+                    )
+                    break
                 except Exception:
                     status = 0
-                statuses.append(status)
-            record(
-                "prompt_router_rate_limit",
-                _prompt_rate_limit_ok(statuses),
-                {"statuses": statuses},
-            )
+                else:
+                    statuses.append(status)
+            else:
+                record(
+                    "prompt_router_rate_limit",
+                    _prompt_rate_limit_ok(statuses),
+                    {"statuses": statuses},
+                )
         else:
             record(
                 "prompt_router_rate_limit",
@@ -474,9 +490,16 @@ def main(argv: list[str] | None = None) -> int:
 
     rendered_json = json.dumps(results, indent=2, sort_keys=True)
     if args.output_path:
-        with open(args.output_path, "w", encoding="utf-8") as output_file:
-            output_file.write(rendered_json)
-            output_file.write("\n")
+        try:
+            with open(args.output_path, "w", encoding="utf-8") as output_file:
+                output_file.write(rendered_json)
+                output_file.write("\n")
+        except OSError as exc:
+            print(
+                f"[attack-regression] failed to write output: {exc}",
+                file=sys.stderr,
+            )
+            return 2
     if args.json_output:
         print(rendered_json)
     else:

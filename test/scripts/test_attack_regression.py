@@ -82,6 +82,9 @@ def test_main_emits_json_and_succeeds(monkeypatch, capsys, tmp_path):
         (413, {}, b""),
         (200, {}, b""),
         (200, {}, b""),
+        (200, {}, b""),
+        (200, {}, b""),
+        (200, {}, b""),
         (429, {}, b""),
     ]
     output_path = tmp_path / "attack-regression.json"
@@ -130,7 +133,7 @@ def test_main_emits_json_and_succeeds(monkeypatch, capsys, tmp_path):
         "mode": "compose",
         "version": 1,
     }
-    assert payload["request_budget"] == {"limit": 12, "used": 12}
+    assert payload["request_budget"] == {"limit": 13, "used": 13}
     assert persisted == payload
     assert [check["name"] for check in payload["checks"]] == [
         "nginx_https_redirect",
@@ -143,6 +146,7 @@ def test_main_emits_json_and_succeeds(monkeypatch, capsys, tmp_path):
         "prompt_router_rate_limit",
     ]
     assert all(check["ok"] for check in payload["checks"])
+    assert payload["checks"][-1]["statuses"] == [200, 200, 200, 200, 200, 429]
 
 
 def test_main_reports_invalid_input_to_stderr(capsys):
@@ -229,6 +233,105 @@ def test_main_enforces_request_cap(monkeypatch, capsys):
     assert rc == 2
     assert payload["request_budget"] == {"limit": 3, "used": 3}
     assert "admin_ui_missing_auth_rejected" in payload["failures"]
+
+
+def test_prompt_router_cap_exceeded_fails_check(monkeypatch, capsys):
+    responses = [
+        (308, {"location": "https://edge.test/"}, b""),
+        (
+            200,
+            {
+                "content-security-policy": "default-src 'self'",
+                "permissions-policy": "geolocation=()",
+                "referrer-policy": "no-referrer",
+                "x-content-type-options": "nosniff",
+                "x-frame-options": "DENY",
+            },
+            b"",
+        ),
+        (308, {"location": "https://admin.test/observability/health"}, b""),
+        (401, {}, b""),
+        (431, {}, b""),
+        (413, {}, b""),
+    ]
+
+    def fake_request(*_args, **_kwargs):
+        return responses.pop(0)
+
+    monkeypatch.setattr(attack_regression, "_request", fake_request)
+    monkeypatch.setattr(
+        attack_regression,
+        "_websocket_handshake_status",
+        lambda *_args, **_kwargs: 403,
+    )
+
+    rc = attack_regression.main(
+        [
+            "--profile",
+            "compose-v1",
+            "--nginx-http-base",
+            "http://127.0.0.1:8088",
+            "--nginx-https-base",
+            "https://127.0.0.1:8443",
+            "--admin-ui-base",
+            "http://127.0.0.1:5002",
+            "--prompt-router-base",
+            "http://127.0.0.1:8009",
+            "--prompt-shared-secret",
+            "shared-secret",
+            "--allow-host",
+            "127.0.0.1",
+            "--max-requests",
+            "7",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 2
+    assert payload["checks"][-1]["name"] == "prompt_router_rate_limit"
+    assert payload["checks"][-1]["ok"] is False
+    assert payload["checks"][-1]["error"] == "request cap exceeded"
+    assert payload["checks"][-1]["statuses"] == []
+
+
+def test_main_reports_output_path_write_failures(monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr(
+        attack_regression,
+        "_request",
+        lambda *_args, **_kwargs: (308, {"location": "https://edge.test/"}, b""),
+    )
+    monkeypatch.setattr(
+        attack_regression,
+        "_websocket_handshake_status",
+        lambda *_args, **_kwargs: 403,
+    )
+
+    rc = attack_regression.main(
+        [
+            "--profile",
+            "staging-v1",
+            "--nginx-http-base",
+            "http://edge.test",
+            "--nginx-https-base",
+            "https://edge.test",
+            "--admin-ui-base",
+            "https://admin.test",
+            "--allow-host",
+            "edge.test",
+            "--allow-host",
+            "admin.test",
+            "--output-path",
+            str(tmp_path / "missing" / "attack.json"),
+        ]
+    )
+
+    captured = capsys.readouterr()
+
+    assert rc == 2
+    assert captured.out == ""
+    assert "[attack-regression] failed to write output:" in captured.err
 
 
 def test_staging_profile_runs_waf_probe(monkeypatch, capsys):
