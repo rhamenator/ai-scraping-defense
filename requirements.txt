@@ -39,6 +39,7 @@ defusedxml~=0.7
 cbor2>=5.8.0
 cryptography>=46.0.5,<47.0
 pyasn1>=0.6.2,<1.0
+pyOpenSSL>=26.0.0,<27.0
 
 # Secret Management
 hvac~=2.3
