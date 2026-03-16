@@ -59,6 +59,18 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
                 "escalation.escalation_engine.trigger_captcha_challenge",
                 new_callable=AsyncMock,
             ),
+            "apply_ip_throttle": patch(
+                "escalation.escalation_engine.apply_ip_throttle"
+            ),
+            "flag_suspicious_ip": patch(
+                "escalation.escalation_engine.flag_suspicious_ip"
+            ),
+            "add_ip_to_blocklist": patch(
+                "escalation.escalation_engine.add_ip_to_blocklist"
+            ),
+            "publish_operational_event": patch(
+                "escalation.escalation_engine.publish_operational_event"
+            ),
         }
         self.mocks = {name: patcher.start() for name, patcher in self.patchers.items()}
 
@@ -74,6 +86,9 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         self.mocks["trigger_captcha_challenge"].return_value = (
             True  # Assume captcha is "passed" if triggered
         )
+        self.mocks["apply_ip_throttle"].return_value = True
+        self.mocks["flag_suspicious_ip"].return_value = True
+        self.mocks["add_ip_to_blocklist"].return_value = True
 
         # Ensure fingerprint tracking uses a mock redis client
         self.mocks["redis_fingerprints"] = MagicMock()
@@ -254,6 +269,12 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         with patch(
             "escalation.escalation_engine.run_heuristic_and_model_analysis",
             return_value=0.95,
+        ), patch("escalation.escalation_engine.ESCALATION_THRESHOLD", 0.8), patch(
+            "escalation.escalation_engine.ESCALATION_THROTTLE_THRESHOLD", 0.99
+        ), patch(
+            "escalation.escalation_engine.ESCALATION_TARPIT_THRESHOLD", 0.995
+        ), patch(
+            "escalation.escalation_engine.ESCALATION_BLOCK_THRESHOLD", 0.999
         ):
             response = self.client.post(
                 "/escalate",
@@ -268,9 +289,12 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["action"], "webhook_triggered_high_score")
+        self.assertEqual(data["action"], "containment_alert_heuristic_score")
         self.assertTrue(data["is_bot_decision"])
         self.mocks["forward_to_webhook"].assert_called_once()
+        self.mocks["apply_ip_throttle"].assert_not_called()
+        self.mocks["flag_suspicious_ip"].assert_not_called()
+        self.mocks["add_ip_to_blocklist"].assert_not_called()
         # Correctly check for the 'ip' inside the 'details' dictionary of the webhook payload
         self.assertEqual(
             self.mocks["forward_to_webhook"].call_args[0][0]["details"]["ip"], "2.2.2.2"
@@ -282,7 +306,10 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
             "is_malicious": True,
             "score": 99,
         }
-        with patch("escalation.escalation_engine.ENABLE_IP_REPUTATION", True):
+        with patch("escalation.escalation_engine.ENABLE_IP_REPUTATION", True), patch(
+            "escalation.escalation_engine.run_heuristic_and_model_analysis",
+            return_value=0.8,
+        ), patch("escalation.escalation_engine.ESCALATION_BLOCK_THRESHOLD", 0.95):
             response = self.client.post(
                 "/escalate",
                 json={
@@ -296,9 +323,41 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["action"], "webhook_triggered_ip_reputation")
+        self.assertEqual(data["action"], "containment_block_ip_reputation")
         self.assertTrue(data["is_bot_decision"])
         self.mocks["forward_to_webhook"].assert_called_once()
+        self.mocks["add_ip_to_blocklist"].assert_called_once()
+
+    async def test_escalate_endpoint_high_score_throttle(self):
+        """High heuristic scores can temporarily throttle an IP before tarpit/block."""
+        with patch(
+            "escalation.escalation_engine.run_heuristic_and_model_analysis",
+            return_value=0.87,
+        ), patch("escalation.escalation_engine.ESCALATION_THRESHOLD", 0.8), patch(
+            "escalation.escalation_engine.ESCALATION_THROTTLE_THRESHOLD", 0.85
+        ), patch(
+            "escalation.escalation_engine.ESCALATION_TARPIT_THRESHOLD", 0.95
+        ), patch(
+            "escalation.escalation_engine.ESCALATION_BLOCK_THRESHOLD", 0.99
+        ):
+            response = self.client.post(
+                "/escalate",
+                json={
+                    "timestamp": "2023-01-01T12:00:00Z",
+                    "ip": "3.3.3.4",
+                    "source": "test",
+                    "method": "GET",
+                },
+                headers={"X-API-Key": "testkey"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["action"], "containment_throttle_heuristic_score")
+        self.assertTrue(data["is_bot_decision"])
+        self.mocks["apply_ip_throttle"].assert_called_once()
+        self.mocks["flag_suspicious_ip"].assert_not_called()
+        self.mocks["add_ip_to_blocklist"].assert_not_called()
 
     async def test_escalate_endpoint_local_llm_confirms_bot(self):
         """Test a request where the local LLM confirms a bot."""
@@ -310,6 +369,10 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         ), patch(
             "escalation.escalation_engine.run_heuristic_and_model_analysis",
             return_value=0.6,
+        ), patch(
+            "escalation.escalation_engine.ENABLE_CAPTCHA_TRIGGER", False
+        ), patch(
+            "escalation.escalation_engine.ESCALATION_TARPIT_THRESHOLD", 0.6
         ):  # Borderline score
             response = self.client.post(
                 "/escalate",
@@ -324,8 +387,9 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["action"], "webhook_triggered_local_llm")
+        self.assertEqual(data["action"], "containment_tarpit_local_llm")
         self.assertTrue(data["is_bot_decision"])
+        self.mocks["flag_suspicious_ip"].assert_called_once()
 
     async def test_escalate_endpoint_external_api_confirms_human(self):
         """Test a borderline request where an external API confirms it's human."""
@@ -448,6 +512,10 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
                 "escalation.escalation_engine.run_heuristic_and_model_analysis",
                 return_value=0.7,
             ),
+            patch("escalation.escalation_engine.ENABLE_CAPTCHA_TRIGGER", False),
+            patch("escalation.escalation_engine.ESCALATION_THROTTLE_THRESHOLD", 0.7),
+            patch("escalation.escalation_engine.ESCALATION_TARPIT_THRESHOLD", 0.95),
+            patch("escalation.escalation_engine.ESCALATION_BLOCK_THRESHOLD", 0.99),
         ):
             response = self.client.post(
                 "/escalate",
@@ -462,10 +530,11 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["action"], "webhook_triggered_external_api")
+        self.assertEqual(data["action"], "containment_throttle_external_api")
         self.assertTrue(data["is_bot_decision"])
         self.mocks["classify_with_local_llm_api"].assert_awaited_once()
         self.mocks["classify_with_external_api"].assert_awaited_once()
+        self.mocks["apply_ip_throttle"].assert_called_once()
 
 
 class TestExternalServiceFunctions(unittest.IsolatedAsyncioTestCase):

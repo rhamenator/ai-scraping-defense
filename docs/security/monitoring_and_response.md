@@ -22,6 +22,11 @@ in production.
   exceed 1% of traffic or rate-limit denials spike for 10 minutes.
 - **Network sensors** – Deploy Suricata (`suricata/`) and fail2ban to monitor
   ingress traffic. Subscribe Nginx access logs to the monitoring pipeline.
+- **Trust-boundary validation** – Run
+  `python scripts/security/run_static_security_checks.py` in CI and before
+  release to catch accidental exposure of internal-only services. The supported
+  public/operator/internal split is documented in
+  [`network_isolation_baseline.md`](../network_isolation_baseline.md).
 - **File integrity** – Enable Docker `--read-only` and host-based integrity
   monitors to watch `/app/src`, `/app/logs`, and secret mounts for unexpected
   changes.
@@ -128,6 +133,10 @@ print(f'Average Score: {report[\"average_score\"]:.1f}')
      - If using Vault, rotation is tracked and versioned automatically
      - Revoke old credentials in external systems (databases, APIs)
      - Check audit logs for unauthorized access: `grep "secret_access" /app/logs/audit.log`
+   - **Unexpected service exposure** →
+     - remove the offending published port, `LoadBalancer`, `NodePort`, or ingress
+     - rerun `python scripts/security/run_static_security_checks.py`
+     - verify the service returns to `ClusterIP` or private operator access only
    - **Transport/auth issues** → deploy hotfix through hardened CI workflow.
    - **Intrusion** → block offending IPs using the escalation engine webhook.
 4. **Eradication & Recovery** – Apply patches, redeploy containers, and verify
