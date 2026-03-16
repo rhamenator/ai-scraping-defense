@@ -22,6 +22,7 @@ from src.shared.observability import (
     trace_span,
 )
 from src.shared.redis_client import get_redis_connection
+from src.shared.request_identity import resolve_request_identity
 from src.shared.request_utils import read_json_body
 
 logger = logging.getLogger(__name__)
@@ -108,7 +109,7 @@ async def service_health(redis_conn=Depends(get_redis_blocklist)):
 
 
 def get_client_ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
+    return resolve_request_identity(request).client_ip
 
 
 def calculate_window_reset(now: float, window: int) -> int:
