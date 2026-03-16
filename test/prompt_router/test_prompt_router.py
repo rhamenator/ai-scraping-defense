@@ -171,16 +171,25 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
 
     async def test_rate_limit_headers_and_429(self):
         headers = {"Authorization": f"Bearer {self.shared_secret}"}
-        resp1 = await self._post(headers=headers)
-        self.assertEqual(resp1.status_code, 200)
-        self.assertEqual(resp1.headers["X-RateLimit-Limit"], "2")
-        self.assertEqual(resp1.headers["X-RateLimit-Remaining"], "1")
-        resp2 = await self._post(headers=headers)
-        self.assertEqual(resp2.status_code, 200)
-        resp3 = await self._post(headers=headers)
-        self.assertEqual(resp3.status_code, 429)
-        self.assertEqual(resp3.headers["X-RateLimit-Remaining"], "0")
-        self.assertIn("Retry-After", resp3.headers)
+
+        class FakeTime:
+            def __init__(self, value):
+                self.value = value
+
+            def time(self):
+                return self.value
+
+        with patch.object(pr_module, "time", FakeTime(1.0)):
+            resp1 = await self._post(headers=headers)
+            self.assertEqual(resp1.status_code, 200)
+            self.assertEqual(resp1.headers["X-RateLimit-Limit"], "2")
+            self.assertEqual(resp1.headers["X-RateLimit-Remaining"], "1")
+            resp2 = await self._post(headers=headers)
+            self.assertEqual(resp2.status_code, 200)
+            resp3 = await self._post(headers=headers)
+            self.assertEqual(resp3.status_code, 429)
+            self.assertEqual(resp3.headers["X-RateLimit-Remaining"], "0")
+            self.assertIn("Retry-After", resp3.headers)
 
     async def test_window_rollover_resets_counter(self):
         headers = {"Authorization": f"Bearer {self.shared_secret}"}

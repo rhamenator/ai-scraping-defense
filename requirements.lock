@@ -173,7 +173,7 @@ idna==3.10
     #   yarl
 iniconfig==2.1.0
     # via pytest
-isort==5.13.2
+isort==8.0.1
     # via -r requirements.txt
 jinja2==3.1.6
     # via
@@ -303,8 +303,10 @@ pyjwt[crypto]==2.12.1
     # via
     #   -r requirements.txt
     #   mcp
-pyopenssl==25.3.0
-    # via webauthn
+pyopenssl==26.0.0
+    # via
+    #   -r requirements.txt
+    #   webauthn
 pyotp==2.9.0
     # via -r requirements.txt
 pyproject-hooks==1.2.0
