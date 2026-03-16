@@ -32,6 +32,42 @@ This document outlines the primary threats considered when deploying the AI Scra
 - Admin UI → Redis/Postgres
 - External dependencies → alerting/webhook integrations
 
+## Supported Exposure Model
+
+- **Public by default**
+  - `nginx_proxy` in Compose
+  - `nginx-proxy` `LoadBalancer` Service in Kubernetes
+  - Helm ingress resources and the legacy nginx `LoadBalancer` service
+- **Trusted-operator only**
+  - `admin_ui`
+  - `cloud_dashboard`
+  - `prometheus`
+  - `grafana`
+  - `traefik`
+- **Development-only published endpoints**
+  - `mailhog`
+  - `mock_external_api`
+  - `apache_proxy`
+  - `config_recommender`
+  - `cloud_proxy`
+  - `prompt_router`
+  - `postgres`
+  - `redis`
+  - `llama3`
+  - `mixtral`
+- **Internal-only**
+  - `ai_service`
+  - `escalation_engine`
+  - `tarpit_api`
+  - `captcha_service`
+  - `blocklist_sync`
+  - `fail2ban`
+  - `suricata`
+  - `watchtower`
+
+The detailed matrix and CI enforcement rules live in
+[`network_isolation_baseline.md`](network_isolation_baseline.md).
+
 ## Assumptions
 - Internal service-to-service traffic is on a trusted network segment.
 - Secrets are stored in a secret manager or mounted read-only.
