@@ -135,7 +135,7 @@ jobs:
           if command -v cargo >/dev/null 2>&1; then cargo install taplo-cli --locked || true; fi
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85
         with:
           terraform_version: 1.6.6
 
