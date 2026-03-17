@@ -124,10 +124,21 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 | `CLOUD_CDN_API_TOKEN_FILE` | *(none)* | File path containing the Cloudflare API token |
 | `CDN_PURGE_URL` | *(derived)* | Optional explicit purge endpoint override |
 | `REQUIRE_CLOUDFLARE_ACCOUNT` | `false` | Fail environment validation unless Cloudflare integration is configured |
+| `SECURITY_CDN_ORIGIN_LOCKDOWN` | `false` | Render an Nginx allowlist so only trusted CDN proxy CIDRs (plus localhost probes) can reach the origin directly |
 | `SECURITY_CDN_TRUSTED_PROXY_CIDRS` | *(none)* | Comma-separated Cloudflare/CDN proxy CIDRs trusted to supply real client IP headers |
 | `SECURITY_CDN_CLIENT_IP_HEADERS` | `CF-Connecting-IP,True-Client-IP,X-Forwarded-For` for Cloudflare | Ordered client IP headers to trust for CDN traffic |
 | `CLOUDFLARE_TUNNEL_TOKEN` | *(none)* | Optional token used by `scripts/linux/start_cloudflare_tunnel.sh` for named tunnels |
 | `CLOUDFLARE_TUNNEL_TARGET_URL` | `http://localhost:${NGINX_HTTP_PORT}` | Optional origin URL for Cloudflare Tunnel script |
+
+When `REQUIRE_CLOUDFLARE_ACCOUNT=true`, validation now requires one of:
+
+- `SECURITY_CDN_ORIGIN_LOCKDOWN=true` so the Nginx origin only accepts trusted CDN proxy CIDRs
+- `CLOUDFLARE_TUNNEL_TOKEN` so the origin can be reached through a named Cloudflare Tunnel instead of direct public ingress
+
+If you rely on `CLOUDFLARE_TUNNEL_TOKEN` instead of `SECURITY_CDN_ORIGIN_LOCKDOWN=true`,
+you still need to keep the origin listener off the public internet yourself. In
+Compose terms that means binding the nginx ports to localhost only, removing the
+published `ports:` mapping, or enforcing an equivalent host firewall policy.
 
 ## Tarpit and Blocklist
 
@@ -164,6 +175,12 @@ These settings apply to services created via `src.shared.middleware.create_app()
 | `SECURITY_DISABLE_TARPIT_FOR_TRUSTED_CDN` | `true` | Return a fast containment response instead of a slow tarpit for trusted CDN traffic |
 | `SECURITY_EDGE_CDN_CONTAINMENT_ACTION` | `block` | CDN-safe origin action for trusted CDN traffic: `block` or `throttle` |
 | `SECURITY_EDGE_CDN_RETRY_AFTER_SECONDS` | `120` | `Retry-After` value when `SECURITY_EDGE_CDN_CONTAINMENT_ACTION=throttle` |
+
+For CDN-fronted deployments, the intended policy is:
+
+- use the CDN edge for challenge, rate-limit, and temporary blocking
+- keep `SECURITY_DISABLE_TARPIT_FOR_TRUSTED_CDN=true` so proxied attack traffic does not turn into expensive tarpit egress
+- reserve the slow tarpit behavior for direct-origin or non-CDN traffic
 
 ## JWT Authentication
 

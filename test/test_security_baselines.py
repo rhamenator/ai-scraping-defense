@@ -1,3 +1,6 @@
+import os
+import shutil
+import subprocess  # nosec B404 - required for controlled script execution tests
 from pathlib import Path
 
 import yaml
@@ -26,6 +29,13 @@ HTTPS_REDIRECTED_HEALTHCHECK_SERVICES = {
 def _load_compose() -> dict:
     compose_path = Path("docker-compose.yaml")
     return yaml.safe_load(compose_path.read_text())
+
+
+def _posix_shell_command() -> list[str] | None:
+    shell = shutil.which("sh") or shutil.which("bash")
+    if not shell:
+        return None
+    return [shell, "nginx/render_cdn_origin_lockdown.sh"]
 
 
 def _iter_kubernetes_workload_containers():
@@ -88,12 +98,84 @@ def test_nginx_enforces_https_and_headers():
     assert "Strict-Transport-Security" in config
     assert "add_header X-Frame-Options" in config
     assert "return 301 https://$host$request_uri;" in config
+    assert "include /etc/nginx/conf.d/*.perf.conf;" in config
+    assert "include /etc/nginx/generated-conf/*.conf;" in config
     assert "limit_req_zone" in config
+    assert "location = /healthz" in config
     assert "client_body_temp_path /var/run/openresty/nginx-client-body;" in config
     assert "proxy_temp_path /var/cache/nginx/proxy_temp;" in config
     assert "fastcgi_temp_path /var/cache/nginx/fastcgi_temp;" in config
     assert "uwsgi_temp_path /var/cache/nginx/uwsgi_temp;" in config
     assert "scgi_temp_path /var/cache/nginx/scgi_temp;" in config
+
+
+def test_nginx_compose_service_renders_cdn_origin_lockdown():
+    compose = _load_compose()
+    nginx_service = compose["services"]["nginx_proxy"]
+
+    assert any(
+        str(volume).startswith(
+            "./nginx/render_cdn_origin_lockdown.sh:/usr/local/bin/render_cdn_origin_lockdown.sh"
+        )
+        for volume in nginx_service.get("volumes", [])
+    )
+    command = " ".join(nginx_service.get("command", []))
+    assert "render_cdn_origin_lockdown.sh" in command
+    assert "openresty -g 'daemon off;'" in command
+    assert any(
+        str(volume).startswith("nginx_generated_conf:/etc/nginx/generated-conf")
+        for volume in nginx_service.get("volumes", [])
+    )
+
+
+def test_render_cdn_origin_lockdown_rejects_cidr_injection(tmp_path):
+    output_path = tmp_path / "20-cdn-origin-lockdown.conf"
+    shell_command = _posix_shell_command()
+    if shell_command is None:
+        return
+    env = {
+        **os.environ,
+        "SECURITY_CDN_ORIGIN_LOCKDOWN": "true",
+    }
+
+    for candidate in (
+        "10.0.0.0/8; allow all",
+        "10.0.0.0/8\nallow all",
+        "10.0.0.0/8\rallow all",
+        "10.0.0.0/8 { allow all; }",
+    ):
+        result = subprocess.run(  # nosec B603 - controlled test invocation
+            [*shell_command, str(output_path)],
+            cwd=Path.cwd(),
+            env={**env, "SECURITY_CDN_TRUSTED_PROXY_CIDRS": candidate},
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "Invalid SECURITY_CDN_TRUSTED_PROXY_CIDRS entry" in result.stderr
+
+
+def test_render_cdn_origin_lockdown_skips_tunnel_only_mode(tmp_path):
+    output_path = tmp_path / "20-cdn-origin-lockdown.conf"
+    shell_command = _posix_shell_command()
+    if shell_command is None:
+        return
+    result = subprocess.run(  # nosec B603 - controlled test invocation
+        [*shell_command, str(output_path)],
+        cwd=Path.cwd(),
+        env={
+            **os.environ,
+            "REQUIRE_CLOUDFLARE_ACCOUNT": "true",
+            "SECURITY_CDN_ORIGIN_LOCKDOWN": "false",
+            "CLOUDFLARE_TUNNEL_TOKEN": "test-token",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "disabled" in output_path.read_text()
 
 
 def test_compose_services_drop_privileges():

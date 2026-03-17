@@ -86,6 +86,8 @@ def validate_env(env: Mapping[str, str] | None = None) -> list[str]:
 
     enable_global_cdn = _is_truthy(env.get("ENABLE_GLOBAL_CDN"))
     require_cloudflare = _is_truthy(env.get("REQUIRE_CLOUDFLARE_ACCOUNT"))
+    origin_lockdown = _is_truthy(env.get("SECURITY_CDN_ORIGIN_LOCKDOWN"))
+    has_tunnel = bool((env.get("CLOUDFLARE_TUNNEL_TOKEN") or "").strip())
     if enable_global_cdn or require_cloudflare:
         provider = (env.get("CLOUD_CDN_PROVIDER") or "cloudflare").strip().lower()
         if provider != "cloudflare":
@@ -108,6 +110,19 @@ def validate_env(env: Mapping[str, str] | None = None) -> list[str]:
             errors.append(
                 "ENABLE_GLOBAL_CDN must be true when REQUIRE_CLOUDFLARE_ACCOUNT=true"
             )
+        if require_cloudflare and not origin_lockdown and not has_tunnel:
+            errors.append(
+                "REQUIRE_CLOUDFLARE_ACCOUNT=true requires SECURITY_CDN_ORIGIN_LOCKDOWN=true "
+                "or CLOUDFLARE_TUNNEL_TOKEN to keep the origin off the public internet"
+            )
+    if (
+        origin_lockdown
+        and not (enable_global_cdn or require_cloudflare)
+        and not env.get("SECURITY_CDN_TRUSTED_PROXY_CIDRS")
+    ):
+        errors.append(
+            "SECURITY_CDN_TRUSTED_PROXY_CIDRS is required when SECURITY_CDN_ORIGIN_LOCKDOWN=true"
+        )
 
     return errors
 
