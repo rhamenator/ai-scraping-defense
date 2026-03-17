@@ -35,7 +35,12 @@ jobs:
         uses: grafana/setup-k6-action@ffe7d7290dfa715e48c2ccc924d068444c94bde2
         with: { version: v0.50.0 }
       - name: k6 rich scenarios
-        run: k6 run -e BASE_URL="${{ steps.base.outputs.url }}" .github/tools/e2e/k6-rich.js
+        run: |
+          mkdir -p artifacts/performance
+          k6 run \
+            --summary-export artifacts/performance/k6-linux-summary.json \
+            -e BASE_URL="${{ steps.base.outputs.url }}" \
+            .github/tools/e2e/k6-rich.js
       - name: pytest e2e (Linux)
         run: |
           . .venv/bin/activate
@@ -47,6 +52,13 @@ jobs:
           [ -f "./scripts/security_test.sh" ] && bash ./scripts/security_test.sh || true
           [ -f "./stress_test.sh" ] && bash ./stress_test.sh || true
           [ -f "./scripts/stress_test.sh" ] && bash ./scripts/stress_test.sh || true
+      - name: Upload Linux performance artifacts
+        if: always()
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        with:
+          name: regression-e2e-linux-performance
+          path: artifacts/performance/
+          if-no-files-found: ignore
   e2e-windows:
     permissions:
       contents: read
@@ -75,7 +87,8 @@ jobs:
       - name: k6 rich scenarios (Windows)
         shell: pwsh
         run: |
-          & "${{ env.K6_EXE }}" run -e BASE_URL="${{ steps.base.outputs.url }}" .github/tools/e2e/k6-rich.js
+          New-Item -ItemType Directory -Force -Path artifacts/performance | Out-Null
+          & "${{ env.K6_EXE }}" run --summary-export artifacts/performance/k6-windows-summary.json -e BASE_URL="${{ steps.base.outputs.url }}" .github/tools/e2e/k6-rich.js
       - name: pytest e2e (Windows)
         shell: pwsh
         run: |
@@ -88,6 +101,13 @@ jobs:
           if (Test-Path "./scripts/security_test.ps1") { ./scripts/security_test.ps1 -ErrorAction Continue }
           if (Test-Path "./stress_test.ps1") { ./stress_test.ps1 -ErrorAction Continue }
           if (Test-Path "./scripts/stress_test.ps1") { ./scripts/stress_test.ps1 -ErrorAction Continue }
+      - name: Upload Windows performance artifacts
+        if: always()
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        with:
+          name: regression-e2e-windows-performance
+          path: artifacts/performance/
+          if-no-files-found: ignore
   e2e-macos:
     permissions:
       contents: read
