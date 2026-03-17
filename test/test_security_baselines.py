@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -28,6 +29,13 @@ HTTPS_REDIRECTED_HEALTHCHECK_SERVICES = {
 def _load_compose() -> dict:
     compose_path = Path("docker-compose.yaml")
     return yaml.safe_load(compose_path.read_text())
+
+
+def _posix_shell_command() -> list[str] | None:
+    shell = shutil.which("sh") or shutil.which("bash")
+    if not shell:
+        return None
+    return [shell, "nginx/render_cdn_origin_lockdown.sh"]
 
 
 def _iter_kubernetes_workload_containers():
@@ -122,6 +130,9 @@ def test_nginx_compose_service_renders_cdn_origin_lockdown():
 
 def test_render_cdn_origin_lockdown_rejects_cidr_injection(tmp_path):
     output_path = tmp_path / "20-cdn-origin-lockdown.conf"
+    shell_command = _posix_shell_command()
+    if shell_command is None:
+        return
     env = {
         **os.environ,
         "SECURITY_CDN_ORIGIN_LOCKDOWN": "true",
@@ -134,7 +145,7 @@ def test_render_cdn_origin_lockdown_rejects_cidr_injection(tmp_path):
         "10.0.0.0/8 { allow all; }",
     ):
         result = subprocess.run(  # nosec B603 - controlled test invocation
-            ["/bin/sh", "nginx/render_cdn_origin_lockdown.sh", str(output_path)],
+            [*shell_command, str(output_path)],
             cwd=Path.cwd(),
             env={**env, "SECURITY_CDN_TRUSTED_PROXY_CIDRS": candidate},
             capture_output=True,
@@ -146,8 +157,11 @@ def test_render_cdn_origin_lockdown_rejects_cidr_injection(tmp_path):
 
 def test_render_cdn_origin_lockdown_skips_tunnel_only_mode(tmp_path):
     output_path = tmp_path / "20-cdn-origin-lockdown.conf"
+    shell_command = _posix_shell_command()
+    if shell_command is None:
+        return
     result = subprocess.run(  # nosec B603 - controlled test invocation
-        ["/bin/sh", "nginx/render_cdn_origin_lockdown.sh", str(output_path)],
+        [*shell_command, str(output_path)],
         cwd=Path.cwd(),
         env={
             **os.environ,

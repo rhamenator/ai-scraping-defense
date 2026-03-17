@@ -88,7 +88,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - /usr/local/bin/render_cdn_origin_lockdown.sh && exec /usr/local/openresty/bin/openresty -g 'daemon off;'
+      - /bin/sh /usr/local/bin/render_cdn_origin_lockdown.sh && exec /usr/local/openresty/bin/openresty -g 'daemon off;'
     depends_on:
       escalation_engine:
         condition: service_healthy
