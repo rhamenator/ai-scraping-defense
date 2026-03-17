@@ -65,6 +65,7 @@ To get a full understanding of the project, please review the following document
 - [**Engineering Quality Baseline**](engineering_quality_baseline.md)**:** Contributor, reviewer, CI, and release expectations for maintainable, testable changes.
 - [**Release Checklist**](release_checklist.md)**:** Practical validation steps before cutting a tagged release.
 - [**Release Artifacts**](release_artifacts.md)**:** Semver tags, GHCR image publication, signatures, and provenance policy.
+- [**Operational Platform Baseline**](operational_platform_baseline.md)**:** Current expectations for environments, observability, rollout ownership, and operator evidence.
 - [**Kubernetes Deployment**](kubernetes_deployment.md)**:** A step-by-step guide for deploying the entire application stack to a production-ready Kubernetes cluster.
 - [**Fail2ban**](fail2ban.md)**:** Configuration and deployment instructions for the optional firewall banning service.
 - [**Web Application Firewall**](waf_setup.md)**:** How to load ModSecurity rules and enable request filtering.

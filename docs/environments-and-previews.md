@@ -1,5 +1,9 @@
 # Environments & PR Previews
 
+For the broader release-facing platform expectations around environments,
+deployment ownership, and operator evidence, see
+[operational_platform_baseline.md](operational_platform_baseline.md).
+
 Create **staging** and **production** in Settings → Environments.
 - `staging`: set `STAGING_BASE_URL`, plus GCP secrets.
 - `production`: add required reviewers; set `PROD_BASE_URL`, plus GCP secrets.
