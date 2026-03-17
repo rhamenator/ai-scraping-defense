@@ -72,6 +72,7 @@ To get a full understanding of the project, please review the following document
 - [**Guarded Attack Simulation Profiles**](attack_simulation_profiles.md)**:** Versioned, allowlisted attack-regression profiles for Compose, staging, and Kali validation.
 - [**Runtime Hotspots Audit**](runtime_hotspots.md)**:** Current request-path efficiency baselines and the hotspots already addressed.
 - [**Security Assurance Program**](security_assurance_program.md)**:** Release-facing security validation, Kali sweep evidence, operator readiness, and third-party review expectations.
+- [**Platform Runtime Security Baseline**](platform_runtime_security_baseline.md)**:** Supported deployment/runtime assumptions for exposure, hardening, and secret handling.
 - [**Security Program Foundations**](security_program.md)**:** Culture, metrics, chaos engineering, and insider threat foundations.
 - [**Supply Chain Security**](security/supply_chain.md)**:** Dependency integrity checks, SBOMs, and CI controls.
 - [**Advanced Cryptography Roadmap**](advanced_crypto.md)**:** Post-quantum and homomorphic cryptography planning.

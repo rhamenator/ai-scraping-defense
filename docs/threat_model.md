@@ -68,6 +68,9 @@ This document outlines the primary threats considered when deploying the AI Scra
 The detailed matrix and CI enforcement rules live in
 [`network_isolation_baseline.md`](network_isolation_baseline.md).
 
+The broader deployment and runtime assumptions for supported environments live
+in [`platform_runtime_security_baseline.md`](platform_runtime_security_baseline.md).
+
 ## Assumptions
 - Internal service-to-service traffic is on a trusted network segment.
 - Secrets are stored in a secret manager or mounted read-only.
