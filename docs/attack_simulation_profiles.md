@@ -75,3 +75,5 @@ python scripts/security/attack_regression.py \
 - Increase `--max-requests` only when a specific profile requires it.
 - Keep this tool focused on defensive validation. Broader recon and
   opportunistic scanning remain in the separate Kali security sweep workflow.
+- Use GitHub-hosted Linux runners for `compose-v1` and bounded `staging-v1`
+  validation. Use the self-hosted Kali sweep for broader tool-driven scanning.
