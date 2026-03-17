@@ -35,6 +35,17 @@ We welcome meaningful contributions, including but not limited to:
 8. **Push to Your Fork:** `git push origin feature/your-new-feature`
 9. **Submit a Pull Request:** Open a PR against the `main` branch of the original repository. Fill out the PR template clearly.
 
+## Engineering Quality Baseline
+
+Contributions should meet the engineering-quality baseline in [docs/engineering_quality_baseline.md](docs/engineering_quality_baseline.md). In practice, that means:
+
+- run `pre-commit` on the files you changed
+- run the relevant test suite for the code path you touched
+- update docs when config, deployment, API, or operator behavior changes
+- avoid mixing unrelated refactors into security or behavior fixes
+
+The baseline document also explains how local validation maps to the repository CI and release gates.
+
 ## Code Style (Example)
 
 - Follow PEP 8 for Python.

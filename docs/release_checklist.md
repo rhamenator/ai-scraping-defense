@@ -9,6 +9,7 @@ Use this checklist before cutting a tagged release.
 - `docker build -t ai-scraping-defense:test .`
 - `docker compose config`
 - any Rust crates used in production paths pass `cargo test`
+- engineering-quality evidence from `docs/engineering_quality_baseline.md` is satisfied for the release commit: contributor checks, CI baseline, and review expectations are all covered by the shipped change set
 
 ## Runtime Validation
 
