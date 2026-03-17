@@ -1,8 +1,8 @@
 # **Roadmap**
 
-## **Current Version: v1.0 (Stable)**
+## **Current Version: v0.0.6-rc.4 (Release Candidate)**
 
-The AI Scraping Defense Stack now provides a stable, containerized defense system with real-time filtering, tarpitting, behavioral analysis, and AI-driven threat assessment.
+The AI Scraping Defense Stack currently ships as a release candidate with a stable core feature set and an explicit release-hardening path around evidence, documentation, and operator readiness.
 
 ## **Short-Term Goals (Next 3-6 Months)**
 

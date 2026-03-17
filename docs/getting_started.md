@@ -149,7 +149,7 @@ With the configuration and secrets in place, you can now build and start all the
 
 ``` bash
 # On Linux or macOS
-docker-compose up --build -d
+docker compose up --build -d
 ```
 
 If you are running Docker from a snap-packaged Linux install and the Python
@@ -162,7 +162,7 @@ docker compose -f docker-compose.yaml -f docker-compose.local.yaml up --build -d
 
 ``` PowerShell
 # On Windows (in a PowerShell terminal)
-docker-compose up --build -d
+docker compose up --build -d
 ```
 
 * --build: This tells Docker Compose to build the Python service image using the Dockerfile.
@@ -173,7 +173,8 @@ docker-compose up --build -d
 Once the containers are running, you can access the key services in your web browser:
 
 * **Admin UI:** [http://localhost:5002](http://localhost:5002)
-* **Your Application (via Nginx Proxy):** [http://localhost:8080](http://localhost:8080)
+* **Your Application (via Nginx Proxy):** [http://localhost:8088](http://localhost:8088)
+* **TLS Test Path (via Nginx Proxy):** [https://localhost:8443](https://localhost:8443)
 * **MailHog (Email Catcher):** [http://localhost:8025](http://localhost:8025)
 * **Redis (for blocklist management):** [http://localhost:6379](http://localhost:6379) (not directly accessible via a web interface, but can be managed using Redis CLI or GUI tools).
 * **Blocklist Sync Daemon:** runs automatically to pull updates from the community blocklist service.
@@ -202,7 +203,7 @@ If you want to see how the defense stack performs in front of a real CMS, a help
 ./setup_wordpress_website.sh (or ./setup_wordpress_website.ps1 on Windows)
 ```
 
-The script starts the Docker Compose stack (if it is not already running) and then launches WordPress and its MariaDB database on the same `defense_network`. Traffic allowed by the proxy will reach WordPress via `REAL_BACKEND_HOSTS` (or `REAL_BACKEND_HOST`). The helper sets this value in `.env` for you, and `setup_fake_website.sh` does the same when launching a simple nginx site. Once started you can visit the site directly at [http://localhost:8082](http://localhost:8082) or through the defense stack at [http://localhost:8080](http://localhost:8080).
+The script starts the Docker Compose stack (if it is not already running) and then launches WordPress and its MariaDB database on the same `defense_network`. Traffic allowed by the proxy will reach WordPress via `REAL_BACKEND_HOSTS` (or `REAL_BACKEND_HOST`). The helper sets this value in `.env` for you, and `setup_fake_website.sh` does the same when launching a simple nginx site. Once started you can visit the site directly at [http://localhost:8082](http://localhost:8082) or through the defense stack at [http://localhost:8088](http://localhost:8088).
 
 ### **7. Stopping the Application**
 
@@ -210,12 +211,12 @@ To stop the application stack, you can run:
 
 ``` bash
 # On Linux or macOS
-docker-compose down
+docker compose down
 ```
 
 ``` PowerShell
 # On Windows (in a PowerShell terminal)
-docker-compose down
+docker compose down
 ```
 
 This will stop and remove all the containers defined in your docker-compose.yml file.
@@ -231,9 +232,9 @@ For load and performance experiments, a helper script installs several open-sour
 The script installs utilities like **wrk**, **siege**, **ab**, **k6**, and **locust**. After installation, you can try commands such as:
 
 ```bash
-wrk -t4 -c100 -d30s http://localhost:8080
-siege -c50 -t1m http://localhost:8080
-ab -n 1000 -c100 http://localhost:8080/
+wrk -t4 -c100 -d30s http://localhost:8088
+siege -c50 -t1m http://localhost:8088
+ab -n 1000 -c100 http://localhost:8088/
 ```
 
 Use these programs only against systems you own or have explicit permission to test.
@@ -291,7 +292,7 @@ CLOUDFLARE_TUNNEL_TOKEN=<your_tunnel_token> ./scripts/linux/start_cloudflare_tun
 By default the tunnel forwards to `http://localhost:${NGINX_HTTP_PORT}`. Override with:
 
 ```bash
-CLOUDFLARE_TUNNEL_TARGET_URL=http://localhost:8080 ./scripts/linux/start_cloudflare_tunnel.sh
+CLOUDFLARE_TUNNEL_TARGET_URL=http://localhost:8088 ./scripts/linux/start_cloudflare_tunnel.sh
 ```
 
 ## **Running Local LLM Containers**
@@ -321,7 +322,7 @@ This script generates the required secrets and applies all manifests using `kube
 
 ## **Manual Kubernetes Deployment**
 
-For a detailed walkthrough see [kubernetes_deployment.md](kubernetes_deployment.md). The `deploy.sh` and `deploy.ps1` scripts allow you to apply the manifests manually when you need more control over the process.
+For a detailed walkthrough see [kubernetes_deployment.md](kubernetes_deployment.md). The `scripts/linux/deploy.sh` and `scripts/windows/deploy.ps1` scripts allow you to apply the manifests manually when you need more control over the process.
 
 ## **Running Multiple Tenants**
 

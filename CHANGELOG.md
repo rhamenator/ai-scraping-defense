@@ -6,22 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.0.6-rc.4] - 2026-03-17
 ### Added
 * **Threat Model Document:** Added docs/threat_model.md and linked from the README.
 * **Automated Dependency Scanning:** Added Dependabot configuration and pip-audit workflow.
 * **Release Artifact Policy:** Added a tagged container-image release workflow plus release artifact and checklist documentation.
 * **Installer Release Bundles:** Added a tagged release workflow that publishes versioned `.zip` and `.tar.gz` repository bundles with SHA-256 checksums for the existing Linux, Windows, and macOS installers.
+* **Release Baseline Documents:** Added explicit release-facing documents for engineering quality, architecture modernization, runtime performance, data protection, platform runtime security, and security assurance.
+* **Release Evidence Workflows:** Added the attack-regression, regression-E2E, and Kali sweep workflow contracts to the documented release path.
 
 
 ### Changed
 
 * **Release Notes Preservation:** Updated the installer-bundle release workflow so reruns replace only an auto-managed installer bundle section and keep manual GitHub Release notes intact.
+* **Release Metadata Semantics:** Release-candidate tags are now treated as prereleases by the release bundle workflow instead of being published like stable latest releases.
 
 * **Markov Training Utility:** Removed `rag/train_markov_postgres.py` and now build the Markov model using the Rust `markov-train-rs` crate via `train_from_corpus_rs`.
 * **Environment Variables:** Replaced deprecated `TARPIT_MAX_HOPS` and `TARPIT_HOP_WINDOW_SECONDS` with `TAR_PIT_MAX_HOPS` and `TAR_PIT_HOP_WINDOW_SECONDS`.
 * **Documentation:** Updated repository references to highlight `src/`, `scripts/`, and `rag/` directories.
 * **CI Test Scope:** Consolidated the main cross-platform test path into `ci-tests.yml` and repurposed `tests.yml` into a dedicated Rust nightly smoke workflow to avoid redundant PR checks.
 * **Generated Artifacts:** Stopped tracking generated IIS `.NET` NuGet files from `iis/DefenseModule/obj/`.
+* **Operator Documentation:** Corrected stale local/prod deployment examples, script paths, and port references so the README and setup docs match the current Compose and installer defaults.
 
 ## **[0.0.5] - 2025-05-25**
 

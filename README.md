@@ -552,14 +552,14 @@ The script applies all manifests using `kubectl`; it does not generate secrets.
 
 ## Manual Kubernetes Deployment
 
-For a detailed, step-by-step guide see [docs/kubernetes_deployment.md](docs/kubernetes_deployment.md). The `deploy.sh` and `deploy.ps1` scripts provide a manual approach if you need more control.
+For a detailed, step-by-step guide see [docs/kubernetes_deployment.md](docs/kubernetes_deployment.md). The `scripts/linux/deploy.sh` and `scripts/windows/deploy.ps1` scripts provide a manual approach if you need more control.
 
 ## Cloud Deployment (GKE Example)
 
 To deploy the stack to a managed Kubernetes service such as Google Kubernetes Engine, follow the instructions in [docs/cloud_provider_deployment.md](docs/cloud_provider_deployment.md). Convenience scripts are provided for automation:
 
 ```bash
-./gke_deploy.sh       # or .\gke_deploy.ps1 on Windows
+./scripts/linux/gke_deploy.sh       # or .\scripts\windows\gke_deploy.ps1 on Windows
 ```
 
 ### GitHub Actions Runner Deployment
@@ -580,11 +580,11 @@ It installs common open-source tools such as **wrk**, **siege**, **ab**, **k6**,
 After installing the tools, you can run a basic stress test using the provided scripts:
 
 ```powershell
-./stress_test.ps1 -Target http://your-linux-host:8080 -VUs 50 -DurationSeconds 30
+./stress_test.ps1 -Target http://your-linux-host:8088 -VUs 50 -DurationSeconds 30
 ```
 
 ```bash
-./stress_test.sh http://your-linux-host:8080
+./stress_test.sh http://your-linux-host:8088
 ```
 
 ## Security Scan Helper
