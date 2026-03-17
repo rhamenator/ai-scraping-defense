@@ -52,24 +52,67 @@
                     {% if updated %}
                     <div class="text-green-700">Settings updated.</div>
                     {% endif %}
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700" for="LOG_LEVEL">Log Level</label>
-                        <input class="mt-1 p-2 border rounded w-full" type="text" name="LOG_LEVEL" id="LOG_LEVEL" value="{{ settings['LOG_LEVEL'] }}">
+                    {% if errors %}
+                    <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                        Fix the validation errors below before saving.
                     </div>
+                    {% endif %}
+                    {% for field in editable_settings %}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700" for="ESCALATION_ENDPOINT">Escalation Engine URL</label>
-                        <input class="mt-1 p-2 border rounded w-full" type="text" name="ESCALATION_ENDPOINT" id="ESCALATION_ENDPOINT" value="{{ settings['ESCALATION_ENDPOINT'] }}">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700" for="WEBAUTHN_AUTHENTICATOR_ATTACHMENT">WebAuthn Authenticator Preference</label>
-                        <select class="mt-1 p-2 border rounded w-full" name="WEBAUTHN_AUTHENTICATOR_ATTACHMENT" id="WEBAUTHN_AUTHENTICATOR_ATTACHMENT">
-                            <option value="none" {% if settings['WEBAUTHN_AUTHENTICATOR_ATTACHMENT'] == 'none' %}selected{% endif %}>No preference</option>
-                            <option value="platform" {% if settings['WEBAUTHN_AUTHENTICATOR_ATTACHMENT'] == 'platform' %}selected{% endif %}>Platform (biometric-capable)</option>
-                            <option value="cross-platform" {% if settings['WEBAUTHN_AUTHENTICATOR_ATTACHMENT'] == 'cross-platform' %}selected{% endif %}>Cross-platform (security keys)</option>
+                        <label class="block text-sm font-medium text-gray-700" for="{{ field.key }}">{{ field.label }}</label>
+                        <p class="mt-1 text-sm text-gray-500">{{ field.description }}</p>
+                        {% if field.input_type == 'select' %}
+                        <select class="mt-1 p-2 border rounded w-full" name="{{ field.key }}" id="{{ field.key }}">
+                            {% for choice in field.choices %}
+                            <option value="{{ choice }}" {% if field.value == choice %}selected{% endif %}>{{ choice }}</option>
+                            {% endfor %}
                         </select>
+                        {% elif field.input_type == 'multiselect' %}
+                        <div class="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                            {% for option in field.options %}
+                            <label class="flex items-center gap-2 rounded border p-2 text-sm">
+                                <input type="checkbox" name="{{ field.key }}" value="{{ option }}" {% if option in field.selected_values %}checked{% endif %}>
+                                <span>{{ option }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <input class="mt-1 p-2 border rounded w-full" type="{{ field.input_type }}" name="{{ field.key }}" id="{{ field.key }}" value="{{ field.value }}">
+                        {% endif %}
+                        {% if field.error %}
+                        <p class="mt-1 text-sm text-red-600">{{ field.error }}</p>
+                        {% endif %}
                     </div>
+                    {% endfor %}
                     <button class="px-4 py-2 bg-blue-600 text-white rounded" type="submit">Save</button>
                 </form>
+
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold mb-3">Secret References</h3>
+                    <p class="text-gray-600 mb-4">
+                        Secret values are never rendered here. Only file paths or Vault references are shown.
+                    </p>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white border">
+                            <thead class="bg-gray-200">
+                                <tr>
+                                    <th class="py-2 px-4 border-b text-left">Secret</th>
+                                    <th class="py-2 px-4 border-b text-left">Source</th>
+                                    <th class="py-2 px-4 border-b text-left">Reference</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for secret in secret_references %}
+                                <tr class="hover:bg-gray-50">
+                                    <td class="py-2 px-4 border-b text-sm text-gray-700">{{ secret.label }}</td>
+                                    <td class="py-2 px-4 border-b text-sm text-gray-700">{{ secret.source }}</td>
+                                    <td class="py-2 px-4 border-b font-mono text-sm {% if secret.configured %}text-blue-800{% else %}text-gray-500{% endif %}">{{ secret.reference }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
                 <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <h3 class="font-semibold text-lg text-blue-800">How to Change Settings</h3>
