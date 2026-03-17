@@ -66,6 +66,7 @@ This project provides a multi-layered, microservice-based defense system against
 - `security-attack-regression.yml` is the deterministic PR-time ingress regression gate; it boots the Compose stack locally and asserts expected security behaviour.
 - `kali-security-sweep.yml` is the broader external attack sweep intended for a self-hosted Kali runner against a preview or staging target.
 - tagged releases publish signed container images through `/.github/workflows/release-images.yml`.
+- tagged releases also publish versioned installer bundles through `/.github/workflows/release-bundles.yml`.
 
 See [docs/release_checklist.md](docs/release_checklist.md) and [docs/release_artifacts.md](docs/release_artifacts.md) for the expected release process and artifact policy.
 
@@ -222,6 +223,11 @@ The Linux installer generates local secrets, installs Python requirements with
 reverse-proxy helper, and runs the Linux smoke test for you. For Linux-specific
 rollback and uninstall steps, see [docs/linux_installer.md](docs/linux_installer.md).
 The stack requires Rust 1.78.0. `mise` (or `rustup`) installs this toolchain automatically.
+
+If you prefer downloading a tagged release bundle instead of cloning the
+repository, use the release `.zip` bundle on Windows or the `.tar.gz` bundle on
+Linux and macOS, then run the same installer entrypoints from the extracted
+repository root.
 
 If you want local GGUF inference through the `llamacpp://` adapter, install the
 optional native dependency set after the base environment is ready:

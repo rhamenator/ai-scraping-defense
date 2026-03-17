@@ -17,6 +17,30 @@ ghcr.io/<owner>/ai-scraping-defense
 
 The release workflow is implemented in [release-images.yml](../.github/workflows/release-images.yml) and runs on Git tags that match `v*`.
 
+## Installer Bundles
+
+Tagged releases also publish versioned installer bundles for operators that want
+to download a release artifact instead of cloning the repository first.
+
+Because the Linux, Windows, and macOS installer entrypoints orchestrate Docker
+Compose from the repository root, these are full repository bundles rather than
+native `.exe`, `.msi`, or `.pkg` installers.
+
+Each tagged release publishes:
+
+- `ai-scraping-defense-<version>-bundle.zip`
+- `ai-scraping-defense-<version>-bundle.zip.sha256`
+- `ai-scraping-defense-<version>-bundle.tar.gz`
+- `ai-scraping-defense-<version>-bundle.tar.gz.sha256`
+
+Use the `.zip` bundle on Windows and the `.tar.gz` bundle on Linux or macOS.
+After extraction, run the documented platform entrypoint from the extracted
+repository root:
+
+- Windows: `./scripts/windows/install.ps1`
+- macOS: `./scripts/macos/install.zsh`
+- Linux: `./scripts/linux/install.sh`
+
 ## Tagging Policy
 
 For a stable release tag such as `v1.2.3`, the workflow publishes:
@@ -60,6 +84,20 @@ cosign verify \
   ghcr.io/<owner>/ai-scraping-defense@sha256:<digest> \
   --certificate-identity https://github.com/<owner>/ai-scraping-defense/.github/workflows/release-images.yml@refs/tags/v1.2.3 \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Verify a release bundle checksum on Linux or macOS:
+
+```bash
+sha256sum -c ai-scraping-defense-<version>-bundle.tar.gz.sha256
+```
+
+Verify a release bundle checksum on Windows:
+
+```powershell
+$expected = (Get-Content .\ai-scraping-defense-<version>-bundle.zip.sha256).Split(' ')[0]
+$actual = (Get-FileHash .\ai-scraping-defense-<version>-bundle.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($expected -ne $actual) { throw 'Checksum mismatch.' }
 ```
 
 ## Upgrade Path

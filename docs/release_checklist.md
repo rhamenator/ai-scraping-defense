@@ -35,4 +35,6 @@ Use this checklist before cutting a tagged release.
 - `README.md` matches shipped behavior
 - `CHANGELOG.md` reflects the release contents
 - `docs/release_artifacts.md` matches the implemented tag policy
+- tagged installer bundles publish `.zip` and `.tar.gz` assets plus `.sha256` files
+- bundle extraction still supports the documented installer entrypoints on Linux, Windows, and macOS
 - a semver tag `v<major>.<minor>.<patch>` is used for the release

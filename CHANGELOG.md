@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Threat Model Document:** Added docs/threat_model.md and linked from the README.
 * **Automated Dependency Scanning:** Added Dependabot configuration and pip-audit workflow.
 * **Release Artifact Policy:** Added a tagged container-image release workflow plus release artifact and checklist documentation.
+* **Installer Release Bundles:** Added a tagged release workflow that publishes versioned `.zip` and `.tar.gz` repository bundles with SHA-256 checksums for the existing Linux, Windows, and macOS installers.
 
 
 ### Changed

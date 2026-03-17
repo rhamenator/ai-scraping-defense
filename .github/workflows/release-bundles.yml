@@ -1,0 +1,145 @@
+name: release-bundles
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+        with:
+          fetch-depth: 0
+
+      - name: Derive Release Bundle Metadata
+        id: refs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ref_name="${GITHUB_REF_NAME}"
+          version="${ref_name#v}"
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tags must follow v<semver>; received '$ref_name'." >&2
+            exit 1
+          fi
+
+          prefix="ai-scraping-defense-${version}"
+          zip_name="${prefix}-bundle.zip"
+          tar_name="${prefix}-bundle.tar.gz"
+
+          {
+            echo "version=${version}"
+            echo "prefix=${prefix}"
+            echo "zip_name=${zip_name}"
+            echo "tar_name=${tar_name}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build Release Bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p artifacts/release-bundles
+
+          prefix="${{ steps.refs.outputs.prefix }}/"
+          zip_path="artifacts/release-bundles/${{ steps.refs.outputs.zip_name }}"
+          tar_path="artifacts/release-bundles/${{ steps.refs.outputs.tar_name }}"
+
+          git archive \
+            --format=zip \
+            --prefix="$prefix" \
+            --output="$zip_path" \
+            "$GITHUB_SHA"
+
+          git archive \
+            --format=tar \
+            --prefix="$prefix" \
+            "$GITHUB_SHA" | gzip -n > "$tar_path"
+
+      - name: Generate Bundle Checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd artifacts/release-bundles
+          for artifact in *.zip *.tar.gz; do
+            sha256sum "$artifact" | awk '{ print tolower($1) " *" $2 }' > "$artifact.sha256"
+          done
+
+      - name: Write Release Notes Fragment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > artifacts/release-bundles/release-notes.md <<EOF
+          Installer bundles for ${GITHUB_REF_NAME}
+
+          Download guidance:
+
+          - Windows: ${{ steps.refs.outputs.zip_name }}
+          - Linux: ${{ steps.refs.outputs.tar_name }}
+          - macOS: ${{ steps.refs.outputs.tar_name }}
+
+          Verify the matching .sha256 file before running the extracted installer entrypoint.
+          EOF
+
+      - name: Ensure Release Exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file artifacts/release-bundles/release-notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file artifacts/release-bundles/release-notes.md
+          fi
+
+      - name: Upload Workflow Artifacts
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: release-bundles
+          path: |
+            artifacts/release-bundles/*.zip
+            artifacts/release-bundles/*.tar.gz
+            artifacts/release-bundles/*.sha256
+            artifacts/release-bundles/release-notes.md
+
+      - name: Upload Release Assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh release upload "$GITHUB_REF_NAME" \
+            artifacts/release-bundles/*.zip \
+            artifacts/release-bundles/*.tar.gz \
+            artifacts/release-bundles/*.sha256 \
+            --clobber
+
+      - name: Summarize Release Bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "Published installer bundles:"
+            echo ""
+            for artifact in artifacts/release-bundles/*; do
+              echo "- \`$(basename "$artifact")\`"
+            done
+            echo ""
+            echo "Use the .zip bundle on Windows and the .tar.gz bundle on Linux or macOS."
+          } >> "$GITHUB_STEP_SUMMARY"
