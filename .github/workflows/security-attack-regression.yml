@@ -74,18 +74,47 @@ jobs:
           bash ./scripts/linux/generate_secrets.sh --update-env
       - name: Start compose stack
         run: |
-          docker compose \
-            -f docker-compose.yaml \
-            up -d --wait \
-            mock_external_api \
-            postgres \
-            redis \
-            escalation_engine \
-            tarpit_api \
-            admin_ui \
-            cloud_proxy \
-            prompt_router \
-            nginx_proxy
+          pull_with_retry() {
+            local image="$1"
+            local attempt
+            for attempt in 1 2 3; do
+              if docker pull "$image"; then
+                return 0
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                return 1
+              fi
+              sleep $((attempt * 10))
+            done
+          }
+
+          compose_up_with_retry() {
+            local attempt
+            for attempt in 1 2 3; do
+              if docker compose \
+                -f docker-compose.yaml \
+                up -d --wait \
+                mock_external_api \
+                postgres \
+                redis \
+                escalation_engine \
+                tarpit_api \
+                admin_ui \
+                cloud_proxy \
+                prompt_router \
+                nginx_proxy; then
+                return 0
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                return 1
+              fi
+              docker compose -f docker-compose.yaml down -v --remove-orphans || true
+              sleep $((attempt * 15))
+            done
+          }
+
+          pull_with_retry "python:3.11-slim"
+          compose_up_with_retry
       - name: Run attack regression probes
         run: |
           mkdir -p artifacts
