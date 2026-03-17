@@ -43,6 +43,98 @@ def normalize_severity(raw_value: str | None) -> str:
     return "low"
 
 
+def _secret_scanning_entry(
+    *,
+    source: str,
+    dedupe_key: str,
+    title: str,
+    occurrences: int,
+) -> ResponsePlanEntry:
+    return ResponsePlanEntry(
+        source=source,
+        dedupe_key=dedupe_key,
+        title=title,
+        severity="critical",
+        occurrences=occurrences,
+        create_issue=True,
+        page_operator=True,
+        automated_response="rotate_credentials",
+        rationale=(
+            "Secret exposure needs immediate operator attention, credential "
+            "rotation, and a tracked remediation issue."
+        ),
+    )
+
+
+def _dependabot_entry(
+    *,
+    source: str,
+    dedupe_key: str,
+    title: str,
+    severity: str,
+    occurrences: int,
+) -> ResponsePlanEntry:
+    return ResponsePlanEntry(
+        source=source,
+        dedupe_key=dedupe_key,
+        title=title,
+        severity=severity,
+        occurrences=occurrences,
+        create_issue=SEVERITY_RANK[severity] >= SEVERITY_RANK["medium"],
+        page_operator=severity == "critical",
+        automated_response="expedite_patch" if severity == "critical" else None,
+        rationale=(
+            "Dependabot alerts create backlog work at medium+ severity, while "
+            "critical advisories page operators for expedited patching."
+        ),
+    )
+
+
+def _code_scanning_entry(
+    *,
+    source: str,
+    dedupe_key: str,
+    title: str,
+    severity: str,
+    occurrences: int,
+) -> ResponsePlanEntry:
+    return ResponsePlanEntry(
+        source=source,
+        dedupe_key=dedupe_key,
+        title=title,
+        severity=severity,
+        occurrences=occurrences,
+        create_issue=SEVERITY_RANK[severity] >= SEVERITY_RANK["medium"],
+        page_operator=severity == "critical",
+        automated_response="expedite_hotfix" if severity == "critical" else None,
+        rationale=(
+            "Code scanning findings become tracked work at medium+ severity, "
+            "while critical findings require operator paging and hotfix review."
+        ),
+    )
+
+
+def _default_entry(
+    *,
+    source: str,
+    dedupe_key: str,
+    title: str,
+    severity: str,
+    occurrences: int,
+) -> ResponsePlanEntry:
+    return ResponsePlanEntry(
+        source=source,
+        dedupe_key=dedupe_key,
+        title=title,
+        severity=severity,
+        occurrences=occurrences,
+        create_issue=False,
+        page_operator=False,
+        automated_response=None,
+        rationale="No automation policy is defined for this source type.",
+    )
+
+
 def build_response_plan_entry(
     *,
     source: str,
@@ -52,69 +144,35 @@ def build_response_plan_entry(
     occurrences: int,
 ) -> ResponsePlanEntry:
     normalized_severity = normalize_severity(severity)
-
     if source == "secret_scanning":
-        return ResponsePlanEntry(
+        return _secret_scanning_entry(
             source=source,
             dedupe_key=dedupe_key,
             title=title,
-            severity="critical",
             occurrences=occurrences,
-            create_issue=True,
-            page_operator=True,
-            automated_response="rotate_credentials",
-            rationale=(
-                "Secret exposure needs immediate operator attention, credential "
-                "rotation, and a tracked remediation issue."
-            ),
         )
-
     if source == "dependabot":
-        return ResponsePlanEntry(
+        return _dependabot_entry(
             source=source,
             dedupe_key=dedupe_key,
             title=title,
             severity=normalized_severity,
             occurrences=occurrences,
-            create_issue=SEVERITY_RANK[normalized_severity] >= SEVERITY_RANK["medium"],
-            page_operator=normalized_severity == "critical",
-            automated_response=(
-                "expedite_patch" if normalized_severity == "critical" else None
-            ),
-            rationale=(
-                "Dependabot alerts create backlog work at medium+ severity, while "
-                "critical advisories page operators for expedited patching."
-            ),
         )
-
     if source == "code_scanning":
-        return ResponsePlanEntry(
+        return _code_scanning_entry(
             source=source,
             dedupe_key=dedupe_key,
             title=title,
             severity=normalized_severity,
             occurrences=occurrences,
-            create_issue=SEVERITY_RANK[normalized_severity] >= SEVERITY_RANK["medium"],
-            page_operator=normalized_severity == "critical",
-            automated_response=(
-                "expedite_hotfix" if normalized_severity == "critical" else None
-            ),
-            rationale=(
-                "Code scanning findings become tracked work at medium+ severity, "
-                "while critical findings require operator paging and hotfix review."
-            ),
         )
-
-    return ResponsePlanEntry(
+    return _default_entry(
         source=source,
         dedupe_key=dedupe_key,
         title=title,
         severity=normalized_severity,
         occurrences=occurrences,
-        create_issue=False,
-        page_operator=False,
-        automated_response=None,
-        rationale="No automation policy is defined for this source type.",
     )
 
 

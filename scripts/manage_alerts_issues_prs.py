@@ -137,28 +137,58 @@ class AlertManager:
     def _slug_component(value: str) -> str:
         return "_".join(str(value or "unknown").strip().split()) or "unknown"
 
-    def _dependabot_metadata(self, alert: Dict) -> tuple[str, str, str]:
-        advisory = alert.get("securityAdvisory") or alert.get("security_advisory") or {}
-        vulnerability = (
-            alert.get("securityVulnerability")
-            or alert.get("security_vulnerability")
-            or {}
+    @staticmethod
+    def _first_mapping(alert: Dict, *keys: str) -> Dict:
+        for key in keys:
+            value = alert.get(key)
+            if isinstance(value, dict):
+                return value
+        return {}
+
+    def _dependabot_advisory(self, alert: Dict) -> Dict:
+        return self._first_mapping(alert, "securityAdvisory", "security_advisory")
+
+    def _dependabot_vulnerability(self, alert: Dict) -> Dict:
+        return self._first_mapping(
+            alert,
+            "securityVulnerability",
+            "security_vulnerability",
         )
-        dependency = alert.get("dependency") or {}
-        ghsa_id = advisory.get("ghsaId") or advisory.get("ghsa_id") or "unknown"
-        package_name = (
-            (vulnerability.get("package") or {}).get("name")
-            or dependency.get("package")
-            or dependency.get("package_name")
-            or "unknown"
+
+    def _dependabot_dependency(self, alert: Dict) -> Dict:
+        return self._first_mapping(alert, "dependency")
+
+    @staticmethod
+    def _dependabot_ghsa_id(advisory: Dict) -> str:
+        return str(advisory.get("ghsaId") or advisory.get("ghsa_id") or "unknown")
+
+    @staticmethod
+    def _dependabot_package_name(vulnerability: Dict, dependency: Dict) -> str:
+        package = vulnerability.get("package")
+        if isinstance(package, dict) and package.get("name"):
+            return str(package["name"])
+        return str(
+            dependency.get("package") or dependency.get("package_name") or "unknown"
         )
-        severity = (
+
+    @staticmethod
+    def _dependabot_severity(alert: Dict, advisory: Dict, vulnerability: Dict) -> str:
+        return str(
             vulnerability.get("severity")
             or advisory.get("severity")
             or alert.get("severity")
             or "low"
+        ).lower()
+
+    def _dependabot_metadata(self, alert: Dict) -> tuple[str, str, str]:
+        advisory = self._dependabot_advisory(alert)
+        vulnerability = self._dependabot_vulnerability(alert)
+        dependency = self._dependabot_dependency(alert)
+        return (
+            self._dependabot_ghsa_id(advisory),
+            self._dependabot_package_name(vulnerability, dependency),
+            self._dependabot_severity(alert, advisory, vulnerability),
         )
-        return str(ghsa_id), str(package_name), str(severity).lower()
 
     def normalize_alert_key(self, alert: Dict) -> str:
         """Create a normalized key for an alert based on its essential properties."""
