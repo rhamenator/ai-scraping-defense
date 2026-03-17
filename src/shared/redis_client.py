@@ -17,6 +17,20 @@ class RedisConnectionError(Exception):
 _POOLS: Dict[Tuple[str, int, str | None, int], redis.ConnectionPool] = {}
 
 
+def load_redis_runtime_settings(
+    *, db_env_var: str = "REDIS_DB", default_db: int = 0
+) -> tuple[str, int, int, str | None]:
+    """Load Redis connection settings using the shared secret helpers."""
+
+    redis_host = os.environ.get("REDIS_HOST", "localhost")
+    redis_port = int(os.environ.get("REDIS_PORT", 6379))
+    redis_db = int(os.environ.get(db_env_var, default_db))
+    password = get_secret("REDIS_PASSWORD_FILE")
+    if password is None:
+        password = os.environ.get("REDIS_PASSWORD")
+    return redis_host, redis_port, redis_db, password
+
+
 def _get_pool(
     redis_host: str, redis_port: int, password: str | None, db_number: int
 ) -> redis.ConnectionPool:
@@ -57,9 +71,9 @@ def get_redis_connection(db_number: int = 0, fail_fast: bool = False):
         fail_fast: If ``True``, raise :class:`RedisConnectionError` instead of
             returning ``None`` when the connection cannot be established.
     """
-    redis_host = os.environ.get("REDIS_HOST", "localhost")
-    password = get_secret("REDIS_PASSWORD_FILE")
-    redis_port = int(os.environ.get("REDIS_PORT", 6379))
+    redis_host, redis_port, _, password = load_redis_runtime_settings(
+        default_db=db_number
+    )
 
     if password is None and os.environ.get("REDIS_PASSWORD_FILE"):
         msg = f"Redis password file not found at {os.environ['REDIS_PASSWORD_FILE']}"

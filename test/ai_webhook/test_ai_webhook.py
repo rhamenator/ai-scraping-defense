@@ -223,6 +223,21 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
 
 class TestCommunityReportingTimeout(unittest.IsolatedAsyncioTestCase):
+    async def test_reporting_redis_client_uses_shared_secret_loader(self):
+        with patch(
+            "src.ai_service.community_reporting.load_redis_runtime_settings",
+            return_value=("redis.internal", 6380, 6, "secret"),
+        ), patch("src.ai_service.community_reporting.redis.Redis") as redis_cls:
+            await community_reporting.get_redis_client()
+
+        redis_cls.assert_called_once_with(
+            host="redis.internal",
+            port=6380,
+            db=6,
+            password="secret",
+            decode_responses=True,
+        )
+
     async def test_report_ip_to_community_json_timeout(self):
         community_reporting.ENABLE_COMMUNITY_REPORTING = True
         community_reporting.COMMUNITY_BLOCKLIST_REPORT_URL = "http://example.com/report"
