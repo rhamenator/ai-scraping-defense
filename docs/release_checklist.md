@@ -23,6 +23,8 @@ Use this checklist before cutting a tagged release.
 - GitHub Actions references are pinned to SHAs
 - container release workflow completes with image signing and provenance
 - tracked generated artifacts are excluded from the repo tree
+- `docs/security_assurance_program.md` evidence is assembled for the release:
+  attack-regression CI, Kali/external validation, operator notes, and third-party review
 
 ## Release Artifacts
 
