@@ -41,11 +41,11 @@ Follow these steps in your **Terminal (Mac/Linux)** or **PowerShell (Windows)**.
    ```
 
    *(If you ran git pull above, you can skip this step as you are already in the correct directory.)*
-3. **Run the Quick Deploy Script:** This is the easiest way to start the system locally. It will use test ports like 8080 to avoid conflicting with other services on your computer.
+3. **Run the Quick Deploy Script:** This is the easiest way to start the system locally. It uses the default development ports from `sample.env`, which are `8088` and `8443` for the proxy so it can coexist with other host web servers.
    * **Mac/Linux:** ```./scripts/linux/quick_deploy.sh```
    * **Windows:** ```./scripts/windows/quick_deploy.ps1```
 
-At this point, you can connect the system to a local or test website. The key thing to remember is that this local setup uses http://localhost:8080 for the website and http://localhost:8081 for the admin panel.
+At this point, you can connect the system to a local or test website. By default, this local setup uses `http://localhost:8088` for the proxied website, `https://localhost:8443` for TLS testing, and `http://localhost:5002` for the admin UI.
 
 ### **Part 2: Production Deployment**
 
@@ -102,18 +102,12 @@ This is the most important step. You need to edit two files: .env and docker-com
    * **DOMAIN_NAME**: Set this to your actual domain name (e.g., your-cool-site.com). This is required for obtaining an SSL certificate.
    * **CERTBOT_EMAIL**: Provide your email address. This is used by Let's Encrypt to notify you about your certificate.
    * **Set Strong Secrets:** Change all the default passwords and secrets in this file to secure, randomly generated values.
-2. Edit the docker-compose.yaml file:
-   We need to change the ports for the NGINX service so it listens on the standard web ports.
-   * Find the nginx service definition.
-   * Change the ports section from 8080:80 to listen on ports 80 and 443.
-
-**Change this:**  ports:
-    - "8080:80"
-    - "8081:81"
-**To this:**  ports:
-    - "80:80"
-    - "443:443"
-    - "8081:81" # Keep this for the admin panel, but consider securing it.
+2. Review the port values in `.env`:
+   We need the proxy to listen on the standard production ports.
+   * Set `NGINX_HTTP_PORT=80`
+   * Set `NGINX_HTTPS_PORT=443`
+   * Keep `ADMIN_UI_PORT=5002` on a private network or firewall it to trusted operator IPs
+   * If you use the optional Apache path, update `APACHE_HTTP_PORT` only if you actually enable that service
 
 #### **Step 4: Launch and Secure the System**
 
@@ -121,12 +115,12 @@ This is the most important step. You need to edit two files: .env and docker-com
    * **On your server's terminal:**
 
      ```
-     ./deploy.sh
+     ./scripts/linux/deploy.sh
      ```
 
 2. **Verify It's Working:**
    * Open a web browser and navigate to https://your-cool-site.com. You should see your website, now secured with an "https://" connection.
-   * You can access the admin panel at http://<your_server_ip>:8081. For production, you should lock this down to be accessible only from your IP address.
+   * You can access the admin panel at http://<your_server_ip>:5002. For production, restrict it to trusted operator networks.
 
 #### **Production Architecture Diagram**
 
@@ -147,5 +141,5 @@ graph TD
 Run this command from the project directory on your server:
 
 ```
-docker-compose down
+docker compose down
 ```

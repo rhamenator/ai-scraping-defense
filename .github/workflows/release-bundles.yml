@@ -25,10 +25,15 @@ jobs:
 
           ref_name="${GITHUB_REF_NAME}"
           version="${ref_name#v}"
+          prerelease="false"
 
           if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
             echo "Release tags must follow v<semver>; received '$ref_name'." >&2
             exit 1
+          fi
+
+          if [[ "$version" == *-* ]]; then
+            prerelease="true"
           fi
 
           prefix="ai-scraping-defense-${version}"
@@ -37,6 +42,7 @@ jobs:
 
           {
             echo "version=${version}"
+            echo "prerelease=${prerelease}"
             echo "prefix=${prefix}"
             echo "zip_name=${zip_name}"
             echo "tar_name=${tar_name}"
@@ -106,11 +112,26 @@ jobs:
               artifacts/release-bundles/release-notes-fragment.md \
               artifacts/release-bundles/release-notes.md
 
-            gh release edit "$GITHUB_REF_NAME" --notes-file artifacts/release-bundles/release-notes.md
+            edit_args=(
+              "$GITHUB_REF_NAME"
+              --notes-file artifacts/release-bundles/release-notes.md
+            )
+            if [[ "${{ steps.refs.outputs.prerelease }}" == "true" ]]; then
+              edit_args+=(--prerelease)
+            else
+              edit_args+=(--latest)
+            fi
+            gh release edit "${edit_args[@]}"
           else
-            gh release create "$GITHUB_REF_NAME" \
-              --title "$GITHUB_REF_NAME" \
+            create_args=(
+              "$GITHUB_REF_NAME"
+              --title "$GITHUB_REF_NAME"
               --notes-file artifacts/release-bundles/release-notes-fragment.md
+            )
+            if [[ "${{ steps.refs.outputs.prerelease }}" == "true" ]]; then
+              create_args+=(--prerelease)
+            fi
+            gh release create "${create_args[@]}"
           fi
 
       - name: Upload Workflow Artifacts
