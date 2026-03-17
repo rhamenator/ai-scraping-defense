@@ -91,6 +91,7 @@ To get a full understanding of the project, please review the following document
 - [Privacy Policy](privacy_policy.md)
 - [API Trust Boundaries](api_trust_boundaries.md)
 - [Data Protection Baseline](data_protection_baseline.md)
+- [Compliance Controls Baseline](compliance_controls_baseline.md)
 - [Security Disclosure Policy](../SECURITY.md)
 - [Compliance Checklist](legal_compliance.md)
 
