@@ -104,6 +104,9 @@ class TestOperationsToolkit(unittest.TestCase):
             self.assertTrue(manifest["artifacts"]["postgres_dump"]["exists"])
             self.assertTrue(manifest["artifacts"]["redis_dump"]["exists"])
             self.assertTrue(manifest["artifacts"]["cluster_state"]["exists"])
+            self.assertEqual(
+                manifest["artifacts"]["postgres_dump"]["path"], "postgres.sql"
+            )
 
             if os.name != "nt":
                 self.assertEqual(
@@ -131,6 +134,55 @@ class TestOperationsToolkit(unittest.TestCase):
                 json.dumps(manifest), encoding="utf-8"
             )
             postgres_file.write_text("tampered", encoding="utf-8")
+
+            args = argparse.Namespace(
+                source=str(backup_dir),
+                postgres_url="postgres://test",
+                redis_url="redis://test",
+                redis_data_dir="/var/lib/redis",
+                redis_host="localhost",
+                execute=False,
+            )
+
+            with self.assertRaises(SystemExit):
+                operations_toolkit.restore(args)
+
+    def test_restore_rejects_manifest_path_escape(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            backup_dir = Path(tmp)
+            manifest = {
+                "generated_at": "2026-03-17T00:00:00Z",
+                "kube_context": "test-context",
+                "artifacts": {
+                    "postgres_dump": {
+                        "path": "../outside.sql",
+                        "exists": False,
+                        "sha256": None,
+                    }
+                },
+            }
+            (backup_dir / "backup_manifest.json").write_text(
+                json.dumps(manifest), encoding="utf-8"
+            )
+
+            args = argparse.Namespace(
+                source=str(backup_dir),
+                postgres_url="postgres://test",
+                redis_url="redis://test",
+                redis_data_dir="/var/lib/redis",
+                redis_host="localhost",
+                execute=False,
+            )
+
+            with self.assertRaises(SystemExit):
+                operations_toolkit.restore(args)
+
+    def test_restore_rejects_invalid_manifest_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            backup_dir = Path(tmp)
+            (backup_dir / "backup_manifest.json").write_text(
+                "{not-json", encoding="utf-8"
+            )
 
             args = argparse.Namespace(
                 source=str(backup_dir),

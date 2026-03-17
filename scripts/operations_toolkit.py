@@ -108,7 +108,7 @@ def _build_backup_manifest(
         ("cluster_state", state_file),
     ):
         artifacts[name] = {
-            "path": str(path),
+            "path": path.name,
             "exists": path.exists(),
             "sha256": _sha256_file(path),
         }
@@ -123,7 +123,24 @@ def _load_backup_manifest(source: Path) -> dict | None:
     manifest_path = source / "backup_manifest.json"
     if not manifest_path.exists():
         return None
-    return json.loads(manifest_path.read_text(encoding="utf-8"))
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"Backup manifest is not valid JSON: {manifest_path}") from exc
+    if not isinstance(manifest, dict):
+        raise SystemExit(f"Backup manifest has invalid structure: {manifest_path}")
+    return manifest
+
+
+def _resolve_manifest_artifact_path(source: Path, entry: dict) -> Path:
+    raw_path = entry.get("path")
+    if not isinstance(raw_path, str) or not raw_path:
+        raise SystemExit("Backup manifest artifact entry is missing a valid path")
+    artifact_path = (source / raw_path).resolve()
+    source_root = source.resolve()
+    if artifact_path != source_root and source_root not in artifact_path.parents:
+        raise SystemExit(f"Backup artifact path escapes backup directory: {raw_path}")
+    return artifact_path
 
 
 def _verify_backup_manifest(source: Path) -> None:
@@ -135,8 +152,12 @@ def _verify_backup_manifest(source: Path) -> None:
         return
 
     artifacts = manifest.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        raise SystemExit("Backup manifest artifacts section is invalid")
     for entry in artifacts.values():
-        artifact_path = Path(entry["path"])
+        if not isinstance(entry, dict):
+            raise SystemExit("Backup manifest artifact entry is invalid")
+        artifact_path = _resolve_manifest_artifact_path(source, entry)
         expected = entry.get("sha256")
         exists = entry.get("exists", False)
         if exists and not artifact_path.exists():
