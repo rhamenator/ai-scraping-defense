@@ -41,6 +41,12 @@ from typing import Dict, List, Optional
 
 import requests
 
+from scripts.security_response_plan import (
+    build_plan_payload,
+    build_response_plan_entry,
+    write_plan_payload,
+)
+
 try:
     from github import Github
 
@@ -75,6 +81,7 @@ class IssueCreator:
         dry_run: bool = False,
         min_security_severity: Optional[str] = None,
         include_dependabot: bool = False,
+        plan_output: Optional[str] = None,
     ):
         if Github is None:
             raise RuntimeError(
@@ -85,6 +92,7 @@ class IssueCreator:
         self.repo = repo
         self.dry_run = dry_run
         self.include_dependabot = include_dependabot
+        self.plan_output = plan_output
         self.min_security_severity = (
             min_security_severity.lower()
             if isinstance(min_security_severity, str)
@@ -118,7 +126,10 @@ class IssueCreator:
             "dependabot_alerts": 0,
             "issues_created": 0,
             "issues_skipped_existing": 0,
+            "planned_operator_pages": 0,
+            "planned_automated_responses": 0,
         }
+        self.response_plan_entries = []
 
     def _passes_min_security_severity_level(self, level: str) -> bool:
         """Return True if a severity label meets the configured threshold."""
@@ -781,6 +792,28 @@ This is a critical security issue that must be addressed immediately.
             self.log("ERROR", f"Failed to create issue ({type(e).__name__})")
             return False
 
+    def _record_response_plan(
+        self,
+        *,
+        source: str,
+        dedupe_key: str,
+        title: str,
+        severity: str,
+        occurrences: int,
+    ) -> None:
+        entry = build_response_plan_entry(
+            source=source,
+            dedupe_key=dedupe_key,
+            title=title,
+            severity=severity,
+            occurrences=occurrences,
+        )
+        self.response_plan_entries.append(entry)
+        self.stats["planned_operator_pages"] += int(entry.page_operator)
+        self.stats["planned_automated_responses"] += int(
+            entry.automated_response is not None
+        )
+
     def process_code_scanning_alerts(self, alerts: List[Dict]):
         """Process code scanning alerts and create issues."""
         if not alerts:
@@ -800,12 +833,22 @@ This is a critical security issue that must be addressed immediately.
         for key, alert_group in grouped.items():
             title = self.create_issue_title_for_code_scanning(key, alert_group)
             body = self.create_issue_body_for_code_scanning(alert_group)
+            dedupe_key = self._dedupe_key_for_code_scanning(alert_group)
 
             # Determine labels
             first_alert = alert_group[0]
             rule = first_alert.get("rule", {})
             security_severity = str(rule.get("security_severity_level", "")).lower()
             severity = str(rule.get("severity", "")).lower()
+            effective_severity = security_severity or severity
+
+            self._record_response_plan(
+                source="code_scanning",
+                dedupe_key=dedupe_key,
+                title=title,
+                severity=effective_severity,
+                occurrences=len(alert_group),
+            )
 
             labels = ["security", "code-scanning"]
 
@@ -829,7 +872,7 @@ This is a critical security issue that must be addressed immediately.
                 title,
                 body,
                 labels,
-                dedupe_key=self._dedupe_key_for_code_scanning(alert_group),
+                dedupe_key=dedupe_key,
             )
 
     def process_secret_scanning_alerts(self, alerts: List[Dict]):
@@ -848,6 +891,15 @@ This is a critical security issue that must be addressed immediately.
         for key, alert_group in grouped.items():
             title = self.create_issue_title_for_secret_scanning(key, alert_group)
             body = self.create_issue_body_for_secret_scanning(alert_group)
+            dedupe_key = self._dedupe_key_for_secret_scanning(alert_group)
+
+            self._record_response_plan(
+                source="secret_scanning",
+                dedupe_key=dedupe_key,
+                title=title,
+                severity="critical",
+                occurrences=len(alert_group),
+            )
 
             # Secret scanning alerts are always high priority
             labels = ["security", "secret-scanning", "priority: critical"]
@@ -857,7 +909,7 @@ This is a critical security issue that must be addressed immediately.
                 title,
                 body,
                 labels,
-                dedupe_key=self._dedupe_key_for_secret_scanning(alert_group),
+                dedupe_key=dedupe_key,
             )
 
     def process_dependabot_alerts(self, alerts: List[Dict]) -> None:
@@ -879,6 +931,15 @@ This is a critical security issue that must be addressed immediately.
 
             title = self.create_issue_title_for_dependabot(ghsa_id, alert_group)
             body = self.create_issue_body_for_dependabot(alert_group)
+            dedupe_key = self._dedupe_key_for_dependabot(alert_group)
+
+            self._record_response_plan(
+                source="dependabot",
+                dedupe_key=dedupe_key,
+                title=title,
+                severity=severity,
+                occurrences=len(alert_group),
+            )
 
             labels = ["security", "dependabot"]
             if severity in {"critical", "high"}:
@@ -892,8 +953,20 @@ This is a critical security issue that must be addressed immediately.
                 title,
                 body,
                 labels,
-                dedupe_key=self._dedupe_key_for_dependabot(alert_group),
+                dedupe_key=dedupe_key,
             )
+
+    def write_response_plan(self) -> None:
+        """Persist the dry-run/live response plan when requested."""
+        if not self.plan_output:
+            return
+        payload = build_plan_payload(
+            repository=f"{self.owner}/{self.repo}",
+            mode="DRY RUN" if self.dry_run else "LIVE",
+            entries=self.response_plan_entries,
+        )
+        write_plan_payload(self.plan_output, payload)
+        self.log("INFO", f"Wrote response plan to {self.plan_output}")
 
     def generate_summary(self):
         """Generate and print a summary of the execution."""
@@ -913,6 +986,11 @@ This is a critical security issue that must be addressed immediately.
         print(f"  Issues Created: {self.stats['issues_created']}")
         print(
             f"  Issues Skipped (already exist): {self.stats['issues_skipped_existing']}"
+        )
+        print(f"  Planned Operator Pages: {self.stats['planned_operator_pages']}")
+        print(
+            "  Planned Automated Responses: "
+            f"{self.stats['planned_automated_responses']}"
         )
         print("=" * 70)
 
@@ -936,6 +1014,7 @@ This is a critical security issue that must be addressed immediately.
         self.process_code_scanning_alerts(code_alerts)
         self.process_secret_scanning_alerts(secret_alerts)
         self.process_dependabot_alerts(dependabot_alerts)
+        self.write_response_plan()
 
         # Print summary
         self.generate_summary()
@@ -967,6 +1046,10 @@ def main():
         action="store_true",
         help="Also create issues from open Dependabot vulnerability alerts (GraphQL).",
     )
+    parser.add_argument(
+        "--plan-output",
+        help="Optional path for a JSON security response plan artifact.",
+    )
 
     args = parser.parse_args()
 
@@ -991,6 +1074,7 @@ def main():
             args.dry_run,
             min_security_severity=args.min_security_severity,
             include_dependabot=args.include_dependabot,
+            plan_output=args.plan_output,
         )
         creator.run()
     except KeyboardInterrupt:

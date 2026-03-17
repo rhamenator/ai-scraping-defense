@@ -51,6 +51,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          mkdir -p reports
           DRY_RUN_FLAG=""
           if [ "${{ github.event.inputs.dry_run }}" = "true" ] || [ "${{ github.event_name }}" = "schedule" ]; then
             DRY_RUN_FLAG="--dry-run"
@@ -67,6 +68,7 @@ jobs:
             --owner ${{ github.repository_owner }} \
             --repo "$REPO_NAME" \
             --include-dependabot "$INCLUDE_DEPENDABOT" \
+            --plan-output reports/security-response-plan.json \
             $DRY_RUN_FLAG
 
       - name: Upload report
@@ -74,7 +76,9 @@ jobs:
         if: always()
         with:
           name: alert-management-report-${{ github.run_number }}
-          path: alert_management_report_*.txt
+          path: |
+            alert_management_report_*.txt
+            reports/security-response-plan.json
           retention-days: 30
 
       - name: Comment on workflow run
