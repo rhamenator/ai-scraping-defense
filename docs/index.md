@@ -60,6 +60,7 @@ To get a full understanding of the project, please review the following document
 - [**API Versioning Policy**](api_versioning.md)**:** Defines the current `unversioned-v1` contract, route classes, and deprecation expectations.
 - [**Monitoring Stack**](monitoring_stack.md)**:** Using Prometheus, Grafana, and Watchtower for observability and automatic updates.
 - [**Performance Validation**](performance_validation.md)**:** Release-facing load, latency, and regression evidence for the stack.
+- [**Runtime Performance Baseline**](runtime_performance_baseline.md)**:** Service expectations, capacity signals, and scaling guidance for operators.
 - [**Release Checklist**](release_checklist.md)**:** Practical validation steps before cutting a tagged release.
 - [**Release Artifacts**](release_artifacts.md)**:** Semver tags, GHCR image publication, signatures, and provenance policy.
 - [**Kubernetes Deployment**](kubernetes_deployment.md)**:** A step-by-step guide for deploying the entire application stack to a production-ready Kubernetes cluster.
