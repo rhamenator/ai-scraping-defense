@@ -19,7 +19,14 @@ Each release candidate should have evidence for all of the following:
    - results are retained as artifacts for release review
    - failures block the release until triaged or explicitly accepted
 
-3. **External/Kali validation**
+3. **Cross-platform external regression**
+   - the Regression E2E workflow runs against an explicit staging, preview, or
+     production-like URL
+   - the target source is documented by workflow input or repository secret
+   - failures are triaged as either product regressions or evidence-contract
+     problems
+
+4. **External/Kali validation**
    - the self-hosted Kali security sweep runs against an approved staging,
      preview, or release-candidate target
    - findings are attached to the release review, even when the run is
@@ -27,14 +34,14 @@ Each release candidate should have evidence for all of the following:
    - any high-severity findings must be converted into tracked issues before
      release
 
-4. **Operator readiness**
+5. **Operator readiness**
    - monitoring and response runbooks reflect the shipped behavior
    - the release includes operator-facing notes for auth, secrets, backups, and
      incident handling changes
    - at least one operator validates the relevant paths in a staging or lab
      environment
 
-5. **Third-party integration review**
+6. **Third-party integration review**
    - newly introduced vendors or hosted services are documented
    - each optional integration has a clear auth/secret model and transport
      expectation
@@ -54,6 +61,16 @@ Expected evidence:
 - stored JSON artifact
 - pass/fail summary for the active profile
 
+### Cross-platform external E2E
+
+Use `.github/workflows/regression-e2e.yml` against an explicit external target.
+
+Expected evidence:
+
+- workflow run URL
+- target source (`base_url` input, `STAGING_BASE_URL`, or `PROD_BASE_URL`)
+- k6 and pytest artifact/result set for the chosen target
+
 ### Self-hosted Kali sweep
 
 Use `.github/workflows/kali-security-sweep.yml` or the operator-run
@@ -64,6 +81,7 @@ Expected evidence:
 - target name and approval record
 - report bundle location
 - triage summary for high/critical findings
+- runner identity (self-hosted Kali, WSL, or VM)
 
 ## Third-Party Review Expectations
 

@@ -2,7 +2,7 @@
 # security_scan.sh - Advanced security testing helper
 #
 
-# Usage: sudo ./security_scan.sh <target_host_or_ip> [web_url_for_nikto] [docker_image] [code_dir] [sqlmap_url] [api_base_url] [openapi_spec_url] [llm_endpoint] [llm_auth_token]
+# Usage: ./security_scan.sh <target_host_or_ip> [web_url_for_nikto] [docker_image] [code_dir] [sqlmap_url] [api_base_url] [openapi_spec_url] [llm_endpoint] [llm_auth_token]
 # - target_host_or_ip: IP or hostname for network scans
 # - web_url_for_nikto: full URL to scan with Nikto and ZAP (defaults to http://<target>)
 # - docker_image: optional container image to scan with Trivy
@@ -57,11 +57,20 @@ if [[ -n "$IMAGE" ]]; then
 fi
 
 if [[ -z "$TARGET" ]]; then
-    echo "Usage: sudo $0 <target_host_or_ip> [web_url_for_nikto] [docker_image] [code_dir] [sqlmap_url] [api_base_url] [openapi_spec_url] [llm_endpoint] [llm_auth_token]"
+    echo "Usage: $0 <target_host_or_ip> [web_url_for_nikto] [docker_image] [code_dir] [sqlmap_url] [api_base_url] [openapi_spec_url] [llm_endpoint] [llm_auth_token]"
     exit 1
 fi
 
-mkdir -p reports
+REPORT_DIR="${REPORT_DIR:-reports}"
+mkdir -p "$REPORT_DIR"
+if [[ "$REPORT_DIR" != "reports" ]]; then
+    if [[ -e reports && ! -L reports ]]; then
+        echo "reports path already exists and is not a symlink; refusing to replace it." >&2
+        exit 1
+    fi
+    rm -f reports
+    ln -s "$REPORT_DIR" reports
+fi
 
 echo "=== 0. HTTP Stack Probe (quick regression checks) ==="
 if command -v python3 >/dev/null 2>&1 && [[ -f "scripts/security/stack_probe.py" ]]; then
@@ -405,4 +414,4 @@ else
     echo "python3 or ai_driven_security_test.py missing. Skipping AI analysis."
 fi
 
-echo "Reports saved in the 'reports' directory. Review them for potential issues."
+echo "Reports saved in '$REPORT_DIR'. Review them for potential issues."
