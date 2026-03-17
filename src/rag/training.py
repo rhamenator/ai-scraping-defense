@@ -6,6 +6,8 @@
 import argparse
 import json
 import os
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional, Tuple
 
 import joblib
@@ -73,6 +75,7 @@ HUMAN_LABEL_THRESHOLD = float(os.getenv("TRAINING_HUMAN_LABEL_THRESHOLD", 0.5))
 ROBOTS_TXT_PATH = os.getenv("TRAINING_ROBOTS_TXT_PATH", "/app/config/robots.txt")
 HONEYPOT_HIT_LOG = os.getenv("TRAINING_HONEYPOT_LOG", "/app/logs/honeypot_hits.log")
 CAPTCHA_SUCCESS_LOG = os.getenv("TRAINING_CAPTCHA_LOG", "/app/logs/captcha_success.log")
+PROVENANCE_SCHEMA_VERSION = 1
 
 # Path to GeoIP database used for IP country lookup
 GEOIP_DB_PATH = os.getenv("GEOIP_DB_PATH", "/app/GeoLite2-Country.mmdb")
@@ -94,6 +97,85 @@ KNOWN_BENIGN_CRAWLERS_UAS_STR = os.getenv(
 KNOWN_BENIGN_CRAWLERS_UAS = [
     ua.strip().lower() for ua in KNOWN_BENIGN_CRAWLERS_UAS_STR.split(",") if ua.strip()
 ]
+
+
+def _log_training_audit(action: str, details: dict) -> None:
+    """Best-effort audit logging for training pipeline events."""
+    try:
+        from src.shared.audit import log_event
+
+        log_event("training_pipeline", action, details)
+    except Exception as exc:
+        print(f"Warning: failed to write training audit event {action}: {exc}")
+
+
+def _dataset_metadata_path(file_path: str) -> str:
+    return f"{file_path}.metadata.json"
+
+
+def _feedback_override_summary(
+    original_labels: pd.Series,
+    df: pd.DataFrame,
+    honeypot_triggers: set,
+    captcha_successes: set,
+) -> dict:
+    bot_override_mask = df["ip"].isin(honeypot_triggers)
+    human_override_mask = df["ip"].isin(captcha_successes)
+    conflicting_ips = sorted(honeypot_triggers & captcha_successes)
+    return {
+        "bot_override_count": int(bot_override_mask.sum()),
+        "human_override_count": int(human_override_mask.sum()),
+        "bot_label_changes": int(
+            (bot_override_mask & (original_labels != "bot")).sum()
+        ),
+        "human_label_changes": int(
+            (human_override_mask & (original_labels != "human")).sum()
+        ),
+        "conflicting_ip_count": len(conflicting_ips),
+        "conflicting_ips_sample": conflicting_ips[:10],
+    }
+
+
+def _build_dataset_provenance(
+    split_name: str,
+    file_path: str,
+    data: pd.DataFrame,
+) -> dict:
+    return {
+        "schema_version": PROVENANCE_SCHEMA_VERSION,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_by": "src.rag.training.save_data_for_finetuning",
+        "dataset_path": str(Path(file_path).name),
+        "split": split_name,
+        "record_count": int(len(data)),
+        "source": {
+            "kind": "derived_training_export",
+            "log_file_path": LOG_FILE_PATH,
+            "robots_txt_path": ROBOTS_TXT_PATH,
+            "honeypot_log_path": os.getenv("TRAINING_HONEYPOT_LOG", HONEYPOT_HIT_LOG),
+            "captcha_log_path": os.getenv("TRAINING_CAPTCHA_LOG", CAPTCHA_SUCCESS_LOG),
+        },
+        "feedback_overrides": dict(data.attrs.get("feedback_override_summary", {})),
+        "trust_boundary": {
+            "review_required": True,
+            "notes": (
+                "This dataset may contain heuristic labels and local feedback "
+                "overrides. Review provenance and data quality before fine-tuning "
+                "or sharing model artifacts."
+            ),
+        },
+    }
+
+
+def _write_dataset_provenance(
+    split_name: str, file_path: str, data: pd.DataFrame
+) -> None:
+    metadata_path = _dataset_metadata_path(file_path)
+    metadata = _build_dataset_provenance(split_name, file_path, data)
+    with open(metadata_path, "w", encoding="utf-8") as handle:
+        json.dump(metadata, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+    print(f"Saved provenance metadata to: {metadata_path}")
 
 
 # --- Database Setup ---
@@ -411,10 +493,32 @@ def assign_labels_and_scores(
     df["label"] = "suspicious"
     df.loc[df["bot_score"] >= BOT_LABEL_THRESHOLD, "label"] = "bot"
     df.loc[df["bot_score"] <= HUMAN_LABEL_THRESHOLD, "label"] = "human"
+    original_labels = df["label"].copy()
 
     # Override labels based on feedback files (highest priority)
     df.loc[df["ip"].isin(honeypot_triggers), "label"] = "bot"
     df.loc[df["ip"].isin(captcha_successes), "label"] = "human"
+    override_summary = _feedback_override_summary(
+        original_labels,
+        df,
+        honeypot_triggers,
+        captcha_successes,
+    )
+    df.attrs["feedback_override_summary"] = override_summary
+    if (
+        override_summary["bot_override_count"]
+        or override_summary["human_override_count"]
+        or override_summary["conflicting_ip_count"]
+    ):
+        _log_training_audit("training_feedback_overrides_applied", override_summary)
+    if override_summary["conflicting_ip_count"]:
+        _log_training_audit(
+            "training_feedback_override_conflicts_detected",
+            {
+                "conflicting_ip_count": override_summary["conflicting_ip_count"],
+                "conflicting_ips_sample": override_summary["conflicting_ips_sample"],
+            },
+        )
 
     print("Labeling complete. Label distribution:")
     print(df["label"].value_counts())
@@ -528,7 +632,7 @@ def save_data_for_finetuning(
             stratify=finetune_df["label"],
         )
 
-    def write_jsonl(data: pd.DataFrame, file_path: str):
+    def write_jsonl(data: pd.DataFrame, file_path: str, split_name: str):
         if not file_path:
             return
         data_to_write = data.to_dict("records")
@@ -550,11 +654,12 @@ def save_data_for_finetuning(
                     )  # Use default=str for datetime etc.
                     f.write("\n")
             print(f"Saved {len(data)} records for fine-tuning to: {file_path}")
+            _write_dataset_provenance(split_name, file_path, data)
         except Exception as e:
             print(f"ERROR: Failed to save fine-tuning data to {file_path}: {e}")
 
-    write_jsonl(train_df, train_file)
-    write_jsonl(eval_df, eval_file)
+    write_jsonl(train_df, train_file, "train")
+    write_jsonl(eval_df, eval_file, "eval")
 
 
 # --- Main Execution ---
