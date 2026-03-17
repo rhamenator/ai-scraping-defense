@@ -137,3 +137,34 @@ class TestAdminUIMfaBackupCodes(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 payload = response.json()
                 self.assertTrue(payload["backup_codes"])
+
+    def test_backup_code_is_single_use_and_updates_remaining_count(self):
+        mock_redis = MockRedis()
+        with patch("src.admin_ui.auth.get_redis_connection", return_value=mock_redis):
+            with patch(
+                "src.admin_ui.mfa.get_redis_connection", return_value=mock_redis
+            ):
+                codes = mfa.generate_backup_codes(count=1)
+                self.assertTrue(mfa.store_backup_codes("admin", codes))
+
+                first_response = self.client.get(
+                    "/",
+                    auth=self.auth,
+                    headers={"X-2FA-Backup-Code": codes[0]},
+                )
+                self.assertEqual(first_response.status_code, 200)
+
+                second_response = self.client.get(
+                    "/",
+                    auth=self.auth,
+                    headers={"X-2FA-Backup-Code": codes[0]},
+                )
+                self.assertEqual(second_response.status_code, 401)
+
+                remaining = self.client.get(
+                    "/mfa/backup-codes/remaining",
+                    auth=self.auth,
+                    headers=self._totp_headers(),
+                )
+                self.assertEqual(remaining.status_code, 200)
+                self.assertEqual(remaining.json(), {"remaining": 0})

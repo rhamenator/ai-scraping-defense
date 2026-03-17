@@ -441,6 +441,29 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         del os.environ["ADMIN_UI_2FA_SECRET"]
 
+    def test_admin_ui_requires_mfa_by_default_without_bootstrap_factor(self):
+        """Password-only admin auth is rejected unless MFA is explicitly disabled."""
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("ADMIN_UI_2FA_SECRET", None)
+            os.environ.pop("ADMIN_UI_2FA_SECRET_FILE", None)
+            response = self.client.get("/", auth=self.auth)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["detail"], "MFA required")
+
+    def test_admin_ui_can_explicitly_disable_mfa_requirement(self):
+        """Lab-only deployments may opt out of MFA with an explicit override."""
+        with patch.dict(
+            os.environ,
+            {"ADMIN_UI_REQUIRE_MFA": "false"},
+            clear=False,
+        ):
+            os.environ.pop("ADMIN_UI_2FA_SECRET", None)
+            os.environ.pop("ADMIN_UI_2FA_SECRET_FILE", None)
+            response = self.client.get("/", auth=self.auth)
+
+        self.assertEqual(response.status_code, 200)
+
     def test_2fa_invalid_code(self):
         """Invalid TOTP code results in 401."""
         secret = pyotp.random_base32()

@@ -52,6 +52,16 @@ signals directly; it stores only the WebAuthn credential metadata required for
 verification. Operational monitoring should focus on registration and login
 events rather than biometric analytics.
 
+## Admin MFA Posture
+
+- Admin UI access requires MFA by default for both HTTP Basic and SSO-backed
+  sessions.
+- `ADMIN_UI_2FA_SECRET` is the supported bootstrap factor for first login.
+- Passkey/WebAuthn tokens satisfy the second factor after enrollment.
+- Backup codes are single-use recovery material and should be stored offline.
+- `ADMIN_UI_REQUIRE_MFA=false` or `ADMIN_UI_SSO_MFA_REQUIRED=false` should be
+  treated as lab-only exceptions and called out in release reviews.
+
 ## Automated Detection Rules
 
 - **Secrets Exposure** – Alert when `scripts/security/run_static_security_checks`
