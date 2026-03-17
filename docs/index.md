@@ -55,6 +55,7 @@ To get a full understanding of the project, please review the following document
 - [**Key Data Flows**](key_data_flows.md)**:** This document explains the lifecycle of a request as it moves through our defense layers, from initial filtering to deep analysis.
 - [**Model Adapter Guide**](model_adapter_guide.md)**:** A technical deep-dive into the flexible Model Adapter pattern, which allows the system to easily switch between different machine learning models and LLM providers.
 - [**Prompt Router**](prompt_router.md)**:** Explains how LLM requests are routed between local containers and the cloud.
+- [**Inter-Service Authentication**](inter_service_auth.md)**:** Defines the current shared-key contract for internal HTTP calls.
 - [**Monitoring Stack**](monitoring_stack.md)**:** Using Prometheus, Grafana, and Watchtower for observability and automatic updates.
 - [**Release Checklist**](release_checklist.md)**:** Practical validation steps before cutting a tagged release.
 - [**Release Artifacts**](release_artifacts.md)**:** Semver tags, GHCR image publication, signatures, and provenance policy.

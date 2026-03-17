@@ -179,6 +179,16 @@ JWT verification is used by some internal APIs (for example, the escalation engi
 | `AUTH_JWT_ISSUER` | *(none)* | Optional expected `iss` claim |
 | `AUTH_JWT_AUDIENCE` | *(none)* | Optional expected `aud` claim |
 
+## Internal Service Authentication
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `INTERNAL_AUTH_MODE` | `shared_key` | Supported internal HTTP auth baseline; current release supports `shared_key` |
+| `SHARED_SECRET` | *(none)* | Bearer secret required by `prompt_router` |
+| `PROXY_KEY` | *(none)* | Header secret injected by `prompt_router` when calling `cloud_proxy` |
+| `ESCALATION_API_KEY` | *(none)* | Shared key for Admin UI to call Escalation Engine admin endpoints |
+| `WEBHOOK_SHARED_SECRET` | *(none)* | HMAC secret for Escalation Engine webhook calls into `ai_service` |
+
 ## Error Handling
 
 | Variable | Default | Description |

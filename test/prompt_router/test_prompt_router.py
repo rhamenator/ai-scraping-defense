@@ -30,6 +30,7 @@ class TestPromptRouterRouting(unittest.IsolatedAsyncioTestCase):
                 "MAX_LOCAL_TOKENS": "10",
                 "LOCAL_LLM_URL": "http://local",
                 "CLOUD_PROXY_URL": "http://cloud",
+                "PROXY_KEY": "proxy-secret",
                 "SHARED_SECRET": self.shared_secret,
             },
         )
@@ -61,8 +62,8 @@ class TestPromptRouterRouting(unittest.IsolatedAsyncioTestCase):
             async def __aexit__(self, exc_type, exc, tb):
                 pass
 
-            async def post(self, url, json, timeout):
-                self.post_calls.append((url, json, timeout))
+            async def post(self, url, json, headers, timeout):
+                self.post_calls.append((url, json, headers, timeout))
                 return mock_resp
 
         with patch.object(pr_module, "httpx") as httpx_mod:
@@ -100,8 +101,8 @@ class TestPromptRouterRouting(unittest.IsolatedAsyncioTestCase):
             async def __aexit__(self, exc_type, exc, tb):
                 pass
 
-            async def post(self, url, json, timeout):
-                self.post_calls.append((url, json, timeout))
+            async def post(self, url, json, headers, timeout):
+                self.post_calls.append((url, json, headers, timeout))
                 return mock_resp
 
         with patch.object(pr_module, "httpx") as httpx_mod:
@@ -120,6 +121,10 @@ class TestPromptRouterRouting(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp.json(), {"route": "cloud"})
         client_inst = DummyClient.instances[-1]
         self.assertIn("http://cloud", [c[0] for c in client_inst.post_calls])
+        cloud_call = next(
+            call for call in client_inst.post_calls if call[0] == "http://cloud"
+        )
+        self.assertEqual(cloud_call[2]["X-Proxy-Key"], "proxy-secret")
 
 
 class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
@@ -131,6 +136,7 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
                 "MAX_LOCAL_TOKENS": "10",
                 "LOCAL_LLM_URL": "http://local",
                 "CLOUD_PROXY_URL": "http://cloud",
+                "PROXY_KEY": "proxy-secret",
                 "SHARED_SECRET": self.shared_secret,
                 "RATE_LIMIT_REQUESTS": "2",
                 "RATE_LIMIT_WINDOW": "10",
@@ -284,6 +290,33 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
                     }
                 )
         self.assertNotIn("1.1.1.1", pr_module._request_counts)
+
+    async def test_cloud_route_requires_proxy_key_in_shared_key_mode(self):
+        with patch.dict(
+            os.environ,
+            {
+                "MAX_LOCAL_TOKENS": "1",
+                "LOCAL_LLM_URL": "http://local",
+                "CLOUD_PROXY_URL": "http://cloud",
+                "PROXY_KEY": "",
+                "SHARED_SECRET": self.shared_secret,
+            },
+        ):
+            spec.loader.exec_module(pr_module)
+            global app
+            app = pr_module.app
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://test"
+            ) as ac:
+                response = await ac.post(
+                    "/route",
+                    json={"prompt": "x x"},
+                    headers={"Authorization": f"Bearer {self.shared_secret}"},
+                )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertIn("PROXY_KEY", response.text)
 
 
 if __name__ == "__main__":

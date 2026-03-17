@@ -269,8 +269,85 @@ class TestConfigLoader(unittest.TestCase):
         # Should require OPENAI_API_KEY
         with patch.dict(os.environ, {}, clear=True):
             is_valid, errors = loader.validate_config(config)
-            self.assertFalse(is_valid)
-            self.assertTrue(any("OPENAI_API_KEY" in e for e in errors))
+        self.assertFalse(is_valid)
+        self.assertTrue(any("OPENAI_API_KEY" in e for e in errors))
+
+    def test_load_internal_auth_mode(self):
+        env = self.minimal_env.copy()
+        env["INTERNAL_AUTH_MODE"] = "shared_key"
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        self.assertEqual(config.security.internal_auth_mode.value, "shared_key")
+
+    def test_load_invalid_internal_auth_mode_raises(self):
+        env = self.minimal_env.copy()
+        env["INTERNAL_AUTH_MODE"] = "mtls"
+
+        loader = ConfigLoader(strict=True)
+        with self.assertRaises(ConfigValidationError):
+            loader.load_from_env(env)
+
+    def test_validate_production_requires_internal_auth_secrets(self):
+        env = self.minimal_env.copy()
+        env.update(
+            {
+                "APP_ENV": "production",
+                "DEBUG": "false",
+                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
+                "ADMIN_UI_PASSWORD_HASH": "$2b$12$" + "." * 53,
+            }
+        )
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        with patch.dict(
+            os.environ,
+            {
+                "MODEL_URI": env["MODEL_URI"],
+                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
+            },
+            clear=True,
+        ):
+            is_valid, errors = loader.validate_config(config)
+
+        self.assertFalse(is_valid)
+        self.assertTrue(any("SHARED_SECRET required" in e for e in errors))
+        self.assertTrue(any("PROXY_KEY required" in e for e in errors))
+        self.assertTrue(any("ESCALATION_API_KEY required" in e for e in errors))
+        self.assertTrue(any("WEBHOOK_SHARED_SECRET required" in e for e in errors))
+
+    def test_validate_production_internal_auth_shared_key_succeeds(self):
+        env = self.minimal_env.copy()
+        env.update(
+            {
+                "APP_ENV": "production",
+                "DEBUG": "false",
+                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
+                "ADMIN_UI_PASSWORD_HASH": "$2b$12$" + "." * 53,
+            }
+        )
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        with patch.dict(
+            os.environ,
+            {
+                "MODEL_URI": env["MODEL_URI"],
+                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
+                "SHARED_SECRET": "shared-secret",
+                "PROXY_KEY": "proxy-secret",
+                "ESCALATION_API_KEY": "escalation-secret",
+                "WEBHOOK_SHARED_SECRET": "webhook-secret",
+            },
+            clear=True,
+        ):
+            is_valid, errors = loader.validate_config(config)
+
+        self.assertTrue(is_valid, errors)
 
     def test_validate_captcha_config(self):
         """Test CAPTCHA configuration validation."""
