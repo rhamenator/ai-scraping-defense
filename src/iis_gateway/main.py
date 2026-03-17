@@ -8,10 +8,10 @@ when a custom HttpModule is not desired.
 import json
 import logging
 import os
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
 import httpx
-import redis
 from cachetools import TTLCache
 from fastapi import Request, Response
 from fastapi.responses import PlainTextResponse
@@ -24,6 +24,7 @@ from src.shared.observability import (
     register_health_check,
     trace_span,
 )
+from src.shared.redis_client import get_redis_connection
 
 
 @dataclass
@@ -53,13 +54,22 @@ BAD_BOTS = [
 
 logger = logging.getLogger("iis_gateway")
 
-app = create_app()
-redis_client = redis.Redis(
-    host=settings.REDIS_HOST,
-    port=settings.REDIS_PORT,
-    db=settings.REDIS_DB_BLOCKLIST,
-    decode_responses=True,
-)
+redis_client = get_redis_connection(db_number=settings.REDIS_DB_BLOCKLIST)
+_http_client: httpx.AsyncClient | None = None
+
+
+@asynccontextmanager
+async def _lifespan(_app):
+    try:
+        yield
+    finally:
+        global _http_client
+        if _http_client is not None:
+            await _http_client.aclose()
+            _http_client = None
+
+
+app = create_app(lifespan=_lifespan)
 
 BLOCK_CACHE = TTLCache(maxsize=10000, ttl=60)
 HOP_BY_HOP_HEADERS = {
@@ -84,6 +94,8 @@ FORWARDED_HEADER_NAMES = {
 
 @register_health_check(app, "iis_gateway_redis", critical=True)
 async def _redis_health() -> HealthCheckResult:
+    if redis_client is None:
+        return HealthCheckResult.unhealthy({"error": "Redis unavailable"})
     try:
         redis_client.ping()
     except RedisError as exc:  # pragma: no cover - external dependency
@@ -91,7 +103,16 @@ async def _redis_health() -> HealthCheckResult:
     return HealthCheckResult.healthy()
 
 
+async def get_http_client() -> httpx.AsyncClient:
+    global _http_client
+    if _http_client is None:
+        _http_client = httpx.AsyncClient(timeout=10.0)
+    return _http_client
+
+
 def ip_blocked(ip: str) -> bool:
+    if redis_client is None:
+        raise RedisError("Redis unavailable")
     if ip in BLOCK_CACHE:
         return BLOCK_CACHE[ip]
     key = f"{settings.TENANT_ID}:blocklist:ip:{ip}"
@@ -106,6 +127,8 @@ def ip_blocked(ip: str) -> bool:
 
 
 def get_ip_throttle_state(ip: str) -> dict | None:
+    if redis_client is None:
+        raise RedisError("Redis unavailable")
     key = f"{THROTTLE_KEY_PREFIX}{ip}"
     try:
         payload = redis_client.get(key)
@@ -139,6 +162,8 @@ async def rate_limited(
     limit = _effective_rate_limit(limit_override)
     if limit <= 0:
         return False, None
+    if redis_client is None:
+        raise RedisError("Redis unavailable")
     key = f"{settings.TENANT_ID}:ratelimit:{ip}"
     try:
         with trace_span(
@@ -164,20 +189,20 @@ async def rate_limited(
 async def escalate(ip: str, reason: str) -> None:
     if not settings.ESCALATION_ENDPOINT:
         return
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        try:
-            with trace_span(
-                "iis_gateway.escalate", attributes={"ip": ip, "reason": reason}
-            ):
-                await client.post(
-                    settings.ESCALATION_ENDPOINT,
-                    json={"ip": ip, "reason": reason},
-                )
-                logger.info("Escalated %s for %s", ip, reason)
-        except httpx.TimeoutException:
-            logger.exception("Escalation request timed out")
-        except httpx.HTTPError:
-            logger.exception("Escalation failed")
+    client = await get_http_client()
+    try:
+        with trace_span(
+            "iis_gateway.escalate", attributes={"ip": ip, "reason": reason}
+        ):
+            await client.post(
+                settings.ESCALATION_ENDPOINT,
+                json={"ip": ip, "reason": reason},
+            )
+            logger.info("Escalated %s for %s", ip, reason)
+    except httpx.TimeoutException:
+        logger.exception("Escalation request timed out")
+    except httpx.HTTPError:
+        logger.exception("Escalation failed")
 
 
 def _build_forward_headers(request: Request) -> dict[str, str]:
@@ -242,25 +267,25 @@ async def proxy(path: str, request: Request) -> Response:
         await escalate(client_ip, "SuspiciousAccept")
 
     url = f"{settings.BACKEND_URL.rstrip('/')}/{path}"
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        try:
-            with trace_span(
-                "iis_gateway.proxy_request",
-                attributes={"path": path, "method": request.method},
-            ):
-                resp = await client.request(
-                    request.method,
-                    url,
-                    headers=_build_forward_headers(request),
-                    content=request.stream(),
-                    params=request.query_params,
-                )
-        except httpx.TimeoutException:
-            logger.exception("Backend request timed out")
-            return PlainTextResponse("Gateway Timeout", status_code=504)
-        except httpx.HTTPError:
-            logger.exception("Backend request failed")
-            return PlainTextResponse("Bad Gateway", status_code=502)
+    client = await get_http_client()
+    try:
+        with trace_span(
+            "iis_gateway.proxy_request",
+            attributes={"path": path, "method": request.method},
+        ):
+            resp = await client.request(
+                request.method,
+                url,
+                headers=_build_forward_headers(request),
+                content=request.stream(),
+                params=request.query_params,
+            )
+    except httpx.TimeoutException:
+        logger.exception("Backend request timed out")
+        return PlainTextResponse("Gateway Timeout", status_code=504)
+    except httpx.HTTPError:
+        logger.exception("Backend request failed")
+        return PlainTextResponse("Bad Gateway", status_code=502)
 
     return Response(
         content=resp.content, status_code=resp.status_code, headers=resp.headers

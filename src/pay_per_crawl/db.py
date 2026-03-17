@@ -27,6 +27,9 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
             _CONNECTION = None
     if _CONNECTION is None:
         _CONNECTION = sqlite3.connect(db_path)
+        _CONNECTION.execute("PRAGMA journal_mode=WAL")
+        _CONNECTION.execute("PRAGMA synchronous=NORMAL")
+        _CONNECTION.execute("PRAGMA busy_timeout=5000")
         _CONNECTION.execute(
             "CREATE TABLE IF NOT EXISTS crawlers (token TEXT PRIMARY KEY, name TEXT, purpose TEXT, balance REAL DEFAULT 0)"
         )
