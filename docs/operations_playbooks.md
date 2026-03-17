@@ -4,6 +4,9 @@ This document defines the service level objectives (SLOs), incident response
 workflows, and capacity management dashboards for the AI Scraping Defense
 platform.
 
+For the current consolidated operator baseline, see
+`docs/runtime_performance_baseline.md`.
+
 ## Service Level Objectives
 
 | Service             | SLO                                      | Measurement                            |
