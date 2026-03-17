@@ -56,6 +56,17 @@ class TestCrawlerDB(unittest.TestCase):
         info: Optional[Dict[str, str]] = db.get_crawler("nope")
         self.assertIsNone(info)
 
+    def test_init_db_enables_sqlite_contention_pragmas(self) -> None:
+        conn = db.init_db(self.db_path)
+
+        journal_mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+        synchronous = conn.execute("PRAGMA synchronous").fetchone()[0]
+        busy_timeout = conn.execute("PRAGMA busy_timeout").fetchone()[0]
+
+        self.assertEqual(str(journal_mode).lower(), "wal")
+        self.assertEqual(int(synchronous), 1)
+        self.assertEqual(int(busy_timeout), 5000)
+
 
 if __name__ == "__main__":
     unittest.main()

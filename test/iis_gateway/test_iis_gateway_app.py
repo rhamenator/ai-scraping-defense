@@ -24,22 +24,25 @@ class TestIISGateway(unittest.TestCase):
 
         self.redis_mock = MagicMock()
         self.gateway.redis_client = self.redis_mock
+        self.gateway._http_client = None
         self.redis_mock.get.return_value = None
         self.redis_mock.ttl.return_value = 60
 
         self.escalate_patch = patch("src.iis_gateway.main.escalate", new=AsyncMock())
         self.escalate_patch.start()
 
-        async_client_instance = AsyncMock()
-        async_client_instance.request.return_value = MagicMock(
+        self.async_client_instance = AsyncMock()
+        self.async_client_instance.request.return_value = MagicMock(
             content=b"ok", status_code=200, headers={}
         )
-        self.async_client_instance = async_client_instance
-        self.httpx_patch = patch("src.iis_gateway.main.httpx.AsyncClient")
+        self.httpx_patch = patch(
+            "src.iis_gateway.main.httpx.AsyncClient",
+            return_value=self.async_client_instance,
+        )
         self.httpx_mock = self.httpx_patch.start()
-        self.httpx_mock.return_value.__aenter__.return_value = async_client_instance
 
     def tearDown(self):
+        self.gateway._http_client = None
         self.httpx_patch.stop()
         self.escalate_patch.stop()
         self.env.stop()
@@ -122,6 +125,18 @@ class TestIISGateway(unittest.TestCase):
         self.assertEqual(forwarded_headers["X-Real-IP"], "testclient")
         self.assertEqual(forwarded_headers["X-Forwarded-Proto"], "http")
         self.assertEqual(forwarded_headers["X-Forwarded-Port"], "80")
+
+    def test_proxy_reuses_single_http_client(self):
+        self.redis_mock.exists.return_value = False
+        self.redis_mock.incr.side_effect = [1, 1]
+        self.redis_mock.expire.return_value = True
+
+        first = self.client.get("/first")
+        second = self.client.get("/second")
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.httpx_mock.assert_called_once_with(timeout=10.0)
 
 
 if __name__ == "__main__":
