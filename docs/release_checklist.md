@@ -16,6 +16,8 @@ Use this checklist before cutting a tagged release.
 - Admin UI login works with the configured auth mode
 - Redis, PostgreSQL, and NGINX dependencies start cleanly in compose
 - suspicious traffic can be blocked, tarpitted, and surfaced in the UI
+- `docs/performance_validation.md` evidence is assembled for the release:
+  regression-e2e run URL, retained k6 summary, and any staging load notes
 
 ## Security and Configuration
 
