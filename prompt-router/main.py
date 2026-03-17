@@ -13,6 +13,7 @@ from fastapi import HTTPException, Request, Response
 from src.shared.mcp_client import MCPClientError, call_mcp_tool
 from src.shared.middleware import SecuritySettings, create_app
 from src.shared.observability import ObservabilitySettings
+from src.shared.request_identity import resolve_request_identity
 from src.shared.request_utils import read_json_body
 from src.shared.service_identity import build_cloud_proxy_headers
 
@@ -33,11 +34,6 @@ if not SHARED_SECRET:
     )
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "60"))
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
-TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "false").lower() in (
-    "1",
-    "true",
-    "yes",
-)
 
 
 def count_tokens(text: str) -> int:
@@ -89,14 +85,7 @@ async def _dispatch_prompt(target: str, payload: dict) -> dict:
 
 
 def get_client_ip(request: Request) -> str:
-    if TRUST_PROXY_HEADERS:
-        x_forwarded_for = request.headers.get("X-Forwarded-For")
-        if x_forwarded_for:
-            return x_forwarded_for.split(",")[0].strip()
-        x_real_ip = request.headers.get("X-Real-IP")
-        if x_real_ip:
-            return x_real_ip
-    return request.client.host if request.client else "unknown"
+    return resolve_request_identity(request).client_ip
 
 
 def calculate_window_reset(now: float, window: int = RATE_LIMIT_WINDOW) -> int:
