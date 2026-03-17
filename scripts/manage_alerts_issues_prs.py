@@ -45,9 +45,9 @@ try:
     except Exception:  # pragma: no cover - older PyGithub
         Auth = None
 except ImportError:
-    print("ERROR: Required libraries not installed.")
-    print("Please run: pip install requests PyGithub")
-    sys.exit(1)
+    requests = None
+    Github = None
+    Auth = None
 
 
 class AlertManager:
@@ -62,6 +62,10 @@ class AlertManager:
         include_dependabot: bool = True,
         plan_output: str | None = None,
     ):
+        if Github is None or requests is None:
+            raise RuntimeError(
+                "Required libraries not installed. Please run: pip install requests PyGithub"
+            )
         self.owner = owner
         self.repo = repo
         # Don't store the token at all to prevent any possibility of exposure
@@ -129,28 +133,51 @@ class AlertManager:
         """Calculate similarity ratio between two text strings."""
         return SequenceMatcher(None, text1.lower(), text2.lower()).ratio()
 
+    @staticmethod
+    def _slug_component(value: str) -> str:
+        return "_".join(str(value or "unknown").strip().split()) or "unknown"
+
+    def _dependabot_metadata(self, alert: Dict) -> tuple[str, str, str]:
+        advisory = alert.get("securityAdvisory") or alert.get("security_advisory") or {}
+        vulnerability = (
+            alert.get("securityVulnerability")
+            or alert.get("security_vulnerability")
+            or {}
+        )
+        dependency = alert.get("dependency") or {}
+        ghsa_id = advisory.get("ghsaId") or advisory.get("ghsa_id") or "unknown"
+        package_name = (
+            (vulnerability.get("package") or {}).get("name")
+            or dependency.get("package")
+            or dependency.get("package_name")
+            or "unknown"
+        )
+        severity = (
+            vulnerability.get("severity")
+            or advisory.get("severity")
+            or alert.get("severity")
+            or "low"
+        )
+        return str(ghsa_id), str(package_name), str(severity).lower()
+
     def normalize_alert_key(self, alert: Dict) -> str:
         """Create a normalized key for an alert based on its essential properties."""
         if alert.get("secret_type"):
             secret_type = alert.get("secret_type", "unknown")
-            return f"secret:{secret_type}"
+            return f"secret-scanning:{self._slug_component(secret_type)}"
 
-        advisory = alert.get("securityAdvisory") or {}
-        vuln = alert.get("securityVulnerability") or {}
-        if advisory or vuln:
-            ghsa_id = advisory.get("ghsaId", "unknown")
-            package_name = (vuln.get("package") or {}).get("name", "unknown")
-            return f"dependabot:{ghsa_id}:{package_name}"
+        ghsa_id, _, _ = self._dependabot_metadata(alert)
+        if ghsa_id != "unknown" or alert.get("dependency"):
+            return f"dependabot:{self._slug_component(ghsa_id)}"
 
         # Extract key information that defines a code scanning alert
         tool = alert.get("tool", {}).get("name", "unknown")
         rule_id = alert.get("rule", {}).get("id", "")
         severity = alert.get("rule", {}).get("severity", "")
-        description = alert.get("rule", {}).get("description", "")
-
-        # Create a normalized key
-        key = f"{tool}:{rule_id}:{severity}:{description[:100]}"
-        return key
+        return (
+            "code-scanning:"
+            f"{self._slug_component(tool)}:{rule_id}:{severity or 'unknown'}"
+        )
 
     def fetch_code_scanning_alerts(self) -> List[Dict]:
         """Fetch all code scanning alerts."""
@@ -694,14 +721,8 @@ class AlertManager:
                 )
             else:
                 first_alert = alert_group[0]
-                advisory = first_alert.get("securityAdvisory") or {}
-                vuln = first_alert.get("securityVulnerability") or {}
-                severity = vuln.get("severity") or advisory.get("severity") or "low"
-                title = (
-                    "[Dependabot] "
-                    f"{advisory.get('ghsaId', 'unknown')} "
-                    f"{(vuln.get('package') or {}).get('name', 'unknown')}"
-                )
+                ghsa_id, package_name, severity = self._dependabot_metadata(first_alert)
+                title = "[Dependabot] " f"{ghsa_id} " f"{package_name}"
 
             entry = build_response_plan_entry(
                 source=alert_type,

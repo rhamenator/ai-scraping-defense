@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from pathlib import Path
 
 from scripts.create_issues_from_alerts import IssueCreator
 from scripts.security_response_plan import build_response_plan_entry
@@ -107,7 +109,6 @@ class TestCreateIssuesFromAlerts(unittest.TestCase):
         creator.owner = "rhamenator"
         creator.repo = "ai-scraping-defense"
         creator.dry_run = True
-        creator.plan_output = "test-plan-output.json"
         creator.response_plan_entries = [
             build_response_plan_entry(
                 source="secret_scanning",
@@ -119,15 +120,12 @@ class TestCreateIssuesFromAlerts(unittest.TestCase):
         ]
         creator.log = lambda *_args, **_kwargs: None
 
-        try:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "response-plan.json"
+            creator.plan_output = str(output_path)
             creator.write_response_plan()
-            with open("test-plan-output.json", "r", encoding="utf-8") as handle:
+            with output_path.open("r", encoding="utf-8") as handle:
                 payload = handle.read()
-        finally:
-            import os
-
-            if os.path.exists("test-plan-output.json"):
-                os.remove("test-plan-output.json")
 
         self.assertIn('"repository": "rhamenator/ai-scraping-defense"', payload)
         self.assertIn('"operator_pages": 1', payload)

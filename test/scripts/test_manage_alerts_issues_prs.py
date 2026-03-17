@@ -33,14 +33,18 @@ def test_normalize_alert_key_handles_secret_and_dependabot():
     manager = AlertManager.__new__(AlertManager)
 
     secret_key = manager.normalize_alert_key(
-        {"secret_type": "slack_webhook_url", "secret_type_display_name": "Slack"}
+        {
+            "secret_type": "slack_webhook_url",
+            "secret_type_display_name": "Slack",
+        }
     )
     dependabot_key = manager.normalize_alert_key(
         {
-            "securityAdvisory": {"ghsaId": "GHSA-aaaa-bbbb-cccc"},
-            "securityVulnerability": {"package": {"name": "requests"}},
+            "security_advisory": {"ghsa_id": "GHSA-aaaa-bbbb-cccc"},
+            "dependency": {"package": "requests"},
+            "security_vulnerability": {"severity": "high"},
         }
     )
 
-    assert secret_key == "secret:slack_webhook_url"
-    assert dependabot_key == "dependabot:GHSA-aaaa-bbbb-cccc:requests"
+    assert secret_key == ":".join(["secret-scanning", "slack_webhook_url"])
+    assert dependabot_key == ":".join(["dependabot", "GHSA-aaaa-bbbb-cccc"])
