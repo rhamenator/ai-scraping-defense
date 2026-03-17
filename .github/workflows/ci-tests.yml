@@ -196,8 +196,23 @@ jobs:
       - name: PowerShell Analyzer
         shell: pwsh
         run: |
+          $trackedScripts = @(git ls-files -- '*.ps1')
+          if ($trackedScripts.Count -eq 0) {
+            Write-Host "No tracked PowerShell scripts found."
+            exit 0
+          }
           Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
-          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Recurse -Severity Warning -OutVariable issues } ; $issues | Format-Table
+          $issues = foreach ($scriptPath in $trackedScripts) {
+            if ($scriptPath -match '^(\\.venv|\\.git|node_modules)(/|\\)') {
+              continue
+            }
+            Invoke-ScriptAnalyzer -Path $scriptPath -Severity Warning
+          }
+          if ($issues) {
+            $issues | Format-Table
+          } else {
+            Write-Host "No PSScriptAnalyzer issues found."
+          }
   tests-macos:
     permissions:
       contents: read
