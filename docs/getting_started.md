@@ -256,7 +256,7 @@ When using an external provider, populate the matching API key variable (e.g., `
 The `.env` file also contains toggles for several optional integrations:
 
 - **Web Application Firewall** (`ENABLE_WAF`) mounts ModSecurity rules specified by `WAF_RULES_PATH`.
-- **Global CDN** (`ENABLE_GLOBAL_CDN`) uses Cloudflare and requires `CLOUD_CDN_ZONE_ID` plus `CLOUD_CDN_API_TOKEN` (or `CLOUD_CDN_API_TOKEN_FILE`).
+- **Global CDN** (`ENABLE_GLOBAL_CDN`) uses Cloudflare and requires `CLOUD_CDN_ZONE_ID` plus `CLOUD_CDN_API_TOKEN` (or `CLOUD_CDN_API_TOKEN_FILE`). For production, also set `SECURITY_CDN_TRUSTED_PROXY_CIDRS` and either enable `SECURITY_CDN_ORIGIN_LOCKDOWN=true` or use `CLOUDFLARE_TUNNEL_TOKEN` so the origin is not exposed directly.
 - **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) sends suspicious traffic to the local escalation engine. The optional `ddos_guard.py` script watches Nginx logs for high request rates, classifies floods as HTTP-based or volumetric, and reports attackers. Data can also be forwarded to a third-party service if a provider URL and API key are supplied.
 - **Managed TLS** (`ENABLE_MANAGED_TLS`) automatically issues certificates using `TLS_PROVIDER` and `TLS_EMAIL`.
 - **CAPTCHA Verification** activates when `CAPTCHA_SECRET` is supplied.

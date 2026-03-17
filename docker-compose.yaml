@@ -54,6 +54,7 @@ services:
       retries: 3
     volumes:
       - ./nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+      - ./nginx/render_cdn_origin_lockdown.sh:/usr/local/bin/render_cdn_origin_lockdown.sh:ro
       - ./nginx/lua:/etc/nginx/lua:ro
       - ./nginx/certs:/etc/nginx/certs:ro
       - ./nginx/.htpasswd:/etc/nginx/secrets/.htpasswd:ro
@@ -76,8 +77,15 @@ services:
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PASSWORD_FILE=${REDIS_PASSWORD_FILE}
       - ENABLE_HTTPS=${ENABLE_HTTPS}
+      - SECURITY_CDN_ORIGIN_LOCKDOWN=${SECURITY_CDN_ORIGIN_LOCKDOWN:-false}
+      - SECURITY_CDN_TRUSTED_PROXY_CIDRS=${SECURITY_CDN_TRUSTED_PROXY_CIDRS:-}
+      - REQUIRE_CLOUDFLARE_ACCOUNT=${REQUIRE_CLOUDFLARE_ACCOUNT:-false}
       - TLS_CERT_PATH=${TLS_CERT_PATH}
       - TLS_KEY_PATH=${TLS_KEY_PATH}
+    command:
+      - /bin/sh
+      - -c
+      - /usr/local/bin/render_cdn_origin_lockdown.sh && exec /usr/local/openresty/bin/openresty -g 'daemon off;'
     depends_on:
       escalation_engine:
         condition: service_healthy

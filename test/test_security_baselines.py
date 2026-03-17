@@ -88,12 +88,29 @@ def test_nginx_enforces_https_and_headers():
     assert "Strict-Transport-Security" in config
     assert "add_header X-Frame-Options" in config
     assert "return 301 https://$host$request_uri;" in config
+    assert "include /etc/nginx/conf.d/*.conf;" in config
     assert "limit_req_zone" in config
+    assert "location = /healthz" in config
     assert "client_body_temp_path /var/run/openresty/nginx-client-body;" in config
     assert "proxy_temp_path /var/cache/nginx/proxy_temp;" in config
     assert "fastcgi_temp_path /var/cache/nginx/fastcgi_temp;" in config
     assert "uwsgi_temp_path /var/cache/nginx/uwsgi_temp;" in config
     assert "scgi_temp_path /var/cache/nginx/scgi_temp;" in config
+
+
+def test_nginx_compose_service_renders_cdn_origin_lockdown():
+    compose = _load_compose()
+    nginx_service = compose["services"]["nginx_proxy"]
+
+    assert any(
+        str(volume).startswith(
+            "./nginx/render_cdn_origin_lockdown.sh:/usr/local/bin/render_cdn_origin_lockdown.sh"
+        )
+        for volume in nginx_service.get("volumes", [])
+    )
+    command = " ".join(nginx_service.get("command", []))
+    assert "render_cdn_origin_lockdown.sh" in command
+    assert "openresty -g 'daemon off;'" in command
 
 
 def test_compose_services_drop_privileges():
