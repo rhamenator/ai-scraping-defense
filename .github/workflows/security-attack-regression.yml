@@ -74,28 +74,60 @@ jobs:
           bash ./scripts/linux/generate_secrets.sh --update-env
       - name: Start compose stack
         run: |
-          docker compose \
-            -f docker-compose.yaml \
-            up -d --wait \
-            mock_external_api \
-            postgres \
-            redis \
-            escalation_engine \
-            tarpit_api \
-            admin_ui \
-            cloud_proxy \
-            prompt_router \
-            nginx_proxy
+          pull_with_retry() {
+            local image="$1"
+            local attempt
+            for attempt in 1 2 3; do
+              if docker pull "$image"; then
+                return 0
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                return 1
+              fi
+              sleep $((attempt * 10))
+            done
+          }
+
+          compose_up_with_retry() {
+            local attempt
+            for attempt in 1 2 3; do
+              if docker compose \
+                -f docker-compose.yaml \
+                up -d --wait \
+                mock_external_api \
+                postgres \
+                redis \
+                escalation_engine \
+                tarpit_api \
+                admin_ui \
+                cloud_proxy \
+                prompt_router \
+                nginx_proxy; then
+                return 0
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                return 1
+              fi
+              docker compose -f docker-compose.yaml down -v --remove-orphans || true
+              sleep $((attempt * 15))
+            done
+          }
+
+          pull_with_retry "python:3.11-slim"
+          compose_up_with_retry
       - name: Run attack regression probes
         run: |
           mkdir -p artifacts
           python scripts/security/attack_regression.py \
+            --profile "compose-v1" \
             --nginx-http-base "http://127.0.0.1:8088" \
             --nginx-https-base "https://127.0.0.1:8443" \
             --admin-ui-base "http://127.0.0.1:5002" \
             --prompt-router-base "http://127.0.0.1:8009" \
             --prompt-shared-secret "attack-ci-secret" \
-            --json | tee artifacts/attack-regression.json
+            --allow-host "127.0.0.1" \
+            --output-path artifacts/attack-regression.json \
+            --json | tee artifacts/attack-regression.stdout.json
       - name: Collect compose logs
         if: always()
         run: |
