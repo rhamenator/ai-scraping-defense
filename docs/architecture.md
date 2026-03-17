@@ -2,6 +2,8 @@
 
 The AI Scraping Defense system is designed as a distributed, microservice-based architecture. This design promotes scalability, resilience, and separation of concerns. The system is composed of several key components orchestrated by Docker Compose for local development and Kubernetes for production.
 
+For the current supported topology and the rules for changing it, see [architecture_modernization_baseline.md](architecture_modernization_baseline.md).
+
 ## Core Components
 
 - **Nginx Proxy:** The public-facing entry point for all traffic. It uses Lua scripting for high-performance initial request filtering, such as checking against a blocklist in Redis. Suspicious requests are asynchronously forwarded to the AI Service for deeper analysis.
