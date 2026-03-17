@@ -1,6 +1,6 @@
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404 - required for controlled script execution tests
 from pathlib import Path
 
 import yaml
