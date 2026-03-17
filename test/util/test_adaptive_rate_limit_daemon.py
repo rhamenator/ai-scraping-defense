@@ -5,6 +5,21 @@ from src.util import adaptive_rate_limit_daemon as daemon
 
 
 class TestAdaptiveRateLimitDaemon(unittest.IsolatedAsyncioTestCase):
+    async def test_get_redis_client_uses_shared_secret_loader(self):
+        with patch(
+            "src.util.adaptive_rate_limit_daemon.load_redis_runtime_settings",
+            return_value=("redis.internal", 6380, 2, "secret"),
+        ), patch("src.util.adaptive_rate_limit_daemon.redis.Redis") as redis_cls:
+            await daemon.get_redis_client()
+
+        redis_cls.assert_called_once_with(
+            host="redis.internal",
+            port=6380,
+            db=2,
+            password="secret",
+            decode_responses=True,
+        )
+
     async def test_new_limit_updates_immediately(self):
         with patch(
             "src.util.adaptive_rate_limit_daemon.adaptive_rate_limit_manager.update_rate_limit"

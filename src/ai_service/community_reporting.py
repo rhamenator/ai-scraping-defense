@@ -8,6 +8,7 @@ import httpx
 import redis.asyncio as redis
 
 from src.shared.config import CONFIG
+from src.shared.redis_client import load_redis_runtime_settings
 from src.shared.utils import LOG_DIR, log_event
 
 from .metrics_ai_service import (
@@ -30,10 +31,6 @@ COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = CONFIG.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT
 
 COMMUNITY_REPORT_LOG_FILE = os.path.join(LOG_DIR, "community_report.log")
 
-REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
-REDIS_DB = int(os.environ.get("REDIS_DB", 0))
-REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 REPORTING_EVENT_CHANNEL = "reporting_events"
 
 
@@ -157,11 +154,12 @@ async def report_ip_to_community(ip: str, reason: str, details: Dict) -> bool:
 
 async def get_redis_client():
     """Create and return an async Redis client."""
+    redis_host, redis_port, redis_db, redis_password = load_redis_runtime_settings()
     return redis.Redis(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        db=REDIS_DB,
-        password=REDIS_PASSWORD,
+        host=redis_host,
+        port=redis_port,
+        db=redis_db,
+        password=redis_password,
         decode_responses=True,
     )
 
