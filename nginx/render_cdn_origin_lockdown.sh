@@ -1,9 +1,8 @@
 #!/bin/sh
 set -eu
 
-OUTPUT_PATH="${1:-/etc/nginx/conf.d/20-cdn-origin-lockdown.conf}"
+OUTPUT_PATH="${1:-/etc/nginx/generated-conf/20-cdn-origin-lockdown.conf}"
 LOCKDOWN_ENABLED="${SECURITY_CDN_ORIGIN_LOCKDOWN:-false}"
-REQUIRE_CLOUDFLARE_ACCOUNT="${REQUIRE_CLOUDFLARE_ACCOUNT:-false}"
 TRUSTED_CIDRS="${SECURITY_CDN_TRUSTED_PROXY_CIDRS:-}"
 
 is_truthy() {
@@ -62,7 +61,7 @@ write_disabled_file() {
 EOF
 }
 
-if ! is_truthy "$LOCKDOWN_ENABLED" && ! is_truthy "$REQUIRE_CLOUDFLARE_ACCOUNT"; then
+if ! is_truthy "$LOCKDOWN_ENABLED"; then
   write_disabled_file
   exit 0
 fi

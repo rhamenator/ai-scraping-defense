@@ -63,6 +63,7 @@ services:
       - ./waf:/etc/nginx/modsecurity:ro
       - ./docs_ui:/usr/share/nginx/html/docs_ui:ro
       - ./secrets:/run/secrets:ro
+      - nginx_generated_conf:/etc/nginx/generated-conf
       # Restored Nginx cache volumes for stability and performance
       - nginx_client_body_temp:/var/run/openresty/nginx-client-body
       - nginx_proxy_temp:/var/cache/nginx/proxy_temp
@@ -716,6 +717,7 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  nginx_generated_conf:
   nginx_client_body_temp:
   nginx_proxy_temp:
   nginx_fastcgi_temp:

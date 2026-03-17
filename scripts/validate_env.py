@@ -115,7 +115,11 @@ def validate_env(env: Mapping[str, str] | None = None) -> list[str]:
                 "REQUIRE_CLOUDFLARE_ACCOUNT=true requires SECURITY_CDN_ORIGIN_LOCKDOWN=true "
                 "or CLOUDFLARE_TUNNEL_TOKEN to keep the origin off the public internet"
             )
-    if origin_lockdown and not env.get("SECURITY_CDN_TRUSTED_PROXY_CIDRS"):
+    if (
+        origin_lockdown
+        and not (enable_global_cdn or require_cloudflare)
+        and not env.get("SECURITY_CDN_TRUSTED_PROXY_CIDRS")
+    ):
         errors.append(
             "SECURITY_CDN_TRUSTED_PROXY_CIDRS is required when SECURITY_CDN_ORIGIN_LOCKDOWN=true"
         )

@@ -133,7 +133,12 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 When `REQUIRE_CLOUDFLARE_ACCOUNT=true`, validation now requires one of:
 
 - `SECURITY_CDN_ORIGIN_LOCKDOWN=true` so the Nginx origin only accepts trusted CDN proxy CIDRs
-- `CLOUDFLARE_TUNNEL_TOKEN` so the origin stays behind a named Cloudflare Tunnel instead of a public listener
+- `CLOUDFLARE_TUNNEL_TOKEN` so the origin can be reached through a named Cloudflare Tunnel instead of direct public ingress
+
+If you rely on `CLOUDFLARE_TUNNEL_TOKEN` instead of `SECURITY_CDN_ORIGIN_LOCKDOWN=true`,
+you still need to keep the origin listener off the public internet yourself. In
+Compose terms that means binding the nginx ports to localhost only, removing the
+published `ports:` mapping, or enforcing an equivalent host firewall policy.
 
 ## Tarpit and Blocklist
 
