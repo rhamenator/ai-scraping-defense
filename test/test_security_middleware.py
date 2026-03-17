@@ -55,6 +55,42 @@ def test_security_headers_skip_hsts_when_disabled():
     assert "Strict-Transport-Security" not in response.headers
 
 
+def test_explicit_api_version_prefix_is_rejected():
+    settings = SecuritySettings(
+        rate_limit_requests=5,
+        rate_limit_window=60,
+        max_body_size=1024,
+        enable_https=False,
+    )
+    client = TestClient(_build_app(settings))
+
+    response = client.get("/v2/ping")
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": (
+            "Explicit API version prefix v2 is not supported. "
+            "Use the documented unversioned-v1 routes."
+        ),
+        "supported_versioning": "unversioned-v1",
+    }
+
+
+def test_api_namespace_version_prefix_is_rejected():
+    settings = SecuritySettings(
+        rate_limit_requests=5,
+        rate_limit_window=60,
+        max_body_size=1024,
+        enable_https=False,
+    )
+    client = TestClient(_build_app(settings))
+
+    response = client.get("/api/v3/ping")
+
+    assert response.status_code == 404
+    assert response.json()["supported_versioning"] == "unversioned-v1"
+
+
 def test_rate_limiting_blocks_after_threshold():
     settings = SecuritySettings(
         rate_limit_requests=2,

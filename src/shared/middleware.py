@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import time
 from collections import deque
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from .observability import ObservabilitySettings, configure_observability
 from .request_identity import resolve_request_identity, resolve_request_scheme
 
 logger = logging.getLogger(__name__)
+UNSUPPORTED_VERSION_PREFIX = re.compile(r"^/(?:api/)?v(?P<version>[0-9]+)(?:/|$)")
 
 
 @dataclass(frozen=True)
@@ -99,6 +101,25 @@ def _parse_host_list(name: str) -> list[str]:
             seen.add(host)
             unique.append(host)
     return unique
+
+
+def _version_prefix_error(path: str) -> JSONResponse | None:
+    """Reject explicit API version prefixes until a versioned surface exists."""
+
+    match = UNSUPPORTED_VERSION_PREFIX.match(path)
+    if match is None:
+        return None
+    version = match.group("version")
+    return JSONResponse(
+        status_code=404,
+        content={
+            "detail": (
+                f"Explicit API version prefix v{version} is not supported. "
+                "Use the documented unversioned-v1 routes."
+            ),
+            "supported_versioning": "unversioned-v1",
+        },
+    )
 
 
 class RequestTargetLimitMiddleware(BaseHTTPMiddleware):
@@ -275,6 +296,13 @@ def add_security_middleware(
     app: FastAPI, security_settings: SecuritySettings | None = None
 ) -> SecuritySettings:
     settings = security_settings or _load_security_settings()
+
+    @app.middleware("http")
+    async def _reject_unsupported_version_prefixes(request, call_next):
+        version_error = _version_prefix_error(request.url.path)
+        if version_error is not None:
+            return version_error
+        return await call_next(request)
 
     # Add GDPR compliance middleware first (innermost)
     gdpr_enabled = os.getenv("GDPR_ENABLED", "true").lower() == "true"
