@@ -86,6 +86,7 @@ To get a full understanding of the project, please review the following document
 - [Third-Party Licenses](third_party_licenses.md)
 - [Privacy Policy](privacy_policy.md)
 - [API Trust Boundaries](api_trust_boundaries.md)
+- [Data Protection Baseline](data_protection_baseline.md)
 - [Security Disclosure Policy](../SECURITY.md)
 - [Compliance Checklist](legal_compliance.md)
 

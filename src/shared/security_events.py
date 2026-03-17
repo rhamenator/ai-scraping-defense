@@ -217,4 +217,12 @@ def export_security_events(
         destination = Path(output_path)
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(jsonl, encoding="utf-8")
+        try:
+            os.chmod(destination, 0o600)
+        except OSError:
+            logger.debug(
+                "Unable to set restrictive permissions on %s",
+                destination,
+                exc_info=True,
+            )
     return len(events), jsonl

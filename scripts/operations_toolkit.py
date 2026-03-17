@@ -10,6 +10,7 @@ subprocess calls to existing tools (`pg_dump`, `redis-cli`, `terraform`,
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -25,6 +26,8 @@ from typing import Iterable, List
 
 LOG = logging.getLogger(__name__)
 DEFAULT_BACKUP_DIR = Path(os.getenv("BACKUP_DIR", "./backups"))
+BACKUP_DIR_MODE = 0o700
+BACKUP_FILE_MODE = 0o600
 
 
 @dataclass
@@ -63,6 +66,85 @@ def run_command(
 
 def ensure_directory(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(path, BACKUP_DIR_MODE)
+    except OSError:
+        LOG.debug("Unable to set permissions on %s", path, exc_info=True)
+
+
+def _secure_path(path: Path) -> None:
+    try:
+        os.chmod(path, BACKUP_FILE_MODE)
+    except OSError:
+        LOG.debug("Unable to set permissions on %s", path, exc_info=True)
+
+
+def _sha256_file(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8192), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_json_file(path: Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    _secure_path(path)
+
+
+def _build_backup_manifest(
+    *,
+    postgres_file: Path,
+    redis_file: Path,
+    state_file: Path,
+    kube_context: str,
+) -> dict:
+    artifacts = {}
+    for name, path in (
+        ("postgres_dump", postgres_file),
+        ("redis_dump", redis_file),
+        ("cluster_state", state_file),
+    ):
+        artifacts[name] = {
+            "path": str(path),
+            "exists": path.exists(),
+            "sha256": _sha256_file(path),
+        }
+    return {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "kube_context": kube_context,
+        "artifacts": artifacts,
+    }
+
+
+def _load_backup_manifest(source: Path) -> dict | None:
+    manifest_path = source / "backup_manifest.json"
+    if not manifest_path.exists():
+        return None
+    return json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
+def _verify_backup_manifest(source: Path) -> None:
+    manifest = _load_backup_manifest(source)
+    if manifest is None:
+        LOG.warning(
+            "No backup manifest found in %s; integrity verification skipped", source
+        )
+        return
+
+    artifacts = manifest.get("artifacts", {})
+    for entry in artifacts.values():
+        artifact_path = Path(entry["path"])
+        expected = entry.get("sha256")
+        exists = entry.get("exists", False)
+        if exists and not artifact_path.exists():
+            raise SystemExit(f"Backup artifact missing: {artifact_path}")
+        if expected and artifact_path.exists():
+            actual = _sha256_file(artifact_path)
+            if actual != expected:
+                raise SystemExit(f"Backup artifact checksum mismatch: {artifact_path}")
 
 
 def backup(args: argparse.Namespace) -> Path:
@@ -74,6 +156,7 @@ def backup(args: argparse.Namespace) -> Path:
     postgres_file = destination / "postgres.sql"
     redis_file = destination / "redis.rdb"
     state_file = destination / "cluster_state.json"
+    manifest_file = destination / "backup_manifest.json"
 
     run_command(
         [
@@ -95,7 +178,7 @@ def backup(args: argparse.Namespace) -> Path:
         ],
         execute=args.execute,
     )
-    run_command(
+    cluster_state = run_command(
         [
             "kubectl",
             "--context",
@@ -109,16 +192,31 @@ def backup(args: argparse.Namespace) -> Path:
         execute=args.execute,
     )
     if args.execute:
-        (state_file).write_text(
-            json.dumps(
-                {
-                    "generated_at": datetime.now(UTC).isoformat(),
-                    "postgres_dump": str(postgres_file),
-                    "redis_dump": str(redis_file),
-                    "kube_context": args.kube_context,
-                },
-                indent=2,
-            )
+        if cluster_state.stdout:
+            state_payload = {
+                "generated_at": datetime.now(UTC).isoformat(),
+                "kube_context": args.kube_context,
+                "resources": json.loads(cluster_state.stdout),
+            }
+        else:
+            state_payload = {
+                "generated_at": datetime.now(UTC).isoformat(),
+                "postgres_dump": str(postgres_file),
+                "redis_dump": str(redis_file),
+                "kube_context": args.kube_context,
+            }
+        _write_json_file(state_file, state_payload)
+        for artifact in (postgres_file, redis_file):
+            if artifact.exists():
+                _secure_path(artifact)
+        _write_json_file(
+            manifest_file,
+            _build_backup_manifest(
+                postgres_file=postgres_file,
+                redis_file=redis_file,
+                state_file=state_file,
+                kube_context=args.kube_context,
+            ),
         )
     LOG.info("Backup complete")
     return destination
@@ -128,6 +226,7 @@ def restore(args: argparse.Namespace) -> None:
     source = Path(args.source)
     if not source.exists():
         raise SystemExit(f"Backup directory {source} does not exist")
+    _verify_backup_manifest(source)
 
     LOG.info("Restoring from %s", source)
     run_command(
