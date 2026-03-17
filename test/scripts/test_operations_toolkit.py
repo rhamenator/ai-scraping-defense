@@ -1,4 +1,6 @@
 import argparse
+import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -65,6 +67,134 @@ class TestOperationsToolkit(unittest.TestCase):
                 self.assertNotEqual(str(result_path), tmp)
                 # Verify the path exists (was created by ensure_directory)
                 self.assertTrue(result_path.exists())
+
+    def test_backup_execute_writes_manifest_and_secures_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(
+                destination=tmp,
+                postgres_url="postgres://test",
+                redis_url="redis://test",
+                kube_context="test-context",
+                execute=True,
+            )
+
+            def fake_run(command, *, execute, cwd=None):
+                if command[0] == "pg_dump":
+                    Path(command[-1]).write_text("pgdump", encoding="utf-8")
+                elif command[0] == "redis-cli":
+                    Path(command[-1]).write_bytes(b"redis")
+                elif command[0] == "kubectl":
+                    return operations_toolkit.CommandResult(
+                        command=list(command),
+                        returncode=0,
+                        stdout=json.dumps({"items": []}),
+                        stderr="",
+                    )
+                return operations_toolkit.CommandResult(
+                    command=list(command), returncode=0, stdout="", stderr=""
+                )
+
+            with patch("scripts.operations_toolkit.run_command", side_effect=fake_run):
+                result_path = operations_toolkit.backup(args)
+
+            manifest = json.loads(
+                (result_path / "backup_manifest.json").read_text(encoding="utf-8")
+            )
+            self.assertIn("artifacts", manifest)
+            self.assertTrue(manifest["artifacts"]["postgres_dump"]["exists"])
+            self.assertTrue(manifest["artifacts"]["redis_dump"]["exists"])
+            self.assertTrue(manifest["artifacts"]["cluster_state"]["exists"])
+            self.assertEqual(
+                manifest["artifacts"]["postgres_dump"]["path"], "postgres.sql"
+            )
+
+            if os.name != "nt":
+                self.assertEqual(
+                    (result_path / "backup_manifest.json").stat().st_mode & 0o777,
+                    0o600,
+                )
+                self.assertEqual(result_path.stat().st_mode & 0o777, 0o700)
+
+    def test_restore_rejects_checksum_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            backup_dir = Path(tmp)
+            postgres_file = backup_dir / "postgres.sql"
+            redis_file = backup_dir / "redis.rdb"
+            state_file = backup_dir / "cluster_state.json"
+            postgres_file.write_text("postgres", encoding="utf-8")
+            redis_file.write_bytes(b"redis")
+            state_file.write_text("{}", encoding="utf-8")
+            manifest = operations_toolkit._build_backup_manifest(
+                postgres_file=postgres_file,
+                redis_file=redis_file,
+                state_file=state_file,
+                kube_context="test-context",
+            )
+            (backup_dir / "backup_manifest.json").write_text(
+                json.dumps(manifest), encoding="utf-8"
+            )
+            postgres_file.write_text("tampered", encoding="utf-8")
+
+            args = argparse.Namespace(
+                source=str(backup_dir),
+                postgres_url="postgres://test",
+                redis_url="redis://test",
+                redis_data_dir="/var/lib/redis",
+                redis_host="localhost",
+                execute=False,
+            )
+
+            with self.assertRaises(SystemExit):
+                operations_toolkit.restore(args)
+
+    def test_restore_rejects_manifest_path_escape(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            backup_dir = Path(tmp)
+            manifest = {
+                "generated_at": "2026-03-17T00:00:00Z",
+                "kube_context": "test-context",
+                "artifacts": {
+                    "postgres_dump": {
+                        "path": "../outside.sql",
+                        "exists": False,
+                        "sha256": None,
+                    }
+                },
+            }
+            (backup_dir / "backup_manifest.json").write_text(
+                json.dumps(manifest), encoding="utf-8"
+            )
+
+            args = argparse.Namespace(
+                source=str(backup_dir),
+                postgres_url="postgres://test",
+                redis_url="redis://test",
+                redis_data_dir="/var/lib/redis",
+                redis_host="localhost",
+                execute=False,
+            )
+
+            with self.assertRaises(SystemExit):
+                operations_toolkit.restore(args)
+
+    def test_restore_rejects_invalid_manifest_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            backup_dir = Path(tmp)
+            (backup_dir / "backup_manifest.json").write_text(
+                "{not-json", encoding="utf-8"
+            )
+
+            args = argparse.Namespace(
+                source=str(backup_dir),
+                postgres_url="postgres://test",
+                redis_url="redis://test",
+                redis_data_dir="/var/lib/redis",
+                redis_host="localhost",
+                execute=False,
+            )
+
+            with self.assertRaises(SystemExit):
+                operations_toolkit.restore(args)
 
     def test_disaster_recovery_drill_uses_correct_backup_path(self):
         """Test that disaster_recovery_drill passes the correct timestamped path to restore."""

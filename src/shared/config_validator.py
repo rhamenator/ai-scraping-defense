@@ -336,6 +336,13 @@ class ConfigLoader:
                 not config.security.tls_cert_path or not config.security.tls_key_path
             ):
                 errors.append("TLS certificate and key required when HTTPS is enabled")
+            vault_addr = os.getenv("VAULT_ADDR")
+            if vault_addr and not vault_addr.startswith("https://"):
+                if os.getenv("ALLOW_INSECURE_VAULT_ADDR", "false").lower() != "true":
+                    errors.append("VAULT_ADDR must use https:// in production")
+            webauthn_origin = os.getenv("WEBAUTHN_ORIGIN")
+            if webauthn_origin and not webauthn_origin.startswith("https://"):
+                errors.append("WEBAUTHN_ORIGIN must use https:// in production")
             if config.security.internal_auth_mode == InternalAuthMode.SHARED_KEY:
                 required_secrets = {
                     "SHARED_SECRET": os.getenv("SHARED_SECRET"),

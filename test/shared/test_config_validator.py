@@ -464,6 +464,74 @@ class TestConfigLoader(unittest.TestCase):
         self.assertFalse(is_valid)
         self.assertTrue(any("EXTERNAL_API_URL must use https://" in e for e in errors))
 
+    def test_validate_production_requires_https_vault_addr(self):
+        env = self.minimal_env.copy()
+        env.update(
+            {
+                "APP_ENV": "production",
+                "DEBUG": "false",
+                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
+                "ADMIN_UI_PASSWORD_HASH": "$2b$12$" + "." * 53,
+            }
+        )
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        with patch.dict(
+            os.environ,
+            {
+                "MODEL_URI": env["MODEL_URI"],
+                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
+                "SHARED_SECRET": "shared-secret",
+                "PROXY_KEY": "proxy-secret",
+                "ESCALATION_API_KEY": "escalation-secret",
+                "WEBHOOK_SHARED_SECRET": "webhook-secret",
+                "CLOUD_DASHBOARD_API_KEY": "dashboard-secret",
+                "RECOMMENDER_API_KEY": "recommender-secret",
+                "VAULT_ADDR": "http://vault.internal:8200",
+            },
+            clear=True,
+        ):
+            is_valid, errors = loader.validate_config(config)
+
+        self.assertFalse(is_valid)
+        self.assertTrue(any("VAULT_ADDR must use https://" in e for e in errors))
+
+    def test_validate_production_requires_https_webauthn_origin(self):
+        env = self.minimal_env.copy()
+        env.update(
+            {
+                "APP_ENV": "production",
+                "DEBUG": "false",
+                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
+                "ADMIN_UI_PASSWORD_HASH": "$2b$12$" + "." * 53,
+            }
+        )
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        with patch.dict(
+            os.environ,
+            {
+                "MODEL_URI": env["MODEL_URI"],
+                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
+                "SHARED_SECRET": "shared-secret",
+                "PROXY_KEY": "proxy-secret",
+                "ESCALATION_API_KEY": "escalation-secret",
+                "WEBHOOK_SHARED_SECRET": "webhook-secret",
+                "CLOUD_DASHBOARD_API_KEY": "dashboard-secret",
+                "RECOMMENDER_API_KEY": "recommender-secret",
+                "WEBAUTHN_ORIGIN": "http://admin.example.test",
+            },
+            clear=True,
+        ):
+            is_valid, errors = loader.validate_config(config)
+
+        self.assertFalse(is_valid)
+        self.assertTrue(any("WEBAUTHN_ORIGIN must use https://" in e for e in errors))
+
     def test_validate_ip_reputation_requires_url(self):
         """Test IP reputation requires a URL when enabled."""
         env = self.minimal_env.copy()
