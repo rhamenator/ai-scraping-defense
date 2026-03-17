@@ -15,6 +15,8 @@ Set the following variables in `.env`:
 
 - `PROMPT_ROUTER_HOST` – hostname or container name running the router.
 - `PROMPT_ROUTER_PORT` – port the router listens on.
+- `INTERNAL_AUTH_MODE` – currently `shared_key`; defines the supported internal HTTP auth mode.
+- `SHARED_SECRET` – bearer secret required by the router’s `/route` endpoint.
 - `PROXY_KEY` – shared secret sent to the cloud proxy via the `X-Proxy-Key` header.
 
 ```env

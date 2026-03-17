@@ -56,6 +56,7 @@ To get a full understanding of the project, please review the following document
 - [**Model Adapter Guide**](model_adapter_guide.md)**:** A technical deep-dive into the flexible Model Adapter pattern, which allows the system to easily switch between different machine learning models and LLM providers.
 - [**Local Model Training**](local_model_training.md)**:** Provenance requirements, trust boundaries, and audit expectations for local training and fine-tuning datasets.
 - [**Prompt Router**](prompt_router.md)**:** Explains how LLM requests are routed between local containers and the cloud.
+- [**Inter-Service Authentication**](inter_service_auth.md)**:** Defines the current shared-key contract for internal HTTP calls.
 - [**Monitoring Stack**](monitoring_stack.md)**:** Using Prometheus, Grafana, and Watchtower for observability and automatic updates.
 - [**Release Checklist**](release_checklist.md)**:** Practical validation steps before cutting a tagged release.
 - [**Release Artifacts**](release_artifacts.md)**:** Semver tags, GHCR image publication, signatures, and provenance policy.

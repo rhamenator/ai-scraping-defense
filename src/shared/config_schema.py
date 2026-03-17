@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .service_identity import InternalAuthMode
+
 MASKED_VALUE = "***MASKED***"
 
 
@@ -205,6 +207,7 @@ class SecurityConfig(BaseModel):
     tls_key_path: Optional[str] = None
     enable_waf: bool = Field(default=True)
     waf_rules_path: Optional[str] = None
+    internal_auth_mode: InternalAuthMode = Field(default=InternalAuthMode.SHARED_KEY)
     jwt_secret: Optional[str] = Field(default=None, repr=False)
     jwt_secret_file: Optional[str] = None
     jwt_public_key: Optional[str] = Field(default=None, repr=False)

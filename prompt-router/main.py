@@ -14,6 +14,7 @@ from src.shared.mcp_client import MCPClientError, call_mcp_tool
 from src.shared.middleware import SecuritySettings, create_app
 from src.shared.observability import ObservabilitySettings
 from src.shared.request_utils import read_json_body
+from src.shared.service_identity import build_cloud_proxy_headers
 
 INTERNAL_SERVICE_SCHEME = os.getenv("INTERNAL_SERVICE_SCHEME", "http")
 LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL") or (
@@ -74,8 +75,15 @@ async def _dispatch_prompt(target: str, payload: dict) -> dict:
         except MCPClientError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
+    headers = {}
+    if target == CLOUD_PROXY_URL:
+        try:
+            headers = build_cloud_proxy_headers()
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
     async with httpx.AsyncClient() as client:
-        resp = await client.post(target, json=payload, timeout=60)
+        resp = await client.post(target, json=payload, headers=headers, timeout=60)
         resp.raise_for_status()
         return resp.json()
 
