@@ -1,3 +1,5 @@
+import os
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -111,6 +113,30 @@ def test_nginx_compose_service_renders_cdn_origin_lockdown():
     command = " ".join(nginx_service.get("command", []))
     assert "render_cdn_origin_lockdown.sh" in command
     assert "openresty -g 'daemon off;'" in command
+
+
+def test_render_cdn_origin_lockdown_rejects_cidr_injection(tmp_path):
+    output_path = tmp_path / "20-cdn-origin-lockdown.conf"
+    env = {
+        **os.environ,
+        "SECURITY_CDN_ORIGIN_LOCKDOWN": "true",
+    }
+
+    for candidate in (
+        "10.0.0.0/8; allow all",
+        "10.0.0.0/8\nallow all",
+        "10.0.0.0/8\rallow all",
+        "10.0.0.0/8 { allow all; }",
+    ):
+        result = subprocess.run(
+            ["/bin/sh", "nginx/render_cdn_origin_lockdown.sh", str(output_path)],
+            cwd=Path.cwd(),
+            env={**env, "SECURITY_CDN_TRUSTED_PROXY_CIDRS": candidate},
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "Invalid SECURITY_CDN_TRUSTED_PROXY_CIDRS entry" in result.stderr
 
 
 def test_compose_services_drop_privileges():
