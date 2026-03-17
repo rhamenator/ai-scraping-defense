@@ -2,12 +2,14 @@
 import json
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 
+sys.modules.setdefault("markov_train_rs", MagicMock())
 from rag import finetune
 
 
@@ -47,6 +49,23 @@ class TestFinetuneScriptComprehensive(unittest.TestCase):
                 )
                 + "\\n"
             )
+        for split_name, file_path in (
+            ("train", self.train_file),
+            ("eval", self.eval_file),
+        ):
+            with open(f"{file_path}.metadata.json", "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "schema_version": 1,
+                        "generated_at": "2026-03-17T00:00:00+00:00",
+                        "generated_by": "test-suite",
+                        "record_count": 1,
+                        "source": {"kind": "test"},
+                        "trust_boundary": {"review_required": True},
+                        "split": split_name,
+                    },
+                    handle,
+                )
 
         self.env_patcher = patch.dict(
             os.environ,
@@ -119,6 +138,21 @@ class TestFinetuneScriptComprehensive(unittest.TestCase):
         self.assertIn("input_ids", prepared_data)
         # Check that the label was correctly mapped
         self.assertEqual(prepared_data["label"], [1])  # bot -> 1
+
+    @patch("rag.finetune.load_dataset")
+    def test_load_and_prepare_dataset_requires_provenance(self, mock_load_dataset):
+        os.remove(f"{self.train_file}.metadata.json")
+        prepared_data = finetune.load_and_prepare_dataset(self.train_file, MagicMock())
+        self.assertIsNone(prepared_data)
+        mock_load_dataset.assert_not_called()
+
+    @patch("rag.finetune.load_dataset")
+    def test_load_and_prepare_dataset_rejects_bad_provenance(self, mock_load_dataset):
+        with open(f"{self.train_file}.metadata.json", "w", encoding="utf-8") as handle:
+            json.dump({"schema_version": 1}, handle)
+        prepared_data = finetune.load_and_prepare_dataset(self.train_file, MagicMock())
+        self.assertIsNone(prepared_data)
+        mock_load_dataset.assert_not_called()
 
     def test_compute_metrics(self):
         """Test the metrics computation for evaluation, including argmax logic."""

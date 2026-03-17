@@ -54,6 +54,7 @@ To get a full understanding of the project, please review the following document
 - [**System Architecture**](architecture.md)**:** A high-level overview of the different components of the system and how they fit together. This is the best place to start to understand the overall design.
 - [**Key Data Flows**](key_data_flows.md)**:** This document explains the lifecycle of a request as it moves through our defense layers, from initial filtering to deep analysis.
 - [**Model Adapter Guide**](model_adapter_guide.md)**:** A technical deep-dive into the flexible Model Adapter pattern, which allows the system to easily switch between different machine learning models and LLM providers.
+- [**Local Model Training**](local_model_training.md)**:** Provenance requirements, trust boundaries, and audit expectations for local training and fine-tuning datasets.
 - [**Prompt Router**](prompt_router.md)**:** Explains how LLM requests are routed between local containers and the cloud.
 - [**Monitoring Stack**](monitoring_stack.md)**:** Using Prometheus, Grafana, and Watchtower for observability and automatic updates.
 - [**Release Checklist**](release_checklist.md)**:** Practical validation steps before cutting a tagged release.

@@ -258,6 +258,7 @@ JWT verification is used by some internal APIs (for example, the escalation engi
 | `TARPIT_LLM_MAX_TOKENS` | `400` | Max tokens for tarpit LLM |
 | `ENABLE_AI_LABYRINTH` | `true` | Enable endless labyrinth pages |
 | `TARPIT_LABYRINTH_DEPTH` | `5` | Depth for AI labyrinth |
+| `TRAINING_REQUIRE_DATASET_PROVENANCE` | `true` | Require `*.metadata.json` provenance sidecars before local fine-tuning datasets are loaded |
 | `ENABLE_FINGERPRINTING` | `true` | Track browser fingerprints |
 
 ## Tracking Windows

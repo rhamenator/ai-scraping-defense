@@ -523,6 +523,13 @@ python src/rag/training.py --model xgb
 
 This flexibility makes it easy to experiment with different classifiers.
 
+The fine-tuning path now expects provenance sidecars next to exported
+`*.jsonl` datasets. The normal `src/rag/training.py` export flow writes these
+metadata files automatically; imported datasets should provide matching
+`*.metadata.json` files or `src/rag/finetune.py` will reject them by default.
+See [docs/local_model_training.md](docs/local_model_training.md) for the trust
+boundary and review expectations.
+
 ## Quick Kubernetes Deployment
 
 Run the helper script to deploy everything to Kubernetes in one step. Ensure the
