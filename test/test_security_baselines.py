@@ -113,6 +113,43 @@ def test_nginx_compose_service_renders_cdn_origin_lockdown():
     assert "openresty -g 'daemon off;'" in command
 
 
+def test_render_cdn_origin_lockdown_rejects_cidr_injection():
+    """The script must refuse CIDRs containing characters outside [0-9a-fA-F:./] to
+    prevent nginx-config injection via SECURITY_CDN_TRUSTED_PROXY_CIDRS."""
+    import subprocess
+    import tempfile
+
+    script = Path("nginx/render_cdn_origin_lockdown.sh")
+
+    injection_vectors = [
+        "10.0.0.0/8; allow all",  # semicolon injection
+        "10.0.0.0/8\nallow all",  # newline injection
+        "10.0.0.0/8\rallow all",  # carriage return injection
+        "10.0.0.0/8{allow all}",  # brace injection
+    ]
+
+    for vector in injection_vectors:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "lockdown.conf"
+            env = {
+                "SECURITY_CDN_ORIGIN_LOCKDOWN": "true",
+                "REQUIRE_CLOUDFLARE_ACCOUNT": "false",
+                "SECURITY_CDN_TRUSTED_PROXY_CIDRS": vector,
+            }
+            result = subprocess.run(
+                ["sh", str(script), str(out)],
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            assert (
+                result.returncode != 0
+            ), f"Script must exit non-zero for injection vector: {vector!r}"
+            assert (
+                not out.exists() or "allow all" not in out.read_text()
+            ), f"Generated conf must not contain injected directives for: {vector!r}"
+
+
 def test_compose_services_drop_privileges():
     compose = _load_compose()
     services = compose.get("services", {})
