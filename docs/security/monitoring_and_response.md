@@ -4,6 +4,31 @@ This runbook operationalizes the current security baseline and active
 security backlog by defining how controls are monitored, logged, and escalated
 in production.
 
+## GitHub Automation Boundaries
+
+The repository now treats GitHub automation as four distinct layers so the
+incident path is predictable:
+
+- `security-audit.yml` runs scanners and publishes reports only. It does not
+  dismiss alerts, open issues, or perform remediation.
+- `security-triage.yml` is the only workflow that dismisses allowlisted code
+  scanning alerts. Its scope is limited to allowlist hygiene.
+- `create-issues-from-alerts.yml` converts actionable open alerts into backlog
+  issues and writes `reports/security-response-plan.json` so operators can
+  review the issue/page/automation intent in dry-run or live mode.
+- `manage-alerts.yml` consolidates duplicates and publishes the same response
+  plan artifact for review. Scheduled runs stay in dry-run mode by default.
+- `master-problem-detection.yml` is backlog discovery only. Its default
+  `autofix` mode is now off so it does not compete with the incident-response
+  workflows above.
+
+The response plan artifact is generated from `scripts/security_response_plan.py`
+and is the contract for which detections:
+
+- create GitHub issues
+- page operators
+- require an automated response such as credential rotation or expedited patching
+
 ## Telemetry and Monitoring
 
 - **Log aggregation** – All services emit JSON-formatted audit events via
@@ -137,6 +162,9 @@ print(f'Average Score: {report[\"average_score\"]:.1f}')
 1. **Detection** – Alerts or analysts raise incidents in the ticketing system.
 2. **Triage** – Duty analyst validates severity, gathers evidence (logs,
    metrics, request samples), and assigns priority.
+   - Use the workflow-generated `security-response-plan.json` artifact to confirm
+     whether the alert should create backlog work, trigger paging, or require an
+     automated response.
 3. **Containment** – Depending on incident type:
    - **Secrets leakage** →
      - Immediately rotate via `./scripts/generate_secrets.sh --vault --update-env`

@@ -97,13 +97,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          mkdir -p reports
           echo "Running in ${{ steps.mode.outputs.mode_label }} mode"
           python scripts/create_issues_from_alerts.py \
             --owner ${{ github.repository_owner }} \
             --repo ${{ github.event.repository.name }} \
+            --plan-output reports/security-response-plan.json \
             ${{ steps.mode.outputs.dry_run }} \
             ${{ steps.mode.outputs.min_severity }} \
             ${{ steps.mode.outputs.dependabot }}
+
+      - name: Upload response plan
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: create-issues-response-plan-${{ github.run_number }}
+          path: reports/security-response-plan.json
+          if-no-files-found: ignore
 
       - name: Summary
         if: always()

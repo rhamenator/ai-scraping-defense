@@ -1,6 +1,9 @@
+import tempfile
 import unittest
+from pathlib import Path
 
 from scripts.create_issues_from_alerts import IssueCreator
+from scripts.security_response_plan import build_response_plan_entry
 
 
 class TestCreateIssuesFromAlerts(unittest.TestCase):
@@ -100,6 +103,32 @@ class TestCreateIssuesFromAlerts(unittest.TestCase):
         ]
         body = creator.create_issue_body_for_dependabot(alerts)
         self.assertIn("alert-group-key: dependabot:GHSA-aaaa-bbbb-cccc", body)
+
+    def test_write_response_plan_output(self):
+        creator = self._creator()
+        creator.owner = "rhamenator"
+        creator.repo = "ai-scraping-defense"
+        creator.dry_run = True
+        creator.response_plan_entries = [
+            build_response_plan_entry(
+                source="secret_scanning",
+                dedupe_key="secret-scanning:test",
+                title="[Secret] test",
+                severity="critical",
+                occurrences=1,
+            )
+        ]
+        creator.log = lambda *_args, **_kwargs: None
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "response-plan.json"
+            creator.plan_output = str(output_path)
+            creator.write_response_plan()
+            with output_path.open("r", encoding="utf-8") as handle:
+                payload = handle.read()
+
+        self.assertIn('"repository": "rhamenator/ai-scraping-defense"', payload)
+        self.assertIn('"operator_pages": 1', payload)
 
 
 if __name__ == "__main__":

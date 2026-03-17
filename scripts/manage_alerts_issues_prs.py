@@ -30,6 +30,12 @@ from datetime import datetime
 from difflib import SequenceMatcher
 from typing import Dict, List
 
+from scripts.security_response_plan import (
+    build_plan_payload,
+    build_response_plan_entry,
+    write_plan_payload,
+)
+
 try:
     import requests
     from github import Github
@@ -39,9 +45,9 @@ try:
     except Exception:  # pragma: no cover - older PyGithub
         Auth = None
 except ImportError:
-    print("ERROR: Required libraries not installed.")
-    print("Please run: pip install requests PyGithub")
-    sys.exit(1)
+    requests = None
+    Github = None
+    Auth = None
 
 
 class AlertManager:
@@ -54,13 +60,19 @@ class AlertManager:
         token: str,
         dry_run: bool = False,
         include_dependabot: bool = True,
+        plan_output: str | None = None,
     ):
+        if Github is None or requests is None:
+            raise RuntimeError(
+                "Required libraries not installed. Please run: pip install requests PyGithub"
+            )
         self.owner = owner
         self.repo = repo
         # Don't store the token at all to prevent any possibility of exposure
         # Token is only used immediately in initialization
         self.dry_run = dry_run
         self.include_dependabot = include_dependabot
+        self.plan_output = plan_output
         if Auth is not None:
             self.gh = Github(auth=Auth.Token(token))
         else:
@@ -89,7 +101,10 @@ class AlertManager:
             "prs_closed": 0,
             "prs_consolidated": 0,
             "errors_diagnosed": 0,
+            "planned_operator_pages": 0,
+            "planned_automated_responses": 0,
         }
+        self.response_plan_entries = []
 
     def _sanitize_message(self, message: str) -> str:
         """Sanitize message to remove any potential sensitive data like tokens."""
@@ -118,17 +133,81 @@ class AlertManager:
         """Calculate similarity ratio between two text strings."""
         return SequenceMatcher(None, text1.lower(), text2.lower()).ratio()
 
+    @staticmethod
+    def _slug_component(value: str) -> str:
+        return "_".join(str(value or "unknown").strip().split()) or "unknown"
+
+    @staticmethod
+    def _first_mapping(alert: Dict, *keys: str) -> Dict:
+        for key in keys:
+            value = alert.get(key)
+            if isinstance(value, dict):
+                return value
+        return {}
+
+    def _dependabot_advisory(self, alert: Dict) -> Dict:
+        return self._first_mapping(alert, "securityAdvisory", "security_advisory")
+
+    def _dependabot_vulnerability(self, alert: Dict) -> Dict:
+        return self._first_mapping(
+            alert,
+            "securityVulnerability",
+            "security_vulnerability",
+        )
+
+    def _dependabot_dependency(self, alert: Dict) -> Dict:
+        return self._first_mapping(alert, "dependency")
+
+    @staticmethod
+    def _dependabot_ghsa_id(advisory: Dict) -> str:
+        return str(advisory.get("ghsaId") or advisory.get("ghsa_id") or "unknown")
+
+    @staticmethod
+    def _dependabot_package_name(vulnerability: Dict, dependency: Dict) -> str:
+        package = vulnerability.get("package")
+        if isinstance(package, dict) and package.get("name"):
+            return str(package["name"])
+        return str(
+            dependency.get("package") or dependency.get("package_name") or "unknown"
+        )
+
+    @staticmethod
+    def _dependabot_severity(alert: Dict, advisory: Dict, vulnerability: Dict) -> str:
+        return str(
+            vulnerability.get("severity")
+            or advisory.get("severity")
+            or alert.get("severity")
+            or "low"
+        ).lower()
+
+    def _dependabot_metadata(self, alert: Dict) -> tuple[str, str, str]:
+        advisory = self._dependabot_advisory(alert)
+        vulnerability = self._dependabot_vulnerability(alert)
+        dependency = self._dependabot_dependency(alert)
+        return (
+            self._dependabot_ghsa_id(advisory),
+            self._dependabot_package_name(vulnerability, dependency),
+            self._dependabot_severity(alert, advisory, vulnerability),
+        )
+
     def normalize_alert_key(self, alert: Dict) -> str:
         """Create a normalized key for an alert based on its essential properties."""
-        # Extract key information that defines the alert (not file paths or IDs)
+        if alert.get("secret_type"):
+            secret_type = alert.get("secret_type", "unknown")
+            return f"secret-scanning:{self._slug_component(secret_type)}"
+
+        ghsa_id, _, _ = self._dependabot_metadata(alert)
+        if ghsa_id != "unknown" or alert.get("dependency"):
+            return f"dependabot:{self._slug_component(ghsa_id)}"
+
+        # Extract key information that defines a code scanning alert
         tool = alert.get("tool", {}).get("name", "unknown")
         rule_id = alert.get("rule", {}).get("id", "")
         severity = alert.get("rule", {}).get("severity", "")
-        description = alert.get("rule", {}).get("description", "")
-
-        # Create a normalized key
-        key = f"{tool}:{rule_id}:{severity}:{description[:100]}"
-        return key
+        return (
+            "code-scanning:"
+            f"{self._slug_component(tool)}:{rule_id}:{severity or 'unknown'}"
+        )
 
     def fetch_code_scanning_alerts(self) -> List[Dict]:
         """Fetch all code scanning alerts."""
@@ -280,11 +359,7 @@ class AlertManager:
         self, alerts: List[Dict], alert_type: str
     ) -> Dict[str, List[Dict]]:
         """Group alerts by their normalized key to identify duplicates."""
-        groups = defaultdict(list)
-
-        for alert in alerts:
-            key = self.normalize_alert_key(alert)
-            groups[key].append(alert)
+        groups = self.group_alerts_by_key(alerts)
 
         # Filter to only return groups with duplicates
         duplicates = {k: v for k, v in groups.items() if len(v) > 1}
@@ -298,6 +373,14 @@ class AlertManager:
                 self.log_action("DETAIL", f"  - {key}: {len(group)} duplicates")
 
         return duplicates
+
+    def group_alerts_by_key(self, alerts: List[Dict]) -> Dict[str, List[Dict]]:
+        """Group alerts by normalized key without filtering to duplicates."""
+        groups = defaultdict(list)
+        for alert in alerts:
+            key = self.normalize_alert_key(alert)
+            groups[key].append(alert)
+        return dict(groups)
 
     def consolidate_alerts(
         self, duplicate_groups: Dict[str, List[Dict]], alert_type: str
@@ -641,6 +724,60 @@ class AlertManager:
                             f"Failed to close duplicate PR #{dup_pr.number}: {e}",
                         )
 
+    def _record_alert_response_plan(
+        self, alert_type: str, groups: Dict[str, List[Dict]]
+    ):
+        for key, alert_group in groups.items():
+            if not alert_group:
+                continue
+
+            if alert_type == "code_scanning":
+                first_alert = alert_group[0]
+                rule = first_alert.get("rule", {})
+                severity = (
+                    str(rule.get("security_severity_level", "")).lower()
+                    or str(rule.get("severity", "")).lower()
+                )
+                title = (
+                    f"[Security] {first_alert.get('tool', {}).get('name', 'unknown')}: "
+                    f"{rule.get('id', 'unknown')}"
+                )
+            elif alert_type == "secret_scanning":
+                first_alert = alert_group[0]
+                severity = "critical"
+                title = (
+                    "[Secret] "
+                    f"{first_alert.get('secret_type_display_name', 'Secret')} exposure"
+                )
+            else:
+                first_alert = alert_group[0]
+                ghsa_id, package_name, severity = self._dependabot_metadata(first_alert)
+                title = "[Dependabot] " f"{ghsa_id} " f"{package_name}"
+
+            entry = build_response_plan_entry(
+                source=alert_type,
+                dedupe_key=key,
+                title=title,
+                severity=severity,
+                occurrences=len(alert_group),
+            )
+            self.response_plan_entries.append(entry)
+            self.stats["planned_operator_pages"] += int(entry.page_operator)
+            self.stats["planned_automated_responses"] += int(
+                entry.automated_response is not None
+            )
+
+    def write_response_plan(self) -> None:
+        if not self.plan_output:
+            return
+        payload = build_plan_payload(
+            repository=f"{self.owner}/{self.repo}",
+            mode="DRY RUN" if self.dry_run else "LIVE",
+            entries=self.response_plan_entries,
+        )
+        write_plan_payload(self.plan_output, payload)
+        self.log_action("INFO", f"Wrote response plan to {self.plan_output}")
+
     def generate_report(self) -> str:
         """Generate a comprehensive report of actions taken."""
         report = []
@@ -690,10 +827,22 @@ class AlertManager:
         # 2. Diagnose error alerts
         if code_alerts:
             self.diagnose_error_alerts(code_alerts, "code_scanning")
+            self._record_alert_response_plan(
+                "code_scanning",
+                self.group_alerts_by_key(code_alerts),
+            )
         if secret_alerts:
             self.diagnose_error_alerts(secret_alerts, "secret_scanning")
+            self._record_alert_response_plan(
+                "secret_scanning",
+                self.group_alerts_by_key(secret_alerts),
+            )
         if dependabot_alerts:
             self.diagnose_error_alerts(dependabot_alerts, "dependabot")
+            self._record_alert_response_plan(
+                "dependabot",
+                self.group_alerts_by_key(dependabot_alerts),
+            )
 
         # 3. Identify and consolidate duplicate alerts
         if code_alerts:
@@ -739,6 +888,7 @@ class AlertManager:
         with open(report_filename, "w") as f:
             f.write(safe_report)
 
+        self.write_response_plan()
         self.log_action("COMPLETE", f"Report saved to {report_filename}")
 
 
@@ -778,6 +928,10 @@ def main():
         choices=["true", "false"],
         help="Whether to include Dependabot alerts (default: true)",
     )
+    parser.add_argument(
+        "--plan-output",
+        help="Optional path for a JSON security response plan artifact.",
+    )
 
     args = parser.parse_args()
 
@@ -811,6 +965,7 @@ def main():
             token,
             args.dry_run,
             include_dependabot=include_dependabot,
+            plan_output=args.plan_output,
         )
         manager.run()
     except KeyboardInterrupt:

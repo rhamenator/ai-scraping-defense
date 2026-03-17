@@ -19,7 +19,7 @@ on:
         description: "Run autofix and open PRs (true|false)"
         type: boolean
         required: false
-        default: true
+        default: false
   workflow_call:
     inputs:
       categories:
@@ -37,7 +37,7 @@ on:
       autofix:
         type: boolean
         required: false
-        default: true
+        default: false
 
 permissions:
   contents: write
