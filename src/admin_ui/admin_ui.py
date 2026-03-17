@@ -8,6 +8,8 @@ management and WebAuthn support.
 import logging
 import os
 import secrets
+from dataclasses import dataclass
+from urllib.parse import urlparse
 
 from fastapi import Cookie, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,14 +42,122 @@ BASE_DIR = os.path.dirname(__file__)
 
 # Editable runtime settings managed via the Admin UI
 RUNTIME_SETTINGS_KEY = tenant_key("admin_ui:settings")
-DEFAULT_RUNTIME_SETTINGS = {
-    "LOG_LEVEL": os.getenv("LOG_LEVEL", "INFO"),
-    "ESCALATION_ENDPOINT": CONFIG.ESCALATION_ENDPOINT,
-    "ALLOWED_PLUGINS": os.getenv("ALLOWED_PLUGINS", "ua_blocker"),
-    "WEBAUTHN_AUTHENTICATOR_ATTACHMENT": os.getenv(
-        "WEBAUTHN_AUTHENTICATOR_ATTACHMENT", "none"
+ALLOWED_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+WEBAUTHN_ATTACHMENT_OPTIONS = {"none", "platform", "cross-platform"}
+
+
+@dataclass(frozen=True)
+class EditableSetting:
+    key: str
+    label: str
+    description: str
+    input_type: str
+    default: str
+    choices: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class SecretReferenceSetting:
+    label: str
+    file_env: str
+    vault_env: str
+
+
+EDITABLE_SETTINGS: tuple[EditableSetting, ...] = (
+    EditableSetting(
+        key="LOG_LEVEL",
+        label="Log Level",
+        description="Controls admin UI logging verbosity.",
+        input_type="select",
+        default=os.getenv("LOG_LEVEL", "INFO"),
+        choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
     ),
-}
+    EditableSetting(
+        key="ESCALATION_ENDPOINT",
+        label="Escalation Engine URL",
+        description="Absolute HTTP(S) URL for escalation requests.",
+        input_type="text",
+        default=CONFIG.ESCALATION_ENDPOINT,
+    ),
+    EditableSetting(
+        key="WEBAUTHN_AUTHENTICATOR_ATTACHMENT",
+        label="WebAuthn Authenticator Preference",
+        description="Preferred authenticator attachment for admin login.",
+        input_type="select",
+        default=os.getenv("WEBAUTHN_AUTHENTICATOR_ATTACHMENT", "none"),
+        choices=("none", "platform", "cross-platform"),
+    ),
+    EditableSetting(
+        key="RATE_LIMIT_REQUESTS",
+        label="Rate Limit Requests",
+        description="Maximum requests allowed per rate-limit window.",
+        input_type="number",
+        default=os.getenv("RATE_LIMIT_REQUESTS", "100"),
+    ),
+    EditableSetting(
+        key="RATE_LIMIT_WINDOW",
+        label="Rate Limit Window (seconds)",
+        description="Rate-limit window size in seconds.",
+        input_type="number",
+        default=os.getenv("RATE_LIMIT_WINDOW", "60"),
+    ),
+    EditableSetting(
+        key="MAX_BODY_SIZE",
+        label="Max Body Size (bytes)",
+        description="Largest request body accepted by shared middleware.",
+        input_type="number",
+        default=os.getenv("MAX_BODY_SIZE", str(1 * 1024 * 1024)),
+    ),
+    EditableSetting(
+        key="ENABLE_HTTPS",
+        label="HTTPS Redirect Enforcement",
+        description="Redirect plain HTTP requests to HTTPS in shared middleware.",
+        input_type="select",
+        default=os.getenv("ENABLE_HTTPS", "false"),
+        choices=("true", "false"),
+    ),
+    EditableSetting(
+        key="ALLOWED_PLUGINS",
+        label="Allowed Plugins",
+        description="Comma-separated plugin allowlist pushed to the escalation engine.",
+        input_type="multiselect",
+        default=os.getenv("ALLOWED_PLUGINS", "ua_blocker"),
+    ),
+)
+EDITABLE_SETTING_MAP = {setting.key: setting for setting in EDITABLE_SETTINGS}
+
+SECRET_REFERENCE_SETTINGS: tuple[SecretReferenceSetting, ...] = (
+    SecretReferenceSetting(
+        label="Redis Password",
+        file_env="REDIS_PASSWORD_FILE",
+        vault_env="REDIS_PASSWORD_FILE_VAULT_PATH",
+    ),
+    SecretReferenceSetting(
+        label="Cloud CDN API Token",
+        file_env="CLOUD_CDN_API_TOKEN_FILE",
+        vault_env="CLOUD_CDN_API_TOKEN_FILE_VAULT_PATH",
+    ),
+    SecretReferenceSetting(
+        label="JWT Secret",
+        file_env="AUTH_JWT_SECRET_FILE",
+        vault_env="AUTH_JWT_SECRET_FILE_VAULT_PATH",
+    ),
+    SecretReferenceSetting(
+        label="JWT Public Key",
+        file_env="AUTH_JWT_PUBLIC_KEY_FILE",
+        vault_env="AUTH_JWT_PUBLIC_KEY_FILE_VAULT_PATH",
+    ),
+    SecretReferenceSetting(
+        label="SMTP Password",
+        file_env="ALERT_SMTP_PASSWORD_FILE",
+        vault_env="ALERT_SMTP_PASSWORD_FILE_VAULT_PATH",
+    ),
+    SecretReferenceSetting(
+        label="Admin UI 2FA Seed",
+        file_env="ADMIN_UI_2FA_SECRET_FILE",
+        vault_env="ADMIN_UI_2FA_SECRET_FILE_VAULT_PATH",
+    ),
+)
 
 WEBAUTHN_TOKEN_TTL = 300
 
@@ -59,7 +169,7 @@ def _get_runtime_setting(name: str) -> str:
     with trace_span("admin_ui.runtime_setting", attributes={"setting": name}):
         value = redis_conn.hget(RUNTIME_SETTINGS_KEY, name)
         if value is None:
-            default = DEFAULT_RUNTIME_SETTINGS[name]
+            default = EDITABLE_SETTING_MAP[name].default
             redis_conn.hset(RUNTIME_SETTINGS_KEY, name, default)
             return default
         return value
@@ -71,6 +181,124 @@ def _set_runtime_setting(name: str, value: str) -> None:
         raise RuntimeError("Redis unavailable")
     with trace_span("admin_ui.set_runtime_setting", attributes={"setting": name}):
         redis_conn.hset(RUNTIME_SETTINGS_KEY, name, value)
+
+
+def _parse_positive_int_setting(name: str, value: str) -> str:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a positive integer") from exc
+    if parsed <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+    return str(parsed)
+
+
+def _normalize_bool_setting(name: str, value: str) -> str:
+    normalized = (value or "").strip().lower()
+    if normalized not in {"true", "false"}:
+        raise ValueError(f"{name} must be true or false")
+    return normalized
+
+
+def _validate_url_setting(name: str, value: str) -> str:
+    candidate = (value or "").strip()
+    parsed = urlparse(candidate)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError(f"{name} must be an absolute http(s) URL")
+    return candidate
+
+
+def _validate_select_setting(name: str, value: str, choices: set[str]) -> str:
+    normalized = (value or "").strip()
+    if normalized not in choices:
+        raise ValueError(f"{name} must be one of: {', '.join(sorted(choices))}")
+    return normalized
+
+
+def _validate_plugin_setting(name: str, values: list[str]) -> str:
+    available = set(_discover_plugins())
+    if not values:
+        return ""
+    if not available:
+        return ",".join(dict.fromkeys(values))
+    unknown = sorted(set(values) - available)
+    if unknown:
+        raise ValueError(f"{name} contains unknown plugins: {', '.join(unknown)}")
+    return ",".join(dict.fromkeys(values))
+
+
+def _serialize_secret_reference(
+    setting: SecretReferenceSetting,
+) -> dict[str, str | bool]:
+    file_reference = os.getenv(setting.file_env, "").strip()
+    vault_reference = os.getenv(setting.vault_env, "").strip()
+    if vault_reference:
+        return {
+            "label": setting.label,
+            "source": "Vault path",
+            "reference": vault_reference,
+            "configured": True,
+        }
+    if file_reference:
+        return {
+            "label": setting.label,
+            "source": "File path",
+            "reference": file_reference,
+            "configured": True,
+        }
+    return {
+        "label": setting.label,
+        "source": "Unconfigured",
+        "reference": "Not configured",
+        "configured": False,
+    }
+
+
+def _serialize_editable_setting(
+    setting: EditableSetting, errors: dict[str, str], plugin_options: list[str]
+) -> dict[str, object]:
+    value = _get_runtime_setting(setting.key)
+    selected_values = [entry for entry in value.split(",") if entry]
+    return {
+        "key": setting.key,
+        "label": setting.label,
+        "description": setting.description,
+        "input_type": setting.input_type,
+        "value": value,
+        "choices": setting.choices,
+        "options": (
+            plugin_options if setting.key == "ALLOWED_PLUGINS" else setting.choices
+        ),
+        "selected_values": selected_values,
+        "error": errors.get(setting.key, ""),
+    }
+
+
+def _get_settings_page_context(
+    errors: dict[str, str] | None = None, updated: bool = False
+) -> dict[str, object]:
+    errors = errors or {}
+    plugin_options = _discover_plugins()
+    current_settings = {
+        "Model URI": os.getenv("MODEL_URI", "Not Set"),
+        "GDPR_ENABLED": os.getenv("GDPR_ENABLED", "true"),
+        "GDPR_DPO_EMAIL": os.getenv("GDPR_DPO_EMAIL", "dpo@example.com"),
+        "GDPR_DATA_RETENTION_DAYS": os.getenv("GDPR_DATA_RETENTION_DAYS", "365"),
+    }
+    context: dict[str, object] = {
+        "settings": current_settings,
+        "editable_settings": [
+            _serialize_editable_setting(setting, errors, plugin_options)
+            for setting in EDITABLE_SETTINGS
+        ],
+        "secret_references": [
+            _serialize_secret_reference(setting)
+            for setting in SECRET_REFERENCE_SETTINGS
+        ],
+        "updated": updated,
+        "errors": errors,
+    }
+    return context
 
 
 def _discover_plugins() -> list[str]:
@@ -262,7 +490,7 @@ async def index(request: Request, user: str = Depends(require_auth)):
 async def settings_page(
     request: Request,
     csrf_token: str | None = Cookie(None),
-    user: str = Depends(require_auth),
+    user: str = Depends(require_admin),
 ):
     """Renders the system settings page with a CSRF token."""
     csrf_token = _ensure_csrf_token(csrf_token)
@@ -283,25 +511,16 @@ async def settings_page(
     except Exception as e:
         logger.warning("Failed to load security KPIs: %s", e)
 
-    current_settings = {
-        "Model URI": os.getenv("MODEL_URI", "Not Set"),
-        "LOG_LEVEL": _get_runtime_setting("LOG_LEVEL"),
-        "ESCALATION_ENDPOINT": _get_runtime_setting("ESCALATION_ENDPOINT"),
-        "WEBAUTHN_AUTHENTICATOR_ATTACHMENT": _get_runtime_setting(
-            "WEBAUTHN_AUTHENTICATOR_ATTACHMENT"
-        ),
-        "GDPR_ENABLED": os.getenv("GDPR_ENABLED", "true"),
-        "GDPR_DPO_EMAIL": os.getenv("GDPR_DPO_EMAIL", "dpo@example.com"),
-        "GDPR_DATA_RETENTION_DAYS": os.getenv("GDPR_DATA_RETENTION_DAYS", "365"),
-    }
+    page_context = _get_settings_page_context()
     response = templates.TemplateResponse(
         request,
         "settings.html",
         {
-            "settings": current_settings,
             "csrf_token": csrf_token,
             "gdpr_report": gdpr_report,
             "security_kpis": security_kpis,
+            "user": user,
+            **page_context,
         },
     )
     response.set_cookie(
@@ -325,42 +544,111 @@ async def update_settings(
     """Update editable settings from form data, validating the CSRF token."""
     form = await request.form()
     _validate_csrf(csrf_token, form.get("csrf_token"))
-    log_level = form.get("LOG_LEVEL")
-    escalation_endpoint = form.get("ESCALATION_ENDPOINT")
-    webauthn_attachment = form.get("WEBAUTHN_AUTHENTICATOR_ATTACHMENT")
+    pending_values: dict[str, str] = {}
+    errors: dict[str, str] = {}
 
-    if log_level:
-        _set_runtime_setting("LOG_LEVEL", log_level)
-        os.environ["LOG_LEVEL"] = log_level
-    if escalation_endpoint:
-        _set_runtime_setting("ESCALATION_ENDPOINT", escalation_endpoint)
-        os.environ["ESCALATION_ENDPOINT"] = escalation_endpoint
-    if webauthn_attachment in {"none", "platform", "cross-platform"}:
-        _set_runtime_setting("WEBAUTHN_AUTHENTICATOR_ATTACHMENT", webauthn_attachment)
-        os.environ["WEBAUTHN_AUTHENTICATOR_ATTACHMENT"] = webauthn_attachment
+    for setting in EDITABLE_SETTINGS:
+        if setting.key == "ALLOWED_PLUGINS":
+            if "ALLOWED_PLUGINS" in form:
+                raw_plugins = [
+                    value.strip() for value in form.getlist("ALLOWED_PLUGINS")
+                ]
+            else:
+                raw_plugins = [
+                    value.strip()
+                    for value in _get_runtime_setting("ALLOWED_PLUGINS").split(",")
+                    if value.strip()
+                ]
+            try:
+                pending_values[setting.key] = _validate_plugin_setting(
+                    setting.label, raw_plugins
+                )
+            except ValueError as exc:
+                errors[setting.key] = str(exc)
+            continue
+
+        raw_value = form.get(setting.key)
+        if raw_value is None:
+            raw_value = _get_runtime_setting(setting.key)
+        raw_value = raw_value.strip()
+        try:
+            if setting.key == "LOG_LEVEL":
+                pending_values[setting.key] = _validate_select_setting(
+                    setting.label, raw_value.upper(), ALLOWED_LOG_LEVELS
+                )
+            elif setting.key == "ESCALATION_ENDPOINT":
+                pending_values[setting.key] = _validate_url_setting(
+                    setting.label, raw_value
+                )
+            elif setting.key == "WEBAUTHN_AUTHENTICATOR_ATTACHMENT":
+                pending_values[setting.key] = _validate_select_setting(
+                    setting.label, raw_value, WEBAUTHN_ATTACHMENT_OPTIONS
+                )
+            elif setting.key in {
+                "RATE_LIMIT_REQUESTS",
+                "RATE_LIMIT_WINDOW",
+                "MAX_BODY_SIZE",
+            }:
+                pending_values[setting.key] = _parse_positive_int_setting(
+                    setting.label, raw_value
+                )
+            elif setting.key == "ENABLE_HTTPS":
+                pending_values[setting.key] = _normalize_bool_setting(
+                    setting.label, raw_value
+                )
+            else:
+                pending_values[setting.key] = raw_value
+        except ValueError as exc:
+            errors[setting.key] = str(exc)
+
+    if errors:
+        page_context = _get_settings_page_context(errors=errors, updated=False)
+        page_context["editable_settings"] = [
+            {
+                **entry,
+                "value": pending_values.get(entry["key"], entry["value"]),
+                "selected_values": (
+                    pending_values.get(entry["key"], entry["value"]).split(",")
+                    if entry["key"] == "ALLOWED_PLUGINS"
+                    else entry["selected_values"]
+                ),
+            }
+            for entry in page_context["editable_settings"]  # type: ignore[index]
+        ]
+        return templates.TemplateResponse(
+            request,
+            "settings.html",
+            {
+                "csrf_token": csrf_token,
+                "gdpr_report": {},
+                "security_kpis": {},
+                "user": user,
+                **page_context,
+            },
+            status_code=400,
+        )
+
+    for key, value in pending_values.items():
+        _set_runtime_setting(key, value)
+        os.environ[key] = value
 
     log_event(
         user,
         "update_settings",
-        {
-            "log_level": log_level,
-            "endpoint": escalation_endpoint,
-            "webauthn_attachment": webauthn_attachment,
-        },
+        {"updated_settings": pending_values},
     )
 
-    current_settings = {
-        "Model URI": os.getenv("MODEL_URI", "Not Set"),
-        "LOG_LEVEL": _get_runtime_setting("LOG_LEVEL"),
-        "ESCALATION_ENDPOINT": _get_runtime_setting("ESCALATION_ENDPOINT"),
-        "WEBAUTHN_AUTHENTICATOR_ATTACHMENT": _get_runtime_setting(
-            "WEBAUTHN_AUTHENTICATOR_ATTACHMENT"
-        ),
-    }
+    page_context = _get_settings_page_context(updated=True)
     return templates.TemplateResponse(
         request,
         "settings.html",
-        {"settings": current_settings, "updated": True},
+        {
+            "csrf_token": csrf_token,
+            "gdpr_report": {},
+            "security_kpis": {},
+            "user": user,
+            **page_context,
+        },
     )
 
 

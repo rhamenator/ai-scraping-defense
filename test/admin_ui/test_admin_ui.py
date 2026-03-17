@@ -130,6 +130,63 @@ class TestAdminUIComprehensive(unittest.TestCase):
                 os.environ.get("WEBAUTHN_AUTHENTICATOR_ATTACHMENT"), "platform"
             )
 
+    def test_settings_update_validates_runtime_fields(self):
+        """Invalid config updates should be rejected without persistence."""
+        fake_redis = self._FakeRedis()
+        with patch(
+            "src.admin_ui.admin_ui.get_redis_connection", return_value=fake_redis
+        ):
+            response = self.client.get(
+                "/settings", auth=self.auth, headers=self._totp_headers()
+            )
+            csrf_token = response.cookies.get("csrf_token")
+            seeded_settings = dict(fake_redis.store)
+
+            self.client.cookies.set("csrf_token", csrf_token)
+            response = self.client.post(
+                "/settings",
+                auth=self.auth,
+                headers=self._totp_headers(),
+                data={
+                    "csrf_token": csrf_token,
+                    "LOG_LEVEL": "INFO",
+                    "ESCALATION_ENDPOINT": "not-a-url",
+                    "WEBAUTHN_AUTHENTICATOR_ATTACHMENT": "none",
+                    "RATE_LIMIT_REQUESTS": "0",
+                    "RATE_LIMIT_WINDOW": "60",
+                    "MAX_BODY_SIZE": "1024",
+                    "ENABLE_HTTPS": "true",
+                },
+            )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertIn(b"must be an absolute http(s) URL", response.content)
+            self.assertIn(b"must be a positive integer", response.content)
+            self.assertEqual(fake_redis.store, seeded_settings)
+
+    def test_settings_page_shows_secret_references_without_values(self):
+        """Settings page should expose secret references, not raw secret values."""
+        fake_redis = self._FakeRedis()
+        with patch.dict(
+            os.environ,
+            {
+                "REDIS_PASSWORD_FILE": "/run/secrets/redis_password.txt",
+                "AUTH_JWT_SECRET": "super-secret-value",
+            },
+            clear=False,
+        ):
+            with patch(
+                "src.admin_ui.admin_ui.get_redis_connection", return_value=fake_redis
+            ):
+                response = self.client.get(
+                    "/settings", auth=self.auth, headers=self._totp_headers()
+                )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"/run/secrets/redis_password.txt", response.content)
+        self.assertIn(b"Secret References", response.content)
+        self.assertNotIn(b"super-secret-value", response.content)
+
     def test_settings_page_shows_security_kpis(self):
         """Settings page should render security KPI summaries."""
         fake_redis = self._FakeRedis()
