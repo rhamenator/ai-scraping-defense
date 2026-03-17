@@ -75,6 +75,7 @@ To get a full understanding of the project, please review the following document
 - [**Runtime Hotspots Audit**](runtime_hotspots.md)**:** Current request-path efficiency baselines and the hotspots already addressed.
 - [**Security Assurance Program**](security_assurance_program.md)**:** Release-facing security validation, Kali sweep evidence, operator readiness, and third-party review expectations.
 - [**Platform Runtime Security Baseline**](platform_runtime_security_baseline.md)**:** Supported deployment/runtime assumptions for exposure, hardening, and secret handling.
+- [**Delivery and Policy Enforcement Security Baseline**](delivery_policy_enforcement_baseline.md)**:** Supported release, ingress, provenance, and deployment-security expectations.
 - [**Security Program Foundations**](security_program.md)**:** Culture, metrics, chaos engineering, and insider threat foundations.
 - [**Supply Chain Security**](security/supply_chain.md)**:** Dependency integrity checks, SBOMs, and CI controls.
 - [**Advanced Cryptography Roadmap**](advanced_crypto.md)**:** Post-quantum and homomorphic cryptography planning.
