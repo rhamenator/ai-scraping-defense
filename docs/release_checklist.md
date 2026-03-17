@@ -19,6 +19,8 @@ Use this checklist before cutting a tagged release.
 - suspicious traffic can be blocked, tarpitted, and surfaced in the UI
 - `docs/performance_validation.md` evidence is assembled for the release:
   regression-e2e run URL, retained k6 summary, and any staging load notes
+- `docs/reliability_capacity_operations_baseline.md` evidence is assembled for the release:
+  health signals, operator notes, and any staging or rollback evidence for the changed path
 
 ## Security and Configuration
 
