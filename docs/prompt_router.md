@@ -28,8 +28,10 @@ The Escalation Engine uses `http://<PROMPT_ROUTER_HOST>:<PROMPT_ROUTER_PORT>/rou
 as the request URL.
 
 When forwarding a prompt to the cloud proxy, the router includes `X-Proxy-Key`
-with the value of `PROXY_KEY`. Requests missing this header or providing the
-wrong key are rejected with **401 Unauthorized**.
+with the value of `PROXY_KEY`. If `PROXY_KEY` is not configured, the router
+returns **500 Internal Server Error** before attempting the outbound call. The
+cloud proxy rejects incoming requests that are missing the header or provide the
+wrong key with **401 Unauthorized**.
 
 To route oversized prompts to a Model Context Protocol tool instead of the
 cloud proxy, set `CLOUD_PROXY_URL` to an MCP URI such as
