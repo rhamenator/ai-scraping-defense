@@ -79,7 +79,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          cat > artifacts/release-bundles/release-notes.md <<EOF
+          cat > artifacts/release-bundles/release-notes-fragment.md <<EOF
+          <!-- release-bundles:start -->
           Installer bundles for ${GITHUB_REF_NAME}
 
           Download guidance:
@@ -89,6 +90,7 @@ jobs:
           - macOS: ${{ steps.refs.outputs.tar_name }}
 
           Verify the matching .sha256 file before running the extracted installer entrypoint.
+          <!-- release-bundles:end -->
           EOF
 
       - name: Ensure Release Exists
@@ -98,12 +100,38 @@ jobs:
         run: |
           set -euo pipefail
 
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+          if gh release view "$GITHUB_REF_NAME" --json body --jq .body > artifacts/release-bundles/release-notes-existing.md 2>/dev/null; then
+            python3 - <<'PY'
+            from pathlib import Path
+
+            start_marker = "<!-- release-bundles:start -->"
+            end_marker = "<!-- release-bundles:end -->"
+            existing_path = Path("artifacts/release-bundles/release-notes-existing.md")
+            fragment_path = Path("artifacts/release-bundles/release-notes-fragment.md")
+            output_path = Path("artifacts/release-bundles/release-notes.md")
+
+            existing = existing_path.read_text(encoding="utf-8")
+            fragment = fragment_path.read_text(encoding="utf-8").strip()
+
+            if start_marker in existing and end_marker in existing:
+              start = existing.index(start_marker)
+              end = existing.index(end_marker) + len(end_marker)
+              merged = existing[:start].rstrip()
+              suffix = existing[end:].lstrip()
+              parts = [part for part in (merged, fragment, suffix) if part]
+              output = "\n\n".join(parts) + "\n"
+            else:
+              trimmed = existing.strip()
+              output = f"{trimmed}\n\n{fragment}\n" if trimmed else f"{fragment}\n"
+
+            output_path.write_text(output, encoding="utf-8")
+            PY
+
             gh release edit "$GITHUB_REF_NAME" --notes-file artifacts/release-bundles/release-notes.md
           else
             gh release create "$GITHUB_REF_NAME" \
               --title "$GITHUB_REF_NAME" \
-              --notes-file artifacts/release-bundles/release-notes.md
+              --notes-file artifacts/release-bundles/release-notes-fragment.md
           fi
 
       - name: Upload Workflow Artifacts
@@ -114,6 +142,7 @@ jobs:
             artifacts/release-bundles/*.zip
             artifacts/release-bundles/*.tar.gz
             artifacts/release-bundles/*.sha256
+            artifacts/release-bundles/release-notes-fragment.md
             artifacts/release-bundles/release-notes.md
 
       - name: Upload Release Assets

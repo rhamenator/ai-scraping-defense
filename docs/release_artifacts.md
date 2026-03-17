@@ -41,6 +41,10 @@ repository root:
 - macOS: `./scripts/macos/install.zsh`
 - Linux: `./scripts/linux/install.sh`
 
+The bundle workflow manages only its own installer-bundle section in the GitHub
+Release body. Manual release notes outside that managed section are preserved on
+reruns.
+
 ## Tagging Policy
 
 For a stable release tag such as `v1.2.3`, the workflow publishes:

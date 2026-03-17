@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+* **Release Notes Preservation:** Updated the installer-bundle release workflow so reruns replace only an auto-managed installer bundle section and keep manual GitHub Release notes intact.
+
 * **Markov Training Utility:** Removed `rag/train_markov_postgres.py` and now build the Markov model using the Rust `markov-train-rs` crate via `train_from_corpus_rs`.
 * **Environment Variables:** Replaced deprecated `TARPIT_MAX_HOPS` and `TARPIT_HOP_WINDOW_SECONDS` with `TAR_PIT_MAX_HOPS` and `TAR_PIT_HOP_WINDOW_SECONDS`.
 * **Documentation:** Updated repository references to highlight `src/`, `scripts/`, and `rag/` directories.
