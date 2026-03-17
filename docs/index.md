@@ -77,6 +77,7 @@ To get a full understanding of the project, please review the following document
 - [**Platform Runtime Security Baseline**](platform_runtime_security_baseline.md)**:** Supported deployment/runtime assumptions for exposure, hardening, and secret handling.
 - [**Security Program Foundations**](security_program.md)**:** Culture, metrics, chaos engineering, and insider threat foundations.
 - [**Supply Chain Security**](security/supply_chain.md)**:** Dependency integrity checks, SBOMs, and CI controls.
+- [**Third-Party Integration Security Baseline**](third_party_integration_security_baseline.md)**:** Supported external integration classes and their auth, secret, and data-flow expectations.
 - [**Advanced Cryptography Roadmap**](advanced_crypto.md)**:** Post-quantum and homomorphic cryptography planning.
 - [**Future Security Controls**](future_security_controls.md)**:** Deferred security initiatives awaiting design.
 - [**Performance Innovation Roadmap**](performance_innovation.md)**:** Future performance research and experimentation.
