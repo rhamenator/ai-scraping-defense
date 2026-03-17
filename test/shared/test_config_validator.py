@@ -342,12 +342,46 @@ class TestConfigLoader(unittest.TestCase):
                 "PROXY_KEY": "proxy-secret",
                 "ESCALATION_API_KEY": "escalation-secret",
                 "WEBHOOK_SHARED_SECRET": "webhook-secret",
+                "CLOUD_DASHBOARD_API_KEY": "dashboard-secret",
+                "RECOMMENDER_API_KEY": "recommender-secret",
             },
             clear=True,
         ):
             is_valid, errors = loader.validate_config(config)
 
         self.assertTrue(is_valid, errors)
+
+    def test_validate_production_requires_operational_api_keys(self):
+        env = self.minimal_env.copy()
+        env.update(
+            {
+                "APP_ENV": "production",
+                "DEBUG": "false",
+                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
+                "ADMIN_UI_PASSWORD_HASH": "$2b$12$" + "." * 53,
+            }
+        )
+
+        loader = ConfigLoader(strict=False)
+        config = loader.load_from_env(env)
+
+        with patch.dict(
+            os.environ,
+            {
+                "MODEL_URI": env["MODEL_URI"],
+                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
+                "SHARED_SECRET": "shared-secret",
+                "PROXY_KEY": "proxy-secret",
+                "ESCALATION_API_KEY": "escalation-secret",
+                "WEBHOOK_SHARED_SECRET": "webhook-secret",
+            },
+            clear=True,
+        ):
+            is_valid, errors = loader.validate_config(config)
+
+        self.assertFalse(is_valid)
+        self.assertTrue(any("CLOUD_DASHBOARD_API_KEY required" in e for e in errors))
+        self.assertTrue(any("RECOMMENDER_API_KEY required" in e for e in errors))
 
     def test_validate_captcha_config(self):
         """Test CAPTCHA configuration validation."""

@@ -348,6 +348,15 @@ class ConfigLoader:
                         errors.append(
                             f"{secret_name} required when INTERNAL_AUTH_MODE=shared_key in production"
                         )
+            production_api_keys = {
+                "CLOUD_DASHBOARD_API_KEY": os.getenv("CLOUD_DASHBOARD_API_KEY"),
+                "RECOMMENDER_API_KEY": os.getenv("RECOMMENDER_API_KEY"),
+            }
+            for secret_name, value in production_api_keys.items():
+                if not value:
+                    errors.append(
+                        f"{secret_name} required for protected operational APIs in production"
+                    )
         if config.security.admin_ui_password_hash:
             match = BCRYPT_PATTERN.match(config.security.admin_ui_password_hash)
             if not match:

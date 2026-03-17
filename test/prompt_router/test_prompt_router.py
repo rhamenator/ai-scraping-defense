@@ -140,7 +140,6 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
                 "SHARED_SECRET": self.shared_secret,
                 "RATE_LIMIT_REQUESTS": "2",
                 "RATE_LIMIT_WINDOW": "10",
-                "TRUST_PROXY_HEADERS": "false",
             },
         )
         self.env.start()
@@ -237,7 +236,11 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
 
     async def test_proxy_headers_used_when_trusted(self):
         with patch.dict(
-            os.environ, {"TRUST_PROXY_HEADERS": "true", "RATE_LIMIT_REQUESTS": "1"}
+            os.environ,
+            {
+                "SECURITY_TRUSTED_PROXY_CIDRS": "127.0.0.0/8",
+                "RATE_LIMIT_REQUESTS": "1",
+            },
         ):
             spec.loader.exec_module(pr_module)
             global app
@@ -256,6 +259,32 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(resp1.status_code, 200)
         self.assertEqual(resp2.status_code, 200)
+
+    async def test_spoofed_proxy_headers_do_not_change_client_identity(self):
+        with patch.dict(
+            os.environ,
+            {
+                "SECURITY_TRUSTED_PROXY_CIDRS": "10.0.0.0/8",
+                "RATE_LIMIT_REQUESTS": "1",
+            },
+        ):
+            spec.loader.exec_module(pr_module)
+            global app
+            app = pr_module.app
+            resp1 = await self._post(
+                headers={
+                    "Authorization": f"Bearer {self.shared_secret}",
+                    "X-Forwarded-For": "1.1.1.1",
+                }
+            )
+            resp2 = await self._post(
+                headers={
+                    "Authorization": f"Bearer {self.shared_secret}",
+                    "X-Forwarded-For": "2.2.2.2",
+                }
+            )
+        self.assertEqual(resp1.status_code, 200)
+        self.assertEqual(resp2.status_code, 429)
 
     async def test_cleanup_removes_old_ips(self):
         with patch.dict(
