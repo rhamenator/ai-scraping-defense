@@ -130,6 +130,26 @@ class TestInstallerSmokeTest(unittest.TestCase):
         self.assertIn("Smoke test passed.", output)
         self.assertEqual(mock_http.call_count, 2)
 
+    def test_assert_http_uses_configured_ca_file_for_https(self):
+        response = _completed()
+        response.status_code = 200
+        with (
+            patch("scripts.installer_smoke_test.requests.get") as mock_get,
+            patch.dict(
+                installer_smoke_test.os.environ,
+                {"SMOKE_TEST_CA_FILE": "/tmp/custom-ca.pem"},
+                clear=False,
+            ),
+        ):
+            mock_get.return_value = response
+            installer_smoke_test.assert_http("https://127.0.0.1:8443/")
+
+        mock_get.assert_called_once_with(
+            "https://127.0.0.1:8443/",
+            timeout=10,
+            verify="/tmp/custom-ca.pem",
+        )
+
     def test_main_reports_failures_with_contract_prefix(self):
         with (
             patch(

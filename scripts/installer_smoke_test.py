@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
-import ssl
 import subprocess
 import sys
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
+from pathlib import Path
+
+import requests
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,8 @@ PROXY_CONTAINERS = {
     "nginx": "nginx_proxy",
     "apache": "apache_proxy",
 }
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_SMOKE_TEST_CA_FILE = str(REPO_ROOT / "nginx" / "certs" / "tls.crt")
 
 
 def docker_prefix(docker_context: str) -> list[str]:
@@ -91,13 +94,20 @@ def host_port_for_container(config: SmokeConfig, container: str, port: str) -> s
     return host_port
 
 
-def assert_http(url: str, *, insecure: bool = False) -> None:
-    context = ssl._create_unverified_context() if insecure else None
+def https_ca_file() -> str:
+    """Return the CA file used for local HTTPS smoke checks."""
+    return os.getenv("SMOKE_TEST_CA_FILE", DEFAULT_SMOKE_TEST_CA_FILE)
+
+
+def assert_http(url: str, *, ca_file: str | None = None) -> None:
+    verify: bool | str = True
+    if url.startswith("https://"):
+        verify = ca_file or https_ca_file()
     try:
-        with urllib.request.urlopen(url, timeout=10, context=context) as response:
-            if response.status >= 400:
-                fail(f"{url} returned HTTP {response.status}")
-    except urllib.error.URLError as exc:
+        response = requests.get(url, timeout=10, verify=verify)
+        if response.status_code >= 400:
+            fail(f"{url} returned HTTP {response.status_code}")
+    except requests.RequestException as exc:
         fail(f"{url} is not reachable ({exc})")
 
 
@@ -130,7 +140,7 @@ def run_smoke_test(config: SmokeConfig) -> None:
 
     if config.proxy == "nginx":
         https_port = host_port_for_container(config, proxy_container, "443/tcp")
-        assert_http(f"https://127.0.0.1:{https_port}/", insecure=True)
+        assert_http(f"https://127.0.0.1:{https_port}/")
         print(f"[OK] nginx_proxy HTTPS is reachable on port {https_port}")
 
     assert_container_http(
