@@ -1,6 +1,8 @@
 # Configuration Reference
 
 This page documents all environment variables consumed by the Python services. Defaults come from `src/shared/config.py` unless noted.
+For the repo-level support boundary around external integrations, see
+[third_party_integration_security_baseline.md](third_party_integration_security_baseline.md).
 
 ## HashiCorp Vault Configuration
 
