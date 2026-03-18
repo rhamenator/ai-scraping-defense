@@ -27,6 +27,7 @@ Use this checklist before cutting a tagged release.
 - container release workflow completes with image signing and provenance
 - tracked generated artifacts are excluded from the repo tree
 - the target deployment still satisfies `docs/platform_runtime_security_baseline.md`
+- compliance-facing docs and controls still satisfy `docs/compliance_controls_baseline.md`
 - `docs/security_assurance_program.md` evidence is assembled for the release:
   attack-regression CI, Kali/external validation, operator notes, and third-party review
 
