@@ -27,6 +27,7 @@ This page is the canonical docs map for the Python stack. It intentionally avoid
 - [Operations Playbooks](operations_playbooks.md)
 - [Observability Framework](observability.md)
 - [Monitoring Stack](monitoring_stack.md)
+- [Reliability and Capacity Operations Baseline](reliability_capacity_operations_baseline.md)
 - [Release Checklist](release_checklist.md)
 - [Release Artifacts](release_artifacts.md)
 - [Kubernetes Deployment](kubernetes_deployment.md)
