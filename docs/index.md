@@ -61,6 +61,7 @@ This page is the canonical docs map for the Python stack. It intentionally avoid
 - [Privacy Policy](privacy_policy.md)
 - [Data Protection Baseline](data_protection_baseline.md)
 - [Compliance Controls Baseline](compliance_controls_baseline.md)
+- [Compliance Governance and Assurance Baseline](compliance_governance_assurance_baseline.md)
 - [Security Policy](../SECURITY.md)
 - [Contributing](../CONTRIBUTING.md)
 - [Code of Conduct](code_of_conduct.md)
