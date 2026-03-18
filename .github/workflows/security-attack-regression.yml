@@ -11,7 +11,7 @@ on:
           - compose-v1
           - staging-v1
       target_nginx_http_base:
-        description: "Required for staging-v1. Example: http://staging.example.test"
+        description: "Required for staging-v1. Use https:// for hosted targets; http:// is allowed only for localhost/127.0.0.1 loopback runs."
         required: false
         type: string
       target_nginx_https_base:
@@ -193,6 +193,26 @@ jobs:
               exit 1
             fi
           done
+
+          if [[ ! "$TARGET_NGINX_HTTPS_BASE" =~ ^https:// ]]; then
+            echo "TARGET_NGINX_HTTPS_BASE must use https:// for staging-v1" >&2
+            exit 1
+          fi
+
+          if [[ ! "$TARGET_ADMIN_UI_BASE" =~ ^https:// ]]; then
+            echo "TARGET_ADMIN_UI_BASE must use https:// for staging-v1" >&2
+            exit 1
+          fi
+
+          if [[ "$TARGET_NGINX_HTTP_BASE" =~ ^http:// ]]; then
+            if [[ ! "$TARGET_NGINX_HTTP_BASE" =~ ^http://(127\.0\.0\.1|localhost)(:|/|$) ]]; then
+              echo "TARGET_NGINX_HTTP_BASE may only use http:// for localhost or 127.0.0.1 loopback targets" >&2
+              exit 1
+            fi
+          elif [[ ! "$TARGET_NGINX_HTTP_BASE" =~ ^https:// ]]; then
+            echo "TARGET_NGINX_HTTP_BASE must start with https:// unless it targets localhost/127.0.0.1 over http://" >&2
+            exit 1
+          fi
         env:
           TARGET_NGINX_HTTP_BASE: ${{ inputs.target_nginx_http_base }}
           TARGET_NGINX_HTTPS_BASE: ${{ inputs.target_nginx_https_base }}
@@ -206,17 +226,17 @@ jobs:
               "${{ inputs.target_nginx_http_base }}" \
               "${{ inputs.target_nginx_https_base }}" \
               "${{ inputs.target_admin_ui_base }}"
-import sys
-from urllib.parse import urlparse
+            import sys
+            from urllib.parse import urlparse
 
-hosts = []
-for value in sys.argv[1:]:
-    host = urlparse(value).hostname
-    if host and host not in hosts:
-        hosts.append(host)
-for host in hosts:
-    print(host)
-PY
+            hosts = []
+            for value in sys.argv[1:]:
+              host = urlparse(value).hostname
+              if host and host not in hosts:
+                hosts.append(host)
+            for host in hosts:
+              print(host)
+            PY
           )
           args=()
           for host in "${allow_hosts[@]}"; do
