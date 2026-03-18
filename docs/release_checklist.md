@@ -29,6 +29,8 @@ Use this checklist before cutting a tagged release.
 - the target deployment still satisfies `docs/platform_runtime_security_baseline.md`
 - `docs/security_assurance_program.md` evidence is assembled for the release:
   attack-regression CI, Kali/external validation, operator notes, and third-party review
+- `docs/compliance_governance_assurance_baseline.md` evidence is assembled for the release:
+  audit, review, and operator-governance expectations remain satisfied
 
 ## Release Artifacts
 
