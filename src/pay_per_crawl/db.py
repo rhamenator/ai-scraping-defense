@@ -31,7 +31,9 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
         _CONNECTION.execute("PRAGMA synchronous=NORMAL")
         _CONNECTION.execute("PRAGMA busy_timeout=5000")
         _CONNECTION.execute(
-            "CREATE TABLE IF NOT EXISTS crawlers (token TEXT PRIMARY KEY, name TEXT, purpose TEXT, balance REAL DEFAULT 0)"
+            "CREATE TABLE IF NOT EXISTS crawlers "
+            "(token TEXT PRIMARY KEY, name TEXT, purpose TEXT, "
+            "balance REAL DEFAULT 0)"
         )
         _CONNECTION.commit()
         _DB_PATH = db_path
