@@ -41,6 +41,7 @@ This page is the canonical docs map for the Python stack. It intentionally avoid
 - [Security Assurance Program](security_assurance_program.md)
 - [Security Program Foundations](security_program.md)
 - [Supply Chain Security](security/supply_chain.md)
+- [Third-Party Integration Security Baseline](third_party_integration_security_baseline.md)
 - [Security Testing Guide](SECURITY_TESTING_GUIDE.md)
 - [Engineering Quality Baseline](engineering_quality_baseline.md)
 - [Performance Validation](performance_validation.md)
