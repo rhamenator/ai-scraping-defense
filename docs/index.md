@@ -29,6 +29,7 @@ This page is the canonical docs map for the Python stack. It intentionally avoid
 - [Monitoring Stack](monitoring_stack.md)
 - [Release Checklist](release_checklist.md)
 - [Release Artifacts](release_artifacts.md)
+- [Operational Platform Baseline](operational_platform_baseline.md)
 - [Kubernetes Deployment](kubernetes_deployment.md)
 - [Ubuntu Reverse Proxy Deployment](ubuntu_reverse_proxy.md)
 - [IIS Deployment Note](iis_deployment.md)
