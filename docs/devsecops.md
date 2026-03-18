@@ -3,6 +3,10 @@
 This document describes how security controls are integrated into CI/CD for the
 AI Scraping Defense project and how to extend them safely.
 
+For the release-facing baseline that ties ingress, provenance, and policy
+checks into one supported delivery contract, see
+[delivery_policy_enforcement_baseline.md](delivery_policy_enforcement_baseline.md).
+
 ## Current Security Workflows
 
 The repository already runs multiple security-focused workflows:
