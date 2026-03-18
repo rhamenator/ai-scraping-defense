@@ -27,3 +27,36 @@ class TestRedisClientErrorHandling(unittest.TestCase):
             conn = redis_client.get_redis_connection()
             self.assertIsNone(conn)
             mock_log.assert_called_once()
+
+    def test_redacts_credentials_from_success_log(self):
+        redis_url = "redis://:super-secret@example.com:6380/0"
+        mock_client = object()
+        with patch.dict(
+            redis_client.os.environ,
+            {"REDIS_HOST": redis_url},
+            clear=False,
+        ), patch(
+            "src.shared.redis_client._create_client",
+            return_value=mock_client,
+        ), patch("logging.info") as mock_log:
+            conn = redis_client.get_redis_connection()
+            self.assertIs(conn, mock_client)
+            mock_log.assert_called_once_with(
+                "Successfully connected to Redis at redis://example.com:6380 on DB 0"
+            )
+
+    def test_redacts_credentials_from_error_log(self):
+        redis_url = "redis://:super-secret@example.com:6380/0"
+        with patch.dict(
+            redis_client.os.environ,
+            {"REDIS_HOST": redis_url},
+            clear=False,
+        ), patch(
+            "src.shared.redis_client._create_client",
+            side_effect=RuntimeError("boom"),
+        ), patch("logging.error") as mock_log:
+            conn = redis_client.get_redis_connection()
+            self.assertIsNone(conn)
+            mock_log.assert_called_once_with(
+                "Failed to connect to Redis at redis://example.com:6380 on DB 0: boom"
+            )

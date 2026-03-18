@@ -3,6 +3,7 @@
 import logging
 import os
 from typing import Dict, Tuple
+from urllib.parse import urlparse
 
 import redis
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
@@ -61,6 +62,17 @@ def _create_client(
     return client
 
 
+def _sanitize_redis_host(redis_host: str) -> str:
+    """Return a log-safe Redis host value with credentials removed."""
+    parsed = urlparse(redis_host)
+    if not parsed.scheme:
+        return redis_host
+    hostname = parsed.hostname or "<redacted>"
+    if parsed.port is not None:
+        return f"{parsed.scheme}://{hostname}:{parsed.port}"
+    return f"{parsed.scheme}://{hostname}"
+
+
 def get_redis_connection(db_number: int = 0, fail_fast: bool = False):
     """
     Creates and returns a Redis connection using environment variables for configuration.
@@ -84,10 +96,12 @@ def get_redis_connection(db_number: int = 0, fail_fast: bool = False):
         del password
         return None
 
+    safe_redis_host = _sanitize_redis_host(redis_host)
+
     try:
         r = _create_client(redis_host, redis_port, password, db_number)
         logging.info(
-            f"Successfully connected to Redis at {redis_host} on DB {db_number}"
+            f"Successfully connected to Redis at {safe_redis_host} on DB {db_number}"
         )
         return r
     except redis.AuthenticationError:
@@ -100,13 +114,19 @@ def get_redis_connection(db_number: int = 0, fail_fast: bool = False):
         if isinstance(e.last_attempt.exception(), redis.AuthenticationError):
             msg = f"Redis authentication failed for DB {db_number}. Check password."
         else:
-            msg = f"Failed to connect to Redis at {redis_host} on DB {db_number}: {e}"
+            msg = (
+                f"Failed to connect to Redis at {safe_redis_host} "
+                f"on DB {db_number}: {e}"
+            )
         logging.error(msg)
         if fail_fast:
             raise RedisConnectionError(msg)
         return None
     except Exception as e:
-        msg = f"Failed to connect to Redis at {redis_host} on DB {db_number}: {e}"
+        msg = (
+            f"Failed to connect to Redis at {safe_redis_host} "
+            f"on DB {db_number}: {e}"
+        )
         logging.error(msg)
         if fail_fast:
             raise RedisConnectionError(msg)
