@@ -108,6 +108,14 @@ class EscalationMetadata(BaseModel):
 
 logger = logging.getLogger(__name__)
 
+
+def _redact_ip_for_log(ip_address: str) -> str:
+    """Return a short irreversible token for IP-like values in logs."""
+    if not ip_address:
+        return "<redacted>"
+    return hashlib.sha256(ip_address.encode("utf-8")).hexdigest()[:12]
+
+
 try:
     from src.shared.honeypot_logger import log_honeypot_hit
 
@@ -435,9 +443,13 @@ async def tarpit_handler(request: Request, path: str = ""):
 
                 if current_hop_count > TAR_PIT_MAX_HOPS:
                     logger.warning(
-                        f"Tarpit hop limit ({TAR_PIT_MAX_HOPS}) exceeded for IP: {client_ip}. Blocking IP."
+                        f"Tarpit hop limit ({TAR_PIT_MAX_HOPS}) exceeded "
+                        f"for IP: {client_ip}. Blocking IP."
                     )
-                    block_reason = f"Tarpit hop limit exceeded ({current_hop_count} hits in {TAR_PIT_HOP_WINDOW_SECONDS}s)"
+                    block_reason = (
+                        "Tarpit hop limit exceeded "
+                        f"({current_hop_count} hits in {TAR_PIT_HOP_WINDOW_SECONDS}s)"
+                    )
                     trigger_ip_block(client_ip, block_reason)
                     return HTMLResponse(
                         content="<html><head><title>Forbidden</title></head><body>Access Denied.</body></html>",
@@ -531,8 +543,8 @@ async def tarpit_handler(request: Request, path: str = ""):
         action = _trusted_cdn_containment_action()
         logger.info(
             "Bypassing origin tarpit for trusted CDN request from %s via %s with %s action",
-            client_ip,
-            identity.peer_ip,
+            _redact_ip_for_log(client_ip),
+            _redact_ip_for_log(identity.peer_ip),
             action,
         )
         response = HTMLResponse(

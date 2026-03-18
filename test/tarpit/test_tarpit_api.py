@@ -148,7 +148,7 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
                 "SECURITY_EDGE_CDN_RETRY_AFTER_SECONDS": "90",
             },
             clear=False,
-        ):
+        ), patch("src.tarpit.tarpit_api.logger.info") as mock_info:
             response = trusted_client.get(
                 "/tarpit/cdn/path",
                 headers={
@@ -165,6 +165,15 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
         )
         self.mocks["generate_dynamic_tarpit_page"].assert_not_called()
         self.async_client_instance.__aenter__.return_value.post.assert_awaited_once()
+        self.assertTrue(mock_info.called)
+        logged_args = mock_info.call_args.args
+        self.assertEqual(
+            logged_args[0],
+            "Bypassing origin tarpit for trusted CDN request from %s via %s with %s action",
+        )
+        self.assertNotEqual(logged_args[1], "203.0.113.44")
+        self.assertNotEqual(logged_args[2], "127.0.0.1")
+        self.assertEqual(logged_args[3], "throttle")
 
     async def test_tarpit_handler_ignores_spoofed_cdn_headers_from_untrusted_peer(self):
         response = self.client.get(
