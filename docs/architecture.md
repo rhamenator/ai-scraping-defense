@@ -106,106 +106,9 @@ graph TD
     TarpitAPI -- "Reads" --> Postgres
 ```
 
-## Real-time Request Processing Flow
+## Request and Data Flows
 
-```mermaid
-graph TD
-    User["👤 User"] -->|Legitimate Request| Nginx
-    Bot["🤖 Bot"] -->|Suspicious Request| Nginx
-
-    Nginx["🛡️ Nginx Proxy w/ Lua"] -->|Block Immediately| Bot
-    Nginx -->|Forward for Analysis| AIService["AI Service Webhook"]
-    Nginx -->|Serve Content| User
-    Nginx -->|Redirect to Tarpit| Bot
-
-    AIService -->|Queues Request| EscalationEngine["🧠 Escalation Engine"]
-    EscalationEngine -->|Reads/Writes| Redis["⚡ Redis\n(Blocklist, Cache)"]
-    EscalationEngine -->|Reads| Postgres["🐘 PostgreSQL\n(Markov Data)"]
-    EscalationEngine -->|Calls for Final Verdict| LLM["☁️ LLM APIs\n(OpenAI, Mistral, etc.)"]
-    EscalationEngine -->|Updates| AdminUI["📊 Admin UI"]
-    AdminUI -->|Streams Metrics| CloudDashboard["☁️ Cloud Dashboard"]
-    AdminUI -->|Feeds| ConfigRecommender["🔧 Config Recommender"]
-    ConfigRecommender -->|Suggestions| AdminUI
-    BlocklistSync["🔄 Blocklist Sync"] -->|Update| Redis
-    PeerSync["🔄 Peer Sync"] -->|Share IPs| Redis
-    RateLimitDaemon["⚙️ Rate Limit Daemon"] -->|Adjust Limits| Nginx
-    BlocklistSync -->|Fetch IPs| CommunityBlocklist["☁️ Community Blocklist"]
-    PeerSync -->|Exchange IPs| PeerDeployments["☁️ Peer Deployments"]
-
-    AdminUI -->|Manages| Redis
-
-    TarpitAPI["🕸️ Tarpit API"] -->|Reads| Postgres
-```
-
-## Key Data Flows
-
-```mermaid
-graph TD
-    subgraph "User / Bot Traffic"
-        direction LR
-        User["👤 User"]
-        Bot["🤖 Bot"]
-    end
-
-    subgraph "Defense System"
-        direction TB
-        Nginx["🛡️ Nginx Proxy w/ Lua"]
-
-        subgraph "Analysis & Logic (Python Microservices)"
-            direction LR
-            AIService["AI Service Webhook"]
-            EscalationEngine["🧠 Escalation Engine"]
-            AdminUI["📊 Admin UI"]
-            ConfigRecommender["🔧 Config Recommender"]
-            CloudDashboard["☁️ Cloud Dashboard"]
-            BlocklistSync["🔄 Blocklist Sync"]
-            PeerSync["🔄 Peer Sync"]
-            RateLimitDaemon["⚙️ Rate Limit Daemon"]
-        end
-
-        subgraph "Countermeasures"
-            TarpitAPI["🕸️ Tarpit API"]
-        end
-
-        subgraph "Data & State Stores"
-            direction LR
-            Redis["⚡ Redis\n(Blocklist, Cache)"]
-            Postgres["🐘 PostgreSQL\n(Markov Data)"]
-        end
-    end
-
-    subgraph "External Services"
-        LLM["☁️ LLM APIs\n(OpenAI, Mistral, etc.)"]
-        CommunityBlocklist["☁️ Community Blocklist"]
-        PeerDeployments["☁️ Peer Deployments"]
-    end
-
-    User -->|Legitimate Request| Nginx
-    Bot -->|Suspicious Request| Nginx
-
-    Nginx -->|Block Immediately| Bot
-    Nginx -->|Forward for Analysis| AIService
-    Nginx -->|Serve Content| User
-    Nginx -->|Redirect to Tarpit| Bot
-
-    AIService -->|Queues Request| EscalationEngine
-    EscalationEngine -->|Reads/Writes| Redis
-    EscalationEngine -->|Reads| Postgres
-    EscalationEngine -->|Calls for Final Verdict| LLM
-    EscalationEngine -->|Updates| AdminUI
-    AdminUI -->|Streams Metrics| CloudDashboard
-    AdminUI -->|Feeds| ConfigRecommender
-    ConfigRecommender -->|Suggestions| AdminUI
-    BlocklistSync -->|Update| Redis
-    PeerSync -->|Share IPs| Redis
-    RateLimitDaemon -->|Adjust Limits| Nginx
-    BlocklistSync -->|Fetch IPs| CommunityBlocklist
-    PeerSync -->|Exchange IPs| PeerDeployments
-
-    AdminUI -->|Manages| Redis
-
-    TarpitAPI -->|Reads| Postgres
-```
+Detailed sequence diagrams and request lifecycle references live in [key_data_flows.md](key_data_flows.md). This architecture page stays focused on static component boundaries and responsibilities.
 
 ## Optional Cloud Integrations
 
@@ -218,42 +121,8 @@ The stack can integrate with external services for enhanced protection. Each int
 
 These features are optional so deployments remain lightweight when cloud services are unavailable.
 
-## Local IP Banning with Fail2ban
+## Operational Integrations
 
-Fail2ban monitors the shared Nginx logs and inserts firewall rules using
-`iptables` or `nftables` when an IP is blocked by the Lua script. The log line
-`check_blocklist: Blocking IP <ip>` triggers a temporary ban matching the Redis
-blocklist TTL.
-
-### Activation Steps
-
-1. **Docker Compose** – Ensure the `fail2ban` service is enabled and start it
-   alongside the other containers:
-   ```bash
-   docker compose up -d fail2ban
-   ```
-2. **Kubernetes** – Apply `nginx-logs-pvc.yaml`, update the `nginx-deployment`
-   to mount this volume, then deploy `fail2ban-deployment.yaml`.
-
-Fail2ban runs with `NET_ADMIN` and `NET_RAW` capabilities so it can modify host
-firewall rules. Review these permissions and adjust `bantime` and `findtime`
-within the jail to fit your security policy.
-
-## Suricata Network IDS
-
-The optional `suricata` service captures network traffic and writes EVE JSON
-logs to `/var/log/suricata/eve.json`. Alerts are forwarded to the Escalation
-Engine by `src/util/suricata_manager.py`.
-
-The configuration includes a small rule file `ddos.rules` that looks for common
-HTTP floods and SYN storms. When these signatures match Suricata emits an alert
-which the manager forwards to the escalation engine for blocking.
-
-### Activation Steps
-
-1. **Docker Compose** – Start the service alongside the stack:
-   ```bash
-   docker compose up -d suricata
-   ```
-2. **Kubernetes** – Deploy `suricata-deployment.yaml` in the `ai-defense`
-   namespace.
+- Fail2ban deployment and tuning: [fail2ban.md](fail2ban.md)
+- Observability and telemetry: [observability.md](observability.md) and [monitoring_stack.md](monitoring_stack.md)
+- Environment hardening and rollout controls: [operations.md](operations.md) and [operations_playbooks.md](operations_playbooks.md)
