@@ -39,6 +39,7 @@ This page is the canonical docs map for the Python stack. It intentionally avoid
 
 - [Threat Model](threat_model.md)
 - [Security Assurance Program](security_assurance_program.md)
+- [Delivery and Policy Enforcement Security Baseline](delivery_policy_enforcement_baseline.md)
 - [Security Program Foundations](security_program.md)
 - [Supply Chain Security](security/supply_chain.md)
 - [Third-Party Integration Security Baseline](third_party_integration_security_baseline.md)
