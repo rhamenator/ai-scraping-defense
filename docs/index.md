@@ -43,6 +43,7 @@ This page is the canonical docs map for the Python stack. It intentionally avoid
 - [Security Assurance Program](security_assurance_program.md)
 - [Delivery and Policy Enforcement Security Baseline](delivery_policy_enforcement_baseline.md)
 - [Exploratory Advanced Cryptography Roadmap](exploratory_advanced_cryptography_roadmap.md)
+- [Exploratory Low-Level Hardening Roadmap](exploratory_low_level_hardening_roadmap.md)
 - [Security Program Foundations](security_program.md)
 - [Supply Chain Security](security/supply_chain.md)
 - [Third-Party Integration Security Baseline](third_party_integration_security_baseline.md)
