@@ -222,10 +222,10 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts
           mapfile -t allow_hosts < <(
-            python - <<'PY' \
-              "${{ inputs.target_nginx_http_base }}" \
-              "${{ inputs.target_nginx_https_base }}" \
-              "${{ inputs.target_admin_ui_base }}"
+              python - \
+                "${{ inputs.target_nginx_http_base }}" \
+                "${{ inputs.target_nginx_https_base }}" \
+                "${{ inputs.target_admin_ui_base }}" <<'PY'
             import sys
             from urllib.parse import urlparse
 
