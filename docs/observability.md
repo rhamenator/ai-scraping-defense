@@ -122,7 +122,6 @@ curl http://localhost:8000/observability/performance/history?metric_name=request
 
 The health endpoint returns:
 
-
 {
   "status": "ok",
   "service": "ai-service",
@@ -131,7 +130,6 @@ The health endpoint returns:
     "redis": {"status": "ok", "detail": {"cache_keys": 128}}
   }
 }
-
 
 `status` becomes `degraded` when non-critical checks fail and `error` when any
 critical check fails.  Kubernetes probes and load balancers should consume
