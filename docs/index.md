@@ -15,6 +15,7 @@ This page is the canonical docs map for the Python stack. It intentionally avoid
 
 - [System Architecture](architecture.md)
 - [Architecture Modernization Baseline](architecture_modernization_baseline.md)
+- [Exploratory Architecture Roadmap](exploratory_architecture_roadmap.md)
 - [Key Data Flows](key_data_flows.md)
 - [Configuration](configuration.md)
 - [Environment Cheat Sheet](env_cheatsheet.md)
