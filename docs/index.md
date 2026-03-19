@@ -25,6 +25,7 @@ This page is the canonical docs map for the Python stack. It intentionally avoid
 
 - [Operations Guide](operations.md)
 - [Operations Playbooks](operations_playbooks.md)
+- [Exploratory Operations Roadmap](exploratory_operations_roadmap.md)
 - [Observability Framework](observability.md)
 - [Monitoring Stack](monitoring_stack.md)
 - [Release Checklist](release_checklist.md)
