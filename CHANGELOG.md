@@ -1,5 +1,7 @@
 # Changelog
 
+<!-- markdownlint-disable MD024 -->
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -8,20 +10,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 * **Exploratory Roadmap Buckets:** Added dedicated non-release roadmap documents for operations, compliance, engineering culture, architecture, advanced cryptography, and low-level hardening to keep speculative themes visible without polluting the active release backlog.
 
 ### Changed
+
 * **Documentation Navigation:** Updated `docs/index.md` and `docs/ROADMAP.md` to surface exploratory roadmap buckets alongside release-facing and implementation-focused documentation.
 
 ## [0.0.6-rc.4] - 2026-03-17
+
 ### Added
+
 * **Threat Model Document:** Added docs/threat_model.md and linked from the README.
 * **Automated Dependency Scanning:** Added Dependabot configuration and pip-audit workflow.
 * **Release Artifact Policy:** Added a tagged container-image release workflow plus release artifact and checklist documentation.
 * **Installer Release Bundles:** Added a tagged release workflow that publishes versioned `.zip` and `.tar.gz` repository bundles with SHA-256 checksums for the existing Linux, Windows, and macOS installers.
 * **Release Baseline Documents:** Added explicit release-facing documents for engineering quality, architecture modernization, runtime performance, data protection, platform runtime security, and security assurance.
 * **Release Evidence Workflows:** Added the attack-regression, regression-E2E, and Kali sweep workflow contracts to the documented release path.
-
 
 ### Changed
 
