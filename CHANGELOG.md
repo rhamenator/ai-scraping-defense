@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+* **Exploratory Roadmap Buckets:** Added dedicated non-release roadmap documents for operations, compliance, engineering culture, architecture, advanced cryptography, and low-level hardening to keep speculative themes visible without polluting the active release backlog.
+
+### Changed
+* **Documentation Navigation:** Updated `docs/index.md` and `docs/ROADMAP.md` to surface exploratory roadmap buckets alongside release-facing and implementation-focused documentation.
+
 ## [0.0.6-rc.4] - 2026-03-17
 ### Added
 * **Threat Model Document:** Added docs/threat_model.md and linked from the README.
