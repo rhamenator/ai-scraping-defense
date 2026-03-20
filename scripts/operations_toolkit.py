@@ -38,6 +38,16 @@ class CommandResult:
     stderr: str
 
 
+class CommandExecutionError(RuntimeError):
+    """Raised when a required external command fails."""
+
+    def __init__(self, result: CommandResult):
+        super().__init__(
+            f"Command failed with exit code {result.returncode}: {shlex.join(result.command)}"
+        )
+        self.result = result
+
+
 def run_command(
     command: Iterable[str], *, execute: bool, cwd: Path | None = None
 ) -> CommandResult:
@@ -56,12 +66,30 @@ def run_command(
         capture_output=True,
         text=True,
     )
+    result = CommandResult(args, proc.returncode, proc.stdout, proc.stderr)
     if proc.returncode != 0:
         LOG.error("Command failed (%s): %s", proc.returncode, shlex.join(args))
         LOG.error(proc.stderr.strip())
-    else:
-        LOG.info("Command succeeded: %s", shlex.join(args))
-    return CommandResult(args, proc.returncode, proc.stdout, proc.stderr)
+        raise CommandExecutionError(result)
+
+    LOG.info("Command succeeded: %s", shlex.join(args))
+    return result
+
+
+def _validate_deploy_inputs(args: argparse.Namespace) -> None:
+    missing_paths = [
+        raw_path
+        for raw_path in (
+            args.terraform_dir,
+            args.ansible_inventory,
+            args.ansible_playbook,
+            args.kustomize_dir.format(environment=args.environment),
+        )
+        if not Path(raw_path).exists()
+    ]
+    if missing_paths:
+        joined = ", ".join(missing_paths)
+        raise SystemExit(f"Deploy configuration references missing path(s): {joined}")
 
 
 def ensure_directory(path: Path) -> None:
@@ -298,6 +326,7 @@ def disaster_recovery_drill(args: argparse.Namespace) -> None:
 
 def deploy(args: argparse.Namespace) -> None:
     LOG.info("Deploying environment %s", args.environment)
+    _validate_deploy_inputs(args)
     kustomize_dir = args.kustomize_dir.format(environment=args.environment)
     run_command(
         ["terraform", "-chdir", args.terraform_dir, "apply", "-auto-approve"],
@@ -429,7 +458,10 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
     )
     args = parse_args(argv)
-    args.func(args)
+    try:
+        args.func(args)
+    except CommandExecutionError as exc:
+        return exc.result.returncode or 1
     return 0
 
 
