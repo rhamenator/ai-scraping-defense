@@ -19,6 +19,21 @@ from src.shared.feature_flags import FeatureFlagManager  # noqa: E402
 logger = logging.getLogger(__name__)
 
 
+def _load_env_file(env_file: Path) -> dict[str, str] | None:
+    """Load key/value pairs from an env-style file."""
+    if not env_file.exists():
+        logger.error("Environment file not found: %s", env_file)
+        return None
+
+    env_vars: dict[str, str] = {}
+    for line in env_file.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            env_vars[key] = value
+    return env_vars
+
+
 def setup_logging(verbose: bool = False) -> None:
     """Setup logging configuration."""
     level = logging.DEBUG if verbose else logging.INFO
@@ -46,17 +61,20 @@ def validate_configuration(
     logger.info("Validating configuration from: %s", env_file)
     logger.info("Environment: %s", environment)
 
-    # Load environment variables from file
-    env_vars = {}
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, value = line.split("=", 1)
-                env_vars[key] = value
-    else:
-        logger.error("Environment file not found: %s", env_file)
+    env_vars = _load_env_file(env_file)
+    if env_vars is None:
         return False
+
+    file_environment = env_vars.get("APP_ENV")
+    if file_environment and file_environment.lower() != environment.lower():
+        logger.error(
+            "✗ Environment mismatch: CLI requested '%s' but env file contains APP_ENV=%s",
+            environment,
+            file_environment,
+        )
+        return False
+
+    env_vars["APP_ENV"] = environment
 
     # Load and validate configuration
     try:

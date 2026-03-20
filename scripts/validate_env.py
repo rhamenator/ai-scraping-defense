@@ -135,12 +135,23 @@ def main() -> int:
         default=".env",
         help="Path to the env file (default: .env)",
     )
+    parser.add_argument(
+        "--merge-with-process-env",
+        action="store_true",
+        help="Merge the parsed env file with the current process environment instead of validating the file in isolation",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
     env_file = Path(args.env_path)
 
-    os.environ.update(parse_env(env_file))
-    errors = validate_env()
+    file_env = parse_env(env_file)
+    if args.merge_with_process_env:
+        env = dict(os.environ)
+        env.update(file_env)
+    else:
+        env = file_env
+
+    errors = validate_env(env)
 
     if errors:
         for err in errors:
