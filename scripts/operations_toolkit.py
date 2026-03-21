@@ -136,7 +136,7 @@ def _postgres_command_with_env(
     postgres_url: str, *prefix: str
 ) -> tuple[list[str], dict[str, str]]:
     sanitized_url, password, _ = _strip_url_password(postgres_url)
-    env = {"PGPASSWORD": password} if password else {}
+    env = {"PGPASSWORD": password} if password is not None else {}
     return [*prefix, sanitized_url], env
 
 
@@ -148,7 +148,7 @@ def _redis_cli_command_with_env(
     if username:
         command.extend(["--user", username])
     command.extend(["-u", sanitized_url])
-    env = {"REDISCLI_AUTH": password} if password else {}
+    env = {"REDISCLI_AUTH": password} if password is not None else {}
     return command, env
 
 

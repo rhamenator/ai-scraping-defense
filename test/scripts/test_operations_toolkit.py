@@ -204,6 +204,30 @@ class TestOperationsToolkit(unittest.TestCase):
         self.assertIn("--user", redis_call.args[0])
         self.assertIn("redis://bot@cache.example.com:6379/0", redis_call.args[0])
 
+    def test_backup_preserves_empty_password_auth_env_vars(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(
+                destination=tmp,
+                postgres_url="postgres://user:@db.example.com:5432/app",
+                redis_url="redis://bot:@cache.example.com:6379/0",
+                kube_context="test-context",
+                execute=False,
+            )
+
+            with patch("scripts.operations_toolkit.run_command") as mock_run:
+                mock_run.return_value = operations_toolkit.CommandResult(
+                    command=[], returncode=0, stdout="", stderr=""
+                )
+                operations_toolkit.backup(args)
+
+        pg_call = mock_run.call_args_list[0]
+        redis_call = mock_run.call_args_list[1]
+
+        self.assertIn("PGPASSWORD", pg_call.kwargs["env"])
+        self.assertEqual(pg_call.kwargs["env"]["PGPASSWORD"], "")
+        self.assertIn("REDISCLI_AUTH", redis_call.kwargs["env"])
+        self.assertEqual(redis_call.kwargs["env"]["REDISCLI_AUTH"], "")
+
     def test_backup_rejects_invalid_kubectl_json(self):
         with tempfile.TemporaryDirectory() as tmp:
             args = argparse.Namespace(
