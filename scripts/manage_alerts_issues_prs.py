@@ -115,6 +115,11 @@ class AlertManager:
         # Use word boundary to ensure we match complete tokens
         token_pattern = r"\bgh[pousr]_[A-Za-z0-9]{36}\b"  # nosec B105
         message = re.sub(token_pattern, "[REDACTED_TOKEN]", message)
+        message = re.sub(
+            r"\bgithub_pat_[A-Za-z0-9_]+\b",  # nosec B105
+            "[REDACTED_TOKEN]",
+            message,
+        )
         # Pattern to match Bearer tokens and other authorization headers
         auth_pattern = r"(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+"
         message = re.sub(auth_pattern, r"\1[REDACTED]", message, flags=re.IGNORECASE)
@@ -901,6 +906,11 @@ def _sanitize_message_standalone(message: str) -> str:
     # Use word boundary to ensure we match complete tokens
     token_pattern = r"\bgh[pousr]_[A-Za-z0-9]{36}\b"  # nosec B105
     message = re.sub(token_pattern, "[REDACTED_TOKEN]", message)
+    message = re.sub(
+        r"\bgithub_pat_[A-Za-z0-9_]+\b",  # nosec B105
+        "[REDACTED_TOKEN]",
+        message,
+    )
     # Pattern to match Bearer tokens and other authorization headers
     auth_pattern = r"(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+"
     message = re.sub(auth_pattern, r"\1[REDACTED]", message, flags=re.IGNORECASE)

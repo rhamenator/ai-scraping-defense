@@ -14,6 +14,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shlex
 
 # Bandit B404 is acceptable here because this module wraps fixed operator CLIs
@@ -23,6 +24,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterable, List
+from urllib.parse import urlsplit, urlunsplit
 
 LOG = logging.getLogger(__name__)
 DEFAULT_BACKUP_DIR = Path(os.getenv("BACKUP_DIR", "./backups"))
@@ -38,15 +40,94 @@ class CommandResult:
     stderr: str
 
 
+class CommandExecutionError(RuntimeError):
+    """Raised when a required external command fails."""
+
+    def __init__(self, result: CommandResult):
+        super().__init__(
+            "Command failed with exit code "
+            f"{result.returncode}: {_format_command_for_logging(result.command)}"
+        )
+        self.result = result
+
+
+def _sanitize_token_like_value(value: str) -> str:
+    value = re.sub(
+        r"\bgh[pousr]_[A-Za-z0-9]{36}\b",  # nosec B105
+        "[REDACTED_TOKEN]",
+        value,
+    )
+    value = re.sub(
+        r"\bgithub_pat_[A-Za-z0-9_]+\b",  # nosec B105
+        "[REDACTED_TOKEN]",
+        value,
+    )
+    value = re.sub(
+        r"(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+",
+        r"\1[REDACTED]",
+        value,
+        flags=re.IGNORECASE,
+    )
+    return value
+
+
+def _format_host_with_port(hostname: str, port: int | None) -> str:
+    host = hostname
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    return f"{host}:{port}" if port else host
+
+
+def _parse_url_with_credentials(value: str):
+    if "://" not in value:
+        return None
+
+    parsed = urlsplit(value)
+    if not parsed.scheme or parsed.hostname is None:
+        return None
+
+    if parsed.username is None and parsed.password is None:
+        return None
+
+    return parsed
+
+
+def _redact_url_credentials(value: str) -> str:
+    parsed = _parse_url_with_credentials(value)
+    if parsed is None:
+        return value
+
+    host_with_port = _format_host_with_port(parsed.hostname, parsed.port)
+    redacted_netloc = f"[REDACTED]@{host_with_port}"
+    return urlunsplit(
+        (parsed.scheme, redacted_netloc, parsed.path, parsed.query, parsed.fragment)
+    )
+
+
+def _sanitize_command_arg(value: str) -> str:
+    sanitized = _sanitize_token_like_value(value)
+    if sanitized != value:
+        return sanitized
+    return _redact_url_credentials(value)
+
+
+def _format_command_for_logging(command: Iterable[str]) -> str:
+    return shlex.join(_sanitize_command_arg(arg) for arg in command)
+
+
 def run_command(
     command: Iterable[str], *, execute: bool, cwd: Path | None = None
 ) -> CommandResult:
-    """Run a command, optionally in dry-run mode, returning captured output."""
+    """Run a command and return captured output.
+
+    Raises `CommandExecutionError` when a required external command exits non-zero.
+    """
 
     args = list(command)
-    LOG.debug("Prepared command: %s", shlex.join(args))
+    formatted_command = _format_command_for_logging(args)
+    LOG.debug("Prepared command: %s", formatted_command)
     if not execute:
-        LOG.info("[dry-run] %s", shlex.join(args))
+        LOG.info("[dry-run] %s", formatted_command)
         return CommandResult(command=args, returncode=0, stdout="", stderr="")
 
     proc = subprocess.run(  # nosec B603
@@ -56,12 +137,30 @@ def run_command(
         capture_output=True,
         text=True,
     )
+    result = CommandResult(args, proc.returncode, proc.stdout, proc.stderr)
     if proc.returncode != 0:
-        LOG.error("Command failed (%s): %s", proc.returncode, shlex.join(args))
+        LOG.error("Command failed (%s): %s", proc.returncode, formatted_command)
         LOG.error(proc.stderr.strip())
-    else:
-        LOG.info("Command succeeded: %s", shlex.join(args))
-    return CommandResult(args, proc.returncode, proc.stdout, proc.stderr)
+        raise CommandExecutionError(result)
+
+    LOG.info("Command succeeded: %s", formatted_command)
+    return result
+
+
+def _validate_deploy_inputs(args: argparse.Namespace) -> None:
+    missing_paths = [
+        raw_path
+        for raw_path in (
+            args.terraform_dir,
+            args.ansible_inventory,
+            args.ansible_playbook,
+            args.kustomize_dir.format(environment=args.environment),
+        )
+        if not Path(raw_path).exists()
+    ]
+    if missing_paths:
+        joined = ", ".join(missing_paths)
+        raise SystemExit(f"Deploy configuration references missing path(s): {joined}")
 
 
 def ensure_directory(path: Path) -> None:
@@ -298,6 +397,7 @@ def disaster_recovery_drill(args: argparse.Namespace) -> None:
 
 def deploy(args: argparse.Namespace) -> None:
     LOG.info("Deploying environment %s", args.environment)
+    _validate_deploy_inputs(args)
     kustomize_dir = args.kustomize_dir.format(environment=args.environment)
     run_command(
         ["terraform", "-chdir", args.terraform_dir, "apply", "-auto-approve"],
@@ -429,7 +529,17 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
     )
     args = parse_args(argv)
-    args.func(args)
+    try:
+        args.func(args)
+    except CommandExecutionError as exc:
+        returncode = exc.result.returncode
+        if returncode is None:
+            return 1
+        if returncode < 0:
+            return 128 + abs(returncode)
+        if returncode == 0:
+            return 1
+        return returncode
     return 0
 
 

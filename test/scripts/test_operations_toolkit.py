@@ -44,6 +44,32 @@ class TestOperationsToolkit(unittest.TestCase):
         self.assertEqual(result.stdout, "ok")
         self.assertEqual(result.stderr, "")
 
+    def test_run_command_raises_on_command_failure(self):
+        completed = MagicMock(returncode=2, stdout="", stderr="boom")
+
+        with patch("scripts.operations_toolkit.subprocess.run", return_value=completed):
+            with self.assertRaises(operations_toolkit.CommandExecutionError) as exc:
+                operations_toolkit.run_command(["kubectl", "get", "pods"], execute=True)
+
+        self.assertEqual(exc.exception.result.returncode, 2)
+
+    def test_command_execution_error_redacts_credentials_in_message(self):
+        result = operations_toolkit.CommandResult(
+            command=[
+                "pg_dump",
+                "--dbname",
+                "postgres://user:super-secret@db.example.com:5432/app",
+            ],
+            returncode=2,
+            stdout="",
+            stderr="boom",
+        )
+
+        message = str(operations_toolkit.CommandExecutionError(result))
+
+        self.assertNotIn("super-secret", message)
+        self.assertIn("[REDACTED]@db.example.com:5432/app", message)
+
     def test_backup_returns_timestamped_path(self):
         """Test that backup() returns the timestamped directory path."""
         with tempfile.TemporaryDirectory() as tmp:
@@ -278,6 +304,50 @@ class TestOperationsToolkit(unittest.TestCase):
                         self.assertIn(
                             attr, attrs, f"Missing required attribute: {attr}"
                         )
+
+    def test_deploy_rejects_missing_default_paths(self):
+        args = argparse.Namespace(
+            environment="staging",
+            terraform_dir="infrastructure/terraform",
+            ansible_inventory="ansible/inventory.yaml",
+            ansible_playbook="ansible/site.yaml",
+            kube_context="test-context",
+            kustomize_dir="kubernetes/overlays/{environment}",
+            execute=False,
+        )
+
+        with self.assertRaises(SystemExit) as exc:
+            operations_toolkit.deploy(args)
+
+        self.assertIn("missing path", str(exc.exception).lower())
+
+    def test_main_returns_non_zero_for_command_failures(self):
+        args = argparse.Namespace(func=MagicMock())
+        args.func.side_effect = operations_toolkit.CommandExecutionError(
+            operations_toolkit.CommandResult(
+                command=["terraform", "apply"],
+                returncode=3,
+                stdout="",
+                stderr="failed",
+            )
+        )
+
+        with patch("scripts.operations_toolkit.parse_args", return_value=args):
+            self.assertEqual(operations_toolkit.main([]), 3)
+
+    def test_main_normalizes_negative_command_return_codes(self):
+        args = argparse.Namespace(func=MagicMock())
+        args.func.side_effect = operations_toolkit.CommandExecutionError(
+            operations_toolkit.CommandResult(
+                command=["terraform", "apply"],
+                returncode=-9,
+                stdout="",
+                stderr="failed",
+            )
+        )
+
+        with patch("scripts.operations_toolkit.parse_args", return_value=args):
+            self.assertEqual(operations_toolkit.main([]), 137)
 
 
 if __name__ == "__main__":

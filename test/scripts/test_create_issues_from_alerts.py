@@ -1,7 +1,9 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from scripts import create_issues_from_alerts
 from scripts.create_issues_from_alerts import IssueCreator
 from scripts.security_response_plan import build_response_plan_entry
 
@@ -129,6 +131,47 @@ class TestCreateIssuesFromAlerts(unittest.TestCase):
 
         self.assertIn('"repository": "rhamenator/ai-scraping-defense"', payload)
         self.assertIn('"operator_pages": 1', payload)
+
+    def test_sanitize_message_redacts_tokens(self):
+        message = (
+            "failure with gho_123456789012345678901234567890123456 and "
+            "github_pat_abcdefghijklmnopqrstuvwxyz1234567890 and Bearer secret-token"
+        )
+
+        sanitized = create_issues_from_alerts._sanitize_message_standalone(message)
+
+        self.assertNotIn("gho_123456789012345678901234567890123456", sanitized)
+        self.assertNotIn("github_pat_abcdefghijklmnopqrstuvwxyz1234567890", sanitized)
+        self.assertIn("[REDACTED_TOKEN]", sanitized)
+        self.assertIn("Bearer [REDACTED]", sanitized)
+
+    def test_main_sanitizes_fatal_output(self):
+        argv = [
+            "create_issues_from_alerts.py",
+            "--owner",
+            "rhamenator",
+            "--repo",
+            "ai-scraping-defense",
+            "--token",
+            "gho_123456789012345678901234567890123456",
+        ]
+        fatal_error = RuntimeError(
+            "Bearer secret-token gho_123456789012345678901234567890123456"
+        )
+
+        with mock.patch("sys.argv", argv), mock.patch.object(
+            create_issues_from_alerts, "IssueCreator", side_effect=fatal_error
+        ), mock.patch("builtins.print") as mock_print:
+            with self.assertRaises(SystemExit):
+                create_issues_from_alerts.main()
+
+        printed = "\n".join(
+            " ".join(str(arg) for arg in call.args)
+            for call in mock_print.call_args_list
+        )
+        self.assertNotIn("secret-token", printed)
+        self.assertNotIn("gho_123456789012345678901234567890123456", printed)
+        self.assertIn("[REDACTED_TOKEN]", printed)
 
 
 if __name__ == "__main__":

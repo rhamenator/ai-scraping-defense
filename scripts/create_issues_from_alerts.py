@@ -69,6 +69,23 @@ SECURITY_SEVERITY_ORDER = {
     "critical": 4,
 }
 
+try:
+    from scripts.manage_alerts_issues_prs import _sanitize_message_standalone
+except Exception:
+
+    def _sanitize_message_standalone(message: str) -> str:
+        """Sanitize messages to avoid leaking tokens in fatal output."""
+        token_pattern = r"\bgh[pousr]_[A-Za-z0-9]{36}\b"  # nosec B105
+        message = re.sub(token_pattern, "[REDACTED_TOKEN]", message)
+        message = re.sub(
+            r"\bgithub_pat_[A-Za-z0-9_]+\b",  # nosec B105
+            "[REDACTED_TOKEN]",
+            message,
+        )
+        auth_pattern = r"(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+"
+        message = re.sub(auth_pattern, r"\1[REDACTED]", message, flags=re.IGNORECASE)
+        return message
+
 
 class IssueCreator:
     """Creates GitHub issues from security scanning alerts."""
@@ -1081,8 +1098,9 @@ def main():
         print("\n\nInterrupted by user")
         sys.exit(1)
     except Exception as e:
-        print(f"\n\nFATAL ERROR: {e}")
-        traceback.print_exc()
+        error_msg = _sanitize_message_standalone(str(e))
+        print(f"\n\nFATAL ERROR: {error_msg}")
+        print(_sanitize_message_standalone(traceback.format_exc()))
         sys.exit(1)
 
 
