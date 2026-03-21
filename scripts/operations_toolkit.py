@@ -71,11 +71,7 @@ def _sanitize_token_like_value(value: str) -> str:
     return value
 
 
-def _sanitize_command_arg(value: str) -> str:
-    sanitized = _sanitize_token_like_value(value)
-    if sanitized != value:
-        return sanitized
-
+def _redact_url_credentials(value: str) -> str:
     if "://" not in value:
         return value
 
@@ -94,6 +90,13 @@ def _sanitize_command_arg(value: str) -> str:
     return urlunsplit(
         (parsed.scheme, redacted_netloc, parsed.path, parsed.query, parsed.fragment)
     )
+
+
+def _sanitize_command_arg(value: str) -> str:
+    sanitized = _sanitize_token_like_value(value)
+    if sanitized != value:
+        return sanitized
+    return _redact_url_credentials(value)
 
 
 def _format_command_for_logging(command: Iterable[str]) -> str:
