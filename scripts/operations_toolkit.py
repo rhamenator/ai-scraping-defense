@@ -71,21 +71,33 @@ def _sanitize_token_like_value(value: str) -> str:
     return value
 
 
-def _redact_url_credentials(value: str) -> str:
+def _format_host_with_port(hostname: str, port: int | None) -> str:
+    host = hostname
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    return f"{host}:{port}" if port else host
+
+
+def _parse_url_with_credentials(value: str):
     if "://" not in value:
-        return value
+        return None
 
     parsed = urlsplit(value)
     if not parsed.scheme or parsed.hostname is None:
-        return value
+        return None
 
     if parsed.username is None and parsed.password is None:
+        return None
+
+    return parsed
+
+
+def _redact_url_credentials(value: str) -> str:
+    parsed = _parse_url_with_credentials(value)
+    if parsed is None:
         return value
 
-    host = parsed.hostname
-    if ":" in host and not host.startswith("["):
-        host = f"[{host}]"
-    host_with_port = f"{host}:{parsed.port}" if parsed.port else host
+    host_with_port = _format_host_with_port(parsed.hostname, parsed.port)
     redacted_netloc = f"[REDACTED]@{host_with_port}"
     return urlunsplit(
         (parsed.scheme, redacted_netloc, parsed.path, parsed.query, parsed.fragment)
