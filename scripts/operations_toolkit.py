@@ -199,8 +199,8 @@ def run_command(
     try:
         # `args` is always passed as an argv list with `shell=False`, and `env`
         # only carries explicit auth variables needed by fixed operator CLIs.
-        proc = subprocess.run(  # nosec B603  # nosemgrep
-            args,
+        proc = subprocess.run(  # nosec B603
+            args,  # nosemgrep
             cwd=str(cwd) if cwd else None,
             check=False,
             capture_output=True,
