@@ -248,6 +248,28 @@ SECURITY_CDN_ORIGIN_LOCKDOWN=true
                 exit_code = validate_env.main()
         self.assertEqual(exit_code, 0)
 
+    def test_validate_env_empty_mapping_does_not_fall_back_to_process_env(self):
+        with mock.patch.dict(
+            "os.environ",
+            {
+                "MODEL_URI": "sklearn:///model",
+                "NGINX_HTTP_PORT": "8080",
+                "NGINX_HTTPS_PORT": "8443",
+                "ADMIN_UI_PORT": "5002",
+                "PROMETHEUS_PORT": "9090",
+                "GRAFANA_PORT": "3000",
+                "PROMPT_ROUTER_PORT": "8009",
+                "PROMPT_ROUTER_HOST": "router",
+                "REAL_BACKEND_HOSTS": "http://localhost",
+            },
+            clear=True,
+        ):
+            errors = validate_env.validate_env({})
+
+        self.assertTrue(
+            any("MODEL_URI is missing or empty" in error for error in errors)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

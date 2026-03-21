@@ -51,7 +51,7 @@ def _is_truthy(value: str | None) -> bool:
 
 
 def validate_env(env: Mapping[str, str] | None = None) -> list[str]:
-    env = env or os.environ
+    env = os.environ if env is None else env
     errors: list[str] = []
 
     for key in REQUIRED_KEYS:

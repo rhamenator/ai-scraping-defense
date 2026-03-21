@@ -166,14 +166,20 @@ def check_drift(
     """
     logger.info("Checking configuration drift...")
 
-    # Load current configuration
-    env_vars = {}
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, value = line.split("=", 1)
-                env_vars[key] = value
+    env_vars = _load_env_file(env_file)
+    if env_vars is None:
+        return False
+
+    file_environment = env_vars.get("APP_ENV")
+    if file_environment and file_environment.lower() != environment.lower():
+        logger.error(
+            "✗ Environment mismatch: CLI requested '%s' but env file contains APP_ENV=%s",
+            environment,
+            file_environment,
+        )
+        return False
+
+    env_vars["APP_ENV"] = environment
 
     try:
         loader = ConfigLoader(strict=False)
