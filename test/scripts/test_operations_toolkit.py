@@ -4,7 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 from scripts import operations_toolkit
 
@@ -38,6 +38,7 @@ class TestOperationsToolkit(unittest.TestCase):
             check=False,
             capture_output=True,
             text=True,
+            env=ANY,
         )
         self.assertEqual(result.command, ["kubectl", "get", "pods"])
         self.assertEqual(result.returncode, 0)
@@ -52,6 +53,40 @@ class TestOperationsToolkit(unittest.TestCase):
                 operations_toolkit.run_command(["kubectl", "get", "pods"], execute=True)
 
         self.assertEqual(exc.exception.result.returncode, 2)
+
+    def test_run_command_sanitizes_stderr_before_logging_and_raising(self):
+        completed = MagicMock(
+            returncode=2,
+            stdout="",
+            stderr=(
+                "failed for postgres://user:super-secret@db.example.com:5432/app "
+                "token ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+            ),
+        )
+
+        with patch(
+            "scripts.operations_toolkit.subprocess.run", return_value=completed
+        ), patch.object(operations_toolkit.LOG, "error") as mock_error:
+            with self.assertRaises(operations_toolkit.CommandExecutionError) as exc:
+                operations_toolkit.run_command(["kubectl", "get", "pods"], execute=True)
+
+        self.assertNotIn("super-secret", exc.exception.result.stderr)
+        self.assertNotIn(
+            "ghp_1234567890abcdefghijklmnopqrstuvwxyz", exc.exception.result.stderr
+        )
+        logged_messages = "\n".join(str(call) for call in mock_error.call_args_list)
+        self.assertNotIn("super-secret", logged_messages)
+
+    def test_run_command_wraps_missing_binary_errors(self):
+        with patch(
+            "scripts.operations_toolkit.subprocess.run",
+            side_effect=FileNotFoundError("pg_dump not found"),
+        ):
+            with self.assertRaises(operations_toolkit.CommandExecutionError) as exc:
+                operations_toolkit.run_command(["pg_dump", "--version"], execute=True)
+
+        self.assertEqual(exc.exception.result.returncode, 127)
+        self.assertIn("pg_dump not found", exc.exception.result.stderr)
 
     def test_command_execution_error_redacts_credentials_in_message(self):
         result = operations_toolkit.CommandResult(
@@ -104,7 +139,7 @@ class TestOperationsToolkit(unittest.TestCase):
                 execute=True,
             )
 
-            def fake_run(command, *, execute, cwd=None):
+            def fake_run(command, *, execute, cwd=None, env=None):
                 if command[0] == "pg_dump":
                     Path(command[-1]).write_text("pgdump", encoding="utf-8")
                 elif command[0] == "redis-cli":
@@ -140,6 +175,80 @@ class TestOperationsToolkit(unittest.TestCase):
                     0o600,
                 )
                 self.assertEqual(result_path.stat().st_mode & 0o777, 0o700)
+
+    def test_backup_uses_env_vars_for_postgres_and_redis_passwords(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(
+                destination=tmp,
+                postgres_url="postgres://user:secret@db.example.com:5432/app",
+                redis_url="redis://bot:cache-secret@cache.example.com:6379/0",
+                kube_context="test-context",
+                execute=False,
+            )
+
+            with patch("scripts.operations_toolkit.run_command") as mock_run:
+                mock_run.return_value = operations_toolkit.CommandResult(
+                    command=[], returncode=0, stdout="", stderr=""
+                )
+                operations_toolkit.backup(args)
+
+        pg_call = mock_run.call_args_list[0]
+        redis_call = mock_run.call_args_list[1]
+
+        self.assertNotIn("secret", " ".join(pg_call.args[0]))
+        self.assertEqual(pg_call.kwargs["env"]["PGPASSWORD"], "secret")
+        self.assertIn("postgres://user@db.example.com:5432/app", pg_call.args[0])
+
+        self.assertNotIn("cache-secret", " ".join(redis_call.args[0]))
+        self.assertEqual(redis_call.kwargs["env"]["REDISCLI_AUTH"], "cache-secret")
+        self.assertIn("--user", redis_call.args[0])
+        self.assertIn("redis://bot@cache.example.com:6379/0", redis_call.args[0])
+
+    def test_backup_preserves_empty_password_auth_env_vars(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(
+                destination=tmp,
+                postgres_url="postgres://user:@db.example.com:5432/app",
+                redis_url="redis://bot:@cache.example.com:6379/0",
+                kube_context="test-context",
+                execute=False,
+            )
+
+            with patch("scripts.operations_toolkit.run_command") as mock_run:
+                mock_run.return_value = operations_toolkit.CommandResult(
+                    command=[], returncode=0, stdout="", stderr=""
+                )
+                operations_toolkit.backup(args)
+
+        pg_call = mock_run.call_args_list[0]
+        redis_call = mock_run.call_args_list[1]
+
+        self.assertIn("PGPASSWORD", pg_call.kwargs["env"])
+        self.assertEqual(pg_call.kwargs["env"]["PGPASSWORD"], "")
+        self.assertIn("REDISCLI_AUTH", redis_call.kwargs["env"])
+        self.assertEqual(redis_call.kwargs["env"]["REDISCLI_AUTH"], "")
+
+    def test_backup_rejects_invalid_kubectl_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(
+                destination=tmp,
+                postgres_url="postgres://test",
+                redis_url="redis://test",
+                kube_context="test-context",
+                execute=True,
+            )
+
+            responses = [
+                operations_toolkit.CommandResult([], 0, "", ""),
+                operations_toolkit.CommandResult([], 0, "", ""),
+                operations_toolkit.CommandResult([], 0, "not-json", ""),
+            ]
+
+            with patch("scripts.operations_toolkit.run_command", side_effect=responses):
+                with self.assertRaises(SystemExit) as exc:
+                    operations_toolkit.backup(args)
+
+        self.assertIn("invalid json", str(exc.exception).lower())
 
     def test_restore_rejects_checksum_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -320,6 +429,53 @@ class TestOperationsToolkit(unittest.TestCase):
             operations_toolkit.deploy(args)
 
         self.assertIn("missing path", str(exc.exception).lower())
+
+    def test_deploy_rejects_invalid_kustomize_template(self):
+        args = argparse.Namespace(
+            environment="staging",
+            terraform_dir="infrastructure/terraform",
+            ansible_inventory="ansible/inventory.yaml",
+            ansible_playbook="ansible/site.yaml",
+            kube_context="test-context",
+            kustomize_dir="kubernetes/{missing}",
+            execute=False,
+        )
+
+        with self.assertRaises(SystemExit) as exc:
+            operations_toolkit.deploy(args)
+
+        self.assertIn(
+            "invalid kustomize directory template", str(exc.exception).lower()
+        )
+
+    def test_restore_dry_run_logs_hypothetical_messages(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            backup_dir = Path(tmp)
+            (backup_dir / "postgres.sql").write_text("postgres", encoding="utf-8")
+            (backup_dir / "redis.rdb").write_bytes(b"redis")
+
+            args = argparse.Namespace(
+                source=str(backup_dir),
+                postgres_url="postgres://test",
+                redis_url="redis://test",
+                redis_data_dir="/var/lib/redis",
+                redis_host="localhost",
+                execute=False,
+            )
+
+            with patch("scripts.operations_toolkit.run_command") as mock_run:
+                mock_run.return_value = operations_toolkit.CommandResult(
+                    command=[], returncode=0, stdout="", stderr=""
+                )
+                with self.assertLogs(
+                    "scripts.operations_toolkit", level="INFO"
+                ) as logs:
+                    operations_toolkit.restore(args)
+
+        log_text = "\n".join(logs.output)
+        self.assertIn("[dry-run] Would copy Redis dump", log_text)
+        self.assertIn("[dry-run] Restore actions validated", log_text)
+        self.assertNotIn("Redis dump copied.", log_text)
 
     def test_main_returns_non_zero_for_command_failures(self):
         args = argparse.Namespace(func=MagicMock())
