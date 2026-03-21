@@ -14,6 +14,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shlex
 
 # Bandit B404 is acceptable here because this module wraps fixed operator CLIs
@@ -23,6 +24,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterable, List
+from urllib.parse import urlsplit, urlunsplit
 
 LOG = logging.getLogger(__name__)
 DEFAULT_BACKUP_DIR = Path(os.getenv("BACKUP_DIR", "./backups"))
@@ -43,20 +45,74 @@ class CommandExecutionError(RuntimeError):
 
     def __init__(self, result: CommandResult):
         super().__init__(
-            f"Command failed with exit code {result.returncode}: {shlex.join(result.command)}"
+            "Command failed with exit code "
+            f"{result.returncode}: {_format_command_for_logging(result.command)}"
         )
         self.result = result
+
+
+def _sanitize_token_like_value(value: str) -> str:
+    value = re.sub(
+        r"\bgh[pousr]_[A-Za-z0-9]{36}\b",  # nosec B105
+        "[REDACTED_TOKEN]",
+        value,
+    )
+    value = re.sub(
+        r"\bgithub_pat_[A-Za-z0-9_]+\b",  # nosec B105
+        "[REDACTED_TOKEN]",
+        value,
+    )
+    value = re.sub(
+        r"(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+",
+        r"\1[REDACTED]",
+        value,
+        flags=re.IGNORECASE,
+    )
+    return value
+
+
+def _sanitize_command_arg(value: str) -> str:
+    sanitized = _sanitize_token_like_value(value)
+    if sanitized != value:
+        return sanitized
+
+    if "://" not in value:
+        return value
+
+    parsed = urlsplit(value)
+    if not parsed.scheme or parsed.hostname is None:
+        return value
+
+    if parsed.username is None and parsed.password is None:
+        return value
+
+    host = parsed.hostname
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    host_with_port = f"{host}:{parsed.port}" if parsed.port else host
+    redacted_netloc = f"[REDACTED]@{host_with_port}"
+    return urlunsplit(
+        (parsed.scheme, redacted_netloc, parsed.path, parsed.query, parsed.fragment)
+    )
+
+
+def _format_command_for_logging(command: Iterable[str]) -> str:
+    return shlex.join(_sanitize_command_arg(arg) for arg in command)
 
 
 def run_command(
     command: Iterable[str], *, execute: bool, cwd: Path | None = None
 ) -> CommandResult:
-    """Run a command, optionally in dry-run mode, returning captured output."""
+    """Run a command and return captured output.
+
+    Raises `CommandExecutionError` when a required external command exits non-zero.
+    """
 
     args = list(command)
-    LOG.debug("Prepared command: %s", shlex.join(args))
+    formatted_command = _format_command_for_logging(args)
+    LOG.debug("Prepared command: %s", formatted_command)
     if not execute:
-        LOG.info("[dry-run] %s", shlex.join(args))
+        LOG.info("[dry-run] %s", formatted_command)
         return CommandResult(command=args, returncode=0, stdout="", stderr="")
 
     proc = subprocess.run(  # nosec B603
@@ -68,11 +124,11 @@ def run_command(
     )
     result = CommandResult(args, proc.returncode, proc.stdout, proc.stderr)
     if proc.returncode != 0:
-        LOG.error("Command failed (%s): %s", proc.returncode, shlex.join(args))
+        LOG.error("Command failed (%s): %s", proc.returncode, formatted_command)
         LOG.error(proc.stderr.strip())
         raise CommandExecutionError(result)
 
-    LOG.info("Command succeeded: %s", shlex.join(args))
+    LOG.info("Command succeeded: %s", formatted_command)
     return result
 
 
@@ -461,7 +517,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args.func(args)
     except CommandExecutionError as exc:
-        return exc.result.returncode or 1
+        returncode = exc.result.returncode
+        if returncode is None:
+            return 1
+        if returncode < 0:
+            return 128 + abs(returncode)
+        if returncode == 0:
+            return 1
+        return returncode
     return 0
 
 

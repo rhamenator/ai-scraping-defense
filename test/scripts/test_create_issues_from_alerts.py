@@ -135,12 +135,13 @@ class TestCreateIssuesFromAlerts(unittest.TestCase):
     def test_sanitize_message_redacts_tokens(self):
         message = (
             "failure with gho_123456789012345678901234567890123456 and "
-            "Bearer secret-token"
+            "github_pat_abcdefghijklmnopqrstuvwxyz1234567890 and Bearer secret-token"
         )
 
         sanitized = create_issues_from_alerts._sanitize_message_standalone(message)
 
         self.assertNotIn("gho_123456789012345678901234567890123456", sanitized)
+        self.assertNotIn("github_pat_abcdefghijklmnopqrstuvwxyz1234567890", sanitized)
         self.assertIn("[REDACTED_TOKEN]", sanitized)
         self.assertIn("Bearer [REDACTED]", sanitized)
 

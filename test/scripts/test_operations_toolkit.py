@@ -53,6 +53,23 @@ class TestOperationsToolkit(unittest.TestCase):
 
         self.assertEqual(exc.exception.result.returncode, 2)
 
+    def test_command_execution_error_redacts_credentials_in_message(self):
+        result = operations_toolkit.CommandResult(
+            command=[
+                "pg_dump",
+                "--dbname",
+                "postgres://user:super-secret@db.example.com:5432/app",
+            ],
+            returncode=2,
+            stdout="",
+            stderr="boom",
+        )
+
+        message = str(operations_toolkit.CommandExecutionError(result))
+
+        self.assertNotIn("super-secret", message)
+        self.assertIn("[REDACTED]@db.example.com:5432/app", message)
+
     def test_backup_returns_timestamped_path(self):
         """Test that backup() returns the timestamped directory path."""
         with tempfile.TemporaryDirectory() as tmp:
@@ -317,6 +334,20 @@ class TestOperationsToolkit(unittest.TestCase):
 
         with patch("scripts.operations_toolkit.parse_args", return_value=args):
             self.assertEqual(operations_toolkit.main([]), 3)
+
+    def test_main_normalizes_negative_command_return_codes(self):
+        args = argparse.Namespace(func=MagicMock())
+        args.func.side_effect = operations_toolkit.CommandExecutionError(
+            operations_toolkit.CommandResult(
+                command=["terraform", "apply"],
+                returncode=-9,
+                stdout="",
+                stderr="failed",
+            )
+        )
+
+        with patch("scripts.operations_toolkit.parse_args", return_value=args):
+            self.assertEqual(operations_toolkit.main([]), 137)
 
 
 if __name__ == "__main__":
