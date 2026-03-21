@@ -197,7 +197,9 @@ def run_command(
         command_env.update(env)
 
     try:
-        proc = subprocess.run(  # nosec B603
+        # `args` is always passed as an argv list with `shell=False`, and `env`
+        # only carries explicit auth variables needed by fixed operator CLIs.
+        proc = subprocess.run(  # nosec B603  # nosemgrep
             args,
             cwd=str(cwd) if cwd else None,
             check=False,
