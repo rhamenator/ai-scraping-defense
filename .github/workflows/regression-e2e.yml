@@ -59,25 +59,21 @@ jobs:
           fi
 
           if [ -z "$base_url" ]; then
-            {
-              echo 'Regression E2E needs an explicit external target.'
-              echo
-              echo '- For staging runs, set the `STAGING_BASE_URL` repository secret.'
-              echo '- For production runs, set the `PROD_BASE_URL` repository secret and pass `environment=production`.'
-              echo '- For preview or ad hoc runs, pass the `base_url` workflow_dispatch input.'
-            } >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' 'Regression E2E needs an explicit external target.' >> "$GITHUB_STEP_SUMMARY"
+            printf '\n' >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' '- For staging runs, set the STAGING_BASE_URL repository secret.' >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' '- For production runs, set the PROD_BASE_URL repository secret and pass environment=production.' >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' '- For preview or ad hoc runs, pass the base_url workflow_dispatch input.' >> "$GITHUB_STEP_SUMMARY"
             echo "No usable base URL was provided for Regression E2E." >&2
             exit 1
           fi
 
           echo "base_url=$base_url" >> "$GITHUB_OUTPUT"
           echo "target_source=$target_source" >> "$GITHUB_OUTPUT"
-          {
-            echo "### Regression E2E target"
-            echo
-            echo "- Base URL: \`$base_url\`"
-            echo "- Source: $target_source"
-          } >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' '### Regression E2E target' >> "$GITHUB_STEP_SUMMARY"
+          printf '\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' "- Base URL: $base_url" >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' "- Source: $target_source" >> "$GITHUB_STEP_SUMMARY"
 
   e2e-linux:
     needs: resolve-target
@@ -96,7 +92,7 @@ jobs:
       - name: k6 install (Linux)
         uses: grafana/setup-k6-action@ffe7d7290dfa715e48c2ccc924d068444c94bde2
         with:
-          k6-version: '0.50.0'
+          k6-version: "0.50.0"
       - name: k6 rich scenarios
         run: |
           mkdir -p artifacts/performance
