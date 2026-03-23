@@ -2,7 +2,7 @@
 fastapi>=0.128.2,<0.136
 starlette>=0.49.1,<1.0
 uvicorn[standard]~=0.38
-gunicorn~=25.0
+gunicorn~=25.1
 jinja2>=3.1.6,<4.0
 
 # Data and Database
