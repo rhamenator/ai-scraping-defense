@@ -62,7 +62,7 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Upload SARIF Artifact
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         if: always() && steps.sarif_exists.outputs.exists == 'true'
         with:
           name: trivy-sarif-${{ matrix.image.name }}
@@ -96,7 +96,7 @@ jobs:
           ignore-unfixed: true
           exit-code: "0"
       - name: Upload JSON Artifact
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         if: always()
         with:
           name: trivy-json-${{ matrix.image.name }}
