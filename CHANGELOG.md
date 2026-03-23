@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * **Exploratory Roadmap Buckets:** Added dedicated non-release roadmap documents for operations, compliance, engineering culture, architecture, advanced cryptography, and low-level hardening to keep speculative themes visible without polluting the active release backlog.
+* **Dependency Refresh Triage Plan:** Added `docs/python_dependency_refresh_plan.md` to capture the March 2026 outdated-package scan, risk buckets, and staged Python dependency refresh plan.
 
 ### Changed
 
