@@ -59,13 +59,13 @@ jobs:
           fi
 
           if [ -z "$base_url" ]; then
-            cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
-Regression E2E needs an explicit external target.
-
-- For staging runs, set the `STAGING_BASE_URL` repository secret.
-- For production runs, set the `PROD_BASE_URL` repository secret and pass `environment=production`.
-- For preview or ad hoc runs, pass the `base_url` workflow_dispatch input.
-EOF
+            {
+              echo 'Regression E2E needs an explicit external target.'
+              echo
+              echo '- For staging runs, set the `STAGING_BASE_URL` repository secret.'
+              echo '- For production runs, set the `PROD_BASE_URL` repository secret and pass `environment=production`.'
+              echo '- For preview or ad hoc runs, pass the `base_url` workflow_dispatch input.'
+            } >> "$GITHUB_STEP_SUMMARY"
             echo "No usable base URL was provided for Regression E2E." >&2
             exit 1
           fi
@@ -95,7 +95,8 @@ EOF
           pip install -r .github/tools/e2e/requirements.txt
       - name: k6 install (Linux)
         uses: grafana/setup-k6-action@ffe7d7290dfa715e48c2ccc924d068444c94bde2
-        with: { version: v0.50.0 }
+        with:
+          k6-version: '0.50.0'
       - name: k6 rich scenarios
         run: |
           mkdir -p artifacts/performance
@@ -146,7 +147,7 @@ EOF
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path artifacts/performance | Out-Null
-          & "${{ env.K6_EXE }}" run --summary-export artifacts/performance/k6-windows-summary.json -e BASE_URL="${{ needs.resolve-target.outputs.base_url }}" .github/tools/e2e/k6-rich.js
+          & "$env:K6_EXE" run --summary-export artifacts/performance/k6-windows-summary.json -e BASE_URL="${{ needs.resolve-target.outputs.base_url }}" .github/tools/e2e/k6-rich.js
       - name: pytest e2e (Windows)
         shell: pwsh
         run: |
