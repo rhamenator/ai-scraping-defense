@@ -42,7 +42,7 @@ pyasn1>=0.6.2,<1.0
 pyOpenSSL>=26.0.0,<27.0
 
 # Secret Management
-hvac~=2.3
+hvac~=2.4
 
 # LLM and AI Libraries
 openai>=1.17,<3.0
