@@ -26,7 +26,14 @@ fi
 
 PROXY=${1:-nginx}
 
-ensure_no_new_privileges_env
+if [[ -z "${NO_NEW_PRIVILEGES:-}" ]]; then
+  if docker run --rm --security-opt no-new-privileges:true alpine:3.20 true >/dev/null 2>&1; then
+    export NO_NEW_PRIVILEGES=true
+  else
+    export NO_NEW_PRIVILEGES=false
+    echo "Runtime does not support no-new-privileges:true; setting NO_NEW_PRIVILEGES=false."
+  fi
+fi
 
 if [[ "$(uname)" == "Darwin" ]]; then
   for svc in apachectl nginx; do
@@ -54,8 +61,8 @@ case "$PROXY" in
     APACHE_HTTP_PORT=80 $(compose) up -d apache_proxy
     ;;
   nginx)
-    echo "Launching stack with Nginx on ports 80/443..."
-    NGINX_HTTP_PORT=80 NGINX_HTTPS_PORT=443 $(compose) up -d nginx_proxy
+    echo "Launching stack with Nginx on port 80..."
+    $(compose) up -d nginx_proxy
     ;;
   *)
     echo "Usage: $0 [apache|nginx]"

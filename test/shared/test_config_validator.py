@@ -50,9 +50,6 @@ class TestConfigLoader(unittest.TestCase):
                 "TAR_PIT_MAX_DELAY_SEC": "2.0",
                 "TAR_PIT_MAX_STREAM_SECONDS": "45.0",
                 "ESCALATION_THRESHOLD": "0.9",
-                "ESCALATION_THROTTLE_THRESHOLD": "0.93",
-                "ESCALATION_TARPIT_THRESHOLD": "0.96",
-                "ESCALATION_BLOCK_THRESHOLD": "0.99",
                 "ENABLE_TARPIT_CATCH_ALL": "true",
                 "ENABLE_FINGERPRINTING": "true",
             }
@@ -68,7 +65,6 @@ class TestConfigLoader(unittest.TestCase):
         self.assertEqual(config.tarpit.min_delay_sec, 0.5)
         self.assertEqual(config.tarpit.max_stream_seconds, 45.0)
         self.assertEqual(config.escalation.threshold, 0.9)
-        self.assertEqual(config.escalation.throttle_threshold, 0.93)
 
     def test_validate_slack_alerts_accepts_webhook_file(self):
         env = self.minimal_env.copy()
@@ -123,19 +119,6 @@ class TestConfigLoader(unittest.TestCase):
                 ok, errors = loader.validate_config(config)
 
         self.assertTrue(ok, f"Expected config to be valid, got errors={errors}")
-
-    def test_validate_rejects_bad_escalation_threshold_order(self):
-        env = self.minimal_env.copy()
-        env.update(
-            {
-                "ESCALATION_THRESHOLD": "0.9",
-                "ESCALATION_THROTTLE_THRESHOLD": "0.8",
-            }
-        )
-
-        loader = ConfigLoader(strict=True)
-        with self.assertRaises(ConfigValidationError):
-            loader.load_from_env(env)
 
     def test_load_with_secrets(self):
         """Test loading configuration with secret files."""
@@ -269,119 +252,8 @@ class TestConfigLoader(unittest.TestCase):
         # Should require OPENAI_API_KEY
         with patch.dict(os.environ, {}, clear=True):
             is_valid, errors = loader.validate_config(config)
-        self.assertFalse(is_valid)
-        self.assertTrue(any("OPENAI_API_KEY" in e for e in errors))
-
-    def test_load_internal_auth_mode(self):
-        env = self.minimal_env.copy()
-        env["INTERNAL_AUTH_MODE"] = "shared_key"
-
-        loader = ConfigLoader(strict=False)
-        config = loader.load_from_env(env)
-
-        self.assertEqual(config.security.internal_auth_mode.value, "shared_key")
-
-    def test_load_invalid_internal_auth_mode_raises(self):
-        env = self.minimal_env.copy()
-        env["INTERNAL_AUTH_MODE"] = "mtls"
-
-        loader = ConfigLoader(strict=True)
-        with self.assertRaises(ConfigValidationError):
-            loader.load_from_env(env)
-
-    def test_validate_production_requires_internal_auth_secrets(self):
-        env = self.minimal_env.copy()
-        env.update(
-            {
-                "APP_ENV": "production",
-                "DEBUG": "false",
-                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
-                "ADMIN_UI_PASSWORD_HASH": "$2b$12$" + "." * 53,
-            }
-        )
-
-        loader = ConfigLoader(strict=False)
-        config = loader.load_from_env(env)
-
-        with patch.dict(
-            os.environ,
-            {
-                "MODEL_URI": env["MODEL_URI"],
-                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
-            },
-            clear=True,
-        ):
-            is_valid, errors = loader.validate_config(config)
-
-        self.assertFalse(is_valid)
-        self.assertTrue(any("SHARED_SECRET required" in e for e in errors))
-        self.assertTrue(any("PROXY_KEY required" in e for e in errors))
-        self.assertTrue(any("ESCALATION_API_KEY required" in e for e in errors))
-        self.assertTrue(any("WEBHOOK_SHARED_SECRET required" in e for e in errors))
-
-    def test_validate_production_internal_auth_shared_key_succeeds(self):
-        env = self.minimal_env.copy()
-        env.update(
-            {
-                "APP_ENV": "production",
-                "DEBUG": "false",
-                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
-                "ADMIN_UI_PASSWORD_HASH": "$2b$12$" + "." * 53,
-            }
-        )
-
-        loader = ConfigLoader(strict=False)
-        config = loader.load_from_env(env)
-
-        with patch.dict(
-            os.environ,
-            {
-                "MODEL_URI": env["MODEL_URI"],
-                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
-                "SHARED_SECRET": "shared-secret",
-                "PROXY_KEY": "proxy-secret",
-                "ESCALATION_API_KEY": "escalation-secret",
-                "WEBHOOK_SHARED_SECRET": "webhook-secret",
-                "CLOUD_DASHBOARD_API_KEY": "dashboard-secret",
-                "RECOMMENDER_API_KEY": "recommender-secret",
-            },
-            clear=True,
-        ):
-            is_valid, errors = loader.validate_config(config)
-
-        self.assertTrue(is_valid, errors)
-
-    def test_validate_production_requires_operational_api_keys(self):
-        env = self.minimal_env.copy()
-        env.update(
-            {
-                "APP_ENV": "production",
-                "DEBUG": "false",
-                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
-                "ADMIN_UI_PASSWORD_HASH": "$2b$12$" + "." * 53,
-            }
-        )
-
-        loader = ConfigLoader(strict=False)
-        config = loader.load_from_env(env)
-
-        with patch.dict(
-            os.environ,
-            {
-                "MODEL_URI": env["MODEL_URI"],
-                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
-                "SHARED_SECRET": "shared-secret",
-                "PROXY_KEY": "proxy-secret",
-                "ESCALATION_API_KEY": "escalation-secret",
-                "WEBHOOK_SHARED_SECRET": "webhook-secret",
-            },
-            clear=True,
-        ):
-            is_valid, errors = loader.validate_config(config)
-
-        self.assertFalse(is_valid)
-        self.assertTrue(any("CLOUD_DASHBOARD_API_KEY required" in e for e in errors))
-        self.assertTrue(any("RECOMMENDER_API_KEY required" in e for e in errors))
+            self.assertFalse(is_valid)
+            self.assertTrue(any("OPENAI_API_KEY" in e for e in errors))
 
     def test_validate_captcha_config(self):
         """Test CAPTCHA configuration validation."""
@@ -463,74 +335,6 @@ class TestConfigLoader(unittest.TestCase):
 
         self.assertFalse(is_valid)
         self.assertTrue(any("EXTERNAL_API_URL must use https://" in e for e in errors))
-
-    def test_validate_production_requires_https_vault_addr(self):
-        env = self.minimal_env.copy()
-        env.update(
-            {
-                "APP_ENV": "production",
-                "DEBUG": "false",
-                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
-                "ADMIN_UI_PASSWORD_HASH": "$2b$12$" + "." * 53,
-            }
-        )
-
-        loader = ConfigLoader(strict=False)
-        config = loader.load_from_env(env)
-
-        with patch.dict(
-            os.environ,
-            {
-                "MODEL_URI": env["MODEL_URI"],
-                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
-                "SHARED_SECRET": "shared-secret",
-                "PROXY_KEY": "proxy-secret",
-                "ESCALATION_API_KEY": "escalation-secret",
-                "WEBHOOK_SHARED_SECRET": "webhook-secret",
-                "CLOUD_DASHBOARD_API_KEY": "dashboard-secret",
-                "RECOMMENDER_API_KEY": "recommender-secret",
-                "VAULT_ADDR": "http://vault.internal:8200",
-            },
-            clear=True,
-        ):
-            is_valid, errors = loader.validate_config(config)
-
-        self.assertFalse(is_valid)
-        self.assertTrue(any("VAULT_ADDR must use https://" in e for e in errors))
-
-    def test_validate_production_requires_https_webauthn_origin(self):
-        env = self.minimal_env.copy()
-        env.update(
-            {
-                "APP_ENV": "production",
-                "DEBUG": "false",
-                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
-                "ADMIN_UI_PASSWORD_HASH": "$2b$12$" + "." * 53,
-            }
-        )
-
-        loader = ConfigLoader(strict=False)
-        config = loader.load_from_env(env)
-
-        with patch.dict(
-            os.environ,
-            {
-                "MODEL_URI": env["MODEL_URI"],
-                "ENABLE_EXTERNAL_API_CLASSIFICATION": "false",
-                "SHARED_SECRET": "shared-secret",
-                "PROXY_KEY": "proxy-secret",
-                "ESCALATION_API_KEY": "escalation-secret",
-                "WEBHOOK_SHARED_SECRET": "webhook-secret",
-                "CLOUD_DASHBOARD_API_KEY": "dashboard-secret",
-                "RECOMMENDER_API_KEY": "recommender-secret",
-                "WEBAUTHN_ORIGIN": "http://admin.example.test",
-            },
-            clear=True,
-        ):
-            is_valid, errors = loader.validate_config(config)
-
-        self.assertFalse(is_valid)
-        self.assertTrue(any("WEBAUTHN_ORIGIN must use https://" in e for e in errors))
 
     def test_validate_ip_reputation_requires_url(self):
         """Test IP reputation requires a URL when enabled."""

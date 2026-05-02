@@ -235,17 +235,15 @@ if [ "$update_env" = true ]; then
   # Write secret files for Docker Compose
   SECRETS_DIR="$ROOT_DIR/secrets"
   mkdir -p "$SECRETS_DIR"
-  # These files are bind-mounted into non-root containers for local Docker
-  # Compose runs, so the directory must be traversable and the files readable.
-  chmod 755 "$SECRETS_DIR"
+  chmod 700 "$SECRETS_DIR"
 
-  # Compose-mounted secret files must remain readable by the runtime user.
+  # Create files with secure permissions before writing
   touch "$SECRETS_DIR/pg_password.txt" "$SECRETS_DIR/redis_password.txt"
-  chmod 644 "$SECRETS_DIR/pg_password.txt" "$SECRETS_DIR/redis_password.txt"
+  chmod 600 "$SECRETS_DIR/pg_password.txt" "$SECRETS_DIR/redis_password.txt"
 
   echo -n "$POSTGRES_PASSWORD" > "$SECRETS_DIR/pg_password.txt"
   echo -n "$REDIS_PASSWORD" > "$SECRETS_DIR/redis_password.txt"
-  echo -e "${CYAN}✓ Secret files written to ${SECRETS_DIR} (mode 644 for Docker Compose reads)${NC}"
+  echo -e "${CYAN}✓ Secret files written to ${SECRETS_DIR} (mode 600)${NC}"
 fi
 
 echo ""

@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import re
 import time
 from collections import deque
 from dataclasses import dataclass
@@ -21,10 +20,8 @@ from starlette.responses import RedirectResponse
 
 from .errors import register_error_handlers
 from .observability import ObservabilitySettings, configure_observability
-from .request_identity import resolve_request_identity, resolve_request_scheme
 
 logger = logging.getLogger(__name__)
-UNSUPPORTED_VERSION_PREFIX = re.compile(r"^/(?:api/)?v(?P<version>[0-9]+)(?:/|$)")
 
 
 @dataclass(frozen=True)
@@ -103,25 +100,6 @@ def _parse_host_list(name: str) -> list[str]:
     return unique
 
 
-def _version_prefix_error(path: str) -> JSONResponse | None:
-    """Reject explicit API version prefixes until a versioned surface exists."""
-
-    match = UNSUPPORTED_VERSION_PREFIX.match(path)
-    if match is None:
-        return None
-    version = match.group("version")
-    return JSONResponse(
-        status_code=404,
-        content={
-            "detail": (
-                f"Explicit API version prefix v{version} is not supported. "
-                "Use the documented unversioned-v1 routes."
-            ),
-            "supported_versioning": "unversioned-v1",
-        },
-    )
-
-
 class RequestTargetLimitMiddleware(BaseHTTPMiddleware):
     """Reject requests with unusually large request targets or headers."""
 
@@ -187,7 +165,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if self.max_requests <= 0:
             return await call_next(request)
-        ip = resolve_request_identity(request).client_ip
+        ip = request.client.host if request.client else "unknown"
         now = time.time()
         async with self._lock:
             bucket = self._requests.get(ip)
@@ -270,7 +248,7 @@ class GDPRComplianceMiddleware(BaseHTTPMiddleware):
             import datetime
 
             request_data = {
-                "ip_address": resolve_request_identity(request).client_ip,
+                "ip_address": request.client.host if request.client else "unknown",
                 "user_agent": request.headers.get("user-agent", ""),
                 "path": request.url.path,
                 "method": request.method,
@@ -296,13 +274,6 @@ def add_security_middleware(
     app: FastAPI, security_settings: SecuritySettings | None = None
 ) -> SecuritySettings:
     settings = security_settings or _load_security_settings()
-
-    @app.middleware("http")
-    async def _reject_unsupported_version_prefixes(request, call_next):
-        version_error = _version_prefix_error(request.url.path)
-        if version_error is not None:
-            return version_error
-        return await call_next(request)
 
     # Add GDPR compliance middleware first (innermost)
     gdpr_enabled = os.getenv("GDPR_ENABLED", "true").lower() == "true"
@@ -333,7 +304,10 @@ def add_security_middleware(
 
         @app.middleware("http")
         async def _enforce_https(request, call_next):
-            scheme = resolve_request_scheme(request)
+            forwarded = request.headers.get("x-forwarded-proto")
+            scheme = (
+                forwarded.split(",")[0].strip() if forwarded else request.url.scheme
+            )
             if scheme != "https":
                 current_netloc = (request.url.netloc or "").lower()
                 target_netloc = current_netloc

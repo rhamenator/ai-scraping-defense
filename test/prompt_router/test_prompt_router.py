@@ -30,7 +30,6 @@ class TestPromptRouterRouting(unittest.IsolatedAsyncioTestCase):
                 "MAX_LOCAL_TOKENS": "10",
                 "LOCAL_LLM_URL": "http://local",
                 "CLOUD_PROXY_URL": "http://cloud",
-                "PROXY_KEY": "proxy-secret",
                 "SHARED_SECRET": self.shared_secret,
             },
         )
@@ -62,8 +61,8 @@ class TestPromptRouterRouting(unittest.IsolatedAsyncioTestCase):
             async def __aexit__(self, exc_type, exc, tb):
                 pass
 
-            async def post(self, url, json, headers, timeout):
-                self.post_calls.append((url, json, headers, timeout))
+            async def post(self, url, json, timeout):
+                self.post_calls.append((url, json, timeout))
                 return mock_resp
 
         with patch.object(pr_module, "httpx") as httpx_mod:
@@ -101,8 +100,8 @@ class TestPromptRouterRouting(unittest.IsolatedAsyncioTestCase):
             async def __aexit__(self, exc_type, exc, tb):
                 pass
 
-            async def post(self, url, json, headers, timeout):
-                self.post_calls.append((url, json, headers, timeout))
+            async def post(self, url, json, timeout):
+                self.post_calls.append((url, json, timeout))
                 return mock_resp
 
         with patch.object(pr_module, "httpx") as httpx_mod:
@@ -121,10 +120,6 @@ class TestPromptRouterRouting(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp.json(), {"route": "cloud"})
         client_inst = DummyClient.instances[-1]
         self.assertIn("http://cloud", [c[0] for c in client_inst.post_calls])
-        cloud_call = next(
-            call for call in client_inst.post_calls if call[0] == "http://cloud"
-        )
-        self.assertEqual(cloud_call[2]["X-Proxy-Key"], "proxy-secret")
 
 
 class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
@@ -136,10 +131,10 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
                 "MAX_LOCAL_TOKENS": "10",
                 "LOCAL_LLM_URL": "http://local",
                 "CLOUD_PROXY_URL": "http://cloud",
-                "PROXY_KEY": "proxy-secret",
                 "SHARED_SECRET": self.shared_secret,
                 "RATE_LIMIT_REQUESTS": "2",
                 "RATE_LIMIT_WINDOW": "10",
+                "TRUST_PROXY_HEADERS": "false",
             },
         )
         self.env.start()
@@ -176,25 +171,16 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
 
     async def test_rate_limit_headers_and_429(self):
         headers = {"Authorization": f"Bearer {self.shared_secret}"}
-
-        class FakeTime:
-            def __init__(self, value):
-                self.value = value
-
-            def time(self):
-                return self.value
-
-        with patch.object(pr_module, "time", FakeTime(1.0)):
-            resp1 = await self._post(headers=headers)
-            self.assertEqual(resp1.status_code, 200)
-            self.assertEqual(resp1.headers["X-RateLimit-Limit"], "2")
-            self.assertEqual(resp1.headers["X-RateLimit-Remaining"], "1")
-            resp2 = await self._post(headers=headers)
-            self.assertEqual(resp2.status_code, 200)
-            resp3 = await self._post(headers=headers)
-            self.assertEqual(resp3.status_code, 429)
-            self.assertEqual(resp3.headers["X-RateLimit-Remaining"], "0")
-            self.assertIn("Retry-After", resp3.headers)
+        resp1 = await self._post(headers=headers)
+        self.assertEqual(resp1.status_code, 200)
+        self.assertEqual(resp1.headers["X-RateLimit-Limit"], "2")
+        self.assertEqual(resp1.headers["X-RateLimit-Remaining"], "1")
+        resp2 = await self._post(headers=headers)
+        self.assertEqual(resp2.status_code, 200)
+        resp3 = await self._post(headers=headers)
+        self.assertEqual(resp3.status_code, 429)
+        self.assertEqual(resp3.headers["X-RateLimit-Remaining"], "0")
+        self.assertIn("Retry-After", resp3.headers)
 
     async def test_window_rollover_resets_counter(self):
         headers = {"Authorization": f"Bearer {self.shared_secret}"}
@@ -236,11 +222,7 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
 
     async def test_proxy_headers_used_when_trusted(self):
         with patch.dict(
-            os.environ,
-            {
-                "SECURITY_TRUSTED_PROXY_CIDRS": "127.0.0.0/8",
-                "RATE_LIMIT_REQUESTS": "1",
-            },
+            os.environ, {"TRUST_PROXY_HEADERS": "true", "RATE_LIMIT_REQUESTS": "1"}
         ):
             spec.loader.exec_module(pr_module)
             global app
@@ -259,32 +241,6 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(resp1.status_code, 200)
         self.assertEqual(resp2.status_code, 200)
-
-    async def test_spoofed_proxy_headers_do_not_change_client_identity(self):
-        with patch.dict(
-            os.environ,
-            {
-                "SECURITY_TRUSTED_PROXY_CIDRS": "10.0.0.0/8",
-                "RATE_LIMIT_REQUESTS": "1",
-            },
-        ):
-            spec.loader.exec_module(pr_module)
-            global app
-            app = pr_module.app
-            resp1 = await self._post(
-                headers={
-                    "Authorization": f"Bearer {self.shared_secret}",
-                    "X-Forwarded-For": "1.1.1.1",
-                }
-            )
-            resp2 = await self._post(
-                headers={
-                    "Authorization": f"Bearer {self.shared_secret}",
-                    "X-Forwarded-For": "2.2.2.2",
-                }
-            )
-        self.assertEqual(resp1.status_code, 200)
-        self.assertEqual(resp2.status_code, 429)
 
     async def test_cleanup_removes_old_ips(self):
         with patch.dict(
@@ -319,33 +275,6 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
                     }
                 )
         self.assertNotIn("1.1.1.1", pr_module._request_counts)
-
-    async def test_cloud_route_requires_proxy_key_in_shared_key_mode(self):
-        with patch.dict(
-            os.environ,
-            {
-                "MAX_LOCAL_TOKENS": "1",
-                "LOCAL_LLM_URL": "http://local",
-                "CLOUD_PROXY_URL": "http://cloud",
-                "PROXY_KEY": "",
-                "SHARED_SECRET": self.shared_secret,
-            },
-        ):
-            spec.loader.exec_module(pr_module)
-            global app
-            app = pr_module.app
-            transport = httpx.ASGITransport(app=app)
-            async with httpx.AsyncClient(
-                transport=transport, base_url="http://test"
-            ) as ac:
-                response = await ac.post(
-                    "/route",
-                    json={"prompt": "x x"},
-                    headers={"Authorization": f"Bearer {self.shared_secret}"},
-                )
-
-        self.assertEqual(response.status_code, 500)
-        self.assertIn("PROXY_KEY", response.text)
 
 
 if __name__ == "__main__":

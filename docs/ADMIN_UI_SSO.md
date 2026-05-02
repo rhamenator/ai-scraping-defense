@@ -7,8 +7,7 @@ with environment variables and (optionally) enforce MFA on top of SSO.
 
 - `ADMIN_UI_SSO_ENABLED=true`
 - `ADMIN_UI_SSO_MODE=oidc|saml`
-- `ADMIN_UI_REQUIRE_MFA=true|false` (default: true)
-- `ADMIN_UI_SSO_MFA_REQUIRED=true|false` (defaults to `ADMIN_UI_REQUIRE_MFA`)
+- `ADMIN_UI_SSO_MFA_REQUIRED=true|false` (default: false)
 
 ## OIDC mode
 
@@ -45,16 +44,5 @@ Optional:
 
 ## MFA behavior
 
-By default, SSO inherits the release MFA posture from `ADMIN_UI_REQUIRE_MFA`.
-If `ADMIN_UI_SSO_MFA_REQUIRED=true`, or `ADMIN_UI_REQUIRE_MFA=true` with no
-explicit SSO override, Admin UI 2FA is enforced on top of SSO.
-
-Recommended release posture:
-
-- set `ADMIN_UI_2FA_SECRET` for bootstrap access
-- enroll WebAuthn/passkeys for daily operator use
-- generate backup codes and store them offline as single-use recovery material
-
-If no 2FA method is configured (TOTP, passkey, or WebAuthn) and MFA is required,
-authentication fails. Set `ADMIN_UI_SSO_MFA_REQUIRED=false` only for trusted
-lab or integration scenarios where the upstream IdP already guarantees MFA.
+When `ADMIN_UI_SSO_MFA_REQUIRED=true`, Admin UI 2FA is enforced on top of SSO.
+If no 2FA method is configured (TOTP, passkey, or WebAuthn), authentication fails.

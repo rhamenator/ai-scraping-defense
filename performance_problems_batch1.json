@@ -1,0 +1,308 @@
+{
+  "performance_problems": {
+    "category": "Performance",
+    "total_problems": 50,
+    "problems": [
+      {
+        "id": 1,
+        "problem": "No Connection Pooling for Redis",
+        "affected_files": ["src/shared/redis_client.py:23-45", "Redis connections throughout"],
+        "fix_prompt": "Implement Redis connection pooling with proper lifecycle management, add connection health checks, create pool size optimization, and implement connection timeout handling."
+      },
+      {
+        "id": 2,
+        "problem": "Missing Database Connection Pooling",
+        "affected_files": ["Database connections throughout", "src/shared/db_client.py"],
+        "fix_prompt": "Implement PostgreSQL connection pooling with pgbouncer or built-in pooling, add connection lifecycle management, create pool monitoring, and implement connection leak detection."
+      },
+      {
+        "id": 3,
+        "problem": "Blocking I/O in Async Contexts",
+        "affected_files": ["Async functions throughout", "src/shared/http_client.py:67-89"],
+        "fix_prompt": "Replace blocking I/O operations with async alternatives using aiohttp, asyncpg, and aioredis. Implement proper async context managers and add async connection pooling."
+      },
+      {
+        "id": 4,
+        "problem": "Memory Management Issues",
+        "affected_files": ["Long-running processes", "Data processing operations"],
+        "fix_prompt": "Implement explicit memory cleanup with context managers, add garbage collection tuning, create memory pools for frequent allocations, and implement memory usage monitoring."
+      },
+      {
+        "id": 5,
+        "problem": "Missing Caching Strategy",
+        "affected_files": ["Database queries", "API calls", "Expensive operations throughout"],
+        "fix_prompt": "Implement multi-level caching with in-memory caching (Redis), application-level caching, cache invalidation strategies, and cache warming mechanisms."
+      },
+      {
+        "id": 6,
+        "problem": "Inefficient Database Queries",
+        "affected_files": ["SQL queries throughout", "ORM usage"],
+        "fix_prompt": "Optimize database queries with proper indexing, query optimization, N+1 query elimination, and implement query performance monitoring."
+      },
+      {
+        "id": 7,
+        "problem": "Resource Exhaustion Vulnerabilities",
+        "affected_files": ["Resource allocation", "Memory usage", "File handles"],
+        "fix_prompt": "Implement resource limits and quotas, add resource monitoring, create resource cleanup mechanisms, and implement graceful degradation under resource pressure."
+      },
+      {
+        "id": 8,
+        "problem": "Inefficient Data Processing",
+        "affected_files": ["Data transformation", "Batch processing"],
+        "fix_prompt": "Implement streaming data processing, add parallel processing capabilities, create efficient algorithms, and implement data processing optimization."
+      },
+      {
+        "id": 9,
+        "problem": "Missing CDN Implementation",
+        "affected_files": ["Static content delivery", "Asset serving"],
+        "fix_prompt": "Implement Content Delivery Network for static assets, add edge caching, create asset optimization, and implement CDN failover mechanisms."
+      },
+      {
+        "id": 10,
+        "problem": "Inadequate Load Balancing",
+        "affected_files": ["Traffic distribution", "Service scaling"],
+        "fix_prompt": "Implement sophisticated load balancing algorithms, add health-based routing, create session affinity where needed, and implement load balancer monitoring."
+      },
+      {
+        "id": 11,
+        "problem": "Missing Compression",
+        "affected_files": ["HTTP responses", "Data transmission"],
+        "fix_prompt": "Implement gzip/brotli compression for HTTP responses, add data compression for storage, create compression optimization, and implement compression monitoring."
+      },
+      {
+        "id": 12,
+        "problem": "Inefficient Serialization",
+        "affected_files": ["Data serialization", "API responses"],
+        "fix_prompt": "Implement efficient serialization with Protocol Buffers or MessagePack, optimize JSON serialization, add serialization caching, and implement serialization benchmarking."
+      },
+      {
+        "id": 13,
+        "problem": "Missing Lazy Loading",
+        "affected_files": ["Data loading", "Resource initialization"],
+        "fix_prompt": "Implement lazy loading patterns for expensive resources, add on-demand initialization, create lazy evaluation, and implement smart prefetching."
+      },
+      {
+        "id": 14,
+        "problem": "Inadequate Indexing Strategy",
+        "affected_files": ["Database tables", "Search operations"],
+        "fix_prompt": "Implement comprehensive database indexing strategy, add composite indexes, create index optimization, and implement index usage monitoring."
+      },
+      {
+        "id": 15,
+        "problem": "Missing Pagination",
+        "affected_files": ["Large dataset queries", "API responses"],
+        "fix_prompt": "Implement cursor-based pagination for large datasets, add limit/offset optimization, create pagination metadata, and implement efficient pagination strategies."
+      },
+      {
+        "id": 16,
+        "problem": "Inefficient String Operations",
+        "affected_files": ["String processing", "Text manipulation"],
+        "fix_prompt": "Optimize string operations with StringBuilder patterns, implement string interning where appropriate, add string operation caching, and use efficient string algorithms."
+      },
+      {
+        "id": 17,
+        "problem": "Missing Batch Processing",
+        "affected_files": ["Individual operations", "Database updates"],
+        "fix_prompt": "Implement batch processing for bulk operations, add batch size optimization, create batch error handling, and implement batch monitoring."
+      },
+      {
+        "id": 18,
+        "problem": "Inadequate Concurrency Control",
+        "affected_files": ["Concurrent operations", "Shared resources"],
+        "fix_prompt": "Implement proper concurrency control with locks, semaphores, and atomic operations. Add deadlock detection and implement lock-free algorithms where possible."
+      },
+      {
+        "id": 19,
+        "problem": "Missing Asynchronous Processing",
+        "affected_files": ["Synchronous operations", "Blocking processes"],
+        "fix_prompt": "Implement asynchronous processing with message queues, add background job processing, create async workflows, and implement non-blocking operations."
+      },
+      {
+        "id": 20,
+        "problem": "Inefficient Memory Allocation",
+        "affected_files": ["Object creation", "Memory usage patterns"],
+        "fix_prompt": "Implement object pooling for frequently created objects, add memory allocation optimization, create custom allocators, and implement memory usage profiling."
+      },
+      {
+        "id": 21,
+        "problem": "Missing CPU Optimization",
+        "affected_files": ["CPU-intensive operations", "Algorithm implementations"],
+        "fix_prompt": "Implement CPU optimization with vectorization, add parallel processing, create algorithm optimization, and implement CPU usage monitoring."
+      },
+      {
+        "id": 22,
+        "problem": "Inadequate I/O Optimization",
+        "affected_files": ["File operations", "Network I/O"],
+        "fix_prompt": "Implement I/O optimization with buffering, add asynchronous I/O, create I/O batching, and implement I/O performance monitoring."
+      },
+      {
+        "id": 23,
+        "problem": "Missing Network Optimization",
+        "affected_files": ["Network communications", "API calls"],
+        "fix_prompt": "Implement network optimization with connection reuse, add request batching, create network compression, and implement network latency monitoring."
+      },
+      {
+        "id": 24,
+        "problem": "Inefficient Garbage Collection",
+        "affected_files": ["Memory management", "Object lifecycle"],
+        "fix_prompt": "Optimize garbage collection with GC tuning, implement generational GC strategies, add GC monitoring, and create memory leak detection."
+      },
+      {
+        "id": 25,
+        "problem": "Missing Performance Monitoring",
+        "affected_files": ["Performance metrics", "Monitoring systems"],
+        "fix_prompt": "Implement comprehensive performance monitoring with APM tools, add custom metrics, create performance dashboards, and implement performance alerting."
+      },
+      {
+        "id": 26,
+        "problem": "Inadequate Profiling Implementation",
+        "affected_files": ["Performance profiling", "Bottleneck identification"],
+        "fix_prompt": "Implement performance profiling with CPU and memory profilers, add continuous profiling, create profiling analysis, and implement performance regression detection."
+      },
+      {
+        "id": 27,
+        "problem": "Missing Load Testing",
+        "affected_files": ["Performance validation", "Scalability testing"],
+        "fix_prompt": "Implement comprehensive load testing with realistic scenarios, add stress testing, create performance benchmarks, and implement automated performance testing."
+      },
+      {
+        "id": 28,
+        "problem": "Inefficient Data Structures",
+        "affected_files": ["Data structure usage", "Algorithm implementations"],
+        "fix_prompt": "Optimize data structure selection for use cases, implement specialized data structures, add data structure benchmarking, and create performance-optimized collections."
+      },
+      {
+        "id": 29,
+        "problem": "Missing Cache Warming",
+        "affected_files": ["Cache initialization", "Cold start performance"],
+        "fix_prompt": "Implement cache warming strategies for critical data, add preloading mechanisms, create cache population optimization, and implement intelligent cache warming."
+      },
+      {
+        "id": 30,
+        "problem": "Inadequate Query Optimization",
+        "affected_files": ["Database queries", "Search operations"],
+        "fix_prompt": "Implement query optimization with execution plan analysis, add query caching, create query rewriting, and implement query performance monitoring."
+      },
+      {
+        "id": 31,
+        "problem": "Missing Content Optimization",
+        "affected_files": ["Static content", "Media files"],
+        "fix_prompt": "Implement content optimization with image compression, add minification for CSS/JS, create progressive loading, and implement content delivery optimization."
+      },
+      {
+        "id": 32,
+        "problem": "Inefficient API Design",
+        "affected_files": ["API endpoints", "Response formats"],
+        "fix_prompt": "Optimize API design with efficient data formats, add GraphQL for flexible queries, create API response optimization, and implement API performance monitoring."
+      },
+      {
+        "id": 33,
+        "problem": "Missing Streaming Processing",
+        "affected_files": ["Large data processing", "Real-time operations"],
+        "fix_prompt": "Implement streaming processing for large datasets, add stream processing frameworks, create real-time analytics, and implement stream optimization."
+      },
+      {
+        "id": 34,
+        "problem": "Inadequate Resource Pooling",
+        "affected_files": ["Resource management", "Object reuse"],
+        "fix_prompt": "Implement resource pooling for expensive resources, add pool size optimization, create resource lifecycle management, and implement pool monitoring."
+      },
+      {
+        "id": 35,
+        "problem": "Missing Parallel Processing",
+        "affected_files": ["Sequential operations", "CPU-bound tasks"],
+        "fix_prompt": "Implement parallel processing with multiprocessing and threading, add task parallelization, create work distribution, and implement parallel optimization."
+      },
+      {
+        "id": 36,
+        "problem": "Inefficient Error Handling",
+        "affected_files": ["Exception processing", "Error responses"],
+        "fix_prompt": "Optimize error handling performance with efficient exception handling, add error caching, create fast error paths, and implement error handling optimization."
+      },
+      {
+        "id": 37,
+        "problem": "Missing JIT Compilation",
+        "affected_files": ["Performance-critical code", "Hot paths"],
+        "fix_prompt": "Implement Just-In-Time compilation for performance-critical code, add JIT optimization, create compilation caching, and implement JIT monitoring."
+      },
+      {
+        "id": 38,
+        "problem": "Inadequate Memory Caching",
+        "affected_files": ["Memory usage", "Data access patterns"],
+        "fix_prompt": "Implement intelligent memory caching with LRU/LFU algorithms, add cache size optimization, create cache hit ratio monitoring, and implement cache eviction strategies."
+      },
+      {
+        "id": 39,
+        "problem": "Missing Vectorization",
+        "affected_files": ["Mathematical operations", "Data processing"],
+        "fix_prompt": "Implement vectorization for mathematical operations using SIMD instructions, add vectorized algorithms, create batch processing, and implement vectorization optimization."
+      },
+      {
+        "id": 40,
+        "problem": "Inefficient Lock Contention",
+        "affected_files": ["Concurrent access", "Shared resources"],
+        "fix_prompt": "Reduce lock contention with lock-free algorithms, implement fine-grained locking, add lock optimization, and create contention monitoring."
+      },
+      {
+        "id": 41,
+        "problem": "Missing Performance Budgets",
+        "affected_files": ["Performance requirements", "SLA management"],
+        "fix_prompt": "Implement performance budgets with SLA monitoring, add performance thresholds, create budget enforcement, and implement performance governance."
+      },
+      {
+        "id": 42,
+        "problem": "Inadequate Scaling Strategies",
+        "affected_files": ["System scaling", "Resource allocation"],
+        "fix_prompt": "Implement horizontal and vertical scaling strategies, add auto-scaling policies, create scaling optimization, and implement scaling monitoring."
+      },
+      {
+        "id": 43,
+        "problem": "Missing Performance Regression Detection",
+        "affected_files": ["Performance testing", "Continuous monitoring"],
+        "fix_prompt": "Implement performance regression detection with automated testing, add performance baselines, create regression alerting, and implement performance CI/CD integration."
+      },
+      {
+        "id": 44,
+        "problem": "Inefficient Resource Utilization",
+        "affected_files": ["CPU usage", "Memory usage", "I/O usage"],
+        "fix_prompt": "Optimize resource utilization with usage monitoring, add resource optimization algorithms, create utilization dashboards, and implement resource efficiency improvements."
+      },
+      {
+        "id": 45,
+        "problem": "Missing Performance Analytics",
+        "affected_files": ["Performance data", "Analytics systems"],
+        "fix_prompt": "Implement performance analytics with data collection, add performance insights, create analytics dashboards, and implement predictive performance analysis."
+      },
+      {
+        "id": 46,
+        "problem": "Inadequate Capacity Planning",
+        "affected_files": ["Resource planning", "Growth projections"],
+        "fix_prompt": "Implement capacity planning with growth modeling, add resource forecasting, create capacity monitoring, and implement proactive scaling."
+      },
+      {
+        "id": 47,
+        "problem": "Missing Performance Optimization Framework",
+        "affected_files": ["Optimization processes", "Performance culture"],
+        "fix_prompt": "Implement performance optimization framework with systematic approaches, add optimization methodologies, create performance culture, and implement continuous optimization."
+      },
+      {
+        "id": 48,
+        "problem": "Inefficient Cold Start Performance",
+        "affected_files": ["Application startup", "Service initialization"],
+        "fix_prompt": "Optimize cold start performance with lazy initialization, add startup optimization, create warm-up procedures, and implement startup monitoring."
+      },
+      {
+        "id": 49,
+        "problem": "Missing Performance Benchmarking",
+        "affected_files": ["Performance baselines", "Comparative analysis"],
+        "fix_prompt": "Implement performance benchmarking with industry standards, add benchmark automation, create comparative analysis, and implement benchmark tracking."
+      },
+      {
+        "id": 50,
+        "problem": "Inadequate Performance Documentation",
+        "affected_files": ["Performance guides", "Optimization documentation"],
+        "fix_prompt": "Create comprehensive performance documentation with optimization guides, add performance best practices, create troubleshooting guides, and implement performance knowledge management."
+      }
+    ]
+  }
+}

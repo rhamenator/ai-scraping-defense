@@ -25,7 +25,6 @@ from .config_schema import (
     ServiceEndpoint,
     TarpitConfig,
 )
-from .service_identity import InternalAuthMode
 
 logger = logging.getLogger(__name__)
 BCRYPT_PATTERN = re.compile(r"^\$(2[aby])\$(\d\d)\$[./A-Za-z0-9]{53}$")
@@ -225,9 +224,6 @@ class ConfigLoader:
         ]
         return EscalationConfig(
             threshold=float(env.get("ESCALATION_THRESHOLD", 0.8)),
-            throttle_threshold=float(env.get("ESCALATION_THROTTLE_THRESHOLD", 0.85)),
-            tarpit_threshold=float(env.get("ESCALATION_TARPIT_THRESHOLD", 0.92)),
-            block_threshold=float(env.get("ESCALATION_BLOCK_THRESHOLD", 0.98)),
             api_key=env.get("ESCALATION_API_KEY"),
             webhook_url=env.get("ESCALATION_WEBHOOK_URL"),
             webhook_allowed_domains=allowed_domains,
@@ -253,7 +249,6 @@ class ConfigLoader:
             tls_key_path=env.get("TLS_KEY_PATH"),
             enable_waf=env.get("ENABLE_WAF", "true").lower() == "true",
             waf_rules_path=env.get("WAF_RULES_PATH"),
-            internal_auth_mode=env.get("INTERNAL_AUTH_MODE", "shared_key"),
             jwt_secret=env.get("AUTH_JWT_SECRET"),
             jwt_secret_file=env.get("AUTH_JWT_SECRET_FILE"),
             jwt_public_key=env.get("AUTH_JWT_PUBLIC_KEY"),
@@ -336,34 +331,6 @@ class ConfigLoader:
                 not config.security.tls_cert_path or not config.security.tls_key_path
             ):
                 errors.append("TLS certificate and key required when HTTPS is enabled")
-            vault_addr = os.getenv("VAULT_ADDR")
-            if vault_addr and not vault_addr.startswith("https://"):
-                if os.getenv("ALLOW_INSECURE_VAULT_ADDR", "false").lower() != "true":
-                    errors.append("VAULT_ADDR must use https:// in production")
-            webauthn_origin = os.getenv("WEBAUTHN_ORIGIN")
-            if webauthn_origin and not webauthn_origin.startswith("https://"):
-                errors.append("WEBAUTHN_ORIGIN must use https:// in production")
-            if config.security.internal_auth_mode == InternalAuthMode.SHARED_KEY:
-                required_secrets = {
-                    "SHARED_SECRET": os.getenv("SHARED_SECRET"),
-                    "PROXY_KEY": os.getenv("PROXY_KEY"),
-                    "ESCALATION_API_KEY": os.getenv("ESCALATION_API_KEY"),
-                    "WEBHOOK_SHARED_SECRET": os.getenv("WEBHOOK_SHARED_SECRET"),
-                }
-                for secret_name, value in required_secrets.items():
-                    if not value:
-                        errors.append(
-                            f"{secret_name} required when INTERNAL_AUTH_MODE=shared_key in production"
-                        )
-            production_api_keys = {
-                "CLOUD_DASHBOARD_API_KEY": os.getenv("CLOUD_DASHBOARD_API_KEY"),
-                "RECOMMENDER_API_KEY": os.getenv("RECOMMENDER_API_KEY"),
-            }
-            for secret_name, value in production_api_keys.items():
-                if not value:
-                    errors.append(
-                        f"{secret_name} required for protected operational APIs in production"
-                    )
         if config.security.admin_ui_password_hash:
             match = BCRYPT_PATTERN.match(config.security.admin_ui_password_hash)
             if not match:
@@ -392,19 +359,6 @@ class ConfigLoader:
                 errors.append(
                     "CAPTCHA_SECRET required when ENABLE_CAPTCHA_TRIGGER=true"
                 )
-
-        if config.escalation.threshold > config.escalation.throttle_threshold:
-            errors.append(
-                "ESCALATION_THRESHOLD must be <= ESCALATION_THROTTLE_THRESHOLD"
-            )
-        if config.escalation.throttle_threshold > config.escalation.tarpit_threshold:
-            errors.append(
-                "ESCALATION_THROTTLE_THRESHOLD must be <= ESCALATION_TARPIT_THRESHOLD"
-            )
-        if config.escalation.tarpit_threshold > config.escalation.block_threshold:
-            errors.append(
-                "ESCALATION_TARPIT_THRESHOLD must be <= ESCALATION_BLOCK_THRESHOLD"
-            )
 
         # Validate alert configuration
         if config.alert_method == AlertMethod.EMAIL:

@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Dict, Iterable, List, Optional
 
 CLAIMS_DEFAULT_PATH = os.path.join("automation", "pr_file_claims.json")
@@ -74,9 +74,7 @@ def record_claim(
     claims[branch] = {
         "issue": issue_identifier,
         "files": sorted(set(files)),
-        "timestamp": datetime.now(UTC)
-        .isoformat(timespec="seconds")
-        .replace("+00:00", "Z"),
+        "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
     }
     save_claims(path, claims)
     print(f"  Recorded file claims for branch {branch}.")

@@ -51,7 +51,7 @@ def _is_truthy(value: str | None) -> bool:
 
 
 def validate_env(env: Mapping[str, str] | None = None) -> list[str]:
-    env = os.environ if env is None else env
+    env = env or os.environ
     errors: list[str] = []
 
     for key in REQUIRED_KEYS:
@@ -86,8 +86,6 @@ def validate_env(env: Mapping[str, str] | None = None) -> list[str]:
 
     enable_global_cdn = _is_truthy(env.get("ENABLE_GLOBAL_CDN"))
     require_cloudflare = _is_truthy(env.get("REQUIRE_CLOUDFLARE_ACCOUNT"))
-    origin_lockdown = _is_truthy(env.get("SECURITY_CDN_ORIGIN_LOCKDOWN"))
-    has_tunnel = bool((env.get("CLOUDFLARE_TUNNEL_TOKEN") or "").strip())
     if enable_global_cdn or require_cloudflare:
         provider = (env.get("CLOUD_CDN_PROVIDER") or "cloudflare").strip().lower()
         if provider != "cloudflare":
@@ -102,27 +100,10 @@ def validate_env(env: Mapping[str, str] | None = None) -> list[str]:
             errors.append(
                 "CLOUD_CDN_ZONE_ID (or explicit CDN_PURGE_URL) is required when CDN integration is enabled"
             )
-        if not env.get("SECURITY_CDN_TRUSTED_PROXY_CIDRS"):
-            errors.append(
-                "SECURITY_CDN_TRUSTED_PROXY_CIDRS is required when CDN integration is enabled"
-            )
         if require_cloudflare and not enable_global_cdn:
             errors.append(
                 "ENABLE_GLOBAL_CDN must be true when REQUIRE_CLOUDFLARE_ACCOUNT=true"
             )
-        if require_cloudflare and not origin_lockdown and not has_tunnel:
-            errors.append(
-                "REQUIRE_CLOUDFLARE_ACCOUNT=true requires SECURITY_CDN_ORIGIN_LOCKDOWN=true "
-                "or CLOUDFLARE_TUNNEL_TOKEN to keep the origin off the public internet"
-            )
-    if (
-        origin_lockdown
-        and not (enable_global_cdn or require_cloudflare)
-        and not env.get("SECURITY_CDN_TRUSTED_PROXY_CIDRS")
-    ):
-        errors.append(
-            "SECURITY_CDN_TRUSTED_PROXY_CIDRS is required when SECURITY_CDN_ORIGIN_LOCKDOWN=true"
-        )
 
     return errors
 
@@ -135,23 +116,12 @@ def main() -> int:
         default=".env",
         help="Path to the env file (default: .env)",
     )
-    parser.add_argument(
-        "--merge-with-process-env",
-        action="store_true",
-        help="Merge the parsed env file with the current process environment instead of validating the file in isolation",
-    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
     env_file = Path(args.env_path)
 
-    file_env = parse_env(env_file)
-    if args.merge_with_process_env:
-        env = dict(os.environ)
-        env.update(file_env)
-    else:
-        env = file_env
-
-    errors = validate_env(env)
+    os.environ.update(parse_env(env_file))
+    errors = validate_env()
 
     if errors:
         for err in errors:

@@ -7,10 +7,13 @@ import os
 
 import redis.asyncio as redis
 
-from src.shared.redis_client import load_redis_runtime_settings
 from src.util import adaptive_rate_limit_manager
 
 SYNC_INTERVAL_SECONDS = int(os.getenv("ADAPTIVE_RATE_LIMIT_INTERVAL", "60"))
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+REDIS_DB = int(os.environ.get("REDIS_DB", 0))
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 RATE_LIMIT_EVENT_CHANNEL = "rate_limit_events"
 
 
@@ -19,12 +22,11 @@ logger = logging.getLogger(__name__)
 
 async def get_redis_client():
     """Create and return an async Redis client."""
-    redis_host, redis_port, redis_db, redis_password = load_redis_runtime_settings()
     return redis.Redis(
-        host=redis_host,
-        port=redis_port,
-        db=redis_db,
-        password=redis_password,
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        password=REDIS_PASSWORD,
         decode_responses=True,
     )
 

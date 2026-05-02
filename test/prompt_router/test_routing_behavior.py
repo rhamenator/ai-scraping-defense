@@ -28,7 +28,6 @@ class TestRoutingBehavior(unittest.IsolatedAsyncioTestCase):
                 "MAX_LOCAL_TOKENS": "5",
                 "LOCAL_LLM_URL": "http://local",
                 "CLOUD_PROXY_URL": "http://cloud",
-                "PROXY_KEY": "proxy-secret",
                 "SHARED_SECRET": self.shared_secret,
             },
         )
@@ -47,8 +46,8 @@ class TestRoutingBehavior(unittest.IsolatedAsyncioTestCase):
         mock_resp.raise_for_status.return_value = None
         calls = []
 
-        async def dummy_post(url, json, headers, timeout):
-            calls.append((url, json, headers, timeout))
+        async def dummy_post(url, json, timeout):
+            calls.append((url, json, timeout))
             return mock_resp
 
         async_client = AsyncMock()
@@ -75,7 +74,6 @@ class TestRoutingBehavior(unittest.IsolatedAsyncioTestCase):
     async def test_long_prompt_goes_cloud(self):
         calls = await self._send_prompt(" ".join(["x"] * 6))
         self.assertEqual(calls[0][0], "http://cloud")
-        self.assertEqual(calls[0][2]["X-Proxy-Key"], "proxy-secret")
 
 
 if __name__ == "__main__":

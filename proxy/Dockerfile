@@ -1,4 +1,4 @@
-FROM openresty/openresty:1.29.2.1-alpine
+FROM openresty/openresty:alpine
 
 # Bring Alpine packages up to date to pick up security fixes in base libraries.
 RUN apk update && apk upgrade --no-cache

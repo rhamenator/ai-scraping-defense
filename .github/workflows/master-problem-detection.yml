@@ -19,7 +19,7 @@ on:
         description: "Run autofix and open PRs (true|false)"
         type: boolean
         required: false
-        default: false
+        default: true
   workflow_call:
     inputs:
       categories:
@@ -37,7 +37,7 @@ on:
       autofix:
         type: boolean
         required: false
-        default: false
+        default: true
 
 permissions:
   contents: write
@@ -108,7 +108,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
 
       - name: Setup Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
@@ -355,7 +355,7 @@ jobs:
           EOF
 
       - name: Upload Master Reports
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: master-problem-analysis
           path: reports/master/

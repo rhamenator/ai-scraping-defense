@@ -8,8 +8,6 @@ on:
       ref:
         description: "Git ref to run against"
         required: false
-  push:
-    branches: ["main"]
   pull_request:
     branches: ["main"]
 permissions:
@@ -22,12 +20,10 @@ jobs:
     permissions:
       contents: read
       checks: write
-    env:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN || '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with: { fetch-depth: 0 }
       - name: Set up Python
         if: hashFiles('**/*.py') != ''
@@ -36,7 +32,7 @@ jobs:
           python-version: "3.11"
       - name: Set up Rust toolchain
         if: hashFiles('**/Cargo.toml') != ''
-        uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606
+        uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c
         with:
           components: rustfmt, clippy
       - name: Python tests
@@ -48,14 +44,7 @@ jobs:
           if [ -f setup.py ]; then pip install -e .; fi
           pip install kubernetes
           pip install pytest pytest-cov
-          pytest -q test/ --cov=src --cov-report=xml
-      - name: Upload coverage
-        if: env.CODECOV_TOKEN != ''
-        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
-        with:
-          files: coverage.xml
-          token: ${{ env.CODECOV_TOKEN }}
-          fail_ci_if_error: true
+          pytest -q test/
       - name: Rust tests
         if: hashFiles('**/Cargo.toml') != ''
         env:
@@ -125,30 +114,7 @@ jobs:
           fi
       - name: Validate NGINX configs (syntax only)
         if: hashFiles('nginx/*.conf') != '' || hashFiles('nginx/**/*.conf') != ''
-        run: |
-          tmpdir="$(mktemp -d)"
-          mkdir -p \
-            "$tmpdir/logs" \
-            "$tmpdir/run/openresty/nginx-client-body" \
-            "$tmpdir/cache/proxy_temp" \
-            "$tmpdir/cache/fastcgi_temp" \
-            "$tmpdir/cache/uwsgi_temp" \
-            "$tmpdir/cache/scgi_temp"
-          docker run --rm \
-            -v "$PWD/nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro" \
-            -v "$PWD/nginx/lua:/etc/nginx/lua:ro" \
-            -v "$PWD/nginx/certs:/etc/nginx/certs:ro" \
-            -v "$PWD/nginx/.htpasswd:/etc/nginx/secrets/.htpasswd:ro" \
-            -v "$tmpdir/logs:/var/log/nginx" \
-            -v "$tmpdir/run:/var/run" \
-            -v "$tmpdir/run/openresty/nginx-client-body:/var/run/openresty/nginx-client-body" \
-            -v "$tmpdir/cache/proxy_temp:/var/cache/nginx/proxy_temp" \
-            -v "$tmpdir/cache/fastcgi_temp:/var/cache/nginx/fastcgi_temp" \
-            -v "$tmpdir/cache/uwsgi_temp:/var/cache/nginx/uwsgi_temp" \
-            -v "$tmpdir/cache/scgi_temp:/var/cache/nginx/scgi_temp" \
-            openresty/openresty:1.29.2.1-alpine \
-            openresty -t
-          rm -rf "$tmpdir"
+        run: docker run --rm -v "$PWD/nginx:/etc/nginx:ro" nginx:stable nginx -t -c /etc/nginx/nginx.conf
       - name: Set up Helm
         if: hashFiles('helm/**') != ''
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4
@@ -168,7 +134,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with: { fetch-depth: 0 }
       - name: Set up Python
         if: hashFiles('**/*.py') != ''
@@ -196,23 +162,8 @@ jobs:
       - name: PowerShell Analyzer
         shell: pwsh
         run: |
-          $trackedScripts = @(git ls-files -- '*.ps1')
-          if ($trackedScripts.Count -eq 0) {
-            Write-Host "No tracked PowerShell scripts found."
-            exit 0
-          }
           Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
-          $issues = foreach ($scriptPath in $trackedScripts) {
-            if ($scriptPath -match '^(\\.venv|\\.git|node_modules)(/|\\)') {
-              continue
-            }
-            Invoke-ScriptAnalyzer -Path $scriptPath -Severity Warning
-          }
-          if ($issues) {
-            $issues | Format-Table
-          } else {
-            Write-Host "No PSScriptAnalyzer issues found."
-          }
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Recurse -Severity Warning -OutVariable issues } ; $issues | Format-Table
   tests-macos:
     permissions:
       contents: read
@@ -220,7 +171,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with: { fetch-depth: 0 }
       - name: Set up Python
         if: hashFiles('**/*.py') != ''

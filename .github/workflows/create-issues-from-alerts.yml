@@ -40,7 +40,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
 
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
@@ -97,23 +97,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p reports
           echo "Running in ${{ steps.mode.outputs.mode_label }} mode"
           python scripts/create_issues_from_alerts.py \
             --owner ${{ github.repository_owner }} \
             --repo ${{ github.event.repository.name }} \
-            --plan-output reports/security-response-plan.json \
             ${{ steps.mode.outputs.dry_run }} \
             ${{ steps.mode.outputs.min_severity }} \
             ${{ steps.mode.outputs.dependabot }}
-
-      - name: Upload response plan
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
-        with:
-          name: create-issues-response-plan-${{ github.run_number }}
-          path: reports/security-response-plan.json
-          if-no-files-found: ignore
 
       - name: Summary
         if: always()

@@ -36,7 +36,6 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 from .http_client import AsyncHttpClient, httpx
-from .security_events import record_security_event
 
 logger = logging.getLogger(__name__)
 
@@ -59,25 +58,6 @@ def _safe_endpoint_for_logs(url: str) -> str:
         origin = "<invalid-url>"
     fp = hashlib.sha256(url.encode("utf-8")).hexdigest()[:10]
     return f"{origin} (id={fp})"
-
-
-def _record_delivery_event(
-    action: str,
-    *,
-    severity: str,
-    payload: dict[str, Any],
-) -> None:
-    try:
-        record_security_event(
-            "alert_delivery",
-            actor="system",
-            action=action,
-            source="http_alert",
-            severity=severity,
-            payload=payload,
-        )
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.warning("Failed to persist alert delivery event: %s", exc)
 
 
 class AlertDeliveryError(Exception):
@@ -236,16 +216,6 @@ class HttpAlertSender:
                 safe_endpoint,
                 response.status_code,
             )
-            _record_delivery_event(
-                "delivered",
-                severity="info",
-                payload={
-                    "alert_type": payload.get("alert_type"),
-                    "alert_severity": payload.get("severity"),
-                    "endpoint": safe_endpoint,
-                    "status_code": response.status_code,
-                },
-            )
             return True
 
         except httpx.TimeoutException:
@@ -253,11 +223,6 @@ class HttpAlertSender:
                 "Timeout delivering alert to %s (attempts %s)",
                 safe_endpoint,
                 max_attempts,
-            )
-            _record_delivery_event(
-                "timeout",
-                severity="warning",
-                payload={"endpoint": safe_endpoint, "attempts": max_attempts},
             )
 
         except httpx.HTTPStatusError as e:
@@ -271,16 +236,6 @@ class HttpAlertSender:
                 max_attempts,
                 response_body,
             )
-            _record_delivery_event(
-                "http_error",
-                severity="warning",
-                payload={
-                    "endpoint": safe_endpoint,
-                    "attempts": max_attempts,
-                    "status_code": e.response.status_code,
-                    "response_body": response_body,
-                },
-            )
 
         except httpx.RequestError as e:
             logger.error(
@@ -289,15 +244,6 @@ class HttpAlertSender:
                 max_attempts,
                 e,
             )
-            _record_delivery_event(
-                "request_error",
-                severity="warning",
-                payload={
-                    "endpoint": safe_endpoint,
-                    "attempts": max_attempts,
-                    "error": str(e),
-                },
-            )
 
         except Exception as e:
             logger.error(
@@ -305,15 +251,6 @@ class HttpAlertSender:
                 safe_endpoint,
                 max_attempts,
                 e,
-            )
-            _record_delivery_event(
-                "unexpected_error",
-                severity="warning",
-                payload={
-                    "endpoint": safe_endpoint,
-                    "attempts": max_attempts,
-                    "error": str(e),
-                },
             )
 
         logger.error("Failed to deliver alert after %s attempts", max_attempts)

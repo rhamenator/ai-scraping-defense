@@ -7,8 +7,6 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .service_identity import InternalAuthMode
-
 MASKED_VALUE = "***MASKED***"
 
 
@@ -149,9 +147,6 @@ class EscalationConfig(BaseModel):
     """Escalation engine configuration."""
 
     threshold: float = Field(default=0.8, ge=0.0, le=1.0)
-    throttle_threshold: float = Field(default=0.85, ge=0.0, le=1.0)
-    tarpit_threshold: float = Field(default=0.92, ge=0.0, le=1.0)
-    block_threshold: float = Field(default=0.98, ge=0.0, le=1.0)
     api_key: Optional[str] = Field(default=None, repr=False)
     webhook_url: Optional[str] = None
     webhook_allowed_domains: List[str] = Field(default_factory=list)
@@ -165,17 +160,6 @@ class EscalationConfig(BaseModel):
             if scheme not in {"http", "https"}:
                 raise ValueError("webhook_url must start with http or https")
         return v
-
-    @model_validator(mode="after")
-    def validate_threshold_order(self) -> "EscalationConfig":
-        """Validate escalation thresholds increase monotonically."""
-        if self.threshold > self.throttle_threshold:
-            raise ValueError("threshold must be <= throttle_threshold")
-        if self.throttle_threshold > self.tarpit_threshold:
-            raise ValueError("throttle_threshold must be <= tarpit_threshold")
-        if self.tarpit_threshold > self.block_threshold:
-            raise ValueError("tarpit_threshold must be <= block_threshold")
-        return self
 
 
 class CaptchaConfig(BaseModel):
@@ -207,7 +191,6 @@ class SecurityConfig(BaseModel):
     tls_key_path: Optional[str] = None
     enable_waf: bool = Field(default=True)
     waf_rules_path: Optional[str] = None
-    internal_auth_mode: InternalAuthMode = Field(default=InternalAuthMode.SHARED_KEY)
     jwt_secret: Optional[str] = Field(default=None, repr=False)
     jwt_secret_file: Optional[str] = None
     jwt_public_key: Optional[str] = Field(default=None, repr=False)

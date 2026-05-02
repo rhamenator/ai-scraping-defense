@@ -59,17 +59,6 @@ This project provides a multi-layered, microservice-based defense system against
 - The legacy `security-autofix.yml` now delegates to the generic autofixer for compatibility.
 - The `security-controls` workflow acts as the security baseline gate. See `docs/SECURITY_BASELINE_GATE.md`.
 
-## Release Path
-
-- `ci-tests.yml` is the primary cross-platform validation workflow for pushes to `main` and pull requests.
-- `tests.yml` now serves as a dedicated Rust nightly smoke workflow instead of duplicating the main PR test path.
-- `security-attack-regression.yml` is the deterministic PR-time ingress regression gate; it boots the Compose stack locally and asserts expected security behaviour.
-- `kali-security-sweep.yml` is the broader external attack sweep intended for a self-hosted Kali runner against a preview or staging target.
-- tagged releases publish signed container images through `/.github/workflows/release-images.yml`.
-- tagged releases also publish versioned installer bundles through `/.github/workflows/release-bundles.yml`.
-
-See [docs/release_checklist.md](docs/release_checklist.md) and [docs/release_artifacts.md](docs/release_artifacts.md) for the expected release process and artifact policy.
-
 ## Architecture Overview
 
 The following diagram provides a high-level view of how the major components interact. Note that the AI Service merely receives webhook data and enqueues it for the Escalation Engine, which performs the actual analysis. See [docs/architecture.md](docs/architecture.md) for a deeper explanation.
@@ -162,11 +151,11 @@ installs dependencies, and starts Docker Compose. See
 ### Linux
 1. [Install Docker Engine](https://docs.docker.com/engine/install/) and ensure it is running.
 2. Install Python 3.10 or newer (`sudo apt install python3 python3-venv` on Debian-based distros).
-3. Clone the repository and execute the Linux installer:
+3. Clone the repository and execute the quickstart script:
    ```bash
    git clone https://github.com/your-username/ai-scraping-defense.git
    cd ai-scraping-defense
-   sudo ./scripts/linux/install.sh
+    sudo ./scripts/linux/quickstart_dev.sh
    ```
 4. When the containers finish starting, open [http://localhost:5002](http://localhost:5002) to view the Admin UI dashboard.
 5. If you see "Cannot connect to the Docker daemon," start the service with
@@ -179,7 +168,7 @@ installs dependencies, and starts Docker Compose. See
    ```bash
    git clone https://github.com/your-username/ai-scraping-defense.git
    cd ai-scraping-defense
-    ./scripts/macos/install.zsh
+    ./scripts/macos/quickstart_dev.zsh
    ```
 4. When the containers finish starting, visit [http://localhost:5002](http://localhost:5002) to open the Admin UI.
 5. If containers fail to start, confirm Docker Desktop is running by opening the Docker menu.
@@ -192,14 +181,14 @@ installs dependencies, and starts Docker Compose. See
    ```powershell
    git clone https://github.com/your-username/ai-scraping-defense.git
    cd ai-scraping-defense
-   .\scripts\windows\install.ps1
+   .\scripts\windows\quickstart_dev.ps1
    ```
 4. After the containers start, browse to [http://localhost:5002](http://localhost:5002) to access the Admin UI.
 5. If Docker commands are not found, verify Docker Desktop is running and try `docker version`.
 
 ## Quick Local Setup
 
-Run the automated installer after cloning the repository:
+Run the automated script after cloning the repository:
 
 ```bash
 git clone https://github.com/your-username/ai-scraping-defense.git
@@ -208,33 +197,19 @@ cd ai-scraping-defense
 cp sample.env .env
 python scripts/validate_env.py
 
-sudo ./scripts/linux/install.sh          # Linux
-./scripts/macos/install.zsh          # macOS
+sudo ./scripts/linux/quickstart_dev.sh   # Linux
+./scripts/macos/quickstart_dev.zsh   # macOS
 
 ```
 
 For the security testing environment, a helper `scripts/linux/security_setup.sh` script installs all Python requirements and security tools used by `scripts/linux/security_scan.sh`.
 
-On Windows, open an **Administrator PowerShell** window and run `scripts\windows\install.ps1` instead.
+On Windows, open an **Administrator PowerShell** window and run `scripts\windows\quickstart_dev.ps1` instead.
 
-The Linux installer generates local secrets, installs Python requirements with
+The script generates secrets, installs Python requirements with
 `pip install -r requirements.txt -c constraints.txt`, re-runs
-`python scripts/validate_env.py`, launches Docker Compose through the selected
-reverse-proxy helper, and runs the Linux smoke test for you. For Linux-specific
-rollback and uninstall steps, see [docs/linux_installer.md](docs/linux_installer.md).
+`python scripts/validate_env.py`, and launches Docker Compose for you.
 The stack requires Rust 1.78.0. `mise` (or `rustup`) installs this toolchain automatically.
-
-If you prefer downloading a tagged release bundle instead of cloning the
-repository, use the release `.zip` bundle on Windows or the `.tar.gz` bundle on
-Linux and macOS, then run the same installer entrypoints from the extracted
-repository root.
-
-If you want local GGUF inference through the `llamacpp://` adapter, install the
-optional native dependency set after the base environment is ready:
-
-```bash
-pip install -r requirements-local-llm.txt -c constraints.txt
-```
 If you see a warning about `idiomatic_version_file_enable_tools`, silence it with:
 
 ```bash
@@ -273,7 +248,7 @@ Follow these steps if you prefer to configure everything yourself.
     database at `secrets/local_secrets.db`. Delete this file or answer **n**
     during the prompt to disable the database and clear stored values.
 
-    Open `.env` and review the defaults. Set `TENANT_ID` for isolated deployments and add any API keys you plan to use. The sample file now defaults the containerized Nginx proxy to `8088`/`8443` so it can coexist with host Apache or nginx on Ubuntu. For **production** or takeover deployments, update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443` once the stack is the only web listener on the host. Use `REAL_BACKEND_HOSTS` to supply a comma-separated list of backend servers for load balancing or `REAL_BACKEND_HOST` for a single destination. See [docs/ubuntu_reverse_proxy.md](docs/ubuntu_reverse_proxy.md) for the recommended host reverse-proxy topology.
+    Open `.env` and review the defaults. Set `TENANT_ID` for isolated deployments and add any API keys you plan to use. For **production** deployments update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443`. Use `REAL_BACKEND_HOSTS` to supply a comma-separated list of backend servers for load balancing or `REAL_BACKEND_HOST` for a single destination.
 For a full walkthrough of bringing the stack live, review [docs/test_to_production.md](docs/test_to_production.md).
 
 3. **Set Up Python Virtual Environment:**
@@ -316,7 +291,7 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     ```
 
 4. **Generate Secrets:**
-    Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console. When run with `--update-env` (as in the interactive setup), the script also updates `.env` and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose. Those two Compose-mounted files are written with container-readable permissions for local and CI use.
+    Run the secret generation script to create passwords for the database, Admin UI, and other services. It writes a `kubernetes/secrets.yaml` file and prints the credentials to your console. When run with `--update-env` (as in the interactive setup), the script also updates `.env` and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose.
 
     The local setup scripts lock down the `secrets/` directory (Unix chmod or
     Windows ACLs). If you store secrets elsewhere, you can leave these files
@@ -385,9 +360,8 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     - **Cloud Dashboard:** `http://localhost:5006`
     - **Cloud Proxy:** `http://localhost:8008`
     - **Prompt Router:** `http://localhost:8009`
-    - **Nginx Proxy (recommended):** `http://localhost:8088`
-    - **Nginx Proxy HTTPS (if enabled):** `https://localhost:8443`
-    - **Apache Proxy (optional alternative):** `http://localhost:8080`
+    - **Your Application:** `http://localhost:8080`
+    - **HTTPS (if enabled):** `https://localhost:8443`
 
 ## Optional Features
 
@@ -529,13 +503,6 @@ python src/rag/training.py --model xgb
 
 This flexibility makes it easy to experiment with different classifiers.
 
-The fine-tuning path now expects provenance sidecars next to exported
-`*.jsonl` datasets. The normal `src/rag/training.py` export flow writes these
-metadata files automatically; imported datasets should provide matching
-`*.metadata.json` files or `src/rag/finetune.py` will reject them by default.
-See [docs/local_model_training.md](docs/local_model_training.md) for the trust
-boundary and review expectations.
-
 ## Quick Kubernetes Deployment
 
 Run the helper script to deploy everything to Kubernetes in one step. Ensure the
@@ -552,14 +519,14 @@ The script applies all manifests using `kubectl`; it does not generate secrets.
 
 ## Manual Kubernetes Deployment
 
-For a detailed, step-by-step guide see [docs/kubernetes_deployment.md](docs/kubernetes_deployment.md). The `scripts/linux/deploy.sh` and `scripts/windows/deploy.ps1` scripts provide a manual approach if you need more control.
+For a detailed, step-by-step guide see [docs/kubernetes_deployment.md](docs/kubernetes_deployment.md). The `deploy.sh` and `deploy.ps1` scripts provide a manual approach if you need more control.
 
 ## Cloud Deployment (GKE Example)
 
 To deploy the stack to a managed Kubernetes service such as Google Kubernetes Engine, follow the instructions in [docs/cloud_provider_deployment.md](docs/cloud_provider_deployment.md). Convenience scripts are provided for automation:
 
 ```bash
-./scripts/linux/gke_deploy.sh       # or .\scripts\windows\gke_deploy.ps1 on Windows
+./gke_deploy.sh       # or .\gke_deploy.ps1 on Windows
 ```
 
 ### GitHub Actions Runner Deployment
@@ -580,11 +547,11 @@ It installs common open-source tools such as **wrk**, **siege**, **ab**, **k6**,
 After installing the tools, you can run a basic stress test using the provided scripts:
 
 ```powershell
-./stress_test.ps1 -Target http://your-linux-host:8088 -VUs 50 -DurationSeconds 30
+./stress_test.ps1 -Target http://your-linux-host:8080 -VUs 50 -DurationSeconds 30
 ```
 
 ```bash
-./stress_test.sh http://your-linux-host:8088
+./stress_test.sh http://your-linux-host:8080
 ```
 
 ## Security Scan Helper

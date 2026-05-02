@@ -10,7 +10,7 @@ import logging
 import secrets
 import string
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional
 
 from src.shared.vault_client import VaultClient, get_vault_client
@@ -137,7 +137,7 @@ class SecretRotationService:
             "path": policy.path,
             "rotated": False,
             "message": "",
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
         try:
@@ -155,7 +155,7 @@ class SecretRotationService:
                         rotation_due = created_dt + timedelta(
                             days=policy.rotation_period_days
                         )
-                        if datetime.now(UTC) < rotation_due:
+                        if datetime.utcnow() < rotation_due.replace(tzinfo=None):
                             result["message"] = "Rotation not yet due"
                             result["success"] = True
                             return result
@@ -181,7 +181,7 @@ class SecretRotationService:
             # Write new secret to Vault
             secret_data = current_secret.copy() if current_secret else {}
             secret_data[policy.key_name] = new_value
-            secret_data["rotated_at"] = datetime.now(UTC).isoformat()
+            secret_data["rotated_at"] = datetime.utcnow().isoformat()
             secret_data["rotation_policy"] = policy.name
 
             success = self.vault_client.write_secret(
@@ -256,7 +256,7 @@ class SecretRotationService:
             created_dt = datetime.fromisoformat(created_time.replace("Z", "+00:00"))
             rotation_due = created_dt + timedelta(days=policy.rotation_period_days)
 
-            return datetime.now(UTC) >= rotation_due
+            return datetime.utcnow() >= rotation_due.replace(tzinfo=None)
 
         except Exception as e:
             logger.error(f"Error checking rotation due for {policy.name}: {e}")

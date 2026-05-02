@@ -1,0 +1,309 @@
+{
+  "security_problems_batch4": {
+    "category": "Security",
+    "batch": 4,
+    "total_problems": 50,
+    "problems": [
+      {
+        "id": 151,
+        "problem": "Missing Secure Boot Chain Validation",
+        "affected_files": ["Boot loader", "Kernel initialization", "System startup"],
+        "fix_prompt": "Implement complete secure boot chain with UEFI Secure Boot, add boot component verification, create boot attestation reporting, and implement boot integrity monitoring."
+      },
+      {
+        "id": 152,
+        "problem": "Inadequate Memory Encryption",
+        "affected_files": ["Memory management", "Sensitive data storage"],
+        "fix_prompt": "Implement full memory encryption with Intel TME/AMD SME, add memory integrity protection, create encrypted memory pools, and implement memory encryption monitoring."
+      },
+      {
+        "id": 153,
+        "problem": "Missing Control Flow Integrity",
+        "affected_files": ["Code execution", "Function calls"],
+        "fix_prompt": "Implement control flow integrity protection, add return-oriented programming (ROP) mitigation, create call stack validation, and implement CFI monitoring."
+      },
+      {
+        "id": 154,
+        "problem": "Insecure Stack Protection",
+        "affected_files": ["Stack management", "Buffer overflow protection"],
+        "fix_prompt": "Implement stack canaries and stack smashing protection, add stack randomization, create stack overflow detection, and implement stack protection monitoring."
+      },
+      {
+        "id": 155,
+        "problem": "Missing Address Space Layout Randomization",
+        "affected_files": ["Memory layout", "Process initialization"],
+        "fix_prompt": "Implement comprehensive ASLR with heap, stack, and library randomization, add entropy validation, create ASLR effectiveness testing, and implement ASLR monitoring."
+      },
+      {
+        "id": 156,
+        "problem": "Inadequate Data Execution Prevention",
+        "affected_files": ["Memory protection", "Code injection prevention"],
+        "fix_prompt": "Implement hardware-based DEP/NX bit protection, add executable space validation, create code injection detection, and implement DEP monitoring."
+      },
+      {
+        "id": 157,
+        "problem": "Missing Intel CET Support",
+        "affected_files": ["Control flow protection", "Hardware security features"],
+        "fix_prompt": "Implement Intel Control-flow Enforcement Technology, add shadow stack protection, create indirect branch tracking, and implement CET monitoring."
+      },
+      {
+        "id": 158,
+        "problem": "Insecure ARM Pointer Authentication",
+        "affected_files": ["ARM architecture", "Pointer integrity"],
+        "fix_prompt": "Implement ARM Pointer Authentication for return address protection, add pointer signing validation, create authentication key management, and implement pointer authentication monitoring."
+      },
+      {
+        "id": 159,
+        "problem": "Missing Intel MPX Support",
+        "affected_files": ["Memory bounds checking", "Buffer overflow protection"],
+        "fix_prompt": "Implement Intel Memory Protection Extensions, add bounds checking validation, create MPX exception handling, and implement MPX monitoring."
+      },
+      {
+        "id": 160,
+        "problem": "Inadequate SMEP/SMAP Protection",
+        "affected_files": ["Kernel protection", "Privilege separation"],
+        "fix_prompt": "Implement Supervisor Mode Execution/Access Prevention, add kernel-user space isolation, create privilege violation detection, and implement SMEP/SMAP monitoring."
+      },
+      {
+        "id": 161,
+        "problem": "Missing Kernel Guard Technology",
+        "affected_files": ["Kernel integrity", "Runtime protection"],
+        "fix_prompt": "Implement kernel guard technology for runtime protection, add kernel code integrity validation, create kernel tampering detection, and implement kernel guard monitoring."
+      },
+      {
+        "id": 162,
+        "problem": "Insecure Hypervisor Security",
+        "affected_files": ["Virtualization layer", "VM isolation"],
+        "fix_prompt": "Implement hypervisor security hardening, add VM escape protection, create hypervisor integrity validation, and implement hypervisor security monitoring."
+      },
+      {
+        "id": 163,
+        "problem": "Missing VM Introspection",
+        "affected_files": ["Virtual machine monitoring", "Guest OS security"],
+        "fix_prompt": "Implement virtual machine introspection for security monitoring, add guest OS behavior analysis, create VM security event detection, and implement VMI monitoring."
+      },
+      {
+        "id": 164,
+        "problem": "Inadequate Container Escape Protection",
+        "affected_files": ["Container runtime", "Isolation mechanisms"],
+        "fix_prompt": "Implement container escape detection and prevention, add namespace isolation validation, create container breakout monitoring, and implement container security boundaries."
+      },
+      {
+        "id": 165,
+        "problem": "Missing Speculative Execution Mitigations",
+        "affected_files": ["CPU speculation", "Side-channel protection"],
+        "fix_prompt": "Implement Spectre/Meltdown mitigations, add speculative execution barriers, create side-channel attack protection, and implement speculation monitoring."
+      },
+      {
+        "id": 166,
+        "problem": "Insecure Branch Prediction Security",
+        "affected_files": ["CPU branch prediction", "Speculative attacks"],
+        "fix_prompt": "Implement branch prediction security controls, add indirect branch prediction barriers, create branch target injection protection, and implement branch prediction monitoring."
+      },
+      {
+        "id": 167,
+        "problem": "Missing Cache Timing Attack Protection",
+        "affected_files": ["CPU cache", "Timing side-channels"],
+        "fix_prompt": "Implement cache timing attack mitigations, add cache partitioning, create timing channel detection, and implement cache security monitoring."
+      },
+      {
+        "id": 168,
+        "problem": "Inadequate Power Analysis Protection",
+        "affected_files": ["Power consumption", "Side-channel analysis"],
+        "fix_prompt": "Implement power analysis attack protection, add power consumption randomization, create power side-channel detection, and implement power analysis monitoring."
+      },
+      {
+        "id": 169,
+        "problem": "Missing Electromagnetic Emission Protection",
+        "affected_files": ["EM emissions", "TEMPEST protection"],
+        "fix_prompt": "Implement electromagnetic emission shielding, add EM side-channel protection, create emission monitoring, and implement TEMPEST compliance."
+      },
+      {
+        "id": 170,
+        "problem": "Insecure Acoustic Cryptanalysis Protection",
+        "affected_files": ["Acoustic emissions", "Sound-based attacks"],
+        "fix_prompt": "Implement acoustic cryptanalysis protection, add sound emission masking, create acoustic side-channel detection, and implement acoustic security monitoring."
+      },
+      {
+        "id": 171,
+        "problem": "Missing Fault Injection Protection",
+        "affected_files": ["Hardware fault tolerance", "Glitch attacks"],
+        "fix_prompt": "Implement fault injection attack protection, add glitch detection, create fault tolerance mechanisms, and implement fault injection monitoring."
+      },
+      {
+        "id": 172,
+        "problem": "Inadequate Clock Glitch Protection",
+        "affected_files": ["Clock signals", "Timing attacks"],
+        "fix_prompt": "Implement clock glitch detection and protection, add clock integrity validation, create timing attack mitigation, and implement clock security monitoring."
+      },
+      {
+        "id": 173,
+        "problem": "Missing Voltage Glitch Protection",
+        "affected_files": ["Power supply", "Voltage manipulation"],
+        "fix_prompt": "Implement voltage glitch detection and protection, add power supply monitoring, create voltage attack mitigation, and implement voltage security monitoring."
+      },
+      {
+        "id": 174,
+        "problem": "Insecure Temperature Attack Protection",
+        "affected_files": ["Thermal management", "Temperature-based attacks"],
+        "fix_prompt": "Implement temperature attack protection, add thermal monitoring, create temperature-based side-channel mitigation, and implement thermal security monitoring."
+      },
+      {
+        "id": 175,
+        "problem": "Missing Laser Fault Injection Protection",
+        "affected_files": ["Optical security", "Laser-based attacks"],
+        "fix_prompt": "Implement laser fault injection protection, add optical shielding, create laser attack detection, and implement optical security monitoring."
+      },
+      {
+        "id": 176,
+        "problem": "Inadequate X-Ray Attack Protection",
+        "affected_files": ["Radiation shielding", "X-ray analysis"],
+        "fix_prompt": "Implement X-ray attack protection, add radiation shielding, create X-ray detection, and implement radiation security monitoring."
+      },
+      {
+        "id": 177,
+        "problem": "Missing Focused Ion Beam Protection",
+        "affected_files": ["Circuit modification", "FIB attacks"],
+        "fix_prompt": "Implement focused ion beam attack protection, add circuit integrity validation, create FIB detection, and implement circuit security monitoring."
+      },
+      {
+        "id": 178,
+        "problem": "Insecure Microprobing Protection",
+        "affected_files": ["Circuit probing", "Physical analysis"],
+        "fix_prompt": "Implement microprobing attack protection, add probe detection, create circuit access monitoring, and implement physical security validation."
+      },
+      {
+        "id": 179,
+        "problem": "Missing Package Decapsulation Protection",
+        "affected_files": ["IC packaging", "Physical security"],
+        "fix_prompt": "Implement package decapsulation protection, add tamper-evident packaging, create decapsulation detection, and implement package integrity monitoring."
+      },
+      {
+        "id": 180,
+        "problem": "Inadequate Reverse Engineering Protection",
+        "affected_files": ["Code obfuscation", "IP protection"],
+        "fix_prompt": "Implement reverse engineering protection, add code obfuscation, create anti-debugging measures, and implement reverse engineering detection."
+      },
+      {
+        "id": 181,
+        "problem": "Missing Software Watermarking",
+        "affected_files": ["IP protection", "Code authentication"],
+        "fix_prompt": "Implement software watermarking for IP protection, add watermark verification, create tamper detection, and implement watermark monitoring."
+      },
+      {
+        "id": 182,
+        "problem": "Insecure Code Signing Infrastructure",
+        "affected_files": ["Code signing", "Certificate management"],
+        "fix_prompt": "Implement robust code signing infrastructure, add certificate lifecycle management, create signing validation, and implement code signing monitoring."
+      },
+      {
+        "id": 183,
+        "problem": "Missing Binary Attestation",
+        "affected_files": ["Binary verification", "Integrity validation"],
+        "fix_prompt": "Implement binary attestation for software integrity, add binary signature verification, create attestation reporting, and implement binary integrity monitoring."
+      },
+      {
+        "id": 184,
+        "problem": "Inadequate Software Bill of Materials",
+        "affected_files": ["Component tracking", "Supply chain visibility"],
+        "fix_prompt": "Implement comprehensive SBOM generation and validation, add component vulnerability tracking, create supply chain monitoring, and implement SBOM compliance."
+      },
+      {
+        "id": 185,
+        "problem": "Missing Provenance Tracking",
+        "affected_files": ["Build provenance", "Supply chain integrity"],
+        "fix_prompt": "Implement build provenance tracking with SLSA framework, add build attestation, create provenance verification, and implement provenance monitoring."
+      },
+      {
+        "id": 186,
+        "problem": "Insecure Reproducible Builds",
+        "affected_files": ["Build reproducibility", "Binary verification"],
+        "fix_prompt": "Implement reproducible builds for binary verification, add build environment standardization, create reproducibility testing, and implement build monitoring."
+      },
+      {
+        "id": 187,
+        "problem": "Missing In-Toto Framework",
+        "affected_files": ["Supply chain security", "Metadata verification"],
+        "fix_prompt": "Implement in-toto framework for supply chain integrity, add step attestation, create metadata verification, and implement in-toto monitoring."
+      },
+      {
+        "id": 188,
+        "problem": "Inadequate Sigstore Integration",
+        "affected_files": ["Signature transparency", "Keyless signing"],
+        "fix_prompt": "Implement Sigstore for keyless signing and transparency, add certificate transparency, create signature verification, and implement Sigstore monitoring."
+      },
+      {
+        "id": 189,
+        "problem": "Missing TUF Implementation",
+        "affected_files": ["Update framework", "Secure updates"],
+        "fix_prompt": "Implement The Update Framework (TUF) for secure software updates, add metadata verification, create update integrity validation, and implement TUF monitoring."
+      },
+      {
+        "id": 190,
+        "problem": "Insecure Notary Implementation",
+        "affected_files": ["Content trust", "Image signing"],
+        "fix_prompt": "Implement Docker Notary for content trust, add image signature verification, create trust delegation, and implement notary monitoring."
+      },
+      {
+        "id": 191,
+        "problem": "Missing Cosign Integration",
+        "affected_files": ["Container signing", "OCI artifacts"],
+        "fix_prompt": "Implement Cosign for container and artifact signing, add keyless signing support, create signature verification, and implement Cosign monitoring."
+      },
+      {
+        "id": 192,
+        "problem": "Inadequate SPIFFE/SPIRE Implementation",
+        "affected_files": ["Workload identity", "Service authentication"],
+        "fix_prompt": "Implement SPIFFE/SPIRE for workload identity, add automatic credential rotation, create identity verification, and implement SPIFFE monitoring."
+      },
+      {
+        "id": 193,
+        "problem": "Missing Falco Runtime Security",
+        "affected_files": ["Runtime monitoring", "Behavioral analysis"],
+        "fix_prompt": "Implement Falco for runtime security monitoring, add behavioral rule creation, create anomaly detection, and implement Falco alerting."
+      },
+      {
+        "id": 194,
+        "problem": "Insecure OPA Policy Engine",
+        "affected_files": ["Policy enforcement", "Authorization decisions"],
+        "fix_prompt": "Implement Open Policy Agent for policy enforcement, add policy validation, create decision logging, and implement OPA monitoring."
+      },
+      {
+        "id": 195,
+        "problem": "Missing Gatekeeper Implementation",
+        "affected_files": ["Kubernetes admission control", "Policy validation"],
+        "fix_prompt": "Implement OPA Gatekeeper for Kubernetes policy enforcement, add constraint templates, create violation reporting, and implement Gatekeeper monitoring."
+      },
+      {
+        "id": 196,
+        "problem": "Inadequate Kustomize Security",
+        "affected_files": ["Configuration management", "Kubernetes manifests"],
+        "fix_prompt": "Implement secure Kustomize practices, add configuration validation, create security overlays, and implement Kustomize security monitoring."
+      },
+      {
+        "id": 197,
+        "problem": "Missing ArgoCD Security",
+        "affected_files": ["GitOps deployment", "CD pipeline security"],
+        "fix_prompt": "Implement ArgoCD security hardening, add RBAC configuration, create deployment validation, and implement ArgoCD security monitoring."
+      },
+      {
+        "id": 198,
+        "problem": "Insecure Flux Security",
+        "affected_files": ["GitOps controller", "Cluster synchronization"],
+        "fix_prompt": "Implement Flux security controls, add Git repository validation, create sync security, and implement Flux security monitoring."
+      },
+      {
+        "id": 199,
+        "problem": "Missing Tekton Security",
+        "affected_files": ["CI/CD pipelines", "Task execution"],
+        "fix_prompt": "Implement Tekton security hardening, add pipeline security validation, create task isolation, and implement Tekton security monitoring."
+      },
+      {
+        "id": 200,
+        "problem": "Inadequate Jenkins X Security",
+        "affected_files": ["Cloud-native CI/CD", "Pipeline security"],
+        "fix_prompt": "Implement Jenkins X security controls, add pipeline security validation, create environment isolation, and implement Jenkins X security monitoring."
+      }
+    ]
+  }
+}

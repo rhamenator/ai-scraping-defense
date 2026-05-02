@@ -1,57 +1,19 @@
 # Security Monitoring, Audit Logging, and Incident Response
 
-This runbook operationalizes the current security baseline and active
-security backlog by defining how controls are monitored, logged, and escalated
-in production.
-
-## GitHub Automation Boundaries
-
-The repository now treats GitHub automation as four distinct layers so the
-incident path is predictable:
-
-- `security-audit.yml` runs scanners and publishes reports only. It does not
-  dismiss alerts, open issues, or perform remediation.
-- `security-triage.yml` is the only workflow that dismisses allowlisted code
-  scanning alerts. Its scope is limited to allowlist hygiene.
-- `create-issues-from-alerts.yml` converts actionable open alerts into backlog
-  issues and writes `reports/security-response-plan.json` so operators can
-  review the issue/page/automation intent in dry-run or live mode.
-- `manage-alerts.yml` consolidates duplicates and publishes the same response
-  plan artifact for review. Scheduled runs stay in dry-run mode by default.
-- `master-problem-detection.yml` is backlog discovery only. Its default
-  `autofix` mode is now off so it does not compete with the incident-response
-  workflows above.
-
-The response plan artifact is generated from `scripts/security_response_plan.py`
-and is the contract for which detections:
-
-- create GitHub issues
-- page operators
-- require an automated response such as credential rotation or expedited patching
+This runbook operationalizes the controls enumerated in
+`security_problems_batch1.json` by defining how they are monitored, logged,
+and escalated in production.
 
 ## Telemetry and Monitoring
 
 - **Log aggregation** – All services emit JSON-formatted audit events via
   `src/shared/audit.py`. Forward `/app/logs/audit.log` and service-specific logs
   to a centralized SIEM (e.g., Elastic, Splunk). Retain logs for 180 days.
-- **Durable security events** – Security-relevant audit, decision, alert-delivery,
-  and operational events are also persisted to `SECURITY_EVENTS_DB_PATH`
-  (default: `/app/data/security_events.db`) through `src/shared/security_events.py`.
-  Export them without scraping ad hoc logs:
-
-  ```bash
-  python scripts/export_security_events.py --output reports/security-events.jsonl
-  ```
 - **Metrics** – Expose FastAPI metrics via `prometheus-client` and scrape
   latency, error rates, and rate-limit violations. Alerts trigger when 5xx rates
   exceed 1% of traffic or rate-limit denials spike for 10 minutes.
 - **Network sensors** – Deploy Suricata (`suricata/`) and fail2ban to monitor
   ingress traffic. Subscribe Nginx access logs to the monitoring pipeline.
-- **Trust-boundary validation** – Run
-  `python scripts/security/run_static_security_checks.py` in CI and before
-  release to catch accidental exposure of internal-only services. The supported
-  public/operator/internal split is documented in
-  [`network_isolation_baseline.md`](../network_isolation_baseline.md).
 - **File integrity** – Enable Docker `--read-only` and host-based integrity
   monitors to watch `/app/src`, `/app/logs`, and secret mounts for unexpected
   changes.
@@ -61,8 +23,6 @@ and is the contract for which detections:
 - **Coverage** – All authentication flows log success/failure events via
   `src/shared/audit.log_event`. Ensure API controllers record user ID, IP, and
   action scope.
-- **Export** – JSONL exports redact secrets and direct IP fields before writing
-  investigation artifacts suitable for SIEM ingestion or offline review.
 - **Protection** – File permissions hardened to `600`. Rotate audit logs daily
   and back up to encrypted object storage with bucket policies enforcing
   write-only access from workloads.
@@ -76,16 +36,6 @@ authenticators in the Admin UI. The system does not collect or store biometric
 signals directly; it stores only the WebAuthn credential metadata required for
 verification. Operational monitoring should focus on registration and login
 events rather than biometric analytics.
-
-## Admin MFA Posture
-
-- Admin UI access requires MFA by default for both HTTP Basic and SSO-backed
-  sessions.
-- `ADMIN_UI_2FA_SECRET` is the supported bootstrap factor for first login.
-- Passkey/WebAuthn tokens satisfy the second factor after enrollment.
-- Backup codes are single-use recovery material and should be stored offline.
-- `ADMIN_UI_REQUIRE_MFA=false` or `ADMIN_UI_SSO_MFA_REQUIRED=false` should be
-  treated as lab-only exceptions and called out in release reviews.
 
 ## Automated Detection Rules
 
@@ -162,19 +112,12 @@ print(f'Average Score: {report[\"average_score\"]:.1f}')
 1. **Detection** – Alerts or analysts raise incidents in the ticketing system.
 2. **Triage** – Duty analyst validates severity, gathers evidence (logs,
    metrics, request samples), and assigns priority.
-   - Use the workflow-generated `security-response-plan.json` artifact to confirm
-     whether the alert should create backlog work, trigger paging, or require an
-     automated response.
 3. **Containment** – Depending on incident type:
    - **Secrets leakage** →
      - Immediately rotate via `./scripts/generate_secrets.sh --vault --update-env`
      - If using Vault, rotation is tracked and versioned automatically
      - Revoke old credentials in external systems (databases, APIs)
      - Check audit logs for unauthorized access: `grep "secret_access" /app/logs/audit.log`
-   - **Unexpected service exposure** →
-     - remove the offending published port, `LoadBalancer`, `NodePort`, or ingress
-     - rerun `python scripts/security/run_static_security_checks.py`
-     - verify the service returns to `ClusterIP` or private operator access only
    - **Transport/auth issues** → deploy hotfix through hardened CI workflow.
    - **Intrusion** → block offending IPs using the escalation engine webhook.
 4. **Eradication & Recovery** – Apply patches, redeploy containers, and verify
@@ -184,7 +127,7 @@ print(f'Average Score: {report[\"average_score\"]:.1f}')
 
 ## Continuous Improvement
 
-- Integrate new findings from active issues, CI security workflows, and staged
-  attack-simulation runs.
+- Integrate new findings from subsequent security batches by regenerating the
+  inventory (`python src/security_audit/inventory.py`).
 - Track remediation status in the governance dashboard with owners, due dates,
   and verification artifacts from CI/CD runs.

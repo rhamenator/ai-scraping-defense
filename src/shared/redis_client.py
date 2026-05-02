@@ -3,7 +3,6 @@
 import logging
 import os
 from typing import Dict, Tuple
-from urllib.parse import urlparse
 
 import redis
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
@@ -16,20 +15,6 @@ class RedisConnectionError(Exception):
 
 
 _POOLS: Dict[Tuple[str, int, str | None, int], redis.ConnectionPool] = {}
-
-
-def load_redis_runtime_settings(
-    *, db_env_var: str = "REDIS_DB", default_db: int = 0
-) -> tuple[str, int, int, str | None]:
-    """Load Redis connection settings using the shared secret helpers."""
-
-    redis_host = os.environ.get("REDIS_HOST", "localhost")
-    redis_port = int(os.environ.get("REDIS_PORT", 6379))
-    redis_db = int(os.environ.get(db_env_var, default_db))
-    password = get_secret("REDIS_PASSWORD_FILE")
-    if password is None:
-        password = os.environ.get("REDIS_PASSWORD")
-    return redis_host, redis_port, redis_db, password
 
 
 def _get_pool(
@@ -62,17 +47,6 @@ def _create_client(
     return client
 
 
-def _sanitize_redis_host(redis_host: str) -> str:
-    """Return a log-safe Redis host value with credentials removed."""
-    parsed = urlparse(redis_host)
-    if not parsed.scheme:
-        return redis_host
-    hostname = parsed.hostname or "<redacted>"
-    if parsed.port is not None:
-        return f"{parsed.scheme}://{hostname}:{parsed.port}"
-    return f"{parsed.scheme}://{hostname}"
-
-
 def get_redis_connection(db_number: int = 0, fail_fast: bool = False):
     """
     Creates and returns a Redis connection using environment variables for configuration.
@@ -83,9 +57,9 @@ def get_redis_connection(db_number: int = 0, fail_fast: bool = False):
         fail_fast: If ``True``, raise :class:`RedisConnectionError` instead of
             returning ``None`` when the connection cannot be established.
     """
-    redis_host, redis_port, _, password = load_redis_runtime_settings(
-        default_db=db_number
-    )
+    redis_host = os.environ.get("REDIS_HOST", "localhost")
+    password = get_secret("REDIS_PASSWORD_FILE")
+    redis_port = int(os.environ.get("REDIS_PORT", 6379))
 
     if password is None and os.environ.get("REDIS_PASSWORD_FILE"):
         msg = f"Redis password file not found at {os.environ['REDIS_PASSWORD_FILE']}"
@@ -96,12 +70,10 @@ def get_redis_connection(db_number: int = 0, fail_fast: bool = False):
         del password
         return None
 
-    safe_redis_host = _sanitize_redis_host(redis_host)
-
     try:
         r = _create_client(redis_host, redis_port, password, db_number)
         logging.info(
-            f"Successfully connected to Redis at {safe_redis_host} on DB {db_number}"
+            f"Successfully connected to Redis at {redis_host} on DB {db_number}"
         )
         return r
     except redis.AuthenticationError:
@@ -114,19 +86,13 @@ def get_redis_connection(db_number: int = 0, fail_fast: bool = False):
         if isinstance(e.last_attempt.exception(), redis.AuthenticationError):
             msg = f"Redis authentication failed for DB {db_number}. Check password."
         else:
-            msg = (
-                f"Failed to connect to Redis at {safe_redis_host} "
-                f"on DB {db_number}: {e}"
-            )
+            msg = f"Failed to connect to Redis at {redis_host} on DB {db_number}: {e}"
         logging.error(msg)
         if fail_fast:
             raise RedisConnectionError(msg)
         return None
     except Exception as e:
-        msg = (
-            f"Failed to connect to Redis at {safe_redis_host} "
-            f"on DB {db_number}: {e}"
-        )
+        msg = f"Failed to connect to Redis at {redis_host} on DB {db_number}: {e}"
         logging.error(msg)
         if fail_fast:
             raise RedisConnectionError(msg)

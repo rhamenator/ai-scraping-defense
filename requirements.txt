@@ -1,5 +1,5 @@
 # Web Frameworks and Servers
-fastapi>=0.128.2,<0.136
+fastapi>=0.128.2,<0.129
 starlette>=0.49.1,<1.0
 uvicorn[standard]~=0.38
 gunicorn~=25.0
@@ -15,14 +15,14 @@ numpy>=1.24,<3.0
 pandas>=2.0,<4.0
 joblib>=1.3,<2.0
 scikit-learn>=1.3,<2.0
-xgboost>=2.0,<4.0
+xgboost>=2.0,<3.0
 user-agents~=2.2
 schedule~=1.2
-geoip2~=5.2
+geoip2~=5.1
 pyotp~=2.9
 qrcode~=8.2
 webauthn~=2.7
-tenacity>=8.2.3,<10.0.0
+tenacity>=8.2.3,<9.0.0
 bcrypt~=5.0
 
 # HTTP and Web Scraping
@@ -31,15 +31,12 @@ httpx~=0.28
 requests>=2.32.4,<3
 wikipedia~=1.4
 python-multipart~=0.0.22
-cachetools~=7.0
+cachetools~=5.5
 prometheus-client~=0.24
-PyJWT>=2.12.0,<3.0
+PyJWT~=2.10
 PyYAML~=6.0
 defusedxml~=0.7
 cbor2>=5.8.0
-cryptography>=46.0.5,<47.0
-pyasn1>=0.6.2,<1.0
-pyOpenSSL>=26.0.0,<27.0
 
 # Secret Management
 hvac~=2.3
@@ -59,6 +56,7 @@ evaluate>=0.4,<1.0
 
 # Local LLM Libraries
 ollama~=0.6
+llama-cpp-python~=0.3; platform_system == "Linux" and platform_machine == "x86_64"
 
 # --- Optional: Alert Management Script ---
 # Uncomment if you want to run scripts/manage_alerts_issues_prs.py
@@ -69,12 +67,12 @@ freezegun~=1.5
 maturin>=1.5,<2.0
 wheel>=0.46.2
 pytest~=8.4
-pytest-asyncio~=1.3
+pytest-asyncio~=1.1
 flake8~=7.3
-black>=26.3.1,<27.0
+black~=26.1
 coverage~=7.13
-pre-commit~=4.5
-isort~=8.0
+pre-commit~=4.3
+isort~=5.13
 pip-tools~=7.4
 filelock>=3.20.3
 virtualenv>=20.36.1

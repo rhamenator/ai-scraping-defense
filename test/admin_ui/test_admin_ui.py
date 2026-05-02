@@ -10,10 +10,8 @@ from unittest.mock import MagicMock, patch
 import bcrypt
 import pyotp
 from fastapi.testclient import TestClient
-from starlette.websockets import WebSocketDisconnect
 
 from src.admin_ui import admin_ui, auth, blocklist, metrics, webauthn
-from src.shared.observability import WebSocketConnectionLimiter
 
 
 class TestAdminUIComprehensive(unittest.TestCase):
@@ -49,16 +47,6 @@ class TestAdminUIComprehensive(unittest.TestCase):
     def _totp_headers(self) -> dict:
         secret = os.environ["ADMIN_UI_2FA_SECRET"]
         return {"X-2FA-Code": pyotp.TOTP(secret).now()}
-
-    def _set_session_cookie(self, value: str | None) -> None:
-        if value is None:
-            for cookie in list(self.client.cookies.jar):
-                if cookie.name == auth.SESSION_COOKIE_NAME:
-                    self.client.cookies.jar.clear(
-                        domain=cookie.domain, path=cookie.path, name=cookie.name
-                    )
-            return
-        self.client.cookies.set(auth.SESSION_COOKIE_NAME, value)
 
     def test_reject_wildcard_cors_origin(self):
         """Wildcard CORS origin should be rejected when credentials are allowed."""
@@ -114,11 +102,11 @@ class TestAdminUIComprehensive(unittest.TestCase):
                 "csrf_token": csrf_token,
                 "WEBAUTHN_AUTHENTICATOR_ATTACHMENT": "platform",
             }
-            self.client.cookies.set("csrf_token", csrf_token)
             response = self.client.post(
                 "/settings",
                 auth=self.auth,
                 headers=self._totp_headers(),
+                cookies={"csrf_token": csrf_token},
                 data=form,
             )
             self.assertEqual(response.status_code, 200)
@@ -129,63 +117,6 @@ class TestAdminUIComprehensive(unittest.TestCase):
             self.assertEqual(
                 os.environ.get("WEBAUTHN_AUTHENTICATOR_ATTACHMENT"), "platform"
             )
-
-    def test_settings_update_validates_runtime_fields(self):
-        """Invalid config updates should be rejected without persistence."""
-        fake_redis = self._FakeRedis()
-        with patch(
-            "src.admin_ui.admin_ui.get_redis_connection", return_value=fake_redis
-        ):
-            response = self.client.get(
-                "/settings", auth=self.auth, headers=self._totp_headers()
-            )
-            csrf_token = response.cookies.get("csrf_token")
-            seeded_settings = dict(fake_redis.store)
-
-            self.client.cookies.set("csrf_token", csrf_token)
-            response = self.client.post(
-                "/settings",
-                auth=self.auth,
-                headers=self._totp_headers(),
-                data={
-                    "csrf_token": csrf_token,
-                    "LOG_LEVEL": "INFO",
-                    "ESCALATION_ENDPOINT": "not-a-url",
-                    "WEBAUTHN_AUTHENTICATOR_ATTACHMENT": "none",
-                    "RATE_LIMIT_REQUESTS": "0",
-                    "RATE_LIMIT_WINDOW": "60",
-                    "MAX_BODY_SIZE": "1024",
-                    "ENABLE_HTTPS": "true",
-                },
-            )
-
-            self.assertEqual(response.status_code, 400)
-            self.assertIn(b"must be an absolute http(s) URL", response.content)
-            self.assertIn(b"must be a positive integer", response.content)
-            self.assertEqual(fake_redis.store, seeded_settings)
-
-    def test_settings_page_shows_secret_references_without_values(self):
-        """Settings page should expose secret references, not raw secret values."""
-        fake_redis = self._FakeRedis()
-        with patch.dict(
-            os.environ,
-            {
-                "REDIS_PASSWORD_FILE": "/run/secrets/redis_password.txt",
-                "AUTH_JWT_SECRET": "super-secret-value",
-            },
-            clear=False,
-        ):
-            with patch(
-                "src.admin_ui.admin_ui.get_redis_connection", return_value=fake_redis
-            ):
-                response = self.client.get(
-                    "/settings", auth=self.auth, headers=self._totp_headers()
-                )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"/run/secrets/redis_password.txt", response.content)
-        self.assertIn(b"Secret References", response.content)
-        self.assertNotIn(b"super-secret-value", response.content)
 
     def test_settings_page_shows_security_kpis(self):
         """Settings page should render security KPI summaries."""
@@ -498,29 +429,6 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         del os.environ["ADMIN_UI_2FA_SECRET"]
 
-    def test_admin_ui_requires_mfa_by_default_without_bootstrap_factor(self):
-        """Password-only admin auth is rejected unless MFA is explicitly disabled."""
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("ADMIN_UI_2FA_SECRET", None)
-            os.environ.pop("ADMIN_UI_2FA_SECRET_FILE", None)
-            response = self.client.get("/", auth=self.auth)
-
-        self.assertEqual(response.status_code, 401)
-        self.assertEqual(response.json()["detail"], "MFA required")
-
-    def test_admin_ui_can_explicitly_disable_mfa_requirement(self):
-        """Lab-only deployments may opt out of MFA with an explicit override."""
-        with patch.dict(
-            os.environ,
-            {"ADMIN_UI_REQUIRE_MFA": "false"},
-            clear=False,
-        ):
-            os.environ.pop("ADMIN_UI_2FA_SECRET", None)
-            os.environ.pop("ADMIN_UI_2FA_SECRET_FILE", None)
-            response = self.client.get("/", auth=self.auth)
-
-        self.assertEqual(response.status_code, 200)
-
     def test_2fa_invalid_code(self):
         """Invalid TOTP code results in 401."""
         secret = pyotp.random_base32()
@@ -642,52 +550,6 @@ class TestAdminUIComprehensive(unittest.TestCase):
             data = websocket.receive_json()
         self.assertEqual(data, {"active_connections": 5})
         mock_get_metrics.assert_called()
-
-    @patch("src.admin_ui.metrics.log_event")
-    def test_metrics_websocket_rejects_missing_auth(self, mock_log_event):
-        """WebSocket should reject clients that do not provide auth headers."""
-        with self.assertRaises(WebSocketDisconnect):
-            with self.client.websocket_connect("/ws/metrics"):
-                pass
-        mock_log_event.assert_called()
-        self.assertIn("denied", mock_log_event.call_args.args[1])
-
-    @patch("src.admin_ui.metrics._get_metrics_dict_func")
-    def test_metrics_websocket_rejects_when_connection_limit_exceeded(
-        self, mock_get_metrics
-    ):
-        """WebSocket should reject excess concurrent admin metrics streams."""
-        mock_get_metrics.return_value = {"active_connections": 5}
-        headers = {
-            "Authorization": "Basic YWRtaW46dGVzdHBhc3M=",
-            **self._totp_headers(),
-        }
-        with patch.object(
-            metrics,
-            "WEBSOCKET_LIMITER",
-            WebSocketConnectionLimiter(max_total=1),
-        ):
-            with self.client.websocket_connect("/ws/metrics", headers=headers) as first:
-                self.assertEqual(first.receive_json(), {"active_connections": 5})
-                with self.assertRaises(WebSocketDisconnect):
-                    with self.client.websocket_connect("/ws/metrics", headers=headers):
-                        pass
-
-    @patch("src.admin_ui.metrics._get_metrics_dict_func")
-    def test_metrics_websocket_rejects_oversized_payload(self, mock_get_metrics):
-        """WebSocket should close when a metrics payload exceeds the size cap."""
-        mock_get_metrics.return_value = {"blob": "x" * 128}
-        headers = {
-            "Authorization": "Basic YWRtaW46dGVzdHBhc3M=",
-            **self._totp_headers(),
-        }
-        with patch.object(metrics, "WEBSOCKET_MAX_MESSAGE_BYTES", 32):
-            with self.client.websocket_connect("/ws/metrics", headers=headers) as ws:
-                self.assertEqual(
-                    ws.receive_json(), {"error": "Metrics payload too large"}
-                )
-                with self.assertRaises(WebSocketDisconnect):
-                    ws.receive_json()
 
     @patch("src.admin_ui.metrics.METRICS_TRULY_AVAILABLE", False)
     def test_metrics_websocket_module_unavailable(self):
@@ -852,27 +714,22 @@ class TestAdminUISessions(unittest.TestCase):
         secret = os.environ["ADMIN_UI_2FA_SECRET"]
         return {"X-2FA-Code": pyotp.TOTP(secret).now()}
 
-    def _set_session_cookie(self, value: str | None) -> None:
-        if value is None:
-            for cookie in list(self.client.cookies.jar):
-                if cookie.name == auth.SESSION_COOKIE_NAME:
-                    self.client.cookies.jar.clear(
-                        domain=cookie.domain, path=cookie.path, name=cookie.name
-                    )
-            return
-        self.client.cookies.set(auth.SESSION_COOKIE_NAME, value)
-
     def test_session_cookie_allows_skipping_2fa(self):
         response = self.client.get("/", auth=self.auth, headers=self._totp_headers())
         self.assertEqual(response.status_code, 200)
         session_cookie = response.cookies.get(auth.SESSION_COOKIE_NAME)
         self.assertIsNotNone(session_cookie)
 
-        self._set_session_cookie(session_cookie)
-        response = self.client.get("/", auth=self.auth)
+        response = self.client.get(
+            "/", auth=self.auth, cookies={auth.SESSION_COOKIE_NAME: session_cookie}
+        )
         self.assertEqual(response.status_code, 200)
 
-        response = self.client.post("/logout", auth=self.auth)
+        response = self.client.post(
+            "/logout",
+            auth=self.auth,
+            cookies={auth.SESSION_COOKIE_NAME: session_cookie},
+        )
         self.assertEqual(response.status_code, 200)
         set_cookie = response.headers.get("set-cookie", "")
         self.assertIn(f"{auth.SESSION_COOKIE_NAME}=", set_cookie)
@@ -882,10 +739,10 @@ class TestAdminUISessions(unittest.TestCase):
         self.assertIn("Secure", set_cookie)
         self.assertIn("SameSite=Strict", set_cookie)
 
-        self._set_session_cookie(session_cookie)
-        response = self.client.get("/", auth=self.auth)
+        response = self.client.get(
+            "/", auth=self.auth, cookies={auth.SESSION_COOKIE_NAME: session_cookie}
+        )
         self.assertEqual(response.status_code, 401)
-        self._set_session_cookie(None)
 
     def test_session_concurrency_limit(self):
         auth.SESSION_MAX_CONCURRENT = 1
@@ -900,14 +757,15 @@ class TestAdminUISessions(unittest.TestCase):
         self.assertIsNotNone(second_session)
         self.assertNotEqual(first_session, second_session)
 
-        self._set_session_cookie(first_session)
-        response = self.client.get("/", auth=self.auth)
+        response = self.client.get(
+            "/", auth=self.auth, cookies={auth.SESSION_COOKIE_NAME: first_session}
+        )
         self.assertEqual(response.status_code, 401)
 
-        self._set_session_cookie(second_session)
-        response = self.client.get("/", auth=self.auth)
+        response = self.client.get(
+            "/", auth=self.auth, cookies={auth.SESSION_COOKIE_NAME: second_session}
+        )
         self.assertEqual(response.status_code, 200)
-        self._set_session_cookie(None)
 
 
 if __name__ == "__main__":

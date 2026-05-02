@@ -1,0 +1,308 @@
+{
+  "architecture_problems": {
+    "category": "Architecture",
+    "total_problems": 50,
+    "problems": [
+      {
+        "id": 1,
+        "problem": "Tight Service Coupling",
+        "affected_files": ["src/escalation/escalation_engine.py:45-67", "src/ai_service/main.py:89-112", "Service-to-service calls throughout"],
+        "fix_prompt": "Implement loose coupling with message queues (RabbitMQ/Apache Kafka), add service discovery patterns, create proper API contracts with OpenAPI specifications, and implement circuit breaker patterns for resilience."
+      },
+      {
+        "id": 2,
+        "problem": "Missing Circuit Breaker Pattern",
+        "affected_files": ["HTTP client calls throughout", "External service integrations", "src/shared/http_client.py"],
+        "fix_prompt": "Implement circuit breaker pattern using libraries like Hystrix or resilience4j, add failure thresholds and timeout handling, create automatic recovery mechanisms, and implement circuit breaker monitoring."
+      },
+      {
+        "id": 3,
+        "problem": "Single Points of Failure",
+        "affected_files": ["docker-compose.yaml:156-234", "Service architecture", "Database dependencies"],
+        "fix_prompt": "Implement redundancy for critical services with load balancing, add failover mechanisms, create health checks with automatic recovery, and implement distributed system patterns."
+      },
+      {
+        "id": 4,
+        "problem": "Inadequate Error Boundaries",
+        "affected_files": ["Exception handling throughout", "src/shared/error_handler.py", "API error responses"],
+        "fix_prompt": "Implement comprehensive error boundaries with structured error responses, proper error classification, centralized error handling middleware, and error correlation IDs for distributed tracing."
+      },
+      {
+        "id": 5,
+        "problem": "Missing Service Discovery",
+        "affected_files": ["Service-to-service communication", "Hardcoded endpoints in configuration"],
+        "fix_prompt": "Implement service discovery using Consul, etcd, or Kubernetes DNS, add service registration and health checking, create dynamic endpoint resolution, and implement service mesh integration."
+      },
+      {
+        "id": 6,
+        "problem": "Lack of API Gateway",
+        "affected_files": ["Direct service exposure", "API routing", "Cross-cutting concerns"],
+        "fix_prompt": "Implement API Gateway pattern using Kong, Ambassador, or AWS API Gateway, add centralized authentication/authorization, create rate limiting and request routing, and implement API versioning."
+      },
+      {
+        "id": 7,
+        "problem": "Missing Event-Driven Architecture",
+        "affected_files": ["Synchronous service calls", "Tight temporal coupling"],
+        "fix_prompt": "Implement event-driven architecture with event sourcing, add message brokers for asynchronous communication, create event schemas and versioning, and implement event replay capabilities."
+      },
+      {
+        "id": 8,
+        "problem": "Inadequate Data Consistency Strategy",
+        "affected_files": ["Database transactions", "Distributed data management"],
+        "fix_prompt": "Implement eventual consistency patterns with saga pattern for distributed transactions, add compensation mechanisms, create data synchronization strategies, and implement conflict resolution."
+      },
+      {
+        "id": 9,
+        "problem": "Missing CQRS Implementation",
+        "affected_files": ["Read/write operations", "Data access patterns"],
+        "fix_prompt": "Implement Command Query Responsibility Segregation (CQRS) to separate read and write models, add event sourcing for audit trails, create optimized read models, and implement eventual consistency."
+      },
+      {
+        "id": 10,
+        "problem": "Lack of Bulkhead Pattern",
+        "affected_files": ["Resource sharing", "Failure isolation"],
+        "fix_prompt": "Implement bulkhead pattern to isolate critical resources, add separate thread pools for different operations, create resource partitioning, and implement failure containment strategies."
+      },
+      {
+        "id": 11,
+        "problem": "Missing Retry Mechanisms",
+        "affected_files": ["External service calls", "Network operations"],
+        "fix_prompt": "Implement exponential backoff retry mechanisms, add jitter to prevent thundering herd, create retry policies with circuit breakers, and implement idempotency for safe retries."
+      },
+      {
+        "id": 12,
+        "problem": "Inadequate Timeout Configuration",
+        "affected_files": ["HTTP requests", "Database connections", "Service calls"],
+        "fix_prompt": "Implement comprehensive timeout strategies with connection, read, and write timeouts, add timeout cascading prevention, create timeout monitoring, and implement graceful degradation."
+      },
+      {
+        "id": 13,
+        "problem": "Missing Graceful Degradation",
+        "affected_files": ["Service failure handling", "Feature availability"],
+        "fix_prompt": "Implement graceful degradation patterns with feature toggles, add fallback mechanisms, create service level prioritization, and implement partial functionality maintenance."
+      },
+      {
+        "id": 14,
+        "problem": "Lack of Idempotency",
+        "affected_files": ["API operations", "Message processing"],
+        "fix_prompt": "Implement idempotent operations with unique request IDs, add duplicate detection mechanisms, create idempotency keys, and implement safe retry patterns."
+      },
+      {
+        "id": 15,
+        "problem": "Missing Saga Pattern",
+        "affected_files": ["Distributed transactions", "Multi-service operations"],
+        "fix_prompt": "Implement saga pattern for distributed transaction management, add compensation actions, create saga orchestration, and implement transaction monitoring."
+      },
+      {
+        "id": 16,
+        "problem": "Inadequate Load Balancing",
+        "affected_files": ["Traffic distribution", "Service scaling"],
+        "fix_prompt": "Implement sophisticated load balancing with multiple algorithms (round-robin, least connections, weighted), add health-based routing, create session affinity, and implement load balancer monitoring."
+      },
+      {
+        "id": 17,
+        "problem": "Missing Auto-Scaling Architecture",
+        "affected_files": ["Resource allocation", "Capacity management"],
+        "fix_prompt": "Implement horizontal and vertical auto-scaling with metrics-based triggers, add predictive scaling, create scaling policies, and implement cost-optimized scaling strategies."
+      },
+      {
+        "id": 18,
+        "problem": "Lack of Microservices Boundaries",
+        "affected_files": ["Service decomposition", "Domain boundaries"],
+        "fix_prompt": "Implement proper microservices boundaries using Domain-Driven Design (DDD), add bounded contexts, create service ownership models, and implement inter-service communication patterns."
+      },
+      {
+        "id": 19,
+        "problem": "Missing Strangler Fig Pattern",
+        "affected_files": ["Legacy system integration", "Migration strategy"],
+        "fix_prompt": "Implement strangler fig pattern for gradual system migration, add routing mechanisms, create feature parity validation, and implement rollback strategies."
+      },
+      {
+        "id": 20,
+        "problem": "Inadequate Caching Architecture",
+        "affected_files": ["Data access patterns", "Performance optimization"],
+        "fix_prompt": "Implement multi-level caching architecture with L1/L2 caches, add cache invalidation strategies, create cache-aside and write-through patterns, and implement cache monitoring."
+      },
+      {
+        "id": 21,
+        "problem": "Missing Database Per Service",
+        "affected_files": ["Shared database usage", "Data coupling"],
+        "fix_prompt": "Implement database per service pattern to ensure data independence, add data synchronization mechanisms, create service-specific schemas, and implement data consistency strategies."
+      },
+      {
+        "id": 22,
+        "problem": "Lack of Asynchronous Processing",
+        "affected_files": ["Synchronous operations", "Blocking processes"],
+        "fix_prompt": "Implement asynchronous processing with message queues and background workers, add job scheduling, create async/await patterns, and implement non-blocking I/O operations."
+      },
+      {
+        "id": 23,
+        "problem": "Missing Polyglot Persistence",
+        "affected_files": ["Single database technology", "Data storage patterns"],
+        "fix_prompt": "Implement polyglot persistence with appropriate databases for different use cases (SQL, NoSQL, Graph, Time-series), add data synchronization, and create unified data access layers."
+      },
+      {
+        "id": 24,
+        "problem": "Inadequate API Versioning Strategy",
+        "affected_files": ["API endpoints", "Backward compatibility"],
+        "fix_prompt": "Implement comprehensive API versioning strategy with semantic versioning, add deprecation policies, create migration paths, and implement version analytics and monitoring."
+      },
+      {
+        "id": 25,
+        "problem": "Missing Distributed Caching",
+        "affected_files": ["Cache management", "Data consistency"],
+        "fix_prompt": "Implement distributed caching with Redis Cluster or Hazelcast, add cache partitioning, create consistency protocols, and implement cache replication strategies."
+      },
+      {
+        "id": 26,
+        "problem": "Lack of Content Delivery Network",
+        "affected_files": ["Static content delivery", "Global distribution"],
+        "fix_prompt": "Implement CDN architecture for global content delivery, add edge caching, create content optimization, and implement CDN failover mechanisms."
+      },
+      {
+        "id": 27,
+        "problem": "Missing Message Queue Architecture",
+        "affected_files": ["Inter-service communication", "Asynchronous processing"],
+        "fix_prompt": "Implement robust message queue architecture with Apache Kafka or RabbitMQ, add message durability, create topic partitioning, and implement message ordering guarantees."
+      },
+      {
+        "id": 28,
+        "problem": "Inadequate Stream Processing",
+        "affected_files": ["Real-time data processing", "Event streams"],
+        "fix_prompt": "Implement stream processing architecture with Apache Kafka Streams or Apache Flink, add real-time analytics, create windowing operations, and implement stream joins."
+      },
+      {
+        "id": 29,
+        "problem": "Missing Event Sourcing",
+        "affected_files": ["State management", "Audit trails"],
+        "fix_prompt": "Implement event sourcing pattern for complete audit trails, add event store, create event replay capabilities, and implement snapshot mechanisms for performance."
+      },
+      {
+        "id": 30,
+        "problem": "Lack of Hexagonal Architecture",
+        "affected_files": ["Business logic coupling", "External dependencies"],
+        "fix_prompt": "Implement hexagonal (ports and adapters) architecture to decouple business logic from external concerns, add dependency inversion, create adapter patterns, and implement clean architecture principles."
+      },
+      {
+        "id": 31,
+        "problem": "Missing Multi-Tenancy Architecture",
+        "affected_files": ["Tenant isolation", "Resource sharing"],
+        "fix_prompt": "Implement multi-tenancy architecture with proper tenant isolation, add tenant-specific configurations, create resource partitioning, and implement tenant-aware security."
+      },
+      {
+        "id": 32,
+        "problem": "Inadequate Serverless Architecture",
+        "affected_files": ["Function deployment", "Event-driven processing"],
+        "fix_prompt": "Implement serverless architecture patterns with AWS Lambda or Azure Functions, add event triggers, create function composition, and implement cold start optimization."
+      },
+      {
+        "id": 33,
+        "problem": "Missing Edge Computing Architecture",
+        "affected_files": ["Distributed processing", "Latency optimization"],
+        "fix_prompt": "Implement edge computing architecture for low-latency processing, add edge node management, create data synchronization, and implement edge-to-cloud communication."
+      },
+      {
+        "id": 34,
+        "problem": "Lack of Reactive Architecture",
+        "affected_files": ["System responsiveness", "Backpressure handling"],
+        "fix_prompt": "Implement reactive architecture with reactive streams, add backpressure handling, create non-blocking operations, and implement reactive patterns for scalability."
+      },
+      {
+        "id": 35,
+        "problem": "Missing Data Lake Architecture",
+        "affected_files": ["Big data storage", "Analytics processing"],
+        "fix_prompt": "Implement data lake architecture for big data storage and analytics, add data cataloging, create ETL pipelines, and implement data governance frameworks."
+      },
+      {
+        "id": 36,
+        "problem": "Inadequate Lambda Architecture",
+        "affected_files": ["Batch and stream processing", "Data pipeline"],
+        "fix_prompt": "Implement lambda architecture combining batch and stream processing, add speed and batch layers, create serving layer, and implement data reconciliation."
+      },
+      {
+        "id": 37,
+        "problem": "Missing Kappa Architecture",
+        "affected_files": ["Stream-only processing", "Real-time analytics"],
+        "fix_prompt": "Implement kappa architecture for stream-only processing, add replayable streams, create stream reprocessing, and implement unified stream processing."
+      },
+      {
+        "id": 38,
+        "problem": "Lack of Mesh Architecture",
+        "affected_files": ["Service communication", "Network topology"],
+        "fix_prompt": "Implement service mesh architecture with Istio or Linkerd, add sidecar proxies, create traffic management, and implement observability across the mesh."
+      },
+      {
+        "id": 39,
+        "problem": "Missing Choreography Pattern",
+        "affected_files": ["Service coordination", "Workflow management"],
+        "fix_prompt": "Implement choreography pattern for decentralized service coordination, add event-driven workflows, create saga choreography, and implement distributed workflow monitoring."
+      },
+      {
+        "id": 40,
+        "problem": "Inadequate Orchestration Pattern",
+        "affected_files": ["Centralized coordination", "Workflow control"],
+        "fix_prompt": "Implement orchestration pattern for centralized workflow control, add workflow engines, create process definitions, and implement workflow monitoring and error handling."
+      },
+      {
+        "id": 41,
+        "problem": "Missing Backend for Frontend",
+        "affected_files": ["Client-specific APIs", "API aggregation"],
+        "fix_prompt": "Implement Backend for Frontend (BFF) pattern for client-specific API needs, add API composition, create client-optimized responses, and implement BFF security."
+      },
+      {
+        "id": 42,
+        "problem": "Lack of Anti-Corruption Layer",
+        "affected_files": ["Legacy system integration", "Domain protection"],
+        "fix_prompt": "Implement anti-corruption layer to protect domain model from external systems, add translation mechanisms, create boundary definitions, and implement integration patterns."
+      },
+      {
+        "id": 43,
+        "problem": "Missing Shared Kernel Pattern",
+        "affected_files": ["Common functionality", "Code reuse"],
+        "fix_prompt": "Implement shared kernel pattern for common domain elements, add shared libraries, create versioning strategies, and implement dependency management."
+      },
+      {
+        "id": 44,
+        "problem": "Inadequate Customer/Supplier Pattern",
+        "affected_files": ["Team boundaries", "Service dependencies"],
+        "fix_prompt": "Implement customer/supplier pattern for team coordination, add service contracts, create dependency management, and implement change coordination processes."
+      },
+      {
+        "id": 45,
+        "problem": "Missing Conformist Pattern",
+        "affected_files": ["External system integration", "Model adaptation"],
+        "fix_prompt": "Implement conformist pattern for external system integration, add model adaptation layers, create integration boundaries, and implement external system monitoring."
+      },
+      {
+        "id": 46,
+        "problem": "Lack of Open Host Service",
+        "affected_files": ["Service exposure", "Integration protocols"],
+        "fix_prompt": "Implement open host service pattern for well-defined integration protocols, add published language, create service documentation, and implement integration support."
+      },
+      {
+        "id": 47,
+        "problem": "Missing Published Language",
+        "affected_files": ["Domain communication", "Integration contracts"],
+        "fix_prompt": "Implement published language for domain communication, add schema definitions, create contract specifications, and implement language evolution strategies."
+      },
+      {
+        "id": 48,
+        "problem": "Inadequate Separate Ways Pattern",
+        "affected_files": ["Independent development", "Duplicate functionality"],
+        "fix_prompt": "Implement separate ways pattern for independent bounded contexts, add duplicate functionality where needed, create clear boundaries, and implement context isolation."
+      },
+      {
+        "id": 49,
+        "problem": "Missing Big Ball of Mud Refactoring",
+        "affected_files": ["Legacy code structure", "Technical debt"],
+        "fix_prompt": "Implement systematic refactoring of monolithic structures, add modularization strategies, create clean architecture migration, and implement incremental improvement processes."
+      },
+      {
+        "id": 50,
+        "problem": "Lack of Evolutionary Architecture",
+        "affected_files": ["Architecture adaptation", "Change management"],
+        "fix_prompt": "Implement evolutionary architecture principles with fitness functions, add architecture decision records (ADRs), create change impact analysis, and implement continuous architecture validation."
+      }
+    ]
+  }
+}
