@@ -7,6 +7,7 @@ import sqlite3
 from contextlib import contextmanager
 
 from src.shared.config import CONFIG
+from src.shared.security_events import record_security_event
 
 DEFAULT_DB_DIR = "/app/data"
 DB_PATH = os.getenv(
@@ -81,3 +82,26 @@ def record_decision(
                 timestamp,
             ),
         )
+    try:
+        severity = "info"
+        if "block" in action or "tarpit" in action:
+            severity = "high"
+        elif "throttle" in action:
+            severity = "warning"
+        record_security_event(
+            "security_decision",
+            actor=tid,
+            action=action,
+            source=source,
+            severity=severity,
+            payload={
+                "tenant_id": tid,
+                "ip": ip,
+                "score": score,
+                "is_bot": is_bot,
+                "timestamp": timestamp,
+            },
+            created_at=timestamp,
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        logging.warning("Failed to persist decision security event: %s", exc)

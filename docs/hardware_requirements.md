@@ -18,6 +18,9 @@ These are approximate values for local experimentation on Ubuntu Server. Enablin
 
 These values are rough guidelines. Heavier traffic or multiple tenants may require additional resources.
 
+For the broader operator-facing capacity and review model, see
+`docs/runtime_performance_baseline.md`.
+
 ## Local LLM Containers
 
 Running the optional `llama3` or `mixtral` containers requires significantly more horsepower:

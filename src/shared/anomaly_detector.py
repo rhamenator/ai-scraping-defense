@@ -3,6 +3,8 @@ import logging
 import os
 from typing import Any, Dict
 
+from src.shared.redis_client import load_redis_runtime_settings
+
 try:
     import joblib
     import numpy as np
@@ -11,10 +13,6 @@ except Exception:  # pragma: no cover
     np = None
 
 ANOMALY_SCORE_THRESHOLD = float(os.getenv("ANOMALY_SCORE_THRESHOLD", "0.7"))
-REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
-REDIS_DB = int(os.environ.get("REDIS_DB", 0))
-REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 ANOMALY_EVENT_CHANNEL = "anomaly_events"
 
 
@@ -34,11 +32,14 @@ class AnomalyDetector:
             # Use synchronous Redis for non-blocking publish operations
             import redis as sync_redis
 
+            redis_host, redis_port, redis_db, redis_password = (
+                load_redis_runtime_settings()
+            )
             self._redis_client = sync_redis.Redis(
-                host=REDIS_HOST,
-                port=REDIS_PORT,
-                db=REDIS_DB,
-                password=REDIS_PASSWORD,
+                host=redis_host,
+                port=redis_port,
+                db=redis_db,
+                password=redis_password,
                 decode_responses=True,
             )
         except Exception as e:  # pragma: no cover - unexpected

@@ -8,6 +8,7 @@ import json
 import os
 import re
 import time  # Added for timing
+from pathlib import Path
 
 from datasets import load_dataset  # Using Hugging Face datasets library
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
@@ -44,6 +45,14 @@ HF_DATASET_REVISION = os.getenv("HF_DATASET_REVISION", HF_REVISION)
 HF_MODEL_REVISION = os.getenv("HF_MODEL_REVISION", HF_REVISION)
 # Commit hashes are 7-40 hex characters in length.
 REVISION_PATTERN = re.compile(r"^[0-9a-fA-F]{7,40}$")
+PROVENANCE_REQUIRED_FIELDS = {
+    "schema_version",
+    "generated_at",
+    "generated_by",
+    "record_count",
+    "source",
+    "trust_boundary",
+}
 
 
 def resolve_model_revision() -> str:
@@ -55,6 +64,54 @@ def resolve_model_revision() -> str:
             "(7-40 hexadecimal characters)."
         )
     return revision
+
+
+def _is_truthy(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _require_dataset_provenance() -> bool:
+    return _is_truthy(os.getenv("TRAINING_REQUIRE_DATASET_PROVENANCE", "true"))
+
+
+def _dataset_metadata_path(file_path: str) -> Path:
+    return Path(f"{file_path}.metadata.json")
+
+
+def load_dataset_provenance(file_path: str) -> dict | None:
+    metadata_path = _dataset_metadata_path(file_path)
+    if not metadata_path.exists():
+        if _require_dataset_provenance():
+            print(f"ERROR: Missing dataset provenance metadata: {metadata_path}")
+        return None
+
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(
+            f"ERROR: Failed to parse dataset provenance metadata {metadata_path}: {exc}"
+        )
+        return None
+
+    missing = sorted(PROVENANCE_REQUIRED_FIELDS - set(metadata))
+    if missing:
+        print(
+            "ERROR: Dataset provenance metadata missing required fields "
+            f"{missing}: {metadata_path}"
+        )
+        return None
+    if not isinstance(metadata.get("source"), dict):
+        print(f"ERROR: Dataset provenance source must be an object: {metadata_path}")
+        return None
+    if not isinstance(metadata.get("trust_boundary"), dict):
+        print(f"ERROR: Dataset trust_boundary must be an object: {metadata_path}")
+        return None
+    if int(metadata.get("record_count", 0)) < 1:
+        print(
+            f"ERROR: Dataset provenance record_count must be positive: {metadata_path}"
+        )
+        return None
+    return metadata
 
 
 # BASE_MODEL_NAME = "bert-base-uncased"
@@ -120,6 +177,10 @@ def load_and_prepare_dataset(file_path, tokenizer):
     """Loads JSON lines data, prepares text fields, and tokenizes."""
     print(f"Loading and preparing dataset from: {file_path}")
     try:
+        metadata = load_dataset_provenance(file_path)
+        if _require_dataset_provenance() and metadata is None:
+            return None
+
         # Load from JSON Lines file
         # Expected format per line: {"log_data": {parsed_log_dict}, "label": "bot" or "human"}
         # Local JSON dataset only (local_files_only=True); no remote download.
@@ -175,6 +236,25 @@ def load_and_prepare_dataset(file_path, tokenizer):
                 "label",
             ],  # Remove original columns after processing
         )
+
+        if metadata is not None:
+            expected_records = int(metadata["record_count"])
+            actual_records = None
+            if isinstance(processed_dataset, dict):
+                labels = processed_dataset.get("label")
+                if isinstance(labels, list):
+                    actual_records = len(labels)
+            if actual_records is None:
+                try:
+                    actual_records = len(processed_dataset)
+                except Exception:
+                    actual_records = None
+            if actual_records is not None and actual_records != expected_records:
+                print(
+                    "ERROR: Dataset provenance record count mismatch for "
+                    f"{file_path}: expected {expected_records}, got {actual_records}"
+                )
+                return None
 
         try:
             if isinstance(

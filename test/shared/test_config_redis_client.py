@@ -1,6 +1,7 @@
 # test/shared/config_redis_client.test.py
 import importlib
 import os
+import tempfile
 import unittest
 from unittest.mock import MagicMock, mock_open, patch
 
@@ -112,6 +113,38 @@ class TestGetConfig(unittest.TestCase):
 
 
 class TestRedisClient(unittest.TestCase):
+    def test_load_redis_runtime_settings_prefers_secret_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            secret_path = os.path.join(tmpdir, "redis-secret.txt")
+            with open(secret_path, "w", encoding="utf-8") as handle:
+                handle.write("file-secret")
+            with patch.dict(
+                os.environ,
+                {
+                    "REDIS_HOST": "redis.internal",
+                    "REDIS_PORT": "6380",
+                    "REDIS_DB": "5",
+                    "REDIS_PASSWORD": "env-fallback",
+                    "REDIS_PASSWORD_FILE": secret_path,
+                },
+                clear=True,
+            ):
+                settings = redis_client.load_redis_runtime_settings()
+
+        self.assertEqual(settings, ("redis.internal", 6380, 5, "file-secret"))
+
+    def test_load_redis_runtime_settings_falls_back_to_env_password(self):
+        with patch.dict(
+            os.environ,
+            {
+                "REDIS_PASSWORD": "env-fallback",
+            },
+            clear=True,
+        ), patch("os.path.exists", return_value=False):
+            settings = redis_client.load_redis_runtime_settings()
+
+        self.assertEqual(settings, ("localhost", 6379, 0, "env-fallback"))
+
     def test_missing_password_file_logs_error(self):
         with patch.dict(os.environ, {"REDIS_PASSWORD_FILE": "/no/file"}), patch(
             "builtins.open", side_effect=FileNotFoundError

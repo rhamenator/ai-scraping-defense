@@ -72,7 +72,14 @@ class TestPaymentGateway(unittest.TestCase):
     def test_tokenize_and_rotate(self):
         secret = secrets.token_urlsafe(8)
         token = tokenize_card("4111 1111-1111 1111", secret=secret)
-        self.assertNotIn("4111", token)
+        same_token = tokenize_card("4111111111111111", secret=secret)
+        rotated_token = tokenize_card(
+            "4111 1111-1111 1111", secret=secret, salt="rotated"
+        )
+        self.assertEqual(len(token), 128)
+        self.assertEqual(token, same_token)
+        self.assertNotEqual(token, rotated_token)
+        self.assertNotEqual(token, "4111111111111111")
         with self.assertRaisesRegex(ValueError, "invalid card number"):
             tokenize_card("1234", secret=secret)
         gateway = HTTPPaymentGateway(base_url="https://api", api_key="old")
@@ -82,12 +89,12 @@ class TestPaymentGateway(unittest.TestCase):
     def test_tokenize_12_digit_luhn_card(self):
         token = tokenize_card("100000000008", secret=secrets.token_urlsafe(8))
         self.assertTrue(token)
-        self.assertNotIn("1000", token)
+        self.assertEqual(len(token), 128)
 
     def test_tokenize_19_digit_luhn_card(self):
         token = tokenize_card("1000000000000000009", secret=secrets.token_urlsafe(8))
         self.assertTrue(token)
-        self.assertNotIn("1000", token)
+        self.assertEqual(len(token), 128)
 
     def test_secure_hash(self):
         secret = secrets.token_urlsafe(8)

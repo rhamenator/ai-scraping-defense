@@ -17,7 +17,8 @@
 #
 # Optional arguments
 param(
-    [string]$ExportPath
+    [string]$ExportPath,
+    [switch]$UpdateEnv
 )
 
 # Warn if not running as Administrator
@@ -59,6 +60,31 @@ function ConvertTo-Base64 {
     param([string]$InputString)
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($InputString)
     return [System.Convert]::ToBase64String($bytes)
+}
+
+function Update-EnvValue {
+    param(
+        [Parameter(Mandatory)][string]$Key,
+        [Parameter(Mandatory)][string]$Value,
+        [Parameter(Mandatory)][string]$Path
+    )
+    $escaped = $Value -replace '\$', '$$'
+    if (-not (Test-Path $Path)) {
+        Set-Content -Path $Path -Value '' -Encoding UTF8
+    }
+    $content = Get-Content $Path
+    $updated = $false
+    for ($i = 0; $i -lt $content.Count; $i++) {
+        if ($content[$i] -match "^$Key=") {
+            $content[$i] = "$Key=$escaped"
+            $updated = $true
+            break
+        }
+    }
+    if (-not $updated) {
+        $content += "$Key=$escaped"
+    }
+    $content | Set-Content -Path $Path -Encoding UTF8
 }
 
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
@@ -229,6 +255,35 @@ if ($ExportPath) {
     }
 
     Write-Host "  ⚠ SECURITY: Import to your secret manager and DELETE this file" -ForegroundColor Yellow
+}
+
+if ($UpdateEnv) {
+    $envPath = Join-Path $RootDir '.env'
+    if (-not (Test-Path $envPath) -and (Test-Path (Join-Path $RootDir 'sample.env'))) {
+        Copy-Item (Join-Path $RootDir 'sample.env') $envPath
+    }
+
+    Update-EnvValue -Key 'POSTGRES_PASSWORD' -Value $postgresPassword -Path $envPath
+    Update-EnvValue -Key 'REDIS_PASSWORD' -Value $redisPassword -Path $envPath
+    Update-EnvValue -Key 'ADMIN_UI_USERNAME' -Value $adminUiUsername -Path $envPath
+    Update-EnvValue -Key 'ADMIN_UI_PASSWORD_HASH' -Value $adminUiPasswordHash -Path $envPath
+    Update-EnvValue -Key 'SYSTEM_SEED' -Value $systemSeed -Path $envPath
+    Update-EnvValue -Key 'NGINX_PASSWORD' -Value $nginxPassword -Path $envPath
+    Update-EnvValue -Key 'OPENAI_API_KEY' -Value $openaiApiKey -Path $envPath
+    Update-EnvValue -Key 'ANTHROPIC_API_KEY' -Value $anthropicApiKey -Path $envPath
+    Update-EnvValue -Key 'GOOGLE_API_KEY' -Value $googleApiKey -Path $envPath
+    Update-EnvValue -Key 'COHERE_API_KEY' -Value $cohereApiKey -Path $envPath
+    Update-EnvValue -Key 'MISTRAL_API_KEY' -Value $mistralApiKey -Path $envPath
+    Update-EnvValue -Key 'EXTERNAL_API_KEY' -Value $externalApiKey -Path $envPath
+    Update-EnvValue -Key 'IP_REPUTATION_API_KEY' -Value $ipReputationApiKey -Path $envPath
+    Update-EnvValue -Key 'COMMUNITY_BLOCKLIST_API_KEY' -Value $communityBlocklistApiKey -Path $envPath
+
+    $secretsDir = Join-Path $RootDir 'secrets'
+    if (-not (Test-Path $secretsDir)) {
+        New-Item -ItemType Directory -Path $secretsDir | Out-Null
+    }
+    Set-Content -Path (Join-Path $secretsDir 'pg_password.txt') -Value $postgresPassword -Encoding ASCII
+    Set-Content -Path (Join-Path $secretsDir 'redis_password.txt') -Value $redisPassword -Encoding ASCII
 }
 
 # Do not print any secrets or secret values to stdout.

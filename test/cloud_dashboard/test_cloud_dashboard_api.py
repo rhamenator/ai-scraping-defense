@@ -4,8 +4,10 @@ import unittest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from src.cloud_dashboard import cloud_dashboard_api as cd
+from src.shared.observability import WebSocketConnectionLimiter
 
 
 class TestCloudDashboardAPI(unittest.TestCase):
@@ -76,6 +78,49 @@ class TestCloudDashboardAPI(unittest.TestCase):
             self.assertIn("ws2", cd.WATCHERS)
         self.assertNotIn("ws2", cd.WATCHERS)
 
+    def test_websocket_requires_registered_installation(self):
+        with self.assertRaises(WebSocketDisconnect):
+            with self.client.websocket_connect("/ws/unregistered"):
+                pass
+
+    def test_websocket_rejects_when_connection_limit_exceeded(self):
+        self.client.post("/register", json={"installation_id": "ws-limit"})
+        with patch.object(
+            cd,
+            "WEBSOCKET_LIMITER",
+            WebSocketConnectionLimiter(max_total=1, max_per_key=1),
+        ):
+            with self.client.websocket_connect("/ws/ws-limit") as first:
+                self.assertEqual(first.receive_json(), {})
+                with self.assertRaises(WebSocketDisconnect):
+                    with self.client.websocket_connect("/ws/ws-limit"):
+                        pass
+
+    @patch("src.cloud_dashboard.cloud_dashboard_api.log_event")
+    def test_websocket_rejection_is_audited(self, mock_log_event):
+        with self.assertRaises(WebSocketDisconnect):
+            with self.client.websocket_connect("/ws/not-registered"):
+                pass
+        mock_log_event.assert_called()
+        self.assertIn("denied", mock_log_event.call_args.args[1])
+
+    def test_websocket_rejects_oversized_payload(self):
+        self.client.post("/register", json={"installation_id": "ws-big"})
+        self.client.post(
+            "/metrics",
+            json={
+                "installation_id": "ws-big",
+                "metrics": {"blob": "x" * 128},
+            },
+        )
+        with patch.object(cd, "MAX_WEBSOCKET_MESSAGE_BYTES", 32):
+            with self.client.websocket_connect("/ws/ws-big") as ws:
+                self.assertEqual(
+                    ws.receive_json(), {"error": "Metrics payload too large"}
+                )
+                with self.assertRaises(WebSocketDisconnect):
+                    ws.receive_json()
+
     def test_api_key_enforced_when_configured(self):
         with patch.dict(os.environ, {"CLOUD_DASHBOARD_API_KEY": "sek"}):
             importlib.reload(cd)
@@ -114,6 +159,13 @@ class TestCloudDashboardAPI(unittest.TestCase):
                 self.assertEqual(resp.status_code, 401)
                 resp = client.get("/metrics/x", headers={"X-API-Key": "sek"})
                 self.assertEqual(resp.status_code, 200)
+                with self.assertRaises(WebSocketDisconnect):
+                    with client.websocket_connect("/ws/x"):
+                        pass
+                with client.websocket_connect(
+                    "/ws/x", headers={"X-API-Key": "sek"}
+                ) as ws:
+                    self.assertEqual(ws.receive_json(), {})
 
 
 if __name__ == "__main__":

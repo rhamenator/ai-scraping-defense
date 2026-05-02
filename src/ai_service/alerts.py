@@ -15,6 +15,7 @@ import redis.asyncio as redis
 
 from src.shared.config import CONFIG
 from src.shared.operational_events import publish_operational_event
+from src.shared.redis_client import load_redis_runtime_settings
 from src.shared.utils import LOG_DIR, log_error, log_event
 
 try:
@@ -44,10 +45,6 @@ ALERT_EMAIL_FROM = CONFIG.ALERT_EMAIL_FROM
 ALERT_EMAIL_TO = CONFIG.ALERT_EMAIL_TO
 ALERT_MIN_REASON_SEVERITY = CONFIG.ALERT_MIN_REASON_SEVERITY
 
-REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
-REDIS_DB = int(os.environ.get("REDIS_DB", 0))
-REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 ANOMALY_EVENT_CHANNEL = "anomaly_events"
 
 ANOMALY_ALERT_ACTIONS_ENV = os.environ.get("ANOMALY_ALERT_ACTIONS", "alert")
@@ -438,11 +435,12 @@ async def send_alert(event_data: "WebhookEvent") -> None:
 
 async def get_redis_client():
     """Create and return an async Redis client."""
+    redis_host, redis_port, redis_db, redis_password = load_redis_runtime_settings()
     return redis.Redis(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        db=REDIS_DB,
-        password=REDIS_PASSWORD,
+        host=redis_host,
+        port=redis_port,
+        db=redis_db,
+        password=redis_password,
         decode_responses=True,
     )
 

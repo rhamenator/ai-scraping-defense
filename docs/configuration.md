@@ -1,6 +1,8 @@
 # Configuration Reference
 
 This page documents all environment variables consumed by the Python services. Defaults come from `src/shared/config.py` unless noted.
+For the repo-level support boundary around external integrations, see
+[third_party_integration_security_baseline.md](third_party_integration_security_baseline.md).
 
 ## HashiCorp Vault Configuration
 
@@ -83,7 +85,9 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 | --- | --- | --- |
 | `ADMIN_UI_USERNAME` | `admin` | Basic auth username |
 | `ADMIN_UI_PASSWORD_HASH` | *(none)* | bcrypt hash for admin password |
+| `ADMIN_UI_REQUIRE_MFA` | `true` | Require MFA for Admin UI logins unless explicitly disabled for lab-only use |
 | `ADMIN_UI_2FA_SECRET` | *(none)* | TOTP secret for MFA |
+| `ADMIN_UI_SSO_MFA_REQUIRED` | inherits `ADMIN_UI_REQUIRE_MFA` | Override MFA enforcement for Admin UI SSO flows |
 | `WEBAUTHN_RP_ID` | `localhost` | WebAuthn relying party ID |
 | `WEBAUTHN_ORIGIN` | `http://localhost` | WebAuthn origin |
 | `WEBAUTHN_TOKEN_TTL` | `300` | WebAuthn token TTL in seconds |
@@ -122,8 +126,21 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 | `CLOUD_CDN_API_TOKEN_FILE` | *(none)* | File path containing the Cloudflare API token |
 | `CDN_PURGE_URL` | *(derived)* | Optional explicit purge endpoint override |
 | `REQUIRE_CLOUDFLARE_ACCOUNT` | `false` | Fail environment validation unless Cloudflare integration is configured |
+| `SECURITY_CDN_ORIGIN_LOCKDOWN` | `false` | Render an Nginx allowlist so only trusted CDN proxy CIDRs (plus localhost probes) can reach the origin directly |
+| `SECURITY_CDN_TRUSTED_PROXY_CIDRS` | *(none)* | Comma-separated Cloudflare/CDN proxy CIDRs trusted to supply real client IP headers |
+| `SECURITY_CDN_CLIENT_IP_HEADERS` | `CF-Connecting-IP,True-Client-IP,X-Forwarded-For` for Cloudflare | Ordered client IP headers to trust for CDN traffic |
 | `CLOUDFLARE_TUNNEL_TOKEN` | *(none)* | Optional token used by `scripts/linux/start_cloudflare_tunnel.sh` for named tunnels |
 | `CLOUDFLARE_TUNNEL_TARGET_URL` | `http://localhost:${NGINX_HTTP_PORT}` | Optional origin URL for Cloudflare Tunnel script |
+
+When `REQUIRE_CLOUDFLARE_ACCOUNT=true`, validation now requires one of:
+
+- `SECURITY_CDN_ORIGIN_LOCKDOWN=true` so the Nginx origin only accepts trusted CDN proxy CIDRs
+- `CLOUDFLARE_TUNNEL_TOKEN` so the origin can be reached through a named Cloudflare Tunnel instead of direct public ingress
+
+If you rely on `CLOUDFLARE_TUNNEL_TOKEN` instead of `SECURITY_CDN_ORIGIN_LOCKDOWN=true`,
+you still need to keep the origin listener off the public internet yourself. In
+Compose terms that means binding the nginx ports to localhost only, removing the
+published `ports:` mapping, or enforcing an equivalent host firewall policy.
 
 ## Tarpit and Blocklist
 
@@ -157,6 +174,15 @@ These settings apply to services created via `src.shared.middleware.create_app()
 | `SECURITY_MAX_QUERY_STRING_LENGTH` | `4096` | Max query string length in bytes (0 disables the check) |
 | `SECURITY_MAX_HEADER_COUNT` | `100` | Max number of request headers (0 disables the check) |
 | `SECURITY_MAX_HEADER_VALUE_LENGTH` | `8192` | Max single header value length in bytes (0 disables the check) |
+| `SECURITY_DISABLE_TARPIT_FOR_TRUSTED_CDN` | `true` | Return a fast containment response instead of a slow tarpit for trusted CDN traffic |
+| `SECURITY_EDGE_CDN_CONTAINMENT_ACTION` | `block` | CDN-safe origin action for trusted CDN traffic: `block` or `throttle` |
+| `SECURITY_EDGE_CDN_RETRY_AFTER_SECONDS` | `120` | `Retry-After` value when `SECURITY_EDGE_CDN_CONTAINMENT_ACTION=throttle` |
+
+For CDN-fronted deployments, the intended policy is:
+
+- use the CDN edge for challenge, rate-limit, and temporary blocking
+- keep `SECURITY_DISABLE_TARPIT_FOR_TRUSTED_CDN=true` so proxied attack traffic does not turn into expensive tarpit egress
+- reserve the slow tarpit behavior for direct-origin or non-CDN traffic
 
 ## JWT Authentication
 
@@ -171,6 +197,16 @@ JWT verification is used by some internal APIs (for example, the escalation engi
 | `AUTH_JWT_PUBLIC_KEY_FILE` | *(none)* | File containing the public key used for RS*/ES*/EdDSA algorithms |
 | `AUTH_JWT_ISSUER` | *(none)* | Optional expected `iss` claim |
 | `AUTH_JWT_AUDIENCE` | *(none)* | Optional expected `aud` claim |
+
+## Internal Service Authentication
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `INTERNAL_AUTH_MODE` | `shared_key` | Supported internal HTTP auth baseline; current release supports `shared_key` |
+| `SHARED_SECRET` | *(none)* | Bearer secret required by `prompt_router` |
+| `PROXY_KEY` | *(none)* | Header secret injected by `prompt_router` when calling `cloud_proxy` |
+| `ESCALATION_API_KEY` | *(none)* | Shared key for Admin UI to call Escalation Engine admin endpoints |
+| `WEBHOOK_SHARED_SECRET` | *(none)* | HMAC secret for Escalation Engine webhook calls into `ai_service` |
 
 ## Error Handling
 
@@ -251,6 +287,7 @@ JWT verification is used by some internal APIs (for example, the escalation engi
 | `TARPIT_LLM_MAX_TOKENS` | `400` | Max tokens for tarpit LLM |
 | `ENABLE_AI_LABYRINTH` | `true` | Enable endless labyrinth pages |
 | `TARPIT_LABYRINTH_DEPTH` | `5` | Depth for AI labyrinth |
+| `TRAINING_REQUIRE_DATASET_PROVENANCE` | `true` | Require `*.metadata.json` provenance sidecars before local fine-tuning datasets are loaded |
 | `ENABLE_FINGERPRINTING` | `true` | Track browser fingerprints |
 
 ## Tracking Windows

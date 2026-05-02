@@ -13,7 +13,7 @@ from typing import Dict
 import httpx
 from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 # The direct 'redis' import is no longer needed as the client handles it.
 from redis.exceptions import RedisError
@@ -27,6 +27,7 @@ from src.shared.observability import (
     trace_span,
 )
 from src.shared.redis_client import get_redis_connection
+from src.shared.request_identity import resolve_request_identity
 
 from .bad_api_generator import register_bad_endpoints
 
@@ -37,7 +38,8 @@ class TarpitPathValidator(BaseModel):
 
     path: str = Field(default="", max_length=2048, description="Request path")
 
-    @validator("path")
+    @field_validator("path")
+    @classmethod
     def sanitize_path(cls, v):
         """Sanitize path to prevent injection attacks."""
         if not v:
@@ -64,7 +66,8 @@ class EscalationMetadata(BaseModel):
     headers: Dict[str, str] = Field(default_factory=dict)
     source: str = Field(default="tarpit_api", max_length=50)
 
-    @validator("ip")
+    @field_validator("ip")
+    @classmethod
     def validate_ip(cls, v):
         """Basic IP validation."""
         if v == "unknown":
@@ -75,7 +78,8 @@ class EscalationMetadata(BaseModel):
             raise ValueError("Invalid IP format")
         return v
 
-    @validator("method")
+    @field_validator("method")
+    @classmethod
     def validate_method(cls, v):
         """Validate HTTP method."""
         allowed_methods = {"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
@@ -84,7 +88,8 @@ class EscalationMetadata(BaseModel):
             return "GET"  # Default to GET for invalid methods
         return v
 
-    @validator("headers")
+    @field_validator("headers")
+    @classmethod
     def sanitize_headers(cls, v):
         """Sanitize header values."""
         sanitized = {}
@@ -102,6 +107,14 @@ class EscalationMetadata(BaseModel):
 
 
 logger = logging.getLogger(__name__)
+
+
+def _redact_ip_for_log(ip_address: str) -> str:
+    """Return a short irreversible token for IP-like values in logs."""
+    if not ip_address:
+        return "<redacted>"
+    return hashlib.sha256(ip_address.encode("utf-8")).hexdigest()[:12]
+
 
 try:
     from src.shared.honeypot_logger import log_honeypot_hit
@@ -215,6 +228,30 @@ BLOCKLIST_TTL_SECONDS = CONFIG.BLOCKLIST_TTL_SECONDS
 ENABLE_TARPIT_CATCH_ALL = CONFIG.ENABLE_TARPIT_CATCH_ALL
 
 
+def _disable_tarpit_for_trusted_cdn() -> bool:
+    return os.getenv("SECURITY_DISABLE_TARPIT_FOR_TRUSTED_CDN", "true").lower() == (
+        "true"
+    )
+
+
+def _trusted_cdn_containment_action() -> str:
+    action = os.getenv("SECURITY_EDGE_CDN_CONTAINMENT_ACTION", "block").strip().lower()
+    if action in {"block", "throttle"}:
+        return action
+    logger.warning(
+        "Invalid SECURITY_EDGE_CDN_CONTAINMENT_ACTION %r; using block", action
+    )
+    return "block"
+
+
+def _trusted_cdn_retry_after_seconds() -> int:
+    try:
+        value = int(os.getenv("SECURITY_EDGE_CDN_RETRY_AFTER_SECONDS", "120"))
+    except ValueError:
+        return 120
+    return max(1, value)
+
+
 # --- THIS IS THE SOLE REFACTORING CHANGE ---
 # Replaced the manual Redis Connection Pools with calls to the centralized client.
 redis_hops = get_redis_connection(db_number=REDIS_DB_TAR_PIT_HOPS)
@@ -319,6 +356,12 @@ async def slow_stream_content(content: str):
         sleep_for = min(delay, max(0.0, remaining))
         if sleep_for > 0:
             await asyncio.sleep(sleep_for)
+            if sleep_for < delay:
+                logger.warning(
+                    "Tarpit stream duration limit reached (%.2fs); closing response",
+                    MAX_STREAM_DURATION_SEC,
+                )
+                break
 
 
 def trigger_ip_block(ip: str, reason: str):
@@ -375,7 +418,8 @@ async def tarpit_handler(request: Request, path: str = ""):
 
     if not ENABLE_TARPIT_CATCH_ALL and path:
         raise HTTPException(status_code=404)
-    client_ip = request.client.host if request.client else "unknown"
+    identity = resolve_request_identity(request)
+    client_ip = identity.client_ip
     user_agent = request.headers.get("user-agent", "unknown")[:500]  # Limit length
     referer = request.headers.get("referer", "-")[:2048]  # Limit length
     requested_path = str(request.url.path)[:2048]  # Limit length
@@ -399,9 +443,13 @@ async def tarpit_handler(request: Request, path: str = ""):
 
                 if current_hop_count > TAR_PIT_MAX_HOPS:
                     logger.warning(
-                        f"Tarpit hop limit ({TAR_PIT_MAX_HOPS}) exceeded for IP: {client_ip}. Blocking IP."
+                        f"Tarpit hop limit ({TAR_PIT_MAX_HOPS}) exceeded "
+                        f"for IP: {client_ip}. Blocking IP."
                     )
-                    block_reason = f"Tarpit hop limit exceeded ({current_hop_count} hits in {TAR_PIT_HOP_WINDOW_SECONDS}s)"
+                    block_reason = (
+                        "Tarpit hop limit exceeded "
+                        f"({current_hop_count} hits in {TAR_PIT_HOP_WINDOW_SECONDS}s)"
+                    )
                     trigger_ip_block(client_ip, block_reason)
                     return HTMLResponse(
                         content="<html><head><title>Forbidden</title></head><body>Access Denied.</body></html>",
@@ -419,6 +467,9 @@ async def tarpit_handler(request: Request, path: str = ""):
     )
     honeypot_details = {
         "ip": client_ip,
+        "peer_ip": identity.peer_ip,
+        "via_trusted_cdn": identity.via_trusted_cdn,
+        "identity_source_header": identity.source_header,
         "user_agent": user_agent,
         "method": http_method,
         "path": requested_path,
@@ -453,7 +504,7 @@ async def tarpit_handler(request: Request, path: str = ""):
             headers=dict(request.headers),
             source="tarpit_api",
         )
-        metadata_dict = metadata.dict()
+        metadata_dict = metadata.model_dump()
     except Exception as e:
         logger.error(f"Error creating metadata for IP {client_ip}: {e}")
         # Use a sanitized fallback
@@ -487,6 +538,29 @@ async def tarpit_handler(request: Request, path: str = ""):
             ESCALATION_ENDPOINT,
             e,
         )
+
+    if identity.via_trusted_cdn and _disable_tarpit_for_trusted_cdn():
+        action = _trusted_cdn_containment_action()
+        logger.info(
+            "Bypassing origin tarpit for trusted CDN request from %s via %s with %s action",
+            _redact_ip_for_log(client_ip),
+            _redact_ip_for_log(identity.peer_ip),
+            action,
+        )
+        response = HTMLResponse(
+            content=(
+                "<html><head><title>Access Restricted</title></head>"
+                "<body>Request rate limited.</body></html>"
+                if action == "throttle"
+                else "<html><head><title>Forbidden</title></head>"
+                "<body>Access denied.</body></html>"
+            ),
+            status_code=429 if action == "throttle" else 403,
+        )
+        response.headers["Cache-Control"] = "no-store, private"
+        if action == "throttle":
+            response.headers["Retry-After"] = str(_trusted_cdn_retry_after_seconds())
+        return response
 
     content = "<html><body>Tarpit Error</body></html>"
     if CONFIG.ENABLE_AI_LABYRINTH and LABYRINTH_AVAILABLE:

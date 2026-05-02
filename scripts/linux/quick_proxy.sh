@@ -25,14 +25,7 @@ fi
 
 PROXY=${1:-nginx}
 
-if [ -z "${NO_NEW_PRIVILEGES:-}" ]; then
-  if $(docker_ctx) run --rm --security-opt no-new-privileges:true alpine:3.20 true >/dev/null 2>&1; then
-    export NO_NEW_PRIVILEGES=true
-  else
-    export NO_NEW_PRIVILEGES=false
-    echo "Runtime does not support no-new-privileges:true; setting NO_NEW_PRIVILEGES=false."
-  fi
-fi
+ensure_no_new_privileges_env
 
 env_file_value() {
   local key="$1"

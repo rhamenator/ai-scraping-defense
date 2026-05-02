@@ -24,33 +24,7 @@ fi
 
 PROXY=${1:-nginx}
 
-if [[ -z "${NO_NEW_PRIVILEGES:-}" ]]; then
-  if docker run --rm --security-opt no-new-privileges:true alpine:3.20 true >/dev/null 2>&1; then
-    export NO_NEW_PRIVILEGES=true
-  else
-    export NO_NEW_PRIVILEGES=false
-    echo "Runtime does not support no-new-privileges:true; setting NO_NEW_PRIVILEGES=false."
-  fi
-fi
-
-env_file_value() {
-  local key="$1"
-  awk -F= -v k="$key" '$1==k { print substr($0, index($0, "=") + 1); exit }' .env
-}
-
-port_in_use() {
-  local port="$1"
-  lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1
-}
-
-nginx_owns_host_port() {
-  local port="$1"
-  local container_port="$2"
-  local mapped_ports
-
-  mapped_ports=$(docker ps --filter name=^/nginx_proxy$ --format '{{.Ports}}' 2>/dev/null || true)
-  echo "$mapped_ports" | grep -Eq "(^|, )[^,]*:${port}->${container_port}/tcp"
-}
+ensure_no_new_privileges_env
 
 if [[ "$PROXY" == "nginx" ]]; then
   desired_http_port="${NGINX_HTTP_PORT:-$(env_file_value NGINX_HTTP_PORT)}"

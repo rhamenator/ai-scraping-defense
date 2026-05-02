@@ -27,6 +27,13 @@ spec:
       labels:
         app: escalation-engine
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: escalation-engine
         image: your-registry/ai-scraping-defense:latest
@@ -49,6 +56,11 @@ spec:
           limits:
             cpu: "500m"
             memory: "512Mi"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
         readinessProbe:
           httpGet:
             path: /health
@@ -65,7 +77,11 @@ spec:
         - name: models-storage
           mountPath: /app/models
           readOnly: true
+        - name: tmp
+          mountPath: /tmp
       volumes:
       - name: models-storage
         persistentVolumeClaim:
           claimName: models-pvc
+      - name: tmp
+        emptyDir: {}

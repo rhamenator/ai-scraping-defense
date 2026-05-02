@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pandas as pd
 
+sys.modules.setdefault("markov_train_rs", MagicMock())
 from rag import training
 
 
@@ -112,7 +113,10 @@ class TestTrainingPipelineComprehensive(unittest.TestCase):
             }
         )
 
-        labeled_df = training.assign_labels_and_scores(df, honeypot_ips, captcha_ips)
+        with patch("rag.training._log_training_audit") as mock_audit:
+            labeled_df = training.assign_labels_and_scores(
+                df, honeypot_ips, captcha_ips
+            )
 
         # Honeypot IP -> bot
         self.assertEqual(labeled_df[labeled_df.ip == "1.1.1.1"].label.iloc[0], "bot")
@@ -124,6 +128,13 @@ class TestTrainingPipelineComprehensive(unittest.TestCase):
         self.assertEqual(labeled_df[labeled_df.ip == "5.5.5.5"].label.iloc[0], "bot")
         # Benign-looking request -> human
         self.assertEqual(labeled_df[labeled_df.ip == "2.2.2.2"].label.iloc[0], "human")
+        self.assertEqual(
+            labeled_df.attrs["feedback_override_summary"]["bot_override_count"], 1
+        )
+        self.assertEqual(
+            labeled_df.attrs["feedback_override_summary"]["human_override_count"], 1
+        )
+        mock_audit.assert_called_once()
 
     @patch("rag.training.joblib.dump")
     @patch("sklearn.ensemble.RandomForestClassifier.fit")
@@ -187,6 +198,37 @@ class TestTrainingPipelineComprehensive(unittest.TestCase):
             self.assertEqual(log_data_inner["ip"], "1.1.1.1")
             self.assertNotIn("bot_score", log_data_inner)
         self.assertNotIn("labeling_reasons", log_data_inner)
+        metadata_path = f"{self.finetune_train_path}.metadata.json"
+        self.assertTrue(os.path.exists(metadata_path))
+        with open(metadata_path, "r", encoding="utf-8") as handle:
+            metadata = json.load(handle)
+        self.assertEqual(metadata["split"], "train")
+        self.assertEqual(
+            metadata["generated_by"], "src.rag.training.save_data_for_finetuning"
+        )
+        self.assertEqual(metadata["trust_boundary"]["review_required"], True)
+
+    def test_assign_labels_logs_conflicting_feedback(self):
+        df = pd.DataFrame(
+            {
+                "ip": ["1.1.1.1"],
+                "user_agent": ["Mozilla"],
+                "path": ["/home"],
+                "status": [200],
+                "referer": ["https://example.com"],
+                "req_freq_60s": [1],
+                "time_since_last_sec": [60],
+            }
+        )
+
+        with patch("rag.training._log_training_audit") as mock_audit:
+            training.assign_labels_and_scores(df, {"1.1.1.1"}, {"1.1.1.1"})
+
+        self.assertEqual(mock_audit.call_count, 2)
+        self.assertEqual(
+            mock_audit.call_args_list[1].args[0],
+            "training_feedback_override_conflicts_detected",
+        )
 
     @patch("rag.training.joblib.dump")
     def test_model_accuracy_comparison(self, mock_dump):

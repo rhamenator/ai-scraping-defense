@@ -55,6 +55,42 @@ def test_security_headers_skip_hsts_when_disabled():
     assert "Strict-Transport-Security" not in response.headers
 
 
+def test_explicit_api_version_prefix_is_rejected():
+    settings = SecuritySettings(
+        rate_limit_requests=5,
+        rate_limit_window=60,
+        max_body_size=1024,
+        enable_https=False,
+    )
+    client = TestClient(_build_app(settings))
+
+    response = client.get("/v2/ping")
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": (
+            "Explicit API version prefix v2 is not supported. "
+            "Use the documented unversioned-v1 routes."
+        ),
+        "supported_versioning": "unversioned-v1",
+    }
+
+
+def test_api_namespace_version_prefix_is_rejected():
+    settings = SecuritySettings(
+        rate_limit_requests=5,
+        rate_limit_window=60,
+        max_body_size=1024,
+        enable_https=False,
+    )
+    client = TestClient(_build_app(settings))
+
+    response = client.get("/api/v3/ping")
+
+    assert response.status_code == 404
+    assert response.json()["supported_versioning"] == "unversioned-v1"
+
+
 def test_rate_limiting_blocks_after_threshold():
     settings = SecuritySettings(
         rate_limit_requests=2,
@@ -81,10 +117,12 @@ def test_body_size_limit_enforced():
     client = TestClient(_build_app(settings))
 
     small_payload = b"12345"
-    assert client.post("/echo", data=small_payload).json()["size"] == len(small_payload)
+    assert client.post("/echo", content=small_payload).json()["size"] == len(
+        small_payload
+    )
 
     large_payload = b"x" * 64
-    response = client.post("/echo", data=large_payload)
+    response = client.post("/echo", content=large_payload)
     assert response.status_code == 413
     assert response.json()["detail"] == "Request body too large"
 
@@ -123,6 +161,61 @@ def test_https_redirect_uses_allowlist_when_configured(monkeypatch):
 
     assert response.status_code == 307
     assert response.headers["location"].startswith("https://good.test/ping")
+
+
+def test_https_redirect_ignores_spoofed_forwarded_proto_from_untrusted_client(
+    monkeypatch,
+):
+    settings = SecuritySettings(
+        rate_limit_requests=5,
+        rate_limit_window=60,
+        max_body_size=1024,
+        enable_https=True,
+    )
+    client = TestClient(_build_app(settings))
+
+    response = client.get(
+        "/ping",
+        headers={"X-Forwarded-Proto": "https"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 307
+    assert response.headers["location"].startswith("https://testserver/ping")
+
+
+def test_https_redirect_trusts_forwarded_proto_from_configured_proxy(monkeypatch):
+    monkeypatch.setenv("SECURITY_TRUSTED_PROXY_CIDRS", "127.0.0.0/8")
+    settings = SecuritySettings(
+        rate_limit_requests=5,
+        rate_limit_window=60,
+        max_body_size=1024,
+        enable_https=True,
+    )
+    client = TestClient(_build_app(settings), client=("127.0.0.1", 50000))
+
+    response = client.get("/ping", headers={"X-Forwarded-Proto": "https"})
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_rate_limit_uses_trusted_cdn_client_ip(monkeypatch):
+    monkeypatch.setenv("CLOUD_CDN_PROVIDER", "cloudflare")
+    monkeypatch.setenv("SECURITY_CDN_TRUSTED_PROXY_CIDRS", "127.0.0.0/8")
+    settings = SecuritySettings(
+        rate_limit_requests=1,
+        rate_limit_window=60,
+        max_body_size=1024,
+        enable_https=False,
+    )
+    client = TestClient(_build_app(settings), client=("127.0.0.1", 50000))
+
+    first = client.get("/ping", headers={"CF-Connecting-IP": "203.0.113.25"})
+    second = client.get("/ping", headers={"CF-Connecting-IP": "203.0.113.25"})
+
+    assert first.status_code == 200
+    assert second.status_code == 429
 
 
 def test_request_target_limit_rejects_long_paths(monkeypatch):

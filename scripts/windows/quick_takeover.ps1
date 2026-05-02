@@ -27,16 +27,7 @@ if (-not (Test-Path '.env')) {
     Write-Host 'Created .env from sample.env'
 }
 
-if ([string]::IsNullOrWhiteSpace($env:NO_NEW_PRIVILEGES)) {
-    docker run --rm --security-opt no-new-privileges:true alpine:3.20 true *> $null
-    if ($LASTEXITCODE -eq 0) {
-        $env:NO_NEW_PRIVILEGES = 'true'
-    }
-    else {
-        $env:NO_NEW_PRIVILEGES = 'false'
-        Write-Host 'Runtime does not support no-new-privileges:true; setting NO_NEW_PRIVILEGES=false.' -ForegroundColor Yellow
-    }
-}
+Ensure-NoNewPrivileges
 
 $services = @('apache2','apache','nginx')
 foreach ($svc in $services) {
@@ -54,6 +45,8 @@ if ($Proxy -eq 'apache') {
 }
 else {
     Write-Host 'Launching stack with Nginx on port 80...' -ForegroundColor Cyan
+    $env:NGINX_HTTP_PORT = '80'
+    $env:NGINX_HTTPS_PORT = '443'
     Invoke-Compose @('up','-d','nginx_proxy')
 }
 

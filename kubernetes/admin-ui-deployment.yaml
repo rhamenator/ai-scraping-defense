@@ -27,6 +27,13 @@ spec:
       labels:
         app: admin-ui
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: admin-ui
         # IMPORTANT: Replace with your actual container image registry and tag.
@@ -43,6 +50,11 @@ spec:
           limits:
             cpu: "500m"
             memory: "512Mi"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
         envFrom:
         - configMapRef:
             name: app-config
@@ -50,6 +62,9 @@ spec:
             name: admin-ui-credentials
         - secretRef:
             name: redis-credentials
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         readinessProbe:
           httpGet:
             path: /health
@@ -62,3 +77,6 @@ spec:
             port: 5002
           initialDelaySeconds: 10
           periodSeconds: 10
+      volumes:
+      - name: tmp
+        emptyDir: {}

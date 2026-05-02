@@ -56,6 +56,18 @@ OPTIONAL_FEATURES = {
                 "default": "",
                 "required": True,
             },
+            {
+                "key": "SECURITY_CDN_TRUSTED_PROXY_CIDRS",
+                "label": "Trusted Cloudflare proxy CIDRs",
+                "default": "",
+                "required": True,
+            },
+            {
+                "key": "SECURITY_CDN_ORIGIN_LOCKDOWN",
+                "label": "Restrict origin to trusted CDN proxies only",
+                "default": "true",
+                "required": True,
+            },
         ],
     },
     "ENABLE_DDOS_PROTECTION": {

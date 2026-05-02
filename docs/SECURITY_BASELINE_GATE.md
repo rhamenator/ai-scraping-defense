@@ -10,10 +10,17 @@ runs on pull requests and mainline pushes and must be green before merge.
 - Targeted tests:
   - `test/test_security_baselines.py`
   - `test/test_security_middleware.py`
-  - `test/test_security_inventory.py`
 - `pip-audit`
 - Trivy filesystem scan (container-scan job)
 - Trivy config scan (compose-config-scan job)
+
+The hardening gate is driven by `config/security_hardening.yaml`. That baseline
+must account for every Compose service, every Kubernetes workload, and every
+installer entrypoint as either:
+
+- a strict baseline target that enforces non-root / no-new-privileges /
+  capability-drop / read-only filesystem controls, or
+- a documented exception with an explicit operational reason
 
 Optional:
 - `kubernetes-dependency-audit` runs only on manual dispatch with
@@ -31,7 +38,7 @@ Optional:
 - Trivy findings do not fail the job by default (exit-code set to `0`); treat
   findings as follow-up issues if needed.
 - If baseline checks fail, fix the underlying issue or update the baseline
-  (e.g., security hardening config) and re-run the workflow.
+  (for example `config/security_hardening.yaml`) and re-run the workflow.
 
 ## Deep scan scripts
 

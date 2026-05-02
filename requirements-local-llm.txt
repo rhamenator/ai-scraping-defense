@@ -1,0 +1,6 @@
+-r requirements.txt
+
+# Optional local GGUF inference support. This native extension is not required
+# for the main stack and is installed separately so the default release
+# baseline stays smaller and easier to audit.
+llama-cpp-python~=0.3; platform_system == "Linux" and platform_machine == "x86_64"

@@ -136,6 +136,61 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
         self.mocks["log_honeypot_hit"].assert_called_once()
         self.mocks["generate_dynamic_tarpit_page"].assert_called_once()
 
+    async def test_tarpit_handler_bypasses_stream_for_trusted_cdn(self):
+        trusted_client = TestClient(app, client=("127.0.0.1", 50000))
+
+        with patch.dict(
+            os.environ,
+            {
+                "CLOUD_CDN_PROVIDER": "cloudflare",
+                "SECURITY_CDN_TRUSTED_PROXY_CIDRS": "127.0.0.0/8",
+                "SECURITY_EDGE_CDN_CONTAINMENT_ACTION": "throttle",
+                "SECURITY_EDGE_CDN_RETRY_AFTER_SECONDS": "90",
+            },
+            clear=False,
+        ), patch("src.tarpit.tarpit_api.logger.info") as mock_info:
+            response = trusted_client.get(
+                "/tarpit/cdn/path",
+                headers={
+                    "User-Agent": "TestBot",
+                    "CF-Connecting-IP": "203.0.113.44",
+                },
+            )
+
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.headers["Retry-After"], "90")
+        self.assertIn("Request rate limited", response.text)
+        self.mocks["flag_suspicious_ip"].assert_called_once_with(
+            ip_address="203.0.113.44", reason="Tarpit Hit"
+        )
+        self.mocks["generate_dynamic_tarpit_page"].assert_not_called()
+        self.async_client_instance.__aenter__.return_value.post.assert_awaited_once()
+        self.assertTrue(mock_info.called)
+        logged_args = mock_info.call_args.args
+        self.assertEqual(
+            logged_args[0],
+            "Bypassing origin tarpit for trusted CDN request from %s via %s with %s action",
+        )
+        self.assertNotEqual(logged_args[1], "203.0.113.44")
+        self.assertNotEqual(logged_args[2], "127.0.0.1")
+        self.assertEqual(logged_args[3], "throttle")
+
+    async def test_tarpit_handler_ignores_spoofed_cdn_headers_from_untrusted_peer(self):
+        response = self.client.get(
+            "/tarpit/direct/path",
+            headers={
+                "User-Agent": "TestBot",
+                "CF-Connecting-IP": "203.0.113.44",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.text.strip(), "<html>Mock Tarpit Page</html>")
+        self.mocks["flag_suspicious_ip"].assert_called_once_with(
+            ip_address="testclient", reason="Tarpit Hit"
+        )
+        self.mocks["generate_dynamic_tarpit_page"].assert_called_once()
+
     async def test_slow_stream_respects_duration_limit(self):
         """The tarpit stream should stop once the hard duration ceiling is reached."""
         import src.tarpit.tarpit_api as tarpit_api

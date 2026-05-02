@@ -14,6 +14,13 @@ spec:
       labels:
         app: archive-rotator
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: archive-rotator
         image: your-registry/ai-scraping-defense:latest
@@ -30,10 +37,19 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "500m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
         volumeMounts:
         - name: archives-storage
           mountPath: /app/archives
+        - name: tmp
+          mountPath: /tmp
       volumes:
       - name: archives-storage
         persistentVolumeClaim:
           claimName: archives-pvc
+      - name: tmp
+        emptyDir: {}

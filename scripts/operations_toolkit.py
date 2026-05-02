@@ -10,18 +10,26 @@ subprocess calls to existing tools (`pg_dump`, `redis-cli`, `terraform`,
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import os
+import re
 import shlex
-import subprocess
+
+# Bandit B404 is acceptable here because this module wraps fixed operator CLIs
+# and passes argv lists directly to subprocess.run without shell=True.
+import subprocess  # nosec B404
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable, List, Mapping
+from urllib.parse import quote, urlsplit, urlunsplit
 
 LOG = logging.getLogger(__name__)
 DEFAULT_BACKUP_DIR = Path(os.getenv("BACKUP_DIR", "./backups"))
+BACKUP_DIR_MODE = 0o700
+BACKUP_FILE_MODE = 0o600
 
 
 @dataclass
@@ -32,38 +40,316 @@ class CommandResult:
     stderr: str
 
 
+class CommandExecutionError(RuntimeError):
+    """Raised when a required external command fails."""
+
+    def __init__(self, result: CommandResult):
+        super().__init__(
+            "Command failed with exit code "
+            f"{result.returncode}: {_format_command_for_logging(result.command)}"
+        )
+        self.result = result
+
+
+def _sanitize_token_like_value(value: str) -> str:
+    value = re.sub(
+        r"\bgh[pousr]_[A-Za-z0-9]{36}\b",  # nosec B105
+        "[REDACTED_TOKEN]",
+        value,
+    )
+    value = re.sub(
+        r"\bgithub_pat_[A-Za-z0-9_]+\b",  # nosec B105
+        "[REDACTED_TOKEN]",
+        value,
+    )
+    value = re.sub(
+        r"(Bearer\s+|token\s+)[A-Za-z0-9_\-\.=]+",
+        r"\1[REDACTED]",
+        value,
+        flags=re.IGNORECASE,
+    )
+    return value
+
+
+def _format_host_with_port(hostname: str, port: int | None) -> str:
+    host = hostname
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    return f"{host}:{port}" if port else host
+
+
+def _parse_url_with_credentials(value: str):
+    if "://" not in value:
+        return None
+
+    parsed = urlsplit(value)
+    if not parsed.scheme or parsed.hostname is None:
+        return None
+
+    if parsed.username is None and parsed.password is None:
+        return None
+
+    return parsed
+
+
+def _redact_url_credentials(value: str) -> str:
+    parsed = _parse_url_with_credentials(value)
+    if parsed is None:
+        return value
+
+    host_with_port = _format_host_with_port(parsed.hostname, parsed.port)
+    redacted_netloc = f"[REDACTED]@{host_with_port}"
+    return urlunsplit(
+        (parsed.scheme, redacted_netloc, parsed.path, parsed.query, parsed.fragment)
+    )
+
+
+def _sanitize_text(value: str) -> str:
+    sanitized = _sanitize_token_like_value(value)
+    return re.sub(
+        r"[A-Za-z][A-Za-z0-9+.-]*://[^\s'\"<>]+",
+        lambda match: _redact_url_credentials(match.group(0)),
+        sanitized,
+    )
+
+
+def _strip_url_password(value: str) -> tuple[str, str | None, str | None]:
+    parsed = _parse_url_with_credentials(value)
+    if parsed is None or parsed.password is None:
+        return value, None, parsed.username if parsed is not None else None
+
+    host_with_port = _format_host_with_port(parsed.hostname, parsed.port)
+    username = parsed.username
+    if username:
+        encoded_username = quote(username, safe="")
+        netloc = f"{encoded_username}@{host_with_port}"
+    else:
+        netloc = host_with_port
+
+    sanitized_url = urlunsplit(
+        (parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment)
+    )
+    return sanitized_url, parsed.password, username
+
+
+def _postgres_command_with_env(
+    postgres_url: str, *prefix: str
+) -> tuple[list[str], dict[str, str]]:
+    sanitized_url, password, _ = _strip_url_password(postgres_url)
+    env = {"PGPASSWORD": password} if password is not None else {}
+    return [*prefix, sanitized_url], env
+
+
+def _redis_cli_command_with_env(
+    redis_url: str, *prefix: str
+) -> tuple[list[str], dict[str, str]]:
+    sanitized_url, password, username = _strip_url_password(redis_url)
+    command = [*prefix]
+    if username:
+        command.extend(["--user", username])
+    command.extend(["-u", sanitized_url])
+    env = {"REDISCLI_AUTH": password} if password is not None else {}
+    return command, env
+
+
+def _render_kustomize_dir(template: str, environment: str) -> str:
+    try:
+        return template.format(environment=environment)
+    except (IndexError, KeyError, ValueError) as exc:
+        raise SystemExit(
+            "Invalid kustomize directory template; expected a format string "
+            "compatible with {environment}"
+        ) from exc
+
+
+def _sanitize_command_arg(value: str) -> str:
+    sanitized = _sanitize_token_like_value(value)
+    if sanitized != value:
+        return sanitized
+    return _redact_url_credentials(value)
+
+
+def _format_command_for_logging(command: Iterable[str]) -> str:
+    return shlex.join(_sanitize_command_arg(arg) for arg in command)
+
+
 def run_command(
-    command: Iterable[str], *, execute: bool, cwd: Path | None = None
+    command: Iterable[str],
+    *,
+    execute: bool,
+    cwd: Path | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> CommandResult:
-    """Run a command, optionally in dry-run mode, returning captured output."""
+    """Run a command and return captured output.
+
+    Raises `CommandExecutionError` when a required external command exits non-zero.
+    """
 
     args = list(command)
-    LOG.debug("Prepared command: %s", shlex.join(args))
+    formatted_command = _format_command_for_logging(args)
+    LOG.debug("Prepared command: %s", formatted_command)
     if not execute:
-        LOG.info("[dry-run] %s", shlex.join(args))
+        LOG.info("[dry-run] %s", formatted_command)
         return CommandResult(command=args, returncode=0, stdout="", stderr="")
 
-    proc = subprocess.run(  # nosec B603 - controlled CLI wrapper
-        args,
-        cwd=str(cwd) if cwd else None,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    command_env = os.environ.copy()
+    if env:
+        command_env.update(env)
+
+    try:
+        # `args` is always passed as an argv list with `shell=False`, and `env`
+        # only carries explicit auth variables needed by fixed operator CLIs.
+        proc = subprocess.run(  # nosec B603
+            args,  # nosemgrep
+            cwd=str(cwd) if cwd else None,
+            check=False,
+            capture_output=True,
+            text=True,
+            env=command_env,
+        )
+    except OSError as exc:
+        stderr = _sanitize_text(str(exc))
+        LOG.error("Command failed to launch: %s", formatted_command)
+        LOG.error(stderr)
+        raise CommandExecutionError(CommandResult(args, 127, "", stderr)) from exc
+
+    result = CommandResult(args, proc.returncode, proc.stdout, proc.stderr)
     if proc.returncode != 0:
-        LOG.error("Command failed (%s): %s", proc.returncode, shlex.join(args))
-        LOG.error(proc.stderr.strip())
-    else:
-        LOG.info("Command succeeded: %s", shlex.join(args))
-    return CommandResult(args, proc.returncode, proc.stdout, proc.stderr)
+        LOG.error("Command failed (%s): %s", proc.returncode, formatted_command)
+        sanitized_stderr = _sanitize_text(proc.stderr.strip())
+        if sanitized_stderr:
+            LOG.error(sanitized_stderr)
+        raise CommandExecutionError(
+            CommandResult(args, proc.returncode, proc.stdout, sanitized_stderr)
+        )
+
+    LOG.info("Command succeeded: %s", formatted_command)
+    return result
+
+
+def _validate_deploy_inputs(args: argparse.Namespace) -> None:
+    kustomize_dir = _render_kustomize_dir(args.kustomize_dir, args.environment)
+    missing_paths = [
+        raw_path
+        for raw_path in (
+            args.terraform_dir,
+            args.ansible_inventory,
+            args.ansible_playbook,
+            kustomize_dir,
+        )
+        if not Path(raw_path).exists()
+    ]
+    if missing_paths:
+        joined = ", ".join(missing_paths)
+        raise SystemExit(f"Deploy configuration references missing path(s): {joined}")
 
 
 def ensure_directory(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(path, BACKUP_DIR_MODE)
+    except OSError:
+        LOG.debug("Unable to set permissions on %s", path, exc_info=True)
+
+
+def _secure_path(path: Path) -> None:
+    try:
+        os.chmod(path, BACKUP_FILE_MODE)
+    except OSError:
+        LOG.debug("Unable to set permissions on %s", path, exc_info=True)
+
+
+def _sha256_file(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8192), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_json_file(path: Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    _secure_path(path)
+
+
+def _build_backup_manifest(
+    *,
+    postgres_file: Path,
+    redis_file: Path,
+    state_file: Path,
+    kube_context: str,
+) -> dict:
+    artifacts = {}
+    for name, path in (
+        ("postgres_dump", postgres_file),
+        ("redis_dump", redis_file),
+        ("cluster_state", state_file),
+    ):
+        artifacts[name] = {
+            "path": path.name,
+            "exists": path.exists(),
+            "sha256": _sha256_file(path),
+        }
+    return {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "kube_context": kube_context,
+        "artifacts": artifacts,
+    }
+
+
+def _load_backup_manifest(source: Path) -> dict | None:
+    manifest_path = source / "backup_manifest.json"
+    if not manifest_path.exists():
+        return None
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"Backup manifest is not valid JSON: {manifest_path}") from exc
+    if not isinstance(manifest, dict):
+        raise SystemExit(f"Backup manifest has invalid structure: {manifest_path}")
+    return manifest
+
+
+def _resolve_manifest_artifact_path(source: Path, entry: dict) -> Path:
+    raw_path = entry.get("path")
+    if not isinstance(raw_path, str) or not raw_path:
+        raise SystemExit("Backup manifest artifact entry is missing a valid path")
+    artifact_path = (source / raw_path).resolve()
+    source_root = source.resolve()
+    if artifact_path != source_root and source_root not in artifact_path.parents:
+        raise SystemExit(f"Backup artifact path escapes backup directory: {raw_path}")
+    return artifact_path
+
+
+def _verify_backup_manifest(source: Path) -> None:
+    manifest = _load_backup_manifest(source)
+    if manifest is None:
+        LOG.warning(
+            "No backup manifest found in %s; integrity verification skipped", source
+        )
+        return
+
+    artifacts = manifest.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        raise SystemExit("Backup manifest artifacts section is invalid")
+    for entry in artifacts.values():
+        if not isinstance(entry, dict):
+            raise SystemExit("Backup manifest artifact entry is invalid")
+        artifact_path = _resolve_manifest_artifact_path(source, entry)
+        expected = entry.get("sha256")
+        exists = entry.get("exists", False)
+        if exists and not artifact_path.exists():
+            raise SystemExit(f"Backup artifact missing: {artifact_path}")
+        if expected and artifact_path.exists():
+            actual = _sha256_file(artifact_path)
+            if actual != expected:
+                raise SystemExit(f"Backup artifact checksum mismatch: {artifact_path}")
 
 
 def backup(args: argparse.Namespace) -> Path:
-    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     destination = Path(args.destination or DEFAULT_BACKUP_DIR) / timestamp
     ensure_directory(destination)
 
@@ -71,28 +357,24 @@ def backup(args: argparse.Namespace) -> Path:
     postgres_file = destination / "postgres.sql"
     redis_file = destination / "redis.rdb"
     state_file = destination / "cluster_state.json"
+    manifest_file = destination / "backup_manifest.json"
+
+    postgres_command, postgres_env = _postgres_command_with_env(
+        args.postgres_url, "pg_dump", "--dbname"
+    )
 
     run_command(
-        [
-            "pg_dump",
-            "--dbname",
-            args.postgres_url,
-            "--file",
-            str(postgres_file),
-        ],
+        [*postgres_command, "--file", str(postgres_file)],
         execute=args.execute,
+        env=postgres_env,
     )
+    redis_command, redis_env = _redis_cli_command_with_env(args.redis_url, "redis-cli")
     run_command(
-        [
-            "redis-cli",
-            "-u",
-            args.redis_url,
-            "--rdb",
-            str(redis_file),
-        ],
+        [*redis_command, "--rdb", str(redis_file)],
         execute=args.execute,
+        env=redis_env,
     )
-    run_command(
+    cluster_state = run_command(
         [
             "kubectl",
             "--context",
@@ -106,16 +388,37 @@ def backup(args: argparse.Namespace) -> Path:
         execute=args.execute,
     )
     if args.execute:
-        (state_file).write_text(
-            json.dumps(
-                {
-                    "generated_at": datetime.utcnow().isoformat(),
-                    "postgres_dump": str(postgres_file),
-                    "redis_dump": str(redis_file),
-                    "kube_context": args.kube_context,
-                },
-                indent=2,
-            )
+        if cluster_state.stdout:
+            try:
+                resources = json.loads(cluster_state.stdout)
+            except json.JSONDecodeError as exc:
+                raise SystemExit(
+                    "kubectl returned invalid JSON while capturing cluster state"
+                ) from exc
+            state_payload = {
+                "generated_at": datetime.now(UTC).isoformat(),
+                "kube_context": args.kube_context,
+                "resources": resources,
+            }
+        else:
+            state_payload = {
+                "generated_at": datetime.now(UTC).isoformat(),
+                "postgres_dump": str(postgres_file),
+                "redis_dump": str(redis_file),
+                "kube_context": args.kube_context,
+            }
+        _write_json_file(state_file, state_payload)
+        for artifact in (postgres_file, redis_file):
+            if artifact.exists():
+                _secure_path(artifact)
+        _write_json_file(
+            manifest_file,
+            _build_backup_manifest(
+                postgres_file=postgres_file,
+                redis_file=redis_file,
+                state_file=state_file,
+                kube_context=args.kube_context,
+            ),
         )
     LOG.info("Backup complete")
     return destination
@@ -125,11 +428,16 @@ def restore(args: argparse.Namespace) -> None:
     source = Path(args.source)
     if not source.exists():
         raise SystemExit(f"Backup directory {source} does not exist")
+    _verify_backup_manifest(source)
 
     LOG.info("Restoring from %s", source)
+    postgres_command, postgres_env = _postgres_command_with_env(
+        args.postgres_url, "psql"
+    )
     run_command(
-        ["psql", args.postgres_url, "-f", str(source / "postgres.sql")],
+        [*postgres_command, "-f", str(source / "postgres.sql")],
         execute=args.execute,
+        env=postgres_env,
     )
     redis_dump = source / "redis.rdb"
     if redis_dump.exists():
@@ -141,13 +449,22 @@ def restore(args: argparse.Namespace) -> None:
             ],
             execute=args.execute,
         )
-        LOG.warning(
-            "Redis dump copied. Restart the redis service on %s to load the snapshot.",
-            args.redis_host,
-        )
+        if args.execute:
+            LOG.warning(
+                "Redis dump copied. Restart the redis service on %s to load the snapshot.",
+                args.redis_host,
+            )
+        else:
+            LOG.info(
+                "[dry-run] Would copy Redis dump and restart the redis service on %s.",
+                args.redis_host,
+            )
     else:
         LOG.warning("No redis.rdb file found in %s", source)
-    LOG.info("Restore jobs queued")
+    if args.execute:
+        LOG.info("Restore jobs queued")
+    else:
+        LOG.info("[dry-run] Restore actions validated")
 
 
 def disaster_recovery_drill(args: argparse.Namespace) -> None:
@@ -175,7 +492,8 @@ def disaster_recovery_drill(args: argparse.Namespace) -> None:
 
 def deploy(args: argparse.Namespace) -> None:
     LOG.info("Deploying environment %s", args.environment)
-    kustomize_dir = args.kustomize_dir.format(environment=args.environment)
+    _validate_deploy_inputs(args)
+    kustomize_dir = _render_kustomize_dir(args.kustomize_dir, args.environment)
     run_command(
         ["terraform", "-chdir", args.terraform_dir, "apply", "-auto-approve"],
         execute=args.execute,
@@ -306,7 +624,17 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
     )
     args = parse_args(argv)
-    args.func(args)
+    try:
+        args.func(args)
+    except CommandExecutionError as exc:
+        returncode = exc.result.returncode
+        if returncode is None:
+            return 1
+        if returncode < 0:
+            return 128 + abs(returncode)
+        if returncode == 0:
+            return 1
+        return returncode
     return 0
 
 

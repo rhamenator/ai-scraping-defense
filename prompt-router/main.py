@@ -13,7 +13,9 @@ from fastapi import HTTPException, Request, Response
 from src.shared.mcp_client import MCPClientError, call_mcp_tool
 from src.shared.middleware import SecuritySettings, create_app
 from src.shared.observability import ObservabilitySettings
+from src.shared.request_identity import resolve_request_identity
 from src.shared.request_utils import read_json_body
+from src.shared.service_identity import build_cloud_proxy_headers
 
 INTERNAL_SERVICE_SCHEME = os.getenv("INTERNAL_SERVICE_SCHEME", "http")
 LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL") or (
@@ -32,14 +34,6 @@ if not SHARED_SECRET:
     )
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "60"))
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
-TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "false").lower() in (
-    "1",
-    "true",
-    "yes",
-)
-
-_request_counts: dict[str, tuple[int, float]] = {}
-_rate_lock = asyncio.Lock()
 
 
 def count_tokens(text: str) -> int:
@@ -59,6 +53,10 @@ app = create_app(
         health_path="/observability/health",
     ),
 )
+app.state.request_counts = {}
+app.state.rate_lock = asyncio.Lock()
+_request_counts: dict[str, tuple[int, float]] = app.state.request_counts
+_rate_lock = app.state.rate_lock
 
 
 @app.get("/health")
@@ -73,35 +71,37 @@ async def _dispatch_prompt(target: str, payload: dict) -> dict:
         except MCPClientError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
+    headers = {}
+    if target == CLOUD_PROXY_URL:
+        try:
+            headers = build_cloud_proxy_headers()
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
     async with httpx.AsyncClient() as client:
-        resp = await client.post(target, json=payload, timeout=60)
+        resp = await client.post(target, json=payload, headers=headers, timeout=60)
         resp.raise_for_status()
         return resp.json()
 
 
 def get_client_ip(request: Request) -> str:
-    if TRUST_PROXY_HEADERS:
-        x_forwarded_for = request.headers.get("X-Forwarded-For")
-        if x_forwarded_for:
-            return x_forwarded_for.split(",")[0].strip()
-        x_real_ip = request.headers.get("X-Real-IP")
-        if x_real_ip:
-            return x_real_ip
-    return request.client.host if request.client else "unknown"
+    return resolve_request_identity(request).client_ip
 
 
 def calculate_window_reset(now: float, window: int = RATE_LIMIT_WINDOW) -> int:
     return int(now // window * window + window)
 
 
-def _cleanup_expired_requests(now: float) -> None:
+def _cleanup_expired_requests(
+    request_counts: dict[str, tuple[int, float]], now: float
+) -> None:
     """Remove expired rate-limit entries.
 
     Caller must hold ``_rate_lock``.
     """
-    expired = [ip for ip, (_, reset) in _request_counts.items() if now > reset]
+    expired = [ip for ip, (_, reset) in request_counts.items() if now > reset]
     for ip in expired:
-        del _request_counts[ip]
+        del request_counts[ip]
 
 
 @app.post("/route")
@@ -120,9 +120,11 @@ async def route_prompt(request: Request, response: Response) -> dict:
     client_ip = get_client_ip(request)
     now = time.time()
     window_reset = calculate_window_reset(now)
-    async with _rate_lock:
-        _cleanup_expired_requests(now)
-        count, reset = _request_counts.get(client_ip, (0, window_reset))
+    request_counts = request.app.state.request_counts
+    rate_lock = request.app.state.rate_lock
+    async with rate_lock:
+        _cleanup_expired_requests(request_counts, now)
+        count, reset = request_counts.get(client_ip, (0, window_reset))
         if now > reset:
             count, reset = 0, window_reset
         if count + 1 > RATE_LIMIT_REQUESTS:
@@ -136,7 +138,7 @@ async def route_prompt(request: Request, response: Response) -> dict:
             raise HTTPException(
                 status_code=429, detail="Too Many Requests", headers=headers
             )
-        _request_counts[client_ip] = (count + 1, reset)
+        request_counts[client_ip] = (count + 1, reset)
         remaining = RATE_LIMIT_REQUESTS - (count + 1)
 
     response.headers["X-RateLimit-Limit"] = str(RATE_LIMIT_REQUESTS)

@@ -117,3 +117,12 @@ To avoid "denial-of-wallet" scenarios during sustained attacks:
 - Set cloud billing alerts and spend budgets before exposing the service publicly.
 - Place volumetric DDoS protection in front of the cluster when possible.
 - Keep tarpit responses bounded (`TAR_PIT_MAX_STREAM_SECONDS`) so egress cannot grow indefinitely per request.
+
+## CDN-Origin Policy
+
+When placing the stack behind Cloudflare:
+
+- set `SECURITY_CDN_TRUSTED_PROXY_CIDRS` to the Cloudflare proxy ranges you intend to trust
+- prefer `SECURITY_CDN_ORIGIN_LOCKDOWN=true` for public origins so nginx only accepts those proxy ranges directly
+- if you do not want the origin listening publicly, use `CLOUDFLARE_TUNNEL_TOKEN` and run the stack behind a named Cloudflare Tunnel instead
+- keep `SECURITY_DISABLE_TARPIT_FOR_TRUSTED_CDN=true` so proxied attacks are challenged, throttled, or blocked quickly instead of turning into expensive tarpit egress

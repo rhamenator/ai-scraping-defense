@@ -5,6 +5,9 @@ on:
       environment:
         description: "Target environment (staging|production|preview)"
         required: false
+      base_url:
+        description: "Explicit E2E base URL. Required for preview targets and recommended for ad hoc runs."
+        required: false
       ref:
         description: "Git ref to run against"
         required: false
@@ -14,18 +17,73 @@ concurrency:
   group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
   cancel-in-progress: true
 jobs:
+  resolve-target:
+    runs-on: ubuntu-latest
+    outputs:
+      base_url: ${{ steps.resolve.outputs.base_url }}
+      target_source: ${{ steps.resolve.outputs.target_source }}
+    steps:
+      - name: Resolve E2E target
+        id: resolve
+        shell: bash
+        env:
+          INPUT_BASE_URL: ${{ inputs.base_url || '' }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment || '' }}
+          STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL || '' }}
+          PROD_BASE_URL: ${{ secrets.PROD_BASE_URL || '' }}
+        run: |
+          set -euo pipefail
+          if [ -n "$INPUT_BASE_URL" ]; then
+            base_url="$INPUT_BASE_URL"
+            target_source="workflow input"
+          else
+            case "$INPUT_ENVIRONMENT" in
+              production)
+                base_url="$PROD_BASE_URL"
+                target_source="PROD_BASE_URL secret"
+                ;;
+              preview)
+                echo "Preview E2E runs require workflow_dispatch input 'base_url'." >&2
+                echo "Regression E2E is an external-target workflow. For preview environments, pass an explicit preview URL." >> "$GITHUB_STEP_SUMMARY"
+                exit 1
+                ;;
+              ""|staging)
+                base_url="$STAGING_BASE_URL"
+                target_source="STAGING_BASE_URL secret"
+                ;;
+              *)
+                echo "Unsupported environment '$INPUT_ENVIRONMENT'. Use staging, production, or preview." >&2
+                exit 1
+                ;;
+            esac
+          fi
+
+          if [ -z "$base_url" ]; then
+            printf '%s\n' 'Regression E2E needs an explicit external target.' >> "$GITHUB_STEP_SUMMARY"
+            printf '\n' >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' '- For staging runs, set the STAGING_BASE_URL repository secret.' >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' '- For production runs, set the PROD_BASE_URL repository secret and pass environment=production.' >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' '- For preview or ad hoc runs, pass the base_url workflow_dispatch input.' >> "$GITHUB_STEP_SUMMARY"
+            echo "No usable base URL was provided for Regression E2E." >&2
+            exit 1
+          fi
+
+          echo "base_url=$base_url" >> "$GITHUB_OUTPUT"
+          echo "target_source=$target_source" >> "$GITHUB_OUTPUT"
+          printf '%s\n' '### Regression E2E target' >> "$GITHUB_STEP_SUMMARY"
+          printf '\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' "- Base URL: $base_url" >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' "- Source: $target_source" >> "$GITHUB_STEP_SUMMARY"
+
   e2e-linux:
+    needs: resolve-target
     permissions:
       contents: read
       checks: write
     runs-on: ubuntu-latest
     timeout-minutes: 70
     steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
-      - name: Determine base URL
-        id: base
-        run: |
-          [ -n "${{ secrets.STAGING_BASE_URL }}" ] && echo "url=${{ secrets.STAGING_BASE_URL }}" >> $GITHUB_OUTPUT || (echo "No STAGING_BASE_URL"; exit 1)
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Python env for e2e
         run: |
           python3 -m venv .venv; . .venv/bin/activate
@@ -33,33 +91,42 @@ jobs:
           pip install -r .github/tools/e2e/requirements.txt
       - name: k6 install (Linux)
         uses: grafana/setup-k6-action@ffe7d7290dfa715e48c2ccc924d068444c94bde2
-        with: { version: v0.50.0 }
+        with:
+          k6-version: "0.50.0"
       - name: k6 rich scenarios
-        run: k6 run -e BASE_URL="${{ steps.base.outputs.url }}" .github/tools/e2e/k6-rich.js
+        run: |
+          mkdir -p artifacts/performance
+          k6 run \
+            --summary-export artifacts/performance/k6-linux-summary.json \
+            -e BASE_URL="${{ needs.resolve-target.outputs.base_url }}" \
+            .github/tools/e2e/k6-rich.js
       - name: pytest e2e (Linux)
         run: |
           . .venv/bin/activate
-          BASE_URL="${{ steps.base.outputs.url }}" pytest -q .github/tools/e2e/tests
+          BASE_URL="${{ needs.resolve-target.outputs.base_url }}" pytest -q .github/tools/e2e/tests
       - name: Run user shell scripts
         run: |
-          export BASE_URL="${{ steps.base.outputs.url }}"
+          export BASE_URL="${{ needs.resolve-target.outputs.base_url }}"
           [ -f "./security_test.sh" ] && bash ./security_test.sh || true
           [ -f "./scripts/security_test.sh" ] && bash ./scripts/security_test.sh || true
           [ -f "./stress_test.sh" ] && bash ./stress_test.sh || true
           [ -f "./scripts/stress_test.sh" ] && bash ./scripts/stress_test.sh || true
+      - name: Upload Linux performance artifacts
+        if: always()
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        with:
+          name: regression-e2e-linux-performance
+          path: artifacts/performance/
+          if-no-files-found: ignore
   e2e-windows:
+    needs: resolve-target
     permissions:
       contents: read
       checks: write
     runs-on: windows-latest
     timeout-minutes: 70
     steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
-      - name: Determine base URL
-        id: base
-        shell: pwsh
-        run: |
-          if ($env:STAGING_BASE_URL) { "url=$($env:STAGING_BASE_URL)" >> $env:GITHUB_OUTPUT } else { Write-Host "Set STAGING_BASE_URL"; exit 1 }
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Python env for e2e (Windows)
         shell: pwsh
         run: |
@@ -75,39 +142,44 @@ jobs:
       - name: k6 rich scenarios (Windows)
         shell: pwsh
         run: |
-          & "${{ env.K6_EXE }}" run -e BASE_URL="${{ steps.base.outputs.url }}" .github/tools/e2e/k6-rich.js
+          New-Item -ItemType Directory -Force -Path artifacts/performance | Out-Null
+          & "$env:K6_EXE" run --summary-export artifacts/performance/k6-windows-summary.json -e BASE_URL="${{ needs.resolve-target.outputs.base_url }}" .github/tools/e2e/k6-rich.js
       - name: pytest e2e (Windows)
         shell: pwsh
         run: |
-          $env:BASE_URL = "${{ steps.base.outputs.url }}"; python -m pytest -q .github/tools/e2e/tests
+          $env:BASE_URL = "${{ needs.resolve-target.outputs.base_url }}"; python -m pytest -q .github/tools/e2e/tests
       - name: Run PowerShell scripts
         shell: pwsh
         run: |
-          $env:BASE_URL = "${{ steps.base.outputs.url }}"
+          $env:BASE_URL = "${{ needs.resolve-target.outputs.base_url }}"
           if (Test-Path "./security_test.ps1") { ./security_test.ps1 -ErrorAction Continue }
           if (Test-Path "./scripts/security_test.ps1") { ./scripts/security_test.ps1 -ErrorAction Continue }
           if (Test-Path "./stress_test.ps1") { ./stress_test.ps1 -ErrorAction Continue }
           if (Test-Path "./scripts/stress_test.ps1") { ./scripts/stress_test.ps1 -ErrorAction Continue }
+      - name: Upload Windows performance artifacts
+        if: always()
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        with:
+          name: regression-e2e-windows-performance
+          path: artifacts/performance/
+          if-no-files-found: ignore
   e2e-macos:
+    needs: resolve-target
     permissions:
       contents: read
       checks: write
     runs-on: macos-latest
     timeout-minutes: 50
     steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
-      - name: Determine base URL
-        id: base
-        run: |
-          [ -n "${{ secrets.STAGING_BASE_URL }}" ] && echo "url=${{ secrets.STAGING_BASE_URL }}" >> $GITHUB_OUTPUT || (echo "No STAGING_BASE_URL"; exit 1)
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: pytest e2e (macOS)
         run: |
           python3 -m pip install --upgrade pip
           pip3 install -r .github/tools/e2e/requirements.txt
-          BASE_URL="${{ steps.base.outputs.url }}" pytest -q .github/tools/e2e/tests
+          BASE_URL="${{ needs.resolve-target.outputs.base_url }}" pytest -q .github/tools/e2e/tests
       - name: Run macOS helper scripts (zsh)
         shell: zsh {0}
         run: |
-          export BASE_URL="${{ steps.base.outputs.url }}"
+          export BASE_URL="${{ needs.resolve-target.outputs.base_url }}"
           [ -f "./scripts/macos/setup.zsh" ] && zsh ./scripts/macos/setup.zsh || true
           [ -f "./scripts/macos/test.zsh" ] && zsh ./scripts/macos/test.zsh || true

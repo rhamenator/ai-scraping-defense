@@ -27,43 +27,7 @@ if (-not (Test-Path '.env')) {
     Write-Host 'Created .env from sample.env'
 }
 
-function Get-EnvFileValue {
-    param([Parameter(Mandatory)][string]$Key)
-    if (-not (Test-Path '.env')) { return $null }
-    $line = Get-Content '.env' | Where-Object { $_ -match "^$Key=" } | Select-Object -First 1
-    if (-not $line) { return $null }
-    return ($line -split '=', 2)[1]
-}
-
-function Test-PortInUse {
-    param([Parameter(Mandatory)][int]$Port)
-    if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
-        $conn = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
-        return $null -ne $conn
-    }
-    $line = netstat -ano | Select-String -Pattern "LISTENING\s+.*:$Port\s"
-    return $null -ne $line
-}
-
-function Test-NginxOwnsPort {
-    param(
-        [Parameter(Mandatory)][int]$HostPort,
-        [Parameter(Mandatory)][int]$ContainerPort
-    )
-    $mapped = docker ps --filter "name=^/nginx_proxy$" --format "{{.Ports}}" 2>$null
-    return $mapped -match "(^|, )[^,]*:$HostPort->$ContainerPort/tcp"
-}
-
-if ([string]::IsNullOrWhiteSpace($env:NO_NEW_PRIVILEGES)) {
-    docker run --rm --security-opt no-new-privileges:true alpine:3.20 true *> $null
-    if ($LASTEXITCODE -eq 0) {
-        $env:NO_NEW_PRIVILEGES = 'true'
-    }
-    else {
-        $env:NO_NEW_PRIVILEGES = 'false'
-        Write-Host 'Runtime does not support no-new-privileges:true; setting NO_NEW_PRIVILEGES=false.' -ForegroundColor Yellow
-    }
-}
+Ensure-NoNewPrivileges
 
 if ($Proxy -eq 'nginx') {
     $desiredHttpPort = if ($env:NGINX_HTTP_PORT) { $env:NGINX_HTTP_PORT } else { Get-EnvFileValue -Key 'NGINX_HTTP_PORT' }

@@ -1,5 +1,9 @@
 # Legal Compliance Guide
 
+For the repo-level baseline that ties privacy, retention, audit, and release
+expectations together, see
+[compliance_controls_baseline.md](compliance_controls_baseline.md).
+
 ## Overview
 
 This document provides guidance on legal compliance for AI Scraping Defense deployments, with a focus on GDPR (General Data Protection Regulation) compliance.

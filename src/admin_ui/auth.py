@@ -37,6 +37,24 @@ SESSION_COOKIE_PATH = "/"
 SESSION_COOKIE_SAMESITE = "Strict"
 
 
+def _env_flag(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.lower() == "true"
+
+
+def _admin_ui_mfa_required() -> bool:
+    return _env_flag("ADMIN_UI_REQUIRE_MFA", True)
+
+
+def _admin_ui_sso_mfa_required() -> bool:
+    value = os.getenv("ADMIN_UI_SSO_MFA_REQUIRED")
+    if value is not None:
+        return value.lower() == "true"
+    return _admin_ui_mfa_required()
+
+
 def _lockout_key(username: str) -> str:
     return f"admin_ui:lockout:{username}"
 
@@ -241,9 +259,7 @@ def _require_auth_core(
         sso_user = sso.get_sso_user(request)
     if sso_user:
         username = sso_user["username"]
-        sso_mfa_required = (
-            os.getenv("ADMIN_UI_SSO_MFA_REQUIRED", "false").lower() == "true"
-        )
+        sso_mfa_required = _admin_ui_sso_mfa_required()
         if not sso_mfa_required:
             if redis_conn:
                 redis_conn.delete(_failure_key(username))
@@ -334,7 +350,7 @@ def _require_auth_core(
         x_2fa_code,
         x_2fa_token,
         x_2fa_backup_code,
-        force=False,
+        force=_admin_ui_mfa_required(),
     )
 
 

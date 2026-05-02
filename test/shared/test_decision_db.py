@@ -101,6 +101,33 @@ class TestRecordDecision(unittest.TestCase):
 
         self.assertEqual(tid, "tenantX")
 
+    def test_record_decision_persists_security_event(self):
+        db_module = self.reload_module_with_temp_db()
+
+        with patch.object(db_module, "record_security_event") as mock_record_event:
+            db_module.record_decision(
+                "7.7.7.7", "unit_test", 0.95, 1, "block", "2024-04-04T00:00:00Z"
+            )
+
+        mock_record_event.assert_called_once()
+        self.assertEqual(mock_record_event.call_args.kwargs["action"], "block")
+        self.assertEqual(mock_record_event.call_args.kwargs["payload"]["ip"], "7.7.7.7")
+
+    def test_record_decision_marks_containment_tarpit_as_high_severity(self):
+        db_module = self.reload_module_with_temp_db()
+
+        with patch.object(db_module, "record_security_event") as mock_record_event:
+            db_module.record_decision(
+                "7.7.7.8",
+                "unit_test",
+                0.93,
+                1,
+                "containment_tarpit_local_llm",
+                "2024-04-05T00:00:00Z",
+            )
+
+        self.assertEqual(mock_record_event.call_args.kwargs["severity"], "high")
+
     def test_directory_creation_failure(self):
         """Test that directory creation failure falls back to temp directory."""
         error = OSError("Permission denied")

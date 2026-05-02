@@ -323,6 +323,15 @@ class Config:
     ESCALATION_THRESHOLD: float = field(
         default_factory=lambda: float(os.getenv("ESCALATION_THRESHOLD", 0.8))
     )
+    ESCALATION_THROTTLE_THRESHOLD: float = field(
+        default_factory=lambda: float(os.getenv("ESCALATION_THROTTLE_THRESHOLD", 0.85))
+    )
+    ESCALATION_TARPIT_THRESHOLD: float = field(
+        default_factory=lambda: float(os.getenv("ESCALATION_TARPIT_THRESHOLD", 0.92))
+    )
+    ESCALATION_BLOCK_THRESHOLD: float = field(
+        default_factory=lambda: float(os.getenv("ESCALATION_BLOCK_THRESHOLD", 0.98))
+    )
     ESCALATION_API_KEY: Optional[str] = field(
         default_factory=lambda: os.getenv("ESCALATION_API_KEY")
         or get_secret("ESCALATION_API_KEY_FILE")

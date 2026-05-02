@@ -5,6 +5,21 @@ from src.ai_service import alerts
 
 
 class TestAnomalyAlerts(unittest.IsolatedAsyncioTestCase):
+    async def test_get_redis_client_uses_shared_secret_loader(self):
+        with patch(
+            "src.ai_service.alerts.load_redis_runtime_settings",
+            return_value=("redis.internal", 6380, 4, "secret"),
+        ), patch("src.ai_service.alerts.redis.Redis") as redis_cls:
+            await alerts.get_redis_client()
+
+        redis_cls.assert_called_once_with(
+            host="redis.internal",
+            port=6380,
+            db=4,
+            password="secret",
+            decode_responses=True,
+        )
+
     async def test_anomaly_below_threshold_no_actions(self):
         config = {
             "actions": {"alert", "blocklist"},

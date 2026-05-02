@@ -4,18 +4,18 @@ This guide will walk you through setting up the AI Scraping Defense project for 
 
 ## **Quick Local Setup**
 
-Run the helper script after cloning the repository:
+Run the helper installer after cloning the repository:
 
 ```bash
 git clone https://github.com/your-username/ai-scraping-defense.git
 cd ai-scraping-defense
-sudo ./scripts/linux/quickstart_dev.sh  # Linux
-./scripts/macos/quickstart_dev.zsh      # macOS
+sudo ./scripts/linux/install.sh         # Linux
+./scripts/macos/install.zsh             # macOS
 ```
 
-On Windows, run `scripts\\windows\\quickstart_dev.ps1` from an **Administrator PowerShell** window instead of the shell script.
+On Windows, run `scripts\\windows\\install.ps1` from an **Administrator PowerShell** window instead of the shell script.
 
-The script copies `sample.env`, generates secrets, installs dependencies, and launches Docker Compose.
+The Linux installer copies `sample.env`, generates secrets when needed, installs dependencies, launches Docker Compose through the selected reverse-proxy helper, and runs the Linux smoke test.
 If you encounter setup issues, see [Troubleshooting](troubleshooting.md) for common fixes.
 
 ## **Project Structure**
@@ -64,7 +64,7 @@ python [scripts/interactive_setup.py](../scripts/interactive_setup.py)
 When run, the helper can store your secrets in a SQLite database at `secrets/local_secrets.db`. Delete this file or answer **n** to disable or clear the stored values.
 
 
-Now, open the .env file in your code editor. For now, you can leave the default values as they are. This is where you would add your real API keys for services like OpenAI or Mistral when you're ready to use them. For **production** deployments, update `NGINX_HTTP_PORT` to `80` and `NGINX_HTTPS_PORT` to `443` so the proxy listens on the standard web ports.
+Now, open the .env file in your code editor. For now, you can leave the default values as they are. This is where you would add your real API keys for services like OpenAI or Mistral when you're ready to use them. The sample file defaults `NGINX_HTTP_PORT` and `NGINX_HTTPS_PORT` to `8088` and `8443` so the stack can coexist with a host Apache or nginx service during Ubuntu testing. For **production** or takeover deployments, update those values to `80` and `443` so the proxy listens on the standard web ports.
 
 For a step-by-step path from local testing to a hardened production environment, see [test_to_production.md](test_to_production.md).
 #### **Minimal Required Variables**
@@ -77,7 +77,7 @@ To bring the stack up, only a handful of settings must be reviewed in `.env`:
   - `mistral://mistral-large-latest`
 - The API key matching your chosen provider: `OPENAI_API_KEY`, `MISTRAL_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or `COHERE_API_KEY`.
 - `EXTERNAL_API_KEY` for optional integrations.
-- Port values such as `NGINX_HTTP_PORT`, `NGINX_HTTPS_PORT`, and `ADMIN_UI_PORT` typically work as-is.
+- Port values such as `NGINX_HTTP_PORT`, `NGINX_HTTPS_PORT`, and `ADMIN_UI_PORT` typically work as-is for local testing. On Ubuntu hosts that already run Apache or nginx, keep the default `8088`/`8443` mapping or choose another unused pair.
 - `PROMPT_ROUTER_HOST` and `PROMPT_ROUTER_PORT` define where the Escalation Engine sends its LLM requests.
 - `PROMETHEUS_PORT` and `GRAFANA_PORT` control the monitoring dashboard ports.
 - `REAL_BACKEND_HOSTS` can supply a comma-separated list of backend servers for load balancing. Use `REAL_BACKEND_HOST` for a single destination.
@@ -119,7 +119,7 @@ This script will create a virtual environment in the .venv directory, install al
 
 ### **4. Generate Local Secrets**
 
-The application requires several secrets to run (e.g., database passwords). A script is provided to generate these securely. It creates `kubernetes/secrets.yaml` and prints the credentials to your console. By default it **does not** modify your `.env` file. When run with `--update-env`, it updates the file and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose. If you used the interactive setup script, this step is performed automatically.
+The application requires several secrets to run (e.g., database passwords). A script is provided to generate these securely. It creates `kubernetes/secrets.yaml` and prints the credentials to your console. By default it **does not** modify your `.env` file. When run with `--update-env`, it updates the file and writes the database and Redis passwords to `secrets/pg_password.txt` and `secrets/redis_password.txt` for Docker Compose. Those Compose-mounted files are written with container-readable permissions for local and CI runs. If you used the interactive setup script, this step is performed automatically.
 
 * **On Linux or macOS:**
 
@@ -149,12 +149,20 @@ With the configuration and secrets in place, you can now build and start all the
 
 ``` bash
 # On Linux or macOS
-docker-compose up --build -d
+docker compose up --build -d
+```
+
+If you are running Docker from a snap-packaged Linux install and the Python
+services fail with `exec /app/docker-entrypoint.sh: operation not permitted`,
+launch the stack with the local override file instead:
+
+``` bash
+docker compose -f docker-compose.yaml -f docker-compose.local.yaml up --build -d
 ```
 
 ``` PowerShell
 # On Windows (in a PowerShell terminal)
-docker-compose up --build -d
+docker compose up --build -d
 ```
 
 * --build: This tells Docker Compose to build the Python service image using the Dockerfile.
@@ -165,7 +173,8 @@ docker-compose up --build -d
 Once the containers are running, you can access the key services in your web browser:
 
 * **Admin UI:** [http://localhost:5002](http://localhost:5002)
-* **Your Application (via Nginx Proxy):** [http://localhost:8080](http://localhost:8080)
+* **Your Application (via Nginx Proxy):** [http://localhost:8088](http://localhost:8088)
+* **TLS Test Path (via Nginx Proxy):** [https://localhost:8443](https://localhost:8443)
 * **MailHog (Email Catcher):** [http://localhost:8025](http://localhost:8025)
 * **Redis (for blocklist management):** [http://localhost:6379](http://localhost:6379) (not directly accessible via a web interface, but can be managed using Redis CLI or GUI tools).
 * **Blocklist Sync Daemon:** runs automatically to pull updates from the community blocklist service.
@@ -194,7 +203,7 @@ If you want to see how the defense stack performs in front of a real CMS, a help
 ./setup_wordpress_website.sh (or ./setup_wordpress_website.ps1 on Windows)
 ```
 
-The script starts the Docker Compose stack (if it is not already running) and then launches WordPress and its MariaDB database on the same `defense_network`. Traffic allowed by the proxy will reach WordPress via `REAL_BACKEND_HOSTS` (or `REAL_BACKEND_HOST`). The helper sets this value in `.env` for you, and `setup_fake_website.sh` does the same when launching a simple nginx site. Once started you can visit the site directly at [http://localhost:8082](http://localhost:8082) or through the defense stack at [http://localhost:8080](http://localhost:8080).
+The script starts the Docker Compose stack (if it is not already running) and then launches WordPress and its MariaDB database on the same `defense_network`. Traffic allowed by the proxy will reach WordPress via `REAL_BACKEND_HOSTS` (or `REAL_BACKEND_HOST`). The helper sets this value in `.env` for you, and `setup_fake_website.sh` does the same when launching a simple nginx site. Once started you can visit the site directly at [http://localhost:8082](http://localhost:8082) or through the defense stack at [http://localhost:8088](http://localhost:8088).
 
 ### **7. Stopping the Application**
 
@@ -202,12 +211,12 @@ To stop the application stack, you can run:
 
 ``` bash
 # On Linux or macOS
-docker-compose down
+docker compose down
 ```
 
 ``` PowerShell
 # On Windows (in a PowerShell terminal)
-docker-compose down
+docker compose down
 ```
 
 This will stop and remove all the containers defined in your docker-compose.yml file.
@@ -223,9 +232,9 @@ For load and performance experiments, a helper script installs several open-sour
 The script installs utilities like **wrk**, **siege**, **ab**, **k6**, and **locust**. After installation, you can try commands such as:
 
 ```bash
-wrk -t4 -c100 -d30s http://localhost:8080
-siege -c50 -t1m http://localhost:8080
-ab -n 1000 -c100 http://localhost:8080/
+wrk -t4 -c100 -d30s http://localhost:8088
+siege -c50 -t1m http://localhost:8088
+ab -n 1000 -c100 http://localhost:8088/
 ```
 
 Use these programs only against systems you own or have explicit permission to test.
@@ -248,12 +257,15 @@ When using an external provider, populate the matching API key variable (e.g., `
 The `.env` file also contains toggles for several optional integrations:
 
 - **Web Application Firewall** (`ENABLE_WAF`) mounts ModSecurity rules specified by `WAF_RULES_PATH`.
-- **Global CDN** (`ENABLE_GLOBAL_CDN`) uses Cloudflare and requires `CLOUD_CDN_ZONE_ID` plus `CLOUD_CDN_API_TOKEN` (or `CLOUD_CDN_API_TOKEN_FILE`).
+- **Global CDN** (`ENABLE_GLOBAL_CDN`) uses Cloudflare and requires `CLOUD_CDN_ZONE_ID` plus `CLOUD_CDN_API_TOKEN` (or `CLOUD_CDN_API_TOKEN_FILE`). For production, also set `SECURITY_CDN_TRUSTED_PROXY_CIDRS` and either enable `SECURITY_CDN_ORIGIN_LOCKDOWN=true` or use `CLOUDFLARE_TUNNEL_TOKEN` so the origin is not exposed directly.
 - **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) sends suspicious traffic to the local escalation engine. The optional `ddos_guard.py` script watches Nginx logs for high request rates, classifies floods as HTTP-based or volumetric, and reports attackers. Data can also be forwarded to a third-party service if a provider URL and API key are supplied.
 - **Managed TLS** (`ENABLE_MANAGED_TLS`) automatically issues certificates using `TLS_PROVIDER` and `TLS_EMAIL`.
 - **CAPTCHA Verification** activates when `CAPTCHA_SECRET` is supplied.
 - **LLM-Generated Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) require a `TARPIT_LLM_MODEL_URI`.
-- **Admin UI Two-Factor Auth** requires `ADMIN_UI_2FA_SECRET` and a TOTP in the `X-2FA-Code` header.
+- **Admin UI MFA** is required by default. Set `ADMIN_UI_2FA_SECRET` for the
+  initial bootstrap login, then enroll passkeys/WebAuthn and generate backup
+  codes for recovery. Only set `ADMIN_UI_REQUIRE_MFA=false` for local lab
+  scenarios where password-only admin access is acceptable.
 
 ### **Cloudflare Tunnel (for ISP Port Blocks)**
 
@@ -280,7 +292,7 @@ CLOUDFLARE_TUNNEL_TOKEN=<your_tunnel_token> ./scripts/linux/start_cloudflare_tun
 By default the tunnel forwards to `http://localhost:${NGINX_HTTP_PORT}`. Override with:
 
 ```bash
-CLOUDFLARE_TUNNEL_TARGET_URL=http://localhost:8080 ./scripts/linux/start_cloudflare_tunnel.sh
+CLOUDFLARE_TUNNEL_TARGET_URL=http://localhost:8088 ./scripts/linux/start_cloudflare_tunnel.sh
 ```
 
 ## **Running Local LLM Containers**
@@ -310,7 +322,7 @@ This script generates the required secrets and applies all manifests using `kube
 
 ## **Manual Kubernetes Deployment**
 
-For a detailed walkthrough see [kubernetes_deployment.md](kubernetes_deployment.md). The `deploy.sh` and `deploy.ps1` scripts allow you to apply the manifests manually when you need more control over the process.
+For a detailed walkthrough see [kubernetes_deployment.md](kubernetes_deployment.md). The `scripts/linux/deploy.sh` and `scripts/windows/deploy.ps1` scripts allow you to apply the manifests manually when you need more control over the process.
 
 ## **Running Multiple Tenants**
 

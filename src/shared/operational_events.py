@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 
 from src.shared.metrics import OPERATIONAL_EVENTS
 from src.shared.redis_client import get_redis_connection
+from src.shared.security_events import record_security_event
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,18 @@ def publish_operational_event(
 ) -> Optional[str]:
     """Publish an operational event to Redis when enabled."""
     OPERATIONAL_EVENTS.labels(event_type=event_type).inc()
+    try:
+        record_security_event(
+            "operational_event",
+            actor="system",
+            action=event_type,
+            source=str(payload.get("source", "operational_event")),
+            severity="warning" if "failed" in event_type else "info",
+            payload=payload,
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Failed to persist operational security event: %s", exc)
+
     if not _events_enabled():
         return None
 

@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 from fastapi.testclient import TestClient
 
@@ -45,7 +46,7 @@ class TestPublicBlocklistAPI(unittest.TestCase):
         self.assertEqual(resp.status_code, 401)
 
     def test_report_ip_service_unavailable_when_key_missing(self):
-        with unittest.mock.patch.object(self.pb, "PUBLIC_BLOCKLIST_API_KEY", None):
+        with mock.patch.object(self.pb, "PUBLIC_BLOCKLIST_API_KEY", None):
             resp = self.client.post("/report", json={"ip": "1.1.1.1"})
         self.assertEqual(resp.status_code, 503)
 
