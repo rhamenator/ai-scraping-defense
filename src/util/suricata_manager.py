@@ -11,6 +11,7 @@ ESCALATION_URL = os.getenv("ESCALATION_ENGINE_URL") or (
     "escalation_engine:8003/escalate"
 )
 EVE_LOG_PATH = os.getenv("SURICATA_EVE_LOG", "/var/log/suricata/eve.json")
+ESCALATION_TIMEOUT_SECONDS = float(os.getenv("SURICATA_ESCALATION_TIMEOUT", "5.0"))
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,8 @@ def parse_eve_alerts(path: str) -> List[Dict[str, Any]]:
         for line in f:
             try:
                 event = json.loads(line)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as exc:
+                logger.debug("Skipping invalid EVE JSON line: %s", exc)
                 continue
             if event.get("event_type") == "alert":
                 alerts.append(event)
@@ -45,11 +47,11 @@ def send_alert_to_escalation(event: Dict[str, Any]) -> bool:
         "headers": None,
     }
     try:
-        resp = httpx.post(ESCALATION_URL, json=payload, timeout=5.0)
+        resp = httpx.post(ESCALATION_URL, json=payload, timeout=ESCALATION_TIMEOUT_SECONDS)
         resp.raise_for_status()
         logger.info("Escalation sent for %s", payload["ip"])
         return True
-    except Exception as exc:  # pragma: no cover - network errors
+    except httpx.HTTPError as exc:  # pragma: no cover - network errors
         logger.error("Failed to send escalation: %s", exc)
         return False
 

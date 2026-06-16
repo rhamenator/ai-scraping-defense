@@ -16,6 +16,6 @@ This release adds new features inspired by services offered by large CDN provide
 
 ## Risk and Attack Scoring
 
-`src/security/risk_scoring.py` and `src/security/attack_score.py` provide placeholder scoring logic that can feed into future Zero Trust models and WAF policies.
+`src/security/risk_scoring.py` and `src/security/attack_score.py` provide configurable baseline scoring logic that can feed into Zero Trust policies and WAF decisions.
 
-These modules are intentionally lightweight so they can be replaced by more advanced implementations.
+These modules are intentionally lightweight so they can be tuned or replaced by more advanced implementations.

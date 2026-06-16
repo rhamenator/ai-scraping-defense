@@ -1,20 +1,94 @@
-"""Simple WAF attack scoring placeholder."""
+"""Configurable attack scoring using weighted payload signatures."""
 
 from __future__ import annotations
 
+import os
+import re
+from typing import Iterable
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _pattern_score(payload: str, patterns: Iterable[str], weight: float) -> float:
+    if not weight:
+        return 0.0
+    lowered = payload.lower()
+    return weight if any(re.search(pattern, lowered) for pattern in patterns) else 0.0
+
 
 def compute_attack_score(payload: str) -> float:
-    """Return a probability that a request payload is malicious."""
+    """Return a normalized probability that a request payload is malicious."""
+    lowered = (payload or "").lower()
+    if not lowered:
+        return 0.0
+
+    sql_weight = _env_float("ATTACK_SCORE_SQL_WEIGHT", 0.35)
+    xss_weight = _env_float("ATTACK_SCORE_XSS_WEIGHT", 0.2)
+    traversal_weight = _env_float("ATTACK_SCORE_TRAVERSAL_WEIGHT", 0.15)
+    command_weight = _env_float("ATTACK_SCORE_COMMAND_WEIGHT", 0.2)
+    obfuscation_weight = _env_float("ATTACK_SCORE_OBFUSCATION_WEIGHT", 0.1)
+
     score = 0.0
-    lowered = payload.lower()
+    score += _pattern_score(
+        lowered,
+        (
+            r"\bunion\s+select\b",
+            r"\bselect\b.+\bfrom\b",
+            r"\bdrop\s+table\b",
+            r"\binsert\s+into\b",
+            r"\bor\s+1=1\b",
+        ),
+        sql_weight,
+    )
+    score += _pattern_score(
+        lowered,
+        (
+            r"<script\b",
+            r"javascript:",
+            r"onerror\s*=",
+            r"onload\s*=",
+        ),
+        xss_weight,
+    )
+    score += _pattern_score(
+        lowered,
+        (
+            r"\.\./",
+            r"\.\.\\",
+            r"%2e%2e%2f",
+            r"/etc/passwd",
+            r"\\windows\\system32",
+        ),
+        traversal_weight,
+    )
+    score += _pattern_score(
+        lowered,
+        (
+            r"\b(wget|curl|powershell|bash|sh)\b",
+            r"`[^`]+`",
+            r"\$\(.+\)",
+            r"\bsleep\s*\(",
+        ),
+        command_weight,
+    )
+    score += _pattern_score(
+        lowered,
+        (
+            r"/\*",
+            r";--",
+            r"%3cscript",
+            r"base64,",
+        ),
+        obfuscation_weight,
+    )
 
-    suspicious_tokens = ["union select", "<script", "../", "wget ", "curl ", "sleep("]
-    if any(x in lowered for x in suspicious_tokens):
-        score += 0.7
-
-    if "select" in lowered and "from" in lowered:
-        score += 0.4
-    if any(x in lowered for x in ("--", "/*", ";--", "drop table")):
-        score += 0.3
-
-    return min(score, 1.0)
+    total_weight = max(
+        sql_weight + xss_weight + traversal_weight + command_weight + obfuscation_weight,
+        0.01,
+    )
+    return max(0.0, min(score / total_weight, 1.0))

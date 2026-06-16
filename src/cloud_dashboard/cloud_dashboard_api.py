@@ -148,7 +148,7 @@ async def lifespan(app: FastAPI):  # pragma: no cover - startup/shutdown hook
             try:
                 await task
             except asyncio.CancelledError:
-                pass
+                logger.debug("Watcher cleanup task cancelled during shutdown")
 
 
 app = create_app(lifespan=lifespan)
@@ -359,16 +359,13 @@ async def metrics_websocket(websocket: WebSocket, installation_id: str):
             ):
                 break
     except WebSocketDisconnect:
-        pass
+        logger.debug("Metrics websocket disconnected for installation %s", installation_id)
     finally:
         # best-effort cleanup
         async with WATCHERS_LOCK:
             lst = WATCHERS.get(installation_id)
             if lst and websocket in lst:
-                try:
-                    lst.remove(websocket)
-                except ValueError:
-                    pass
+                lst.remove(websocket)
                 if not lst:
                     WATCHERS.pop(installation_id, None)
         await WEBSOCKET_LIMITER.release(installation_id)

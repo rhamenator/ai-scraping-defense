@@ -50,8 +50,8 @@ def update_rate_limit(new_limit: int) -> bool:
         if os.path.exists(temp_path):
             try:
                 os.remove(temp_path)
-            except OSError:
-                pass
+            except OSError as exc:
+                logger.debug("Failed to remove temp rate-limit config %s: %s", temp_path, exc)
 
 
 def compute_and_update(redis_conn: Optional[object] = None) -> int:

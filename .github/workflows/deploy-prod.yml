@@ -2,8 +2,14 @@ name: Deploy to Production (GKE via Helm)
 on:
   workflow_dispatch:
     inputs:
-      environment:
+      target_environment:
         description: "Target environment (staging|production|preview)"
+        default: production
+        type: choice
+        options:
+          - production
+          - staging
+          - preview
         required: false
       ref:
         description: "Git ref to run against"
@@ -14,7 +20,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.inputs.target_environment || github.ref }}
   cancel-in-progress: true
 env:
   REGISTRY: ghcr.io
@@ -27,7 +33,8 @@ jobs:
       deployments: write
       id-token: write
     runs-on: ubuntu-latest
-    environment: production
+    environment:
+      name: production
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Login GHCR
