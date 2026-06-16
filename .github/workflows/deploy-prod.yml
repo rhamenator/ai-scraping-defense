@@ -1,5 +1,6 @@
+---
 name: Deploy to Production (GKE via Helm)
-on:
+"on":
   workflow_dispatch:
     inputs:
       target_environment:
@@ -20,7 +21,9 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.inputs.target_environment || github.ref }}
+  group: >-
+    ${{ github.workflow }}-${{
+    github.event.inputs.target_environment || github.ref }}
   cancel-in-progress: true
 env:
   REGISTRY: ghcr.io
@@ -38,27 +41,42 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Login GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u ${{ github.actor }} --password-stdin
+        run: >-
+          echo "${{ secrets.GITHUB_TOKEN }}" |
+          docker login "$REGISTRY" -u "${{ github.actor }}" --password-stdin
       - name: Build & push images
         run: |
           set -eux
-          TAG="${{ github.event.inputs.version_tag || github.sha }}"; TAG=${TAG:0:12}
-          declare -A svc_map=([core]="." [proxy]="proxy" [cloud_proxy]="cloud-proxy" [prompt_router]="prompt-router")
+          TAG="${{ github.event.inputs.version_tag || github.sha }}"
+          TAG=${TAG:0:12}
+          declare -A svc_map=(
+            [core]="."
+            [proxy]="proxy"
+            [cloud_proxy]="cloud-proxy"
+            [prompt_router]="prompt-router"
+          )
           : > images.txt
-          for svc in "${!svc_map[@]}"; do dir="${svc_map[$svc]}"; if [ -f "$dir/Dockerfile" ]; then
+          for svc in "${!svc_map[@]}"; do
+            dir="${svc_map[$svc]}"
+            if [ -f "$dir/Dockerfile" ]; then
               image="$REGISTRY/${{ github.repository_owner }}/$svc:$TAG"
-              docker build -t "$image" "$dir"; docker push "$image"; echo "$svc=$image" >> images.txt
+              docker build -t "$image" "$dir"
+              docker push "$image"
+              echo "$svc=$image" >> images.txt
             fi
-          done; cat images.txt
+          done
+          cat images.txt
+      # yamllint disable rule:line-length
       - id: auth
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
         env:
-          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER:
+            ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
         with:
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/get-gke-credentials@3da1e46a907576cefaa90c484278bb5b259dd395 # v3.0.0
+      - uses: google-github-actions/get-gke-credentials@3da1e46a907576cefaa90c484278bb5b259dd395  # v3.0.0
         env:
           GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
           GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
@@ -67,13 +85,20 @@ jobs:
           project_id: ${{ env.GCP_PROJECT }}
           cluster_name: ${{ env.GKE_CLUSTER }}
           location: ${{ env.GCP_REGION }}
+      # yamllint enable rule:line-length
       - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4
       - name: Helm upgrade/install (production)
         run: |
           set -eux
-          CHART="helm/ai-scraping-defense-v9"; OV=/tmp/values-images.yaml; echo "images:" > "$OV"
-          while IFS='=' read -r svc img; do echo "  $svc: \"$img\"" >> "$OV"; done < images.txt
-          helm upgrade --install ai-scraping-defense "$CHART" -n production --create-namespace -f helm/values-production.yaml -f "$OV"
+          CHART="helm/ai-scraping-defense-v9"
+          OV=/tmp/values-images.yaml
+          echo "images:" > "$OV"
+          while IFS='=' read -r svc img; do
+            echo "  $svc: \"$img\"" >> "$OV"
+          done < images.txt
+          helm upgrade --install ai-scraping-defense "$CHART" \
+            -n production --create-namespace \
+            -f helm/values-production.yaml -f "$OV"
       - name: Wait for rollout
         run: |
           kubectl -n production rollout status deploy --timeout=600s || true
