@@ -27,7 +27,9 @@ class TestWAFManager(unittest.TestCase):
             patch("builtins.open", mock_open()) as mocked_open,
             patch("src.util.waf_manager.subprocess.run") as mock_run,
         ):
-            self.assertTrue(waf_manager.reload_waf_rules(["SecRule one", "SecRule two"]))
+            self.assertTrue(
+                waf_manager.reload_waf_rules(["SecRule one", "SecRule two"])
+            )
             mocked_open().write.assert_called_once_with("SecRule one\nSecRule two\n")
             mock_run.assert_called_once_with(waf_manager.NGINX_RELOAD_CMD, check=True)
 
@@ -48,7 +50,7 @@ class TestWAFManager(unittest.TestCase):
 
     def test_is_xml_request_delegates_to_xml_validator(self):
         self.assertTrue(waf_manager.is_xml_request("application/xml"))
-        self.assertTrue(waf_manager.is_xml_request("application/soap+xml"))
+        self.assertTrue(waf_manager.is_xml_request("application/rss+xml"))
         self.assertFalse(waf_manager.is_xml_request("application/json"))
         self.assertFalse(waf_manager.is_xml_request(None))
 

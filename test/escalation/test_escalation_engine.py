@@ -151,7 +151,9 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(escalation_engine, "GEOIP_AVAILABLE", True),
             patch.object(escalation_engine, "_geoip_reader", reader),
-            self.assertLogs("src.escalation.escalation_engine", level="WARNING") as logs,
+            self.assertLogs(
+                "src.escalation.escalation_engine", level="WARNING"
+            ) as logs,
         ):
             self.assertEqual(escalation_engine.get_country_code("1.1.1.1"), "")
         self.assertIn("GeoIP lookup failed for 1.1.1.1", "\n".join(logs.output))
@@ -229,13 +231,15 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         mock_client.__aenter__.return_value.get.side_effect = httpx.TimeoutException(
             "timeout"
         )
-        with patch(
-            "src.escalation.escalation_engine.httpx.AsyncClient",
-            return_value=mock_client,
-        ), patch(
-            "src.escalation.escalation_engine.IP_REPUTATION_API_URL", metadata_url
-        ), patch(
-            "src.escalation.escalation_engine.ENABLE_IP_REPUTATION", True
+        with (
+            patch(
+                "src.escalation.escalation_engine.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
+            patch(
+                "src.escalation.escalation_engine.IP_REPUTATION_API_URL", metadata_url
+            ),
+            patch("src.escalation.escalation_engine.ENABLE_IP_REPUTATION", True),
         ):
             result_timeout = await escalation_engine.check_ip_reputation("1.1.1.1")
             self.assertIsNone(result_timeout)
@@ -246,13 +250,15 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         bad_json_response.text = "<html>oops</html>"
         mock_client2 = AsyncMock()
         mock_client2.__aenter__.return_value.get.return_value = bad_json_response
-        with patch(
-            "src.escalation.escalation_engine.httpx.AsyncClient",
-            return_value=mock_client2,
-        ), patch(
-            "src.escalation.escalation_engine.IP_REPUTATION_API_URL", metadata_url
-        ), patch(
-            "src.escalation.escalation_engine.ENABLE_IP_REPUTATION", True
+        with (
+            patch(
+                "src.escalation.escalation_engine.httpx.AsyncClient",
+                return_value=mock_client2,
+            ),
+            patch(
+                "src.escalation.escalation_engine.IP_REPUTATION_API_URL", metadata_url
+            ),
+            patch("src.escalation.escalation_engine.ENABLE_IP_REPUTATION", True),
         ):
             result_json = await escalation_engine.check_ip_reputation("1.1.1.1")
             self.assertIsNone(result_json)
@@ -268,10 +274,13 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         mock_client.__aenter__.return_value.post.side_effect = httpx.TimeoutException(
             "timeout"
         )
-        with patch(
-            "src.escalation.escalation_engine.httpx.AsyncClient",
-            return_value=mock_client,
-        ), patch("src.escalation.escalation_engine.EXTERNAL_API_URL", api_url):
+        with (
+            patch(
+                "src.escalation.escalation_engine.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
+            patch("src.escalation.escalation_engine.EXTERNAL_API_URL", api_url),
+        ):
             result_timeout = await escalation_engine.classify_with_external_api(meta)
             self.assertIsNone(result_timeout)
 
@@ -282,24 +291,27 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         bad_resp.text = "<html>oops</html>"
         mock_client2 = AsyncMock()
         mock_client2.__aenter__.return_value.post.return_value = bad_resp
-        with patch(
-            "src.escalation.escalation_engine.httpx.AsyncClient",
-            return_value=mock_client2,
-        ), patch("src.escalation.escalation_engine.EXTERNAL_API_URL", api_url):
+        with (
+            patch(
+                "src.escalation.escalation_engine.httpx.AsyncClient",
+                return_value=mock_client2,
+            ),
+            patch("src.escalation.escalation_engine.EXTERNAL_API_URL", api_url),
+        ):
             result_json = await escalation_engine.classify_with_external_api(meta)
             self.assertIsNone(result_json)
 
     async def test_escalate_endpoint_bot_high_score_webhook(self):
         """Test a bot request with a high score that triggers a webhook."""
-        with patch(
-            "escalation.escalation_engine.run_heuristic_and_model_analysis",
-            return_value=0.95,
-        ), patch("escalation.escalation_engine.ESCALATION_THRESHOLD", 0.8), patch(
-            "escalation.escalation_engine.ESCALATION_THROTTLE_THRESHOLD", 0.99
-        ), patch(
-            "escalation.escalation_engine.ESCALATION_TARPIT_THRESHOLD", 0.995
-        ), patch(
-            "escalation.escalation_engine.ESCALATION_BLOCK_THRESHOLD", 0.999
+        with (
+            patch(
+                "escalation.escalation_engine.run_heuristic_and_model_analysis",
+                return_value=0.95,
+            ),
+            patch("escalation.escalation_engine.ESCALATION_THRESHOLD", 0.8),
+            patch("escalation.escalation_engine.ESCALATION_THROTTLE_THRESHOLD", 0.99),
+            patch("escalation.escalation_engine.ESCALATION_TARPIT_THRESHOLD", 0.995),
+            patch("escalation.escalation_engine.ESCALATION_BLOCK_THRESHOLD", 0.999),
         ):
             response = self.client.post(
                 "/escalate",
@@ -331,10 +343,14 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
             "is_malicious": True,
             "score": 99,
         }
-        with patch("escalation.escalation_engine.ENABLE_IP_REPUTATION", True), patch(
-            "escalation.escalation_engine.run_heuristic_and_model_analysis",
-            return_value=0.8,
-        ), patch("escalation.escalation_engine.ESCALATION_BLOCK_THRESHOLD", 0.95):
+        with (
+            patch("escalation.escalation_engine.ENABLE_IP_REPUTATION", True),
+            patch(
+                "escalation.escalation_engine.run_heuristic_and_model_analysis",
+                return_value=0.8,
+            ),
+            patch("escalation.escalation_engine.ESCALATION_BLOCK_THRESHOLD", 0.95),
+        ):
             response = self.client.post(
                 "/escalate",
                 json={
@@ -355,15 +371,15 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
 
     async def test_escalate_endpoint_high_score_throttle(self):
         """High heuristic scores can temporarily throttle an IP before tarpit/block."""
-        with patch(
-            "escalation.escalation_engine.run_heuristic_and_model_analysis",
-            return_value=0.87,
-        ), patch("escalation.escalation_engine.ESCALATION_THRESHOLD", 0.8), patch(
-            "escalation.escalation_engine.ESCALATION_THROTTLE_THRESHOLD", 0.85
-        ), patch(
-            "escalation.escalation_engine.ESCALATION_TARPIT_THRESHOLD", 0.95
-        ), patch(
-            "escalation.escalation_engine.ESCALATION_BLOCK_THRESHOLD", 0.99
+        with (
+            patch(
+                "escalation.escalation_engine.run_heuristic_and_model_analysis",
+                return_value=0.87,
+            ),
+            patch("escalation.escalation_engine.ESCALATION_THRESHOLD", 0.8),
+            patch("escalation.escalation_engine.ESCALATION_THROTTLE_THRESHOLD", 0.85),
+            patch("escalation.escalation_engine.ESCALATION_TARPIT_THRESHOLD", 0.95),
+            patch("escalation.escalation_engine.ESCALATION_BLOCK_THRESHOLD", 0.99),
         ):
             response = self.client.post(
                 "/escalate",
@@ -389,15 +405,14 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         self.mocks["classify_with_local_llm_api"].return_value = (
             True  # Returns boolean True for bot
         )
-        with patch(
-            "escalation.escalation_engine.ENABLE_LOCAL_LLM_CLASSIFICATION", True
-        ), patch(
-            "escalation.escalation_engine.run_heuristic_and_model_analysis",
-            return_value=0.6,
-        ), patch(
-            "escalation.escalation_engine.ENABLE_CAPTCHA_TRIGGER", False
-        ), patch(
-            "escalation.escalation_engine.ESCALATION_TARPIT_THRESHOLD", 0.6
+        with (
+            patch("escalation.escalation_engine.ENABLE_LOCAL_LLM_CLASSIFICATION", True),
+            patch(
+                "escalation.escalation_engine.run_heuristic_and_model_analysis",
+                return_value=0.6,
+            ),
+            patch("escalation.escalation_engine.ENABLE_CAPTCHA_TRIGGER", False),
+            patch("escalation.escalation_engine.ESCALATION_TARPIT_THRESHOLD", 0.6),
         ):  # Borderline score
             response = self.client.post(
                 "/escalate",
@@ -421,11 +436,14 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         self.mocks["classify_with_external_api"].return_value = (
             False  # Returns boolean False for human
         )
-        with patch(
-            "escalation.escalation_engine.ENABLE_EXTERNAL_API_CLASSIFICATION", True
-        ), patch(
-            "escalation.escalation_engine.run_heuristic_and_model_analysis",
-            return_value=0.7,
+        with (
+            patch(
+                "escalation.escalation_engine.ENABLE_EXTERNAL_API_CLASSIFICATION", True
+            ),
+            patch(
+                "escalation.escalation_engine.run_heuristic_and_model_analysis",
+                return_value=0.7,
+            ),
         ):
             response = self.client.post(
                 "/escalate",
@@ -445,13 +463,14 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
 
     async def test_escalate_endpoint_captcha_triggered(self):
         """Test a request where CAPTCHA is triggered."""
-        with patch("escalation.escalation_engine.ENABLE_CAPTCHA_TRIGGER", True), patch(
-            "escalation.escalation_engine.CAPTCHA_SCORE_THRESHOLD_LOW", 0.6
-        ), patch(
-            "escalation.escalation_engine.CAPTCHA_SCORE_THRESHOLD_HIGH", 0.8
-        ), patch(
-            "escalation.escalation_engine.run_heuristic_and_model_analysis",
-            return_value=0.65,
+        with (
+            patch("escalation.escalation_engine.ENABLE_CAPTCHA_TRIGGER", True),
+            patch("escalation.escalation_engine.CAPTCHA_SCORE_THRESHOLD_LOW", 0.6),
+            patch("escalation.escalation_engine.CAPTCHA_SCORE_THRESHOLD_HIGH", 0.8),
+            patch(
+                "escalation.escalation_engine.run_heuristic_and_model_analysis",
+                return_value=0.65,
+            ),
         ):
             response = self.client.post(
                 "/escalate",
@@ -570,10 +589,13 @@ class TestExternalServiceFunctions(unittest.IsolatedAsyncioTestCase):
         mock_client.__aenter__.return_value.get.side_effect = httpx.TimeoutException(
             "timeout"
         )
-        with patch(
-            "escalation.escalation_engine.httpx.AsyncClient", return_value=mock_client
-        ), patch("escalation.escalation_engine.ENABLE_IP_REPUTATION", True), patch(
-            "escalation.escalation_engine.IP_REPUTATION_API_URL", "http://api"
+        with (
+            patch(
+                "escalation.escalation_engine.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
+            patch("escalation.escalation_engine.ENABLE_IP_REPUTATION", True),
+            patch("escalation.escalation_engine.IP_REPUTATION_API_URL", "http://api"),
         ):
             result = await escalation_engine.check_ip_reputation("1.1.1.1")
 
@@ -586,10 +608,13 @@ class TestExternalServiceFunctions(unittest.IsolatedAsyncioTestCase):
         fake_response.json.side_effect = json.JSONDecodeError("bad", "doc", 0)
         fake_response.text = "bad json"
         mock_client.__aenter__.return_value.get.return_value = fake_response
-        with patch(
-            "escalation.escalation_engine.httpx.AsyncClient", return_value=mock_client
-        ), patch("escalation.escalation_engine.ENABLE_IP_REPUTATION", True), patch(
-            "escalation.escalation_engine.IP_REPUTATION_API_URL", "http://api"
+        with (
+            patch(
+                "escalation.escalation_engine.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
+            patch("escalation.escalation_engine.ENABLE_IP_REPUTATION", True),
+            patch("escalation.escalation_engine.IP_REPUTATION_API_URL", "http://api"),
         ):
             result = await escalation_engine.check_ip_reputation("2.2.2.2")
 
@@ -603,9 +628,13 @@ class TestExternalServiceFunctions(unittest.IsolatedAsyncioTestCase):
         metadata = RequestMetadata(
             timestamp="2023-01-01T12:00:00Z", ip="3.3.3.3", source="test", method="GET"
         )
-        with patch(
-            "escalation.escalation_engine.httpx.AsyncClient", return_value=mock_client
-        ), patch("escalation.escalation_engine.EXTERNAL_API_URL", "http://api"):
+        with (
+            patch(
+                "escalation.escalation_engine.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
+            patch("escalation.escalation_engine.EXTERNAL_API_URL", "http://api"),
+        ):
             result = await escalation_engine.classify_with_external_api(metadata)
 
         self.assertIsNone(result)
@@ -620,9 +649,13 @@ class TestExternalServiceFunctions(unittest.IsolatedAsyncioTestCase):
         metadata = RequestMetadata(
             timestamp="2023-01-01T12:00:00Z", ip="4.4.4.4", source="test", method="GET"
         )
-        with patch(
-            "escalation.escalation_engine.httpx.AsyncClient", return_value=mock_client
-        ), patch("escalation.escalation_engine.EXTERNAL_API_URL", "http://api"):
+        with (
+            patch(
+                "escalation.escalation_engine.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
+            patch("escalation.escalation_engine.EXTERNAL_API_URL", "http://api"),
+        ):
             result = await escalation_engine.classify_with_external_api(metadata)
 
         self.assertIsNone(result)

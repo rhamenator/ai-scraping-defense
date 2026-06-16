@@ -24,13 +24,17 @@ class TestMCPClient(unittest.TestCase):
         with self.assertLogs("src.shared.mcp_client", level="WARNING") as logs:
             result = _normalise_tool_result(_ModelDumpFailure())
         self.assertEqual(result, {"raw": "<model-dump-failure>"})
-        self.assertIn("Failed to normalize MCP result via model_dump()", "\n".join(logs.output))
+        self.assertIn(
+            "Failed to normalize MCP result via model_dump()", "\n".join(logs.output)
+        )
 
     def test_normalise_tool_result_logs_dict_failures(self):
         with self.assertLogs("src.shared.mcp_client", level="WARNING") as logs:
             result = _normalise_tool_result(_DictFailure())
         self.assertEqual(result, {"raw": "<dict-failure>"})
-        self.assertIn("Failed to normalize MCP result via dict()", "\n".join(logs.output))
+        self.assertIn(
+            "Failed to normalize MCP result via dict()", "\n".join(logs.output)
+        )
 
 
 if __name__ == "__main__":
