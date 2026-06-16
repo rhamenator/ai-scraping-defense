@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-
 START_MARKER = "<!-- release-bundles:start -->"
 END_MARKER = "<!-- release-bundles:end -->"
 
@@ -37,7 +36,9 @@ def main() -> int:
     fragment_path = Path(args.fragment_path)
     output_path = Path(args.output_path)
 
-    existing = existing_path.read_text(encoding="utf-8") if existing_path.exists() else ""
+    existing = (
+        existing_path.read_text(encoding="utf-8") if existing_path.exists() else ""
+    )
     fragment = fragment_path.read_text(encoding="utf-8")
     output = merge_notes(existing, fragment)
     output_path.write_text(output, encoding="utf-8")

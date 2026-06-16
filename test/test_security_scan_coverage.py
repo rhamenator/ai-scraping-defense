@@ -355,8 +355,9 @@ class TestSecurityScanCoverage:
         """Verify that security_scan.sh generates reports in a reports directory."""
         scan_script = _read_security_scan_sh()
 
-        assert ("mkdir -p reports" in scan_script or 'mkdir -p "$REPORT_DIR"' in scan_script), \
-            "Reports directory not created"
+        assert (
+            "mkdir -p reports" in scan_script or 'mkdir -p "$REPORT_DIR"' in scan_script
+        ), "Reports directory not created"
         assert (
             "reports/" in scan_script
         ), "Scan results not being written to reports directory"
