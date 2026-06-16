@@ -31,7 +31,9 @@ try:
     import geoip2.database
 
     GEOIP_AVAILABLE = True
-except Exception:
+except Exception as exc:
+    logger = logging.getLogger(__name__)
+    logger.warning("GeoIP support unavailable; country lookups disabled: %s", exc)
     geoip2 = None
     GEOIP_AVAILABLE = False
 
@@ -456,7 +458,8 @@ def get_country_code(ip: str) -> str:
     try:
         resp = _geoip_reader.country(ip)
         return resp.country.iso_code or ""
-    except Exception:
+    except Exception as exc:
+        logger.warning("GeoIP lookup failed for %s: %s", ip, exc)
         return ""
 
 

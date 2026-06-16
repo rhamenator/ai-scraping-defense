@@ -144,6 +144,31 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(score, 0.5)  # Should be high due to bad UA and model
         mock_model.predict.assert_called_once()
 
+    def test_get_country_code_logs_lookup_failures(self):
+        """GeoIP lookup failures should be logged and return an empty country code."""
+        reader = MagicMock()
+        reader.country.side_effect = RuntimeError("lookup failed")
+        with (
+            patch.object(escalation_engine, "GEOIP_AVAILABLE", True),
+            patch.object(escalation_engine, "_geoip_reader", reader),
+            self.assertLogs("src.escalation.escalation_engine", level="WARNING") as logs,
+        ):
+            self.assertEqual(escalation_engine.get_country_code("1.1.1.1"), "")
+        self.assertIn("GeoIP lookup failed for 1.1.1.1", "\n".join(logs.output))
+
+    def test_get_country_code_logs_reader_load_failures(self):
+        """GeoIP database load failures should be logged and return an empty code."""
+        mock_geoip = MagicMock()
+        mock_geoip.database.Reader.side_effect = RuntimeError("missing db")
+        with (
+            patch.object(escalation_engine, "GEOIP_AVAILABLE", True),
+            patch.object(escalation_engine, "geoip2", mock_geoip),
+            patch.object(escalation_engine, "_geoip_reader", None),
+            self.assertLogs("src.escalation.escalation_engine", level="ERROR") as logs,
+        ):
+            self.assertEqual(escalation_engine.get_country_code("1.1.1.1"), "")
+        self.assertIn("Failed to load GeoIP DB", "\n".join(logs.output))
+
     async def test_escalate_endpoint_human_low_score(self):
         """Test a request classified as human with a low score."""
         with patch(
