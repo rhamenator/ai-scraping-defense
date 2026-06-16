@@ -46,7 +46,9 @@ class TestRiskScorer(unittest.TestCase):
         ):
             policy = RiskPolicy.from_env()
         self.assertEqual(policy.vpn_weight, 0.4)
-        self.assertEqual(policy.auth_failure_threshold, RiskPolicy.auth_failure_threshold)
+        self.assertEqual(
+            policy.auth_failure_threshold, RiskPolicy.auth_failure_threshold
+        )
 
 
 class TestAttackScore(unittest.TestCase):

@@ -26,7 +26,7 @@ class RiskPolicy:
     high_frequency_weight: float = 0.15
     empty_user_agent_weight: float = 0.15
     malicious_ip_weight: float = 0.2
-    anomaly_weight: float = 0.2
+    anomaly_weight: float = 0.35
     geo_velocity_weight: float = 0.05
     impossible_travel_weight: float = 0.05
     auth_failure_weight: float = 0.1
@@ -46,9 +46,7 @@ class RiskPolicy:
             malicious_ip_weight=_env_float(
                 "RISK_SCORE_WEIGHT_MALICIOUS_IP", cls.malicious_ip_weight
             ),
-            anomaly_weight=_env_float(
-                "RISK_SCORE_WEIGHT_ANOMALY", cls.anomaly_weight
-            ),
+            anomaly_weight=_env_float("RISK_SCORE_WEIGHT_ANOMALY", cls.anomaly_weight),
             geo_velocity_weight=_env_float(
                 "RISK_SCORE_WEIGHT_GEO_VELOCITY", cls.geo_velocity_weight
             ),
@@ -113,11 +111,7 @@ class RiskScorer:
                 else 0.0
             ),
             "anomaly": (
-                self.policy.anomaly_weight
-                * _clamp(
-                    (anomaly_score - self.policy.anomaly_threshold)
-                    / max(1.0 - self.policy.anomaly_threshold, 0.01)
-                )
+                self.policy.anomaly_weight * anomaly_score
                 if anomaly_score >= self.policy.anomaly_threshold
                 else 0.0
             ),

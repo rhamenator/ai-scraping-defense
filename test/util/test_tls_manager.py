@@ -32,7 +32,9 @@ class TestTLSManager(unittest.TestCase):
                 "TLS_WEBROOT": "/var/www/html",
             },
             clear=False,
-        ), patch("src.util.tls_manager.shutil.which", return_value="/usr/bin/certbot"), patch(
+        ), patch(
+            "src.util.tls_manager.shutil.which", return_value="/usr/bin/certbot"
+        ), patch(
             "src.util.tls_manager.subprocess.run"
         ) as mock_run:
             mock_run.return_value.stdout = "ok"

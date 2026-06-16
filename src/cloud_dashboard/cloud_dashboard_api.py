@@ -359,7 +359,9 @@ async def metrics_websocket(websocket: WebSocket, installation_id: str):
             ):
                 break
     except WebSocketDisconnect:
-        logger.debug("Metrics websocket disconnected for installation %s", installation_id)
+        logger.debug(
+            "Metrics websocket disconnected for installation %s", installation_id
+        )
     finally:
         # best-effort cleanup
         async with WATCHERS_LOCK:

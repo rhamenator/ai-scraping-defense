@@ -90,7 +90,9 @@ def ensure_certificate(domain: str) -> bool:
 
     normalized_domain = domain.strip().lower().rstrip(".")
     if not _valid_domain(normalized_domain):
-        logger.warning("Refusing to request TLS certificate for invalid domain %s", domain)
+        logger.warning(
+            "Refusing to request TLS certificate for invalid domain %s", domain
+        )
         return False
 
     command = _provider_command(normalized_domain)
@@ -111,10 +113,16 @@ def ensure_certificate(domain: str) -> bool:
         )
     except subprocess.CalledProcessError as exc:
         stderr = (exc.stderr or exc.stdout or "").strip()
-        logger.warning("Managed TLS command failed for %s: %s", normalized_domain, stderr)
+        logger.warning(
+            "Managed TLS command failed for %s: %s", normalized_domain, stderr
+        )
         return False
     except OSError as exc:
-        logger.warning("Managed TLS command could not be executed for %s: %s", normalized_domain, exc)
+        logger.warning(
+            "Managed TLS command could not be executed for %s: %s",
+            normalized_domain,
+            exc,
+        )
         return False
 
     output = (completed.stdout or "").strip()

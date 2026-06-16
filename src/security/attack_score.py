@@ -27,11 +27,11 @@ def compute_attack_score(payload: str) -> float:
     if not lowered:
         return 0.0
 
-    sql_weight = _env_float("ATTACK_SCORE_SQL_WEIGHT", 0.35)
-    xss_weight = _env_float("ATTACK_SCORE_XSS_WEIGHT", 0.2)
-    traversal_weight = _env_float("ATTACK_SCORE_TRAVERSAL_WEIGHT", 0.15)
-    command_weight = _env_float("ATTACK_SCORE_COMMAND_WEIGHT", 0.2)
-    obfuscation_weight = _env_float("ATTACK_SCORE_OBFUSCATION_WEIGHT", 0.1)
+    sql_weight = _env_float("ATTACK_SCORE_SQL_WEIGHT", 0.6)
+    xss_weight = _env_float("ATTACK_SCORE_XSS_WEIGHT", 0.1)
+    traversal_weight = _env_float("ATTACK_SCORE_TRAVERSAL_WEIGHT", 0.075)
+    command_weight = _env_float("ATTACK_SCORE_COMMAND_WEIGHT", 0.075)
+    obfuscation_weight = _env_float("ATTACK_SCORE_OBFUSCATION_WEIGHT", 0.15)
 
     score = 0.0
     score += _pattern_score(
@@ -80,6 +80,7 @@ def compute_attack_score(payload: str) -> float:
         lowered,
         (
             r"/\*",
+            r"--",
             r";--",
             r"%3cscript",
             r"base64,",
@@ -88,7 +89,11 @@ def compute_attack_score(payload: str) -> float:
     )
 
     total_weight = max(
-        sql_weight + xss_weight + traversal_weight + command_weight + obfuscation_weight,
+        sql_weight
+        + xss_weight
+        + traversal_weight
+        + command_weight
+        + obfuscation_weight,
         0.01,
     )
     return max(0.0, min(score / total_weight, 1.0))

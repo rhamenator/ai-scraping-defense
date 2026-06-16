@@ -47,7 +47,9 @@ def send_alert_to_escalation(event: Dict[str, Any]) -> bool:
         "headers": None,
     }
     try:
-        resp = httpx.post(ESCALATION_URL, json=payload, timeout=ESCALATION_TIMEOUT_SECONDS)
+        resp = httpx.post(
+            ESCALATION_URL, json=payload, timeout=ESCALATION_TIMEOUT_SECONDS
+        )
         resp.raise_for_status()
         logger.info("Escalation sent for %s", payload["ip"])
         return True
