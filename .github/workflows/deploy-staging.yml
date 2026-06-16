@@ -4,13 +4,11 @@ name: Deploy to Staging (GKE via Helm)
   workflow_dispatch:
     inputs:
       target_environment:
-        description: "Target environment (staging|production|preview)"
+        description: "Target environment"
         default: staging
         type: choice
         options:
           - staging
-          - production
-          - preview
         required: false
       ref:
         description: "Git ref to run against"

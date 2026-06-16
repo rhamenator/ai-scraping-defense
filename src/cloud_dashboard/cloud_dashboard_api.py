@@ -367,7 +367,8 @@ async def metrics_websocket(websocket: WebSocket, installation_id: str):
         async with WATCHERS_LOCK:
             lst = WATCHERS.get(installation_id)
             if lst and websocket in lst:
-                lst.remove(websocket)
+                WATCHERS[installation_id] = [ws for ws in lst if ws is not websocket]
+                lst = WATCHERS[installation_id]
                 if not lst:
                     WATCHERS.pop(installation_id, None)
         await WEBSOCKET_LIMITER.release(installation_id)
