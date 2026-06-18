@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Dict, Optional
 
 from redis.exceptions import RedisError
 
 from src.shared.config import tenant_key
 from src.shared.redis_client import get_redis_connection
+
+logger = logging.getLogger(__name__)
 
 
 def _key(token: str) -> str:
@@ -29,8 +32,8 @@ def register_crawler(name: str, token: str, purpose: str) -> bool:
         return False
     try:
         redis_conn.expire(key, CRAWLER_TTL_SECONDS)
-    except RedisError:
-        pass
+    except RedisError as exc:
+        logger.warning("Failed to set crawler registration TTL for %s: %s", name, exc)
     return True
 
 

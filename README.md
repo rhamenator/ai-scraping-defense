@@ -18,7 +18,7 @@ This project provides a multi-layered, microservice-based defense system against
 - **Federated Threat Sharing:** Peer-to-peer sync exchanges blocklisted IPs between deployments.
 - **Containerized:** Fully containerized with Docker and ready for deployment on Kubernetes.
 - **Multi-Tenant Ready:** Namespace configuration and Redis keys with `TENANT_ID` for easy isolation.
-- **Optional Cloud Integrations:** Toggle CDN caching, DDoS mitigation, managed TLS, and a Web Application Firewall using environment variables.
+- **Optional Cloud Integrations:** Toggle CDN caching, DDoS mitigation, command-driven managed TLS, and a Web Application Firewall using environment variables.
 - **Plugin API:** Drop-in Python modules allow custom rules to extend detection logic.
 - **Anomaly Detection via AI:** Move beyond heuristics and integrate anomaly detection models for more adaptive security.
 - **API Sequence Anomaly Detection:** Markov-based scoring highlights unusual request patterns.
@@ -29,7 +29,7 @@ This project provides a multi-layered, microservice-based defense system against
   `AdyenGateway`, `AuthorizeNetGateway`, or a generic HTTP backend) handle crawler account creation,
   balance lookups, charging and refunds against external billing APIs.
 - **AI Labyrinth Honeypots:** Optional endless maze pages trap persistent bots.
-- **Zero Trust Risk & Attack Scoring:** Placeholder modules provide risk analytics hooks.
+- **Zero Trust Risk & Attack Scoring:** Configurable scoring modules provide deployable baseline policies for risk analytics and WAF decisions.
 - **Automated Configuration Recommendations:** AI-driven service that analyzes traffic patterns and suggests firewall and tarpit tuning.
 - **Audit Logging:** Sensitive actions are written to a rotating `audit.log` for forensic review.
 - **Anomaly Alerting Actions:** Alert, blocklist, or escalate based on anomaly score. See `docs/ANOMALY_ALERTING.md`.
@@ -370,7 +370,7 @@ Several integrations are disabled by default to keep the stack lightweight. You 
  - **Web Application Firewall** (`ENABLE_WAF`) – Mounts ModSecurity rules from `WAF_RULES_PATH` for additional filtering. See [docs/waf_setup.md](docs/waf_setup.md) for setup steps.
 - **Global CDN** (`ENABLE_GLOBAL_CDN`) – Uses Cloudflare for edge cache purge integration. Requires `CLOUD_CDN_ZONE_ID` and `CLOUD_CDN_API_TOKEN` (or `CLOUD_CDN_API_TOKEN_FILE`).
 - **DDoS Mitigation** (`ENABLE_DDOS_PROTECTION`) – The optional `ddos_guard.py` log monitor detects flooding patterns, classifies them as HTTP floods or volumetric attacks, and reports offenders to the local escalation engine. Requests may also be forwarded to an external provider.
-- **Managed TLS** (`ENABLE_MANAGED_TLS`) – Automatically issues certificates via `TLS_PROVIDER` with contact email `TLS_EMAIL`.
+- **Managed TLS** (`ENABLE_MANAGED_TLS`) – Runs an installed ACME client (`certbot` or `acme.sh`) to issue or renew certificates via `TLS_PROVIDER` with contact email `TLS_EMAIL`.
 - **CAPTCHA Verification** – Populate `CAPTCHA_SECRET` to activate reCAPTCHA challenges.
 - **Fail2ban** – Start the `fail2ban` container to insert firewall rules based on blocked IPs. See [docs/fail2ban.md](docs/fail2ban.md) for details.
 - **LLM Tarpit Pages** (`ENABLE_TARPIT_LLM_GENERATOR`) – Use an LLM to generate fake pages when a model URI is provided.

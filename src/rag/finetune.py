@@ -1,7 +1,8 @@
 # rag/finetune.py
-# Placeholder script demonstrating fine-tuning a language model
-# (e.g., from Hugging Face) for bot detection classification.
-# NOTE: This requires significant compute resources (GPU), large datasets,
+# Experimental fine-tuning workflow for language-model-based bot detection.
+# This module is intentionally isolated from the default runtime path and is
+# provided as an opt-in training utility rather than a production service path.
+# NOTE: This requires significant compute resources (GPU), curated datasets,
 # and careful setup. Libraries like transformers, datasets, accelerate, torch needed.
 
 import json
