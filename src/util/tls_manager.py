@@ -3,7 +3,7 @@ import os
 import re
 import shlex
 import shutil
-import subprocess
+import subprocess  # nosec B404
 
 logger = logging.getLogger(__name__)
 
