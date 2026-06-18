@@ -71,7 +71,7 @@ jobs:
             "$LLM_AUTH_TOKEN"
       - name: Upload security reports
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: kali-security-sweep-reports
           path: reports/
