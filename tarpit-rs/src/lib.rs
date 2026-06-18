@@ -134,7 +134,14 @@ fn generate_fake_links(count: usize, depth: usize) -> Vec<String> {
         let (ext, prefix) = match link_type {
             "page" => (".html", "/page/"),
             "js" => (".js", "/js/"),
-            "data" => (if rng.random_bool(0.5) { ".json" } else { ".xml" }, "/data/"),
+            "data" => (
+                if rng.random_bool(0.5) {
+                    ".json"
+                } else {
+                    ".xml"
+                },
+                "/data/",
+            ),
             _ => (".css", "/styles/"),
         };
         let mut full = String::from("/tarpit");
