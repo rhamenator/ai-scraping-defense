@@ -4,7 +4,7 @@
 
 use postgres::{Client, NoTls};
 use pyo3::prelude::*;
-use rand::distributions::WeightedIndex;
+use rand::distr::weighted::WeightedIndex;
 use rand::prelude::*;
 use std::env;
 use std::fs;
@@ -42,12 +42,12 @@ fn get_next_word_from_db(client: &mut Client, w1: i32, w2: i32) -> Option<String
             let words: Vec<String> = rows.iter().map(|r| r.get(0)).collect();
             let freqs: Vec<i32> = rows.iter().map(|r| r.get(1)).collect();
             let total: i32 = freqs.iter().sum();
-            let mut rng = thread_rng();
+            let mut rng = rand::rng();
             let idx = if total > 0 {
                 let dist = WeightedIndex::new(freqs.iter().map(|f| *f as f64)).unwrap();
                 dist.sample(&mut rng)
             } else {
-                rng.gen_range(0..words.len())
+                rng.random_range(0..words.len())
             };
             Some(words[idx].clone())
         }
@@ -65,8 +65,8 @@ fn generate_markov_text_from_db(sentences: usize) -> String {
     let mut w2 = 1;
     let mut word_count = 0usize;
     let mut current_para: Vec<String> = Vec::new();
-    let mut rng = thread_rng();
-    let max_words = sentences * rng.gen_range(15..=30);
+    let mut rng = rand::rng();
+    let max_words = sentences * rng.random_range(15..=30);
     while word_count < max_words {
         match get_next_word_from_db(&mut client, w1, w2) {
             Some(ref word) if !word.is_empty() => {
@@ -111,8 +111,8 @@ fn generate_markov_text_from_db(sentences: usize) -> String {
 }
 
 fn rand_string(len: usize) -> String {
-    use rand::distributions::Alphanumeric;
-    thread_rng()
+    use rand::distr::Alphanumeric;
+    rand::rng()
         .sample_iter(&Alphanumeric)
         .take(len)
         .map(char::from)
@@ -122,19 +122,19 @@ fn rand_string(len: usize) -> String {
 /// Generate fake links with pre-allocated capacity for better performance.
 /// SIMD optimizations apply to string concatenation and array operations.
 fn generate_fake_links(count: usize, depth: usize) -> Vec<String> {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let mut links = Vec::with_capacity(count);
     for _ in 0..count {
-        let link_type = ["page", "js", "data", "css"][rng.gen_range(0..4)];
-        let num_dirs = rng.gen_range(0..=depth);
+        let link_type = ["page", "js", "data", "css"][rng.random_range(0..4)];
+        let num_dirs = rng.random_range(0..=depth);
         let dirs: Vec<String> = (0..num_dirs)
-            .map(|_| rand_string(rng.gen_range(5..=8)))
+            .map(|_| rand_string(rng.random_range(5..=8)))
             .collect();
         let filename_base = rand_string(10);
         let (ext, prefix) = match link_type {
             "page" => (".html", "/page/"),
             "js" => (".js", "/js/"),
-            "data" => (if rng.gen_bool(0.5) { ".json" } else { ".xml" }, "/data/"),
+            "data" => (if rng.random_bool(0.5) { ".json" } else { ".xml" }, "/data/"),
             _ => (".css", "/styles/"),
         };
         let mut full = String::from("/tarpit");
