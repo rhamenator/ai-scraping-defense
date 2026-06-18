@@ -33,7 +33,7 @@ def register_crawler(name: str, token: str, purpose: str) -> bool:
     try:
         redis_conn.expire(key, CRAWLER_TTL_SECONDS)
     except RedisError as exc:
-        logger.warning("Failed to set crawler token TTL for %s: %s", name, exc)
+        logger.warning("Failed to set crawler registration TTL for %s: %s", name, exc)
     return True
 
 

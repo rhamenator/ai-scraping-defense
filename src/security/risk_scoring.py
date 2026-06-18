@@ -18,6 +18,10 @@ def _clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
     return max(minimum, min(value, maximum))
 
 
+def _flag_weight(weight: float, active: bool) -> float:
+    return weight if active else 0.0
+
+
 @dataclass(frozen=True)
 class RiskPolicy:
     """Weights and thresholds for risk scoring."""
@@ -96,30 +100,24 @@ class RiskScorer:
         geo_velocity_risk = _clamp(float(features.get("geo_velocity_risk", 0.0) or 0.0))
 
         breakdown = {
-            "vpn": self.policy.vpn_weight if features.get("is_vpn") else 0.0,
-            "high_frequency": (
-                self.policy.high_frequency_weight if features.get("high_freq") else 0.0
+            "vpn": _flag_weight(self.policy.vpn_weight, bool(features.get("is_vpn"))),
+            "high_frequency": _flag_weight(
+                self.policy.high_frequency_weight, bool(features.get("high_freq"))
             ),
-            "empty_user_agent": (
-                self.policy.empty_user_agent_weight
-                if features.get("ua_is_empty")
-                else 0.0
+            "empty_user_agent": _flag_weight(
+                self.policy.empty_user_agent_weight, bool(features.get("ua_is_empty"))
             ),
-            "malicious_ip": (
-                self.policy.malicious_ip_weight
-                if features.get("is_malicious_ip")
-                else 0.0
+            "malicious_ip": _flag_weight(
+                self.policy.malicious_ip_weight, bool(features.get("is_malicious_ip"))
             ),
-            "anomaly": (
-                self.policy.anomaly_weight * anomaly_score
-                if anomaly_score >= self.policy.anomaly_threshold
-                else 0.0
+            "anomaly": _flag_weight(
+                self.policy.anomaly_weight * anomaly_score,
+                anomaly_score >= self.policy.anomaly_threshold,
             ),
             "geo_velocity": self.policy.geo_velocity_weight * geo_velocity_risk,
-            "impossible_travel": (
-                self.policy.impossible_travel_weight
-                if features.get("impossible_travel")
-                else 0.0
+            "impossible_travel": _flag_weight(
+                self.policy.impossible_travel_weight,
+                bool(features.get("impossible_travel")),
             ),
             "auth_failures": self.policy.auth_failure_weight
             * _clamp(auth_failures / self.policy.auth_failure_threshold),
