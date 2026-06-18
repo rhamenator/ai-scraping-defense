@@ -51,7 +51,7 @@ anthropic>=0.25,<1.0
 # We filter the warning in pytest.ini until upstream fixes it
 google-genai>=1.0,<2.0
 cohere>=5.3,<6.0
-mistralai>=0.1.4,<2.0
+mistralai>=0.1.4,<3.0
 mcp>=1.23.0,<2
 transformers>=4.38,<5.0
 datasets>=2.18,<5.0
