@@ -41,7 +41,7 @@ These keys should be set in your `.env` file for local development or managed vi
 
 ## Configuring MCP Servers
 
-Set `MODEL_URI` to `mcp://<server_label>/<tool_name>` to use the `MCPAdapter`. Connection details come from environment variables that follow the pattern `MCP_SERVER_<LABEL>_*` (uppercase label). Common options include:
+Set `MODEL_URI` to `mcp://<server_label>/<tool_name>` to use the `MCPAdapter`. If `MODEL_URI` uses any other scheme, no MCP connection is opened, so first-party and third-party MCP servers remain optional. Connection details come from environment variables that follow the pattern `MCP_SERVER_<LABEL>_*` (uppercase label). Common options include:
 
 - `MCP_SERVER_<LABEL>_TRANSPORT` – `ws` (default) or `stdio`.
 - `MCP_SERVER_<LABEL>_URL` – WebSocket endpoint when `ws` is used.
@@ -54,6 +54,16 @@ You can override individual settings per adapter instance by passing a config di
 
 > **Tip**
 > Install the Python package with the appropriate extras for your transport, for example `pip install "mcp[websocket]"` when using WebSocket servers or `pip install "mcp[stdio]"` for process-based tools.
+
+For `request-guard-mcp` (formerly the ASD-specific MCP server), the shared compatibility contract is:
+
+```env
+MODEL_URI=mcp://primary/classify
+MCP_SERVER_PRIMARY_TRANSPORT=ws
+MCP_SERVER_PRIMARY_URL=ws://request-guard-mcp:8085/mcp
+MCP_SERVER_PRIMARY_AUTH_TOKEN=replace_me
+MCP_SERVER_PRIMARY_TIMEOUT=10
+```
 
 ## Model Adapter Class Diagram
 

@@ -1,5 +1,8 @@
+ARG PYTHON_VERSION=3.14
+ARG RUST_VERSION=1.88
+
 # --- Builder Stage: Rust + Python 3 for building Rust libraries ---
-FROM rust:latest AS builder
+FROM rust:${RUST_VERSION}-bookworm AS builder
 
 # Install Python 3 and pip for PyO3 build scripts
 RUN apt-get update && apt-get install -y python3 python3-pip
@@ -16,9 +19,9 @@ RUN cd tarpit-rs && cargo build --release && \
     cd ../frequency-rs && cargo build --release && \
     cd ../markov-train-rs && cargo build --release
 
-# --- Final Stage: Python 3.11 app with built Rust shared libraries ---
+# --- Final Stage: Python app with built Rust shared libraries ---
 # FROM ubuntu:22.04
-FROM python:3.11-slim
+FROM python:${PYTHON_VERSION}-slim
 
 # Security metadata
 LABEL security.non-root="true" \

@@ -10,7 +10,7 @@ Instead of creating a separate, complex Dockerfile for each microservice, we use
 
 This file's only responsibility is to create a lean, optimized base image for all Python services. It performs the following steps:
 
-1. Starts from the official python:3.11-slim image.
+1. Starts from the official `python:${PYTHON_VERSION:-3.14}-slim` image.
 2. Sets up the working directory and PYTHONPATH.
 3. Copies and installs all dependencies from requirements.txt.
 4. Copies the entire src/ directory into the image.

@@ -6,6 +6,18 @@ future refresh PRs can be scoped into small, reviewable batches.
 
 ## Update: June 2026 Lockfile Refresh
 
+## Update: Python 3.14 Runtime Modernization
+
+Python 3.14 is now the default container runtime target for this repository.
+The Dockerfiles use `PYTHON_VERSION` build args so operators can temporarily
+fall back during dependency triage without editing Dockerfiles. Rust builder
+images are pinned by `RUST_VERSION` instead of `rust:latest`.
+
+MCP remains an optional runtime capability: no MCP server is contacted unless
+`MODEL_URI` is set to `mcp://<label>/<tool>` or the prompt router explicitly
+routes to an MCP URI. This keeps third-party MCP servers opt-in while preserving
+compatibility with `request-guard-mcp`.
+
 `requirements.lock` had drifted significantly from `requirements.txt`, leaving
 `pip-audit` reporting 65 known vulnerabilities across 15 packages. Stages 1-3
 below were applied in a single regeneration, plus the two Stage 4 items that

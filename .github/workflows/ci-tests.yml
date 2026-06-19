@@ -24,6 +24,7 @@ jobs:
       checks: write
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN || '' }}
+      PYTHON_VERSION: "3.14"
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -33,7 +34,7 @@ jobs:
         if: hashFiles('**/*.py') != ''
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Set up Rust toolchain
         if: hashFiles('**/Cargo.toml') != ''
         uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606
@@ -166,6 +167,8 @@ jobs:
       contents: read
       checks: write
     runs-on: windows-latest
+    env:
+      PYTHON_VERSION: "3.14"
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -174,7 +177,7 @@ jobs:
         if: hashFiles('**/*.py') != ''
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Python tests (Windows)
         shell: pwsh
         run: |
@@ -218,6 +221,8 @@ jobs:
       contents: read
       checks: write
     runs-on: macos-latest
+    env:
+      PYTHON_VERSION: "3.14"
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -226,7 +231,7 @@ jobs:
         if: hashFiles('**/*.py') != ''
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Install libpq (pg_config) and libomp
         if: hashFiles('requirements.txt') != ''
         run: |

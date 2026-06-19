@@ -124,6 +124,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
+        RUST_VERSION: ${RUST_VERSION:-1.88}
     container_name: ai_service
     command:
       [
@@ -171,6 +174,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
+        RUST_VERSION: ${RUST_VERSION:-1.88}
     container_name: escalation_engine
     command:
       [
@@ -217,6 +223,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
+        RUST_VERSION: ${RUST_VERSION:-1.88}
     container_name: tarpit_api
     command:
       [
@@ -266,6 +275,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
+        RUST_VERSION: ${RUST_VERSION:-1.88}
     container_name: admin_ui
     command: ["python", "-m", "src.admin_ui.admin_ui"]
     env_file:
@@ -309,6 +321,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
+        RUST_VERSION: ${RUST_VERSION:-1.88}
     container_name: captcha_service
     command:
       [
@@ -353,6 +368,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
+        RUST_VERSION: ${RUST_VERSION:-1.88}
     container_name: cloud_dashboard
     command: ["python", "src/cloud_dashboard/cloud_dashboard_api.py"]
     env_file:
@@ -393,6 +411,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
+        RUST_VERSION: ${RUST_VERSION:-1.88}
     container_name: config_recommender
     command: ["python", "src/config_recommender/recommender_api.py"]
     env_file:
@@ -433,6 +454,8 @@ services:
     build:
       context: ./cloud-proxy
       dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
     container_name: cloud_proxy
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8008"]
     env_file:
@@ -469,6 +492,8 @@ services:
     build:
       context: ./prompt-router
       dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
     container_name: prompt_router
     command:
       [
@@ -560,6 +585,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
+        RUST_VERSION: ${RUST_VERSION:-1.88}
     container_name: blocklist_sync
     command: ["python", "-m", "scripts.blocklist_sync_daemon"]
     env_file:

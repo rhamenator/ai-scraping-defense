@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+ARG PYTHON_VERSION=3.14
+FROM python:${PYTHON_VERSION}-slim
 
 # Security: Update packages and create non-root user
 RUN apt-get update && \
