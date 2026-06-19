@@ -4,9 +4,9 @@
 #
 #    pip-compile --output-file=requirements.lock requirements.txt
 #
-aiohappyeyeballs==2.6.1
+aiohappyeyeballs==2.6.2
     # via aiohttp
-aiohttp==3.13.3
+aiohttp==3.14.1
     # via
     #   -r requirements.txt
     #   datasets
@@ -15,12 +15,14 @@ aiohttp==3.13.3
 aiosignal==1.4.0
     # via aiohttp
 annotated-doc==0.0.4
-    # via fastapi
+    # via
+    #   fastapi
+    #   typer
 annotated-types==0.7.0
     # via pydantic
-anthropic==0.60.0
+anthropic==0.111.0
     # via -r requirements.txt
-anyio==4.9.0
+anyio==4.14.0
     # via
     #   anthropic
     #   google-genai
@@ -30,30 +32,26 @@ anyio==4.9.0
     #   sse-starlette
     #   starlette
     #   watchfiles
-asn1crypto==1.5.1
-    # via webauthn
-attrs==25.3.0
+attrs==26.1.0
     # via
     #   aiohttp
     #   jsonschema
     #   referencing
 bcrypt==5.0.0
     # via -r requirements.txt
-beautifulsoup4==4.13.4
+beautifulsoup4==4.15.0
     # via wikipedia
-black==26.3.1
+black==26.5.1
     # via -r requirements.txt
-build==1.4.0
+build==1.5.0
     # via pip-tools
-cachetools==5.5.2
-    # via
-    #   -r requirements.txt
-    #   google-auth
-cbor2==5.8.0
+cachetools==7.1.4
+    # via -r requirements.txt
+cbor2==5.9.0
     # via
     #   -r requirements.txt
     #   webauthn
-certifi==2025.7.14
+certifi==2026.6.17
     # via
     #   httpcore
     #   httpx
@@ -62,19 +60,23 @@ cffi==2.0.0
     # via cryptography
 cfgv==3.5.0
     # via pre-commit
-charset-normalizer==3.4.2
+charset-normalizer==3.4.7
     # via requests
-click==8.2.1
+click==8.4.1
     # via
     #   black
+    #   huggingface-hub
     #   pip-tools
+    #   typer
     #   uvicorn
-cohere==5.16.1
+cohere==5.21.1
     # via -r requirements.txt
-coverage==7.13.1
+coverage==7.14.1
     # via -r requirements.txt
-cryptography==46.0.5
+cryptography==48.0.1
     # via
+    #   -r requirements.txt
+    #   google-auth
     #   pyjwt
     #   pyopenssl
     #   webauthn
@@ -89,32 +91,35 @@ dill==0.3.8
     #   datasets
     #   evaluate
     #   multiprocess
-distlib==0.4.0
+distlib==0.4.3
     # via virtualenv
 distro==1.9.0
     # via
     #   anthropic
+    #   google-genai
     #   openai
-eval-type-backport==0.2.2
+docstring-parser==0.18.0
+    # via anthropic
+eval-type-backport==0.4.0
     # via mistralai
-evaluate==0.4.5
+evaluate==0.4.6
     # via -r requirements.txt
-fastapi==0.128.2
+fastapi==0.135.4
     # via -r requirements.txt
-fastavro==1.11.1
+fastavro==1.12.2
     # via cohere
-filelock==3.20.3
+filelock==3.29.4
     # via
     #   -r requirements.txt
     #   datasets
     #   huggingface-hub
-    #   transformers
+    #   python-discovery
     #   virtualenv
 flake8==7.3.0
     # via -r requirements.txt
-freezegun==1.5.3
+freezegun==1.5.5
     # via -r requirements.txt
-frozenlist==1.7.0
+frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
@@ -123,23 +128,23 @@ fsspec[http]==2024.6.1
     #   datasets
     #   evaluate
     #   huggingface-hub
-geoip2==5.1.0
+geoip2==5.2.0
     # via -r requirements.txt
-google-auth==2.40.3
+google-auth[requests]==2.55.0
     # via google-genai
-google-genai==1.27.0
+google-genai==1.75.0
     # via -r requirements.txt
-gunicorn==23.0.0
+gunicorn==25.3.0
     # via -r requirements.txt
 h11==0.16.0
     # via
     #   httpcore
     #   uvicorn
-hf-xet==1.1.5
+hf-xet==1.5.1
     # via huggingface-hub
 httpcore==1.0.9
     # via httpx
-httptools==0.6.4
+httptools==0.8.0
     # via uvicorn
 httpx==0.28.1
     # via
@@ -147,15 +152,14 @@ httpx==0.28.1
     #   anthropic
     #   cohere
     #   google-genai
+    #   huggingface-hub
     #   mcp
     #   mistralai
     #   ollama
     #   openai
-httpx-sse==0.4.0
-    # via
-    #   cohere
-    #   mcp
-huggingface-hub==0.34.3
+httpx-sse==0.4.3
+    # via mcp
+huggingface-hub==1.20.1
     # via
     #   datasets
     #   evaluate
@@ -163,26 +167,25 @@ huggingface-hub==0.34.3
     #   transformers
 hvac==2.4.0
     # via -r requirements.txt
-identify==2.6.16
+identify==2.6.19
     # via pre-commit
-idna==3.10
+idna==3.18
     # via
     #   anyio
     #   httpx
     #   requests
     #   yarl
-iniconfig==2.1.0
+iniconfig==2.3.0
     # via pytest
 isort==8.0.1
     # via -r requirements.txt
 jinja2==3.1.6
-    # via
-    #   -r requirements.txt
-jiter==0.10.0
+    # via -r requirements.txt
+jiter==0.15.0
     # via
     #   anthropic
     #   openai
-joblib==1.5.1
+joblib==1.5.3
     # via
     #   -r requirements.txt
     #   scikit-learn
@@ -190,19 +193,23 @@ jsonschema==4.26.0
     # via mcp
 jsonschema-specifications==2025.9.1
     # via jsonschema
-markupsafe==3.0.2
+markdown-it-py==4.2.0
+    # via rich
+markupsafe==3.0.3
     # via jinja2
-maturin==1.9.2
+maturin==1.14.0
     # via -r requirements.txt
-maxminddb==2.8.2
+maxminddb==3.1.1
     # via geoip2
 mccabe==0.7.0
     # via flake8
-mcp==1.26.0
+mcp==1.28.0
     # via -r requirements.txt
+mdurl==0.1.2
+    # via markdown-it-py
 mistralai==1.9.3
     # via -r requirements.txt
-multidict==6.6.3
+multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
@@ -212,6 +219,8 @@ multiprocess==0.70.16
     #   evaluate
 mypy-extensions==1.1.0
     # via black
+narwhals==2.22.1
+    # via scikit-learn
 nodeenv==1.10.0
     # via pre-commit
 numpy==1.26.4
@@ -224,13 +233,13 @@ numpy==1.26.4
     #   scipy
     #   transformers
     #   xgboost
-nvidia-nccl-cu12==2.27.6
+nvidia-nccl-cu12==2.30.7
     # via xgboost
-ollama==0.6.1
+ollama==0.6.2
     # via -r requirements.txt
 openai==1.97.1
     # via -r requirements.txt
-packaging==25.0
+packaging==26.2
     # via
     #   black
     #   build
@@ -246,39 +255,43 @@ pandas==2.3.1
     #   -r requirements.txt
     #   datasets
     #   evaluate
-pathspec==1.0.3
+pathspec==1.1.1
     # via black
-pip-tools==7.5.2
+pip-tools==7.5.3
     # via -r requirements.txt
-platformdirs==4.3.8
+platformdirs==4.10.0
     # via
     #   black
+    #   python-discovery
     #   virtualenv
 pluggy==1.6.0
     # via pytest
-pre-commit==4.5.1
+pre-commit==4.6.0
     # via -r requirements.txt
-prometheus-client==0.24.1
+prometheus-client==0.25.0
     # via -r requirements.txt
-propcache==0.3.2
+propcache==0.5.2
     # via
     #   aiohttp
     #   yarl
-psycopg2==2.9.10 ; platform_system != "Darwin"
+psycopg2==2.9.12 ; platform_system != "Darwin"
     # via -r requirements.txt
-pyarrow==21.0.0
+pyarrow==24.0.0
     # via datasets
-pyasn1==0.6.2
+pyasn1==0.6.3
     # via
+    #   -r requirements.txt
     #   pyasn1-modules
-    #   rsa
+    #   webauthn
 pyasn1-modules==0.4.2
-    # via google-auth
+    # via
+    #   google-auth
+    #   webauthn
 pycodestyle==2.14.0
     # via flake8
-pycparser==2.22
+pycparser==3.0
     # via cffi
-pydantic==2.11.7
+pydantic==2.13.4
     # via
     #   anthropic
     #   cohere
@@ -289,54 +302,58 @@ pydantic==2.11.7
     #   ollama
     #   openai
     #   pydantic-settings
-pydantic-core==2.33.2
+pydantic-core==2.46.4
     # via
     #   cohere
     #   pydantic
-pydantic-settings==2.12.0
+pydantic-settings==2.14.1
     # via mcp
 pyflakes==3.4.0
     # via flake8
-pygments==2.19.2
-    # via pytest
-pyjwt[crypto]==2.12.1
+pygments==2.20.0
+    # via
+    #   pytest
+    #   rich
+pyjwt[crypto]==2.13.0
     # via
     #   -r requirements.txt
     #   mcp
-pyopenssl==26.0.0
+pyopenssl==26.2.0
     # via
     #   -r requirements.txt
     #   webauthn
-pyotp==2.9.0
+pyotp==2.10.0
     # via -r requirements.txt
 pyproject-hooks==1.2.0
     # via
     #   build
     #   pip-tools
-pytest==8.4.1
+pytest==9.1.0
     # via
     #   -r requirements.txt
     #   pytest-asyncio
-pytest-asyncio==1.1.0
+pytest-asyncio==1.4.0
     # via -r requirements.txt
 python-dateutil==2.9.0.post0
     # via
     #   freezegun
     #   mistralai
     #   pandas
-python-dotenv==1.1.1
+python-discovery==1.4.2
+    # via virtualenv
+python-dotenv==1.2.2
     # via
     #   pydantic-settings
     #   uvicorn
-python-multipart==0.0.22
+python-multipart==0.0.32
     # via
     #   -r requirements.txt
     #   mcp
-pytokens==0.4.0
+pytokens==0.4.1
     # via black
-pytz==2025.2
+pytz==2026.2
     # via pandas
-pyyaml==6.0.2
+pyyaml==6.0.3
     # via
     #   -r requirements.txt
     #   datasets
@@ -346,81 +363,88 @@ pyyaml==6.0.2
     #   uvicorn
 qrcode==8.2
     # via -r requirements.txt
-redis==7.1.0
+redis==7.4.1
     # via -r requirements.txt
 referencing==0.37.0
     # via
     #   jsonschema
     #   jsonschema-specifications
-regex==2025.7.31
+regex==2026.5.9
     # via transformers
-requests==2.32.4
+requests==2.34.2
     # via
     #   -r requirements.txt
     #   cohere
     #   datasets
     #   evaluate
     #   geoip2
+    #   google-auth
     #   google-genai
-    #   huggingface-hub
     #   hvac
-    #   transformers
     #   wikipedia
-rpds-py==0.30.0
+rich==15.0.0
+    # via typer
+rpds-py==2026.5.1
     # via
     #   jsonschema
     #   referencing
-rsa==4.9.1
-    # via google-auth
-safetensors==0.5.3
+safetensors==0.8.0
     # via transformers
 schedule==1.2.2
     # via -r requirements.txt
-scikit-learn==1.7.1
+scikit-learn==1.9.0
     # via -r requirements.txt
-scipy==1.16.1
+scipy==1.17.1
     # via
     #   scikit-learn
     #   xgboost
+shellingham==1.5.4
+    # via typer
 six==1.17.0
     # via python-dateutil
 sniffio==1.3.1
     # via
     #   anthropic
-    #   anyio
+    #   google-genai
     #   openai
-soupsieve==2.7
+soupsieve==2.8.4
     # via beautifulsoup4
-sse-starlette==3.0.3
+sse-starlette==3.4.4
     # via mcp
-starlette==0.50.0
+starlette==1.3.1
     # via
     #   -r requirements.txt
     #   fastapi
     #   mcp
-tenacity==8.5.0
+    #   sse-starlette
+tenacity==9.1.4
     # via
     #   -r requirements.txt
     #   google-genai
 threadpoolctl==3.6.0
     # via scikit-learn
-tokenizers==0.21.4
+tokenizers==0.22.2
     # via
     #   cohere
     #   transformers
-tqdm==4.67.1
+tqdm==4.68.3
     # via
     #   datasets
     #   evaluate
     #   huggingface-hub
     #   openai
     #   transformers
-transformers==4.54.1
+transformers==5.12.1
     # via -r requirements.txt
-types-requests==2.32.4.20250611
-    # via cohere
-typing-extensions==4.14.1
+typer==0.25.1
     # via
+    #   huggingface-hub
+    #   transformers
+types-requests==2.33.0.20260518
+    # via cohere
+typing-extensions==4.15.0
+    # via
+    #   aiohttp
     #   aiosignal
     #   anthropic
     #   anyio
@@ -434,6 +458,7 @@ typing-extensions==4.14.1
     #   pydantic
     #   pydantic-core
     #   pyopenssl
+    #   pytest-asyncio
     #   referencing
     #   starlette
     #   typing-inspection
@@ -444,37 +469,37 @@ typing-inspection==0.4.2
     #   mistralai
     #   pydantic
     #   pydantic-settings
-tzdata==2025.2
+tzdata==2026.2
     # via pandas
-ua-parser==1.0.1
+ua-parser==1.0.2
     # via user-agents
-ua-parser-builtins==0.18.0.post1
+ua-parser-builtins==202606
     # via ua-parser
-urllib3==2.6.3
+urllib3==2.7.0
     # via
     #   requests
     #   types-requests
 user-agents==2.2.0
     # via -r requirements.txt
-uvicorn[standard]==0.40.0
+uvicorn[standard]==0.49.0
     # via
     #   -r requirements.txt
     #   mcp
-uvloop==0.21.0
+uvloop==0.22.1
     # via uvicorn
-virtualenv==20.36.1
+virtualenv==21.5.1
     # via
     #   -r requirements.txt
     #   pre-commit
-watchfiles==1.1.0
+watchfiles==1.2.0
     # via uvicorn
-webauthn==2.7.0
+webauthn==2.8.0
     # via -r requirements.txt
-websockets==15.0.1
+websockets==16.0
     # via
     #   google-genai
     #   uvicorn
-wheel==0.46.3
+wheel==0.47.0
     # via
     #   -r requirements.txt
     #   pip-tools
@@ -482,11 +507,11 @@ wikipedia==1.4.0
     # via -r requirements.txt
 xgboost==2.1.4
     # via -r requirements.txt
-xxhash==3.5.0
+xxhash==3.7.0
     # via
     #   datasets
     #   evaluate
-yarl==1.20.1
+yarl==1.24.2
     # via aiohttp
 
 # The following packages are considered to be unsafe in a requirements file:

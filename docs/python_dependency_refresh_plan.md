@@ -4,6 +4,39 @@ This document captures the March 2026 dependency triage for the Python stack.
 It is intentionally focused on direct dependencies and operator-visible risk so
 future refresh PRs can be scoped into small, reviewable batches.
 
+## Update: June 2026 Lockfile Refresh
+
+`requirements.lock` had drifted significantly from `requirements.txt`, leaving
+`pip-audit` reporting 65 known vulnerabilities across 15 packages. Stages 1-3
+below were applied in a single regeneration, plus the two Stage 4 items that
+were the source of unfixable CVEs (`starlette` and `transformers`):
+
+- Stages 1-3 packages refreshed as described (patch/minor updates, `fastapi`,
+  `cachetools` drift resolved to the already-allowed 7.x line, `pytest` 9,
+  `virtualenv` 21, etc.)
+- `starlette` `0.50.0 -> 1.3.1` and `cryptography` `46.0.5 -> 48.0.1`: required
+  also moving `fastapi` to `0.135.4` and `pyOpenSSL` to `26.2.0`, which were
+  the actual sources of the old version caps (FastAPI <0.135 capped starlette
+  below 0.51; pyOpenSSL 26.0.0 capped cryptography below 47). Both already fit
+  inside the existing `<2.0` / `<0.136` ranges, so no range widening was
+  needed for them. `cryptography`'s own range was widened `<47.0 -> <49.0` to
+  allow the GHSA-fixed 48.0.1.
+- `transformers` `4.54.1 -> 5.12.1` (range widened `<5.0 -> <6.0`): the only
+  consumer in this codebase is `src/rag/finetune.py`, using long-stable
+  `AutoModelForSequenceClassification`/`AutoTokenizer`/`Trainer`/
+  `TrainingArguments` APIs. Required also moving `huggingface-hub` (`0.34.3 ->
+  1.20.1`), `tokenizers`, `datasets`, `evaluate`, and `regex` together, since
+  these were silently capping transformers below 5.x even when explicitly
+  asked to upgrade. Validated against the full test suite (759 passed).
+- `pytest` `8.4.1 -> 9.1.0` (range widened `~=8.4 -> <10.0`): `pytest-asyncio`
+  already allowed `pytest<10,>=8.4`, so no plugin conflict.
+- `openai`, `mistralai`, `datasets`, `numpy`, `pandas`, `xgboost` were
+  deliberately held at their prior pinned versions (`--upgrade-package
+  pkg==<version>` overrides during lockfile regeneration) per the Stage 4
+  guidance below — none of them were required by the security fixes above,
+  confirmed via an isolated dependency resolution before locking.
+- Result: 0 known vulnerabilities, full test suite green on Python 3.12.3.
+
 ## Scan Basis
 
 - Scan date: 2026-03-22
