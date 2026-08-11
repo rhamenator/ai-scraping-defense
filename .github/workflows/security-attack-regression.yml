@@ -205,6 +205,7 @@ jobs:
           fi
 
           if [[ "$TARGET_NGINX_HTTP_BASE" =~ ^http:// ]]; then
+            # DevSkim: ignore DS137138 -- plaintext HTTP is restricted to loopback below.
             if [[ ! "$TARGET_NGINX_HTTP_BASE" =~ ^http://(127\.0\.0\.1|localhost)(:|/|$) ]]; then
               echo "TARGET_NGINX_HTTP_BASE may only use http:// for localhost or 127.0.0.1 loopback targets" >&2
               exit 1

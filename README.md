@@ -43,6 +43,9 @@ This project provides a multi-layered, microservice-based defense system against
 
 ## Repository Structure
 
+For offline log analysis, see [Extract AI crawler IPs from Caddy JSON
+logs](docs/caddy_log_cli.md).
+
 - `src/` – core Python microservices and shared modules.
 - `scripts/` – setup helpers and deployment utilities.
 - `rag/` – retrieval-augmented generation resources and training tools.

@@ -169,11 +169,11 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
         logged_args = mock_info.call_args.args
         self.assertEqual(
             logged_args[0],
-            "Bypassing origin tarpit for trusted CDN request from %s via %s with %s action",
+            "Bypassing origin tarpit for trusted CDN request from %s via %s",
         )
         self.assertNotEqual(logged_args[1], "203.0.113.44")
         self.assertNotEqual(logged_args[2], "127.0.0.1")
-        self.assertEqual(logged_args[3], "throttle")
+        self.assertEqual(len(logged_args), 3)
 
     async def test_tarpit_handler_ignores_spoofed_cdn_headers_from_untrusted_peer(self):
         response = self.client.get(

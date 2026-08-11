@@ -172,8 +172,8 @@ def load_setup_state(path: Path) -> dict[str, Any]:
         data = json.loads(path.read_text())
         if isinstance(data, dict):
             return data
-    except Exception:
-        pass
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return {}
     return {}
 
 

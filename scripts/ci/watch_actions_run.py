@@ -18,7 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import subprocess
+import subprocess  # nosec B404 - invokes only the fixed GitHub CLI
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -33,7 +33,7 @@ def _require_gh() -> None:
 
 
 def _run_gh_json(args: list[str]) -> Any:
-    completed = subprocess.run(
+    completed = subprocess.run(  # nosec B603 - command begins with the fixed gh CLI
         ["gh", *args],
         check=False,
         stdout=subprocess.PIPE,
@@ -49,7 +49,7 @@ def _run_gh_json(args: list[str]) -> Any:
 
 
 def _repo_slug() -> str:
-    out = subprocess.run(
+    out = subprocess.run(  # nosec B603 - command begins with the fixed gh CLI
         ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
         check=False,
         stdout=subprocess.PIPE,
