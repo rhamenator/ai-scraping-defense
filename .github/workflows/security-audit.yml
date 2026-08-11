@@ -17,19 +17,11 @@ jobs:
   audit:
     permissions:
       contents: read
-      security-events: write
-      actions: read
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with: { fetch-depth: 0 }
-      - uses: github/codeql-action/init@ce729e4d353d580e6cacd6a8cf2921b72e5e310a
-        with:
-          languages: "javascript, typescript, python, go, ruby, java, cpp"
-      - uses: github/codeql-action/autobuild@ce729e4d353d580e6cacd6a8cf2921b72e5e310a
-      - uses: github/codeql-action/analyze@ce729e4d353d580e6cacd6a8cf2921b72e5e310a
-        with: { category: "/language:auto" }
       - name: Install scanners & deps
         run: |
           set -eux

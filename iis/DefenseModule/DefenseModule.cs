@@ -1,9 +1,12 @@
 using System;
 using System.Configuration;
 using System.Diagnostics;
+using System.Net.Http;
 using System.Runtime.Caching;
+using System.Text;
 using System.Threading.Tasks;
 using System.Web;
+using System.Web.Script.Serialization;
 using StackExchange.Redis;
 
 namespace AntiScrape.IIS
@@ -53,14 +56,14 @@ namespace AntiScrape.IIS
             if (isBlocked)
             {
                 ctx.Response.StatusCode = 403;
-                ctx.CompleteRequest();
+                app.CompleteRequest();
                 return;
             }
 
             if (await IsRateLimitedAsync(db, tenant, ip))
             {
                 ctx.Response.StatusCode = 429;
-                ctx.CompleteRequest();
+                app.CompleteRequest();
                 return;
             }
 
@@ -73,7 +76,7 @@ namespace AntiScrape.IIS
             {
                 await EscalateAsync(ip, "BadUA");
                 ctx.Response.StatusCode = 403;
-                ctx.CompleteRequest();
+                app.CompleteRequest();
                 return;
             }
 
@@ -109,11 +112,16 @@ namespace AntiScrape.IIS
         {
             var endpoint = ConfigurationManager.AppSettings["ESCALATION_ENDPOINT"];
             if (string.IsNullOrEmpty(endpoint)) return;
-            using (var client = new System.Net.Http.HttpClient())
+            using (var client = new HttpClient())
             {
                 try
                 {
-                    await client.PostAsJsonAsync(endpoint, new { ip, reason });
+                    var payload = new JavaScriptSerializer().Serialize(new { ip, reason });
+                    using (var content = new StringContent(payload, Encoding.UTF8, "application/json"))
+                    using (var response = await client.PostAsync(endpoint, content))
+                    {
+                        response.EnsureSuccessStatusCode();
+                    }
                     Logger.TraceEvent(TraceEventType.Information, 0, $"Escalated {ip} for {reason}");
                 }
                 catch
