@@ -137,7 +137,7 @@ class TestInstallerSmokeTest(unittest.TestCase):
             patch("scripts.installer_smoke_test.requests.get") as mock_get,
             patch.dict(
                 installer_smoke_test.os.environ,
-                {"SMOKE_TEST_CA_FILE": "/tmp/custom-ca.pem"},
+                {"SMOKE_TEST_CA_FILE": "/tmp/custom-ca.pem"},  # nosec B108
                 clear=False,
             ),
         ):
@@ -147,7 +147,7 @@ class TestInstallerSmokeTest(unittest.TestCase):
         mock_get.assert_called_once_with(
             "https://127.0.0.1:8443/",
             timeout=10,
-            verify="/tmp/custom-ca.pem",
+            verify="/tmp/custom-ca.pem",  # nosec B108
         )
 
     def test_main_reports_failures_with_contract_prefix(self):

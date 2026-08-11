@@ -312,7 +312,7 @@ def ensure_kubernetes_runtime_security() -> None:
                 mount.get("name"): mount
                 for mount in (container.get("volumeMounts") or [])
             }
-            if volume_mounts.get("tmp", {}).get("mountPath") != "/tmp":
+            if volume_mounts.get("tmp", {}).get("mountPath") != "/tmp":  # nosec B108
                 _fail(f"{manifest_name}:{container_name} must mount tmp at /tmp")
 
 

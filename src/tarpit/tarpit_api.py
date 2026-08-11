@@ -542,10 +542,9 @@ async def tarpit_handler(request: Request, path: str = ""):
     if identity.via_trusted_cdn and _disable_tarpit_for_trusted_cdn():
         action = _trusted_cdn_containment_action()
         logger.info(
-            "Bypassing origin tarpit for trusted CDN request from %s via %s with %s action",
+            "Bypassing origin tarpit for trusted CDN request from %s via %s",
             _redact_ip_for_log(client_ip),
             _redact_ip_for_log(identity.peer_ip),
-            action,
         )
         response = HTMLResponse(
             content=(

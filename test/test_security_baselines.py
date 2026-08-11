@@ -339,7 +339,7 @@ def test_selected_kubernetes_workloads_define_restricted_security_contexts():
             volume_mounts = {
                 mount.get("name"): mount for mount in container.get("volumeMounts", [])
             }
-            assert volume_mounts.get("tmp", {}).get("mountPath") == "/tmp"
+            assert volume_mounts.get("tmp", {}).get("mountPath") == "/tmp"  # nosec B108
 
     for manifest_name, container_names in RESTRICTED_WORKLOADS.items():
         assert seen[manifest_name] == set(container_names)

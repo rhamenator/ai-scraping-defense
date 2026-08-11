@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
-import subprocess
+import subprocess  # nosec B404 - invokes only the fixed Docker CLI
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,7 +44,7 @@ def docker_prefix(docker_context: str) -> list[str]:
 
 
 def run_command(command: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return subprocess.run(  # nosec B603 - command begins with the fixed Docker CLI
         command,
         check=False,
         capture_output=True,

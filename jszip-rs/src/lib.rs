@@ -4,7 +4,7 @@
 
 use chrono::Utc;
 use pyo3::prelude::*;
-use rand::Rng;
+use rand::RngExt;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
