@@ -1,0 +1,36 @@
+name: Question or support request
+description: Ask for help using or operating the project
+title: "[Question]: "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: Support is provided on a best-effort basis. See SUPPORT.md before submitting. Do not post secrets or vulnerability details.
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What have you tried?
+      description: Include relevant documentation and sanitized commands or configuration.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include versions and deployment method when relevant.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I read the relevant documentation and searched existing issues.
+          required: true
+        - label: I removed credentials and sensitive data.
+          required: true

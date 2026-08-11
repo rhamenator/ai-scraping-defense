@@ -1,0 +1,80 @@
+name: Bug report
+description: Report a reproducible defect or regression
+title: "[Bug]: "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve the project. Do not include credentials, private data, or unredacted production logs. Report vulnerabilities through the private security link instead.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Provide the release, image tag, or commit SHA where the problem occurs.
+      placeholder: v1.2.3 or abc1234
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Runtime or core logic
+        - API or user interface
+        - Deployment or packaging
+        - Configuration or integration
+        - CI or developer tooling
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the operating system, runtime versions, deployment method, and relevant sanitized configuration.
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened, and what impact did it have?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest reliable sequence that demonstrates the problem.
+      placeholder: |
+        1. Configure ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized logs or other evidence
+      description: Remove secrets, tokens, personal data, internal hostnames, and sensitive IP addresses.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: I removed secrets and sensitive data from this report.
+          required: true
+        - label: This is not a privately reportable security vulnerability.
+          required: true
