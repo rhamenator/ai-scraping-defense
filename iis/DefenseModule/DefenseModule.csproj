@@ -5,4 +5,11 @@
   <ItemGroup>
     <PackageReference Include="StackExchange.Redis" Version="2.6.66" />
   </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Runtime.Caching" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
 </Project>
