@@ -59,6 +59,7 @@ services:
       - ./nginx/render_cdn_origin_lockdown.sh:/usr/local/bin/render_cdn_origin_lockdown.sh:ro
       - ./nginx/lua:/etc/nginx/lua:ro
       - ./nginx/certs:/etc/nginx/certs:ro
+      - ./nginx/sites-enabled:/etc/nginx/sites-enabled:ro
       - ./nginx/.htpasswd:/etc/nginx/secrets/.htpasswd:ro
       - ./waf:/etc/nginx/modsecurity:ro
       - ./docs_ui:/usr/share/nginx/html/docs_ui:ro

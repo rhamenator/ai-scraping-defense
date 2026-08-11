@@ -1,5 +1,7 @@
+import hashlib
 import os
 import sqlite3
+import threading
 from typing import Dict, Optional
 
 from src.pay_per_crawl import blockchain
@@ -8,6 +10,13 @@ DB_PATH = os.environ.get("CRAWLER_DB_PATH", "crawler_registry.db")
 
 _CONNECTION: sqlite3.Connection | None = None
 _DB_PATH = DB_PATH
+_DB_LOCK = threading.RLock()
+
+
+def _audit_token(token: str) -> str:
+    """Return a stable, non-reversible crawler identifier for audit records."""
+
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
 
 
 def log_to_blockchain(action: str, data: dict) -> None:
@@ -26,7 +35,7 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
         finally:
             _CONNECTION = None
     if _CONNECTION is None:
-        _CONNECTION = sqlite3.connect(db_path)
+        _CONNECTION = sqlite3.connect(db_path, check_same_thread=False)
         _CONNECTION.execute("PRAGMA journal_mode=WAL")
         _CONNECTION.execute("PRAGMA synchronous=NORMAL")
         _CONNECTION.execute("PRAGMA busy_timeout=5000")
@@ -50,28 +59,30 @@ def _get_conn() -> sqlite3.Connection:
 
 
 def register_crawler(name: str, token: str, purpose: str) -> None:
-    conn = _get_conn()
-    conn.execute(
-        (
-            "INSERT OR REPLACE INTO crawlers(token, name, purpose, balance) "
-            "VALUES(?,?,?, COALESCE((SELECT balance FROM crawlers WHERE token=?),0))"
-        ),
-        (token, name, purpose, token),
-    )
-    conn.commit()
+    with _DB_LOCK:
+        conn = _get_conn()
+        conn.execute(
+            (
+                "INSERT INTO crawlers(token, name, purpose, balance) VALUES(?,?,?,0) "
+                "ON CONFLICT(token) DO UPDATE SET name=excluded.name, purpose=excluded.purpose"
+            ),
+            (token, name, purpose),
+        )
+        conn.commit()
     log_to_blockchain(
         "register_crawler",
-        {"name": name, "token": token, "purpose": purpose},
+        {"name": name, "token_hash": _audit_token(token), "purpose": purpose},
     )
 
 
 def get_crawler(token: str) -> Optional[Dict[str, str]]:
-    conn = _get_conn()
-    cur = conn.execute(
-        "SELECT token, name, purpose, balance FROM crawlers WHERE token=?",
-        (token,),
-    )
-    row = cur.fetchone()
+    with _DB_LOCK:
+        conn = _get_conn()
+        cur = conn.execute(
+            "SELECT token, name, purpose, balance FROM crawlers WHERE token=?",
+            (token,),
+        )
+        row = cur.fetchone()
     if row:
         return {
             "token": row[0],
@@ -82,29 +93,33 @@ def get_crawler(token: str) -> Optional[Dict[str, str]]:
     return None
 
 
-def add_credit(token: str, amount: float) -> None:
-    conn = _get_conn()
-    conn.execute(
-        "UPDATE crawlers SET balance=COALESCE(balance,0)+? WHERE token=?",
-        (amount, token),
+def add_credit(token: str, amount: float) -> bool:
+    with _DB_LOCK:
+        conn = _get_conn()
+        cur = conn.execute(
+            "UPDATE crawlers SET balance=COALESCE(balance,0)+? WHERE token=?",
+            (amount, token),
+        )
+        conn.commit()
+    if cur.rowcount == 0:
+        return False
+    log_to_blockchain(
+        "add_credit", {"token_hash": _audit_token(token), "amount": amount}
     )
-    conn.commit()
-    log_to_blockchain("add_credit", {"token": token, "amount": amount})
+    return True
 
 
 def charge(token: str, amount: float) -> bool:
-    conn = _get_conn()
-    cur = conn.execute("SELECT balance FROM crawlers WHERE token=?", (token,))
-    row = cur.fetchone()
-    if not row:
+    with _DB_LOCK:
+        conn = _get_conn()
+        cur = conn.execute(
+            "UPDATE crawlers SET balance=balance-? " "WHERE token=? AND balance>=?",
+            (amount, token, amount),
+        )
+        conn.commit()
+    if cur.rowcount == 0:
         return False
-    balance = row[0] or 0.0
-    if balance < amount:
-        return False
-    new_balance = balance - amount
-    conn.execute("UPDATE crawlers SET balance=? WHERE token=?", (new_balance, token))
-    conn.commit()
-    log_to_blockchain("charge", {"token": token, "amount": amount})
+    log_to_blockchain("charge", {"token_hash": _audit_token(token), "amount": amount})
     return True
 
 
@@ -120,9 +135,10 @@ def delete_crawler(token: str) -> bool:
     Returns:
         True if data was deleted, False if token not found
     """
-    conn = _get_conn()
-    cur = conn.execute("DELETE FROM crawlers WHERE token=?", (token,))
-    conn.commit()
+    with _DB_LOCK:
+        conn = _get_conn()
+        cur = conn.execute("DELETE FROM crawlers WHERE token=?", (token,))
+        conn.commit()
     return cur.rowcount > 0
 
 
@@ -138,10 +154,11 @@ def anonymize_crawler(token: str) -> bool:
     Returns:
         True if data was anonymized, False if token not found
     """
-    conn = _get_conn()
-    cur = conn.execute(
-        "UPDATE crawlers SET name=?, purpose=? WHERE token=?",
-        ("[REDACTED]", "[REDACTED]", token),
-    )
-    conn.commit()
+    with _DB_LOCK:
+        conn = _get_conn()
+        cur = conn.execute(
+            "UPDATE crawlers SET name=?, purpose=? WHERE token=?",
+            ("[REDACTED]", "[REDACTED]", token),
+        )
+        conn.commit()
     return cur.rowcount > 0

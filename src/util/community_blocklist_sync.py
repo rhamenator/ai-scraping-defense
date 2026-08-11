@@ -4,13 +4,14 @@ import json
 import logging
 import os
 from typing import List, Optional
-from urllib.parse import urlparse
 
 import httpx
 
 from src.shared.config import tenant_key
 from src.shared.operational_events import publish_operational_event
 from src.shared.redis_client import get_redis_connection
+from src.shared.request_identity import is_trusted_infrastructure_ip
+from src.shared.ssrf_protection import SSRFProtectionError, validate_url
 
 COMMUNITY_BLOCKLIST_API_URL = os.getenv(
     "COMMUNITY_BLOCKLIST_API_URL", "https://mock_community_blocklist_api:8000"
@@ -20,15 +21,23 @@ COMMUNITY_BLOCKLIST_LIST_ENDPOINT = os.getenv(
 )
 REDIS_DB_BLOCKLIST = int(os.getenv("REDIS_DB_BLOCKLIST", 2))
 BLOCKLIST_TTL_SECONDS = int(os.getenv("COMMUNITY_BLOCKLIST_TTL_SECONDS", 86400))
+COMMUNITY_BLOCKLIST_ALLOW_PRIVATE_NETWORKS = os.getenv(
+    "COMMUNITY_BLOCKLIST_ALLOW_PRIVATE_NETWORKS", "true"
+).strip().lower() in {"1", "true", "yes", "on"}
 
 logger = logging.getLogger(__name__)
 
 
 async def fetch_blocklist(url: str) -> List[str]:
     """Fetch a list of malicious IPs from the community blocklist service."""
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        logger.warning("Skipping invalid URL: %s", url)
+    try:
+        validate_url(
+            url,
+            block_private_ips=not COMMUNITY_BLOCKLIST_ALLOW_PRIVATE_NETWORKS,
+            resolve_dns=not COMMUNITY_BLOCKLIST_ALLOW_PRIVATE_NETWORKS,
+        )
+    except SSRFProtectionError as exc:
+        logger.warning("Skipping unsafe community URL %s: %s", url, exc)
         return []
     async with httpx.AsyncClient() as client:
         response = await client.get(url, timeout=10.0)
@@ -57,6 +66,9 @@ def update_redis_blocklist(ips: List[str], redis_conn) -> int:
             parsed_ip = ipaddress.ip_address(ip)
         except ValueError:
             logger.warning("Skipping invalid IP address: %s", ip)
+            continue
+        if is_trusted_infrastructure_ip(str(parsed_ip)):
+            logger.warning("Skipping configured proxy/CDN address: %s", parsed_ip)
             continue
         key = tenant_key(f"blocklist:ip:{parsed_ip}")
         try:

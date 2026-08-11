@@ -11,6 +11,8 @@ from typing import List
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from src.shared.request_identity import resolve_request_identity
+
 try:
     from src.shared.honeypot_logger import log_honeypot_hit
 
@@ -64,7 +66,7 @@ def register_bad_endpoints(app: FastAPI, count: int = 5) -> List[str]:
     for path in endpoints:
 
         async def handler(request: Request, path: str = path):
-            client_ip = request.client.host if request.client else "unknown"
+            client_ip = resolve_request_identity(request).client_ip
             ua = request.headers.get("user-agent", "unknown")
             details = {
                 "ip": client_ip,

@@ -25,6 +25,7 @@ from src.shared.observability import (
     trace_span,
 )
 from src.shared.operational_events import publish_operational_event
+from src.shared.request_identity import resolve_request_identity
 
 # GeoIP
 try:
@@ -1060,7 +1061,7 @@ async def handle_escalation(
         require_jwt(required_roles=["escalate:write", "engine:invoke"], optional=True)
     ),
 ):
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = resolve_request_identity(request).client_ip
     # Allow legacy API key if configured and provided (dual auth path)
     api_key = request.headers.get("X-API-Key")
     configured_key = _current_api_key()

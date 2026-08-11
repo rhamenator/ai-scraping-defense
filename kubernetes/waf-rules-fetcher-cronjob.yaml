@@ -5,6 +5,10 @@ metadata:
   name: owasp-crs-fetcher
   namespace: ai-defense
 spec:
+  # The stock OpenResty image is not ModSecurity-enabled. Keep this maintenance
+  # job suspended unless the deployment is switched to a WAF-capable image and
+  # a writable/shared rules volume is configured.
+  suspend: true
   # Runs daily at 3 AM.
   schedule: "0 3 * * *"
   jobTemplate:

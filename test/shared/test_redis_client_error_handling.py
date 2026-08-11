@@ -38,7 +38,9 @@ class TestRedisClientErrorHandling(unittest.TestCase):
         ), patch(
             "src.shared.redis_client._create_client",
             return_value=mock_client,
-        ), patch("logging.info") as mock_log:
+        ), patch(
+            "logging.info"
+        ) as mock_log:
             conn = redis_client.get_redis_connection()
             self.assertIs(conn, mock_client)
             mock_log.assert_called_once_with(
@@ -54,7 +56,9 @@ class TestRedisClientErrorHandling(unittest.TestCase):
         ), patch(
             "src.shared.redis_client._create_client",
             side_effect=RuntimeError("boom"),
-        ), patch("logging.error") as mock_log:
+        ), patch(
+            "logging.error"
+        ) as mock_log:
             conn = redis_client.get_redis_connection()
             self.assertIsNone(conn)
             mock_log.assert_called_once_with(

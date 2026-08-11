@@ -57,6 +57,16 @@ def _request_from_trusted_network(
     return any(client_ip in network for network in trusted_networks)
 
 
+def is_trusted_infrastructure_ip(candidate: str) -> bool:
+    """Return whether an address belongs to a configured proxy/CDN trust range."""
+
+    networks = [
+        *_parse_trusted_proxy_networks("SECURITY_TRUSTED_PROXY_CIDRS"),
+        *_parse_trusted_proxy_networks("SECURITY_CDN_TRUSTED_PROXY_CIDRS"),
+    ]
+    return _request_from_trusted_network(candidate, networks)
+
+
 def _candidate_client_headers() -> tuple[str, ...]:
     configured = os.getenv("SECURITY_CDN_CLIENT_IP_HEADERS", "")
     if configured.strip():
@@ -86,6 +96,24 @@ def _first_valid_ip(value: str | None) -> str | None:
     return None
 
 
+def _resolve_forwarded_chain(
+    value: str | None,
+    trusted_networks: list[TrustedProxyNetwork],
+) -> str | None:
+    if not value:
+        return None
+    parsed: list[str] = []
+    for candidate in value.split(","):
+        try:
+            parsed.append(str(ipaddress.ip_address(candidate.strip())))
+        except ValueError:
+            continue
+    for candidate in reversed(parsed):
+        if not _request_from_trusted_network(candidate, trusted_networks):
+            return candidate
+    return None
+
+
 def resolve_request_identity(request: Request) -> RequestIdentity:
     """Resolve the real client IP through trusted proxies and CDNs only."""
 
@@ -104,7 +132,13 @@ def resolve_request_identity(request: Request) -> RequestIdentity:
 
     if via_trusted_cdn:
         for header_name in _candidate_client_headers():
-            resolved_ip = _first_valid_ip(request.headers.get(header_name))
+            if header_name == "x-forwarded-for":
+                resolved_ip = _resolve_forwarded_chain(
+                    request.headers.get(header_name),
+                    [*trusted_proxy_networks, *trusted_cdn_networks],
+                )
+            else:
+                resolved_ip = _first_valid_ip(request.headers.get(header_name))
             if resolved_ip:
                 return RequestIdentity(
                     client_ip=resolved_ip,
@@ -115,7 +149,10 @@ def resolve_request_identity(request: Request) -> RequestIdentity:
                 )
 
     if via_trusted_proxy:
-        forwarded_for = _first_valid_ip(request.headers.get("x-forwarded-for"))
+        forwarded_for = _resolve_forwarded_chain(
+            request.headers.get("x-forwarded-for"),
+            [*trusted_proxy_networks, *trusted_cdn_networks],
+        )
         if forwarded_for:
             return RequestIdentity(
                 client_ip=forwarded_for,

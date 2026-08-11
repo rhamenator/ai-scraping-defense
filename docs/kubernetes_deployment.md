@@ -89,18 +89,7 @@ kubectl apply -f kubernetes/secrets.yaml
 The Kubernetes manifests are organized in the kubernetes/ directory. Each service, database, and configuration is defined in its own YAML file.
 You can deploy the entire stack by applying all the manifest files in the kubernetes/ directory. It's best practice to apply them in a logical order.
 
-This deployment can be accomplished by running:
-
-```bash
-sudo bash ./kubernetes/deploy.sh
-```
-
-```PowerShell
-# This must be run in an administrator PowerShell terminal
-.\kubernetes\deploy.ps1
-```
-
-or by running `kubectl apply -f` for each file individually. You can also use a tool like `kustomize` to manage the deployment if you prefer a more structured approach.
+Deploy by running `kubectl apply -f` for each file in the order below. You can also use a tool like `kustomize` to manage the deployment if you prefer a more structured approach.
 
 If you are manually applying `kubectl apply -f` to each file, it should be done in the correct order. Here’s a recommended sequence:
 
@@ -112,6 +101,7 @@ kubectl apply -f kubernetes/namespace-pss.yaml
 
 # 2. Create the ConfigMap and Persistent Volume Claims
 kubectl apply -f kubernetes/configmap.yaml
+kubectl apply -f kubernetes/nginx-runtime-config.yaml
 kubectl apply -f kubernetes/archives-pvc.yaml
 kubectl apply -f kubernetes/corpus-pvc.yaml
 kubectl apply -f kubernetes/models-pvc.yaml
@@ -128,13 +118,18 @@ kubectl apply -f kubernetes/tarpit-api-deployment.yaml
 kubectl apply -f kubernetes/archive-rotator-deployment.yaml
 
 # 5. Deploy the CronJobs
+kubectl apply -f kubernetes/robots-fetcher-rbac.yaml
+kubectl apply -f kubernetes/waf-rules-fetcher-rbac.yaml
 kubectl apply -f kubernetes/corpus-updater-cronjob.yaml
 kubectl apply -f kubernetes/markov-model-trainer.yaml
 kubectl apply -f kubernetes/robots-fetcher-cronjob.yaml
+kubectl apply -f kubernetes/waf-rules-fetcher-cronjob.yaml
 
 # 6. Deploy the Nginx ingress proxy
 kubectl apply -f kubernetes/nginx-deployment.yaml
 ```
+
+Before deploying NGINX, set `REAL_BACKEND_HOST` in `kubernetes/configmap.yaml` to the direct origin URL. When Cloudflare fronts the service, also populate `SECURITY_CDN_TRUSTED_PROXY_CIDRS` from Cloudflare's published ranges. This restores the originating client IP and prevents Cloudflare edge addresses from being blocklisted. Enable `SECURITY_CDN_ORIGIN_LOCKDOWN` only after the ranges are populated. Ordinary outbound application traffic continues directly to its configured destination rather than being routed through Cloudflare.
 
 ### 5. **Verify the Deployment**
 

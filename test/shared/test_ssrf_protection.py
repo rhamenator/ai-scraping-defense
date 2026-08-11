@@ -1,6 +1,7 @@
 """Tests for SSRF protection module."""
 
 import unittest
+from unittest.mock import patch
 
 from src.shared.ssrf_protection import (
     SSRFProtectionError,
@@ -40,6 +41,12 @@ class TestIsPrivateIP(unittest.TestCase):
         """Test that hostnames return False (not IP addresses)."""
         self.assertFalse(is_private_ip("example.com"))
         self.assertFalse(is_private_ip("api.example.com"))
+
+    @patch("src.shared.ssrf_protection.socket.getaddrinfo")
+    def test_resolved_private_hostname_is_rejected(self, mock_getaddrinfo):
+        mock_getaddrinfo.return_value = [(2, 1, 6, "", ("127.0.0.1", 443))]
+        with self.assertRaises(SSRFProtectionError):
+            validate_url("https://public.example", resolve_dns=True)
 
 
 class TestIsLocalhost(unittest.TestCase):
@@ -133,6 +140,23 @@ class TestValidateURL(unittest.TestCase):
     def test_private_ip_allowed(self):
         """Test that private IPs can be allowed with block_private_ips=False."""
         validate_url("http://192.168.1.1/api", block_private_ips=False)
+
+    def test_non_global_and_unsafe_authorities_are_blocked(self):
+        """Reject multicast/unspecified IPs, credentials, and invalid ports."""
+        for url in (
+            "http://224.0.0.1/api",
+            "http://0.1.2.3/api",
+            "http://user:password@example.com/api",
+            "http://example.com:99999/api",
+        ):
+            with self.subTest(url=url), self.assertRaises(SSRFProtectionError):
+                validate_url(url)
+
+    def test_domain_allowlist_is_case_and_trailing_dot_insensitive(self):
+        validate_url(
+            "https://EXAMPLE.com./path",
+            allowed_domains=["example.COM"],
+        )
 
     def test_domain_allowlist(self):
         """Test that domain allowlist is enforced."""

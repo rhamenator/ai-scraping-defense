@@ -5,6 +5,7 @@ This module assembles the FastAPI application and wires in
 submodules that handle authentication, metrics, blocklist
 management and WebAuthn support.
 """
+
 import logging
 import os
 import secrets

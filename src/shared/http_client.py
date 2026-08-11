@@ -365,6 +365,7 @@ class AsyncHttpClient:
                 allowed_domains=self.allowed_domains,
                 block_private_ips=self.block_private_ips,
                 require_https=self.require_https,
+                resolve_dns=self.block_private_ips,
             )
         except SSRFProtectionError as e:
             logger.error(f"SSRF protection blocked {method} request to {url}: {e}")

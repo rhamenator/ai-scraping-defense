@@ -25,6 +25,28 @@ tarpit_entries_total 120
         self.assertIn("TAR_PIT_MAX_HOPS", recs)
         self.assertIn("BLOCKLIST_TTL_SECONDS", recs)
 
+    @patch("src.config_recommender.recommender_api.get_metrics")
+    def test_cloudflare_attack_mode_is_advisory_and_gated(self, mock_get_metrics):
+        mock_get_metrics.return_value = b"""
+http_requests_total 1000
+bots_detected_total 400
+"""
+        with patch.dict(
+            "os.environ",
+            {"ENABLE_GLOBAL_CDN": "true", "CLOUD_CDN_PROVIDER": "cloudflare"},
+            clear=False,
+        ):
+            recs = self.client.get("/recommendations").json()["recommendations"]
+        self.assertEqual(recs["CLOUDFLARE_UNDER_ATTACK_MODE"], 1)
+
+        with patch.dict(
+            "os.environ",
+            {"ENABLE_GLOBAL_CDN": "false", "CLOUD_CDN_PROVIDER": "cloudflare"},
+            clear=False,
+        ):
+            recs = self.client.get("/recommendations").json()["recommendations"]
+        self.assertNotIn("CLOUDFLARE_UNDER_ATTACK_MODE", recs)
+
 
 if __name__ == "__main__":
     unittest.main()

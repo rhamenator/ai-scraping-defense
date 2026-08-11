@@ -13,6 +13,7 @@ from redis.exceptions import RedisError
 from src.shared.audit import log_event
 from src.shared.config import tenant_key
 from src.shared.redis_client import get_redis_connection
+from src.shared.request_identity import is_trusted_infrastructure_ip
 from src.shared.request_utils import read_json_body
 
 from . import metrics
@@ -166,6 +167,11 @@ async def block_ip(request: Request, user: str = Depends(require_admin)):
         normalized_ip = str(ipaddress.ip_address(ip))
     except ValueError:
         return JSONResponse({"error": "Invalid ip"}, status_code=400)
+    if is_trusted_infrastructure_ip(normalized_ip):
+        return JSONResponse(
+            {"error": "Refusing to block a configured proxy or CDN address"},
+            status_code=400,
+        )
 
     redis_conn = get_redis_connection()
     if not redis_conn:

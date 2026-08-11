@@ -232,6 +232,8 @@ JWT verification is used by some internal APIs (for example, the escalation engi
 | `ALERT_EMAIL_TO` | *(none)* | Destination email addresses |
 | `ALERT_MIN_REASON_SEVERITY` | `Local LLM` | Minimum reason to trigger alerts |
 | `ENABLE_COMMUNITY_REPORTING` | `true` | Report IPs to community blocklist |
+| `COMMUNITY_BLOCKLIST_API_URL` | `https://mock_community_blocklist_api:8000` | Operator-configured community blocklist base URL |
+| `COMMUNITY_BLOCKLIST_ALLOW_PRIVATE_NETWORKS` | `true` | Permit the built-in community sync service on the private container/Kubernetes network; set to `false` for a public endpoint to enable DNS-based SSRF checks |
 | `COMMUNITY_BLOCKLIST_REPORT_URL` | *(none)* | URL to send community reports |
 | `COMMUNITY_BLOCKLIST_API_KEY_FILE` | `/run/secrets/community_blocklist_api_key` | API key file for community reports |
 | `COMMUNITY_BLOCKLIST_REPORT_TIMEOUT` | `10.0` | HTTP timeout for reporting |

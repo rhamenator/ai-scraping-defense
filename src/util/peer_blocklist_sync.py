@@ -10,6 +10,8 @@ import httpx
 
 from src.shared.config import tenant_key
 from src.shared.redis_client import get_redis_connection
+from src.shared.request_identity import is_trusted_infrastructure_ip
+from src.shared.ssrf_protection import SSRFProtectionError, validate_url
 
 PEER_BLOCKLIST_URLS = os.getenv("PEER_BLOCKLIST_URLS", "")
 REDIS_DB_BLOCKLIST = int(os.getenv("REDIS_DB_BLOCKLIST", 2))
@@ -20,9 +22,10 @@ logger = logging.getLogger(__name__)
 
 async def fetch_peer_ips(url: str) -> List[str]:
     """Fetch a list of malicious IPs from a peer deployment."""
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        logger.warning("Skipping invalid URL: %s", url)
+    try:
+        validate_url(url, resolve_dns=True)
+    except SSRFProtectionError as exc:
+        logger.warning("Skipping unsafe peer URL %s: %s", url, exc)
         return []
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, timeout=10.0)
@@ -48,16 +51,19 @@ def update_redis_blocklist(ips: List[str], redis_conn) -> int:
     added = 0
     for ip in ips:
         try:
-            ipaddress.ip_address(ip)
+            normalized_ip = str(ipaddress.ip_address(ip))
         except ValueError:
             logger.warning("Skipping invalid IP address: %s", ip)
             continue
-        key = tenant_key(f"blocklist:ip:{ip}")
+        if is_trusted_infrastructure_ip(normalized_ip):
+            logger.warning("Skipping configured proxy/CDN address: %s", normalized_ip)
+            continue
+        key = tenant_key(f"blocklist:ip:{normalized_ip}")
         try:
             redis_conn.setex(key, PEER_BLOCKLIST_TTL_SECONDS, "peer")
             added += 1
         except Exception as exc:  # pragma: no cover - unexpected redis errors
-            logger.error("Failed to set Redis key for IP %s: %s", ip, exc)
+            logger.error("Failed to set Redis key for IP %s: %s", normalized_ip, exc)
     return added
 
 

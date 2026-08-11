@@ -73,6 +73,7 @@ def fetch_robots_txt(
             allowed_schemes=["http", "https"],
             allowed_domains=allowed_hosts,
             block_private_ips=True,
+            resolve_dns=True,
         )
     except SSRFProtectionError as e:
         logger.error(f"SSRF protection blocked robots.txt fetch from {url}: {e}")

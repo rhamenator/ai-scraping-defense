@@ -32,8 +32,21 @@ if not SHARED_SECRET:
     logger.error(
         "SHARED_SECRET environment variable is not set; requests will fail until it is configured"
     )
-RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "60"))
-RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
+
+
+def _positive_int_env(name: str, default: int) -> int:
+    raw_value = os.getenv(name, str(default))
+    try:
+        value = int(raw_value)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be a positive integer") from exc
+    if value <= 0:
+        raise RuntimeError(f"{name} must be a positive integer")
+    return value
+
+
+RATE_LIMIT_REQUESTS = _positive_int_env("RATE_LIMIT_REQUESTS", 60)
+RATE_LIMIT_WINDOW = _positive_int_env("RATE_LIMIT_WINDOW", 60)
 
 
 def count_tokens(text: str) -> int:

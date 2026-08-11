@@ -12,6 +12,7 @@ from src.shared.observability import (
     register_health_check,
     trace_span,
 )
+from src.shared.request_identity import resolve_request_identity
 
 app = create_app()
 
@@ -38,9 +39,9 @@ async def verify_captcha(token: str, request: Request):
         raise HTTPException(
             status_code=500, detail="CAPTCHA verification not configured"
         )
-    ip = request.client.host if request.client else None
+    ip = resolve_request_identity(request).client_ip
     payload = {"secret": CAPTCHA_SECRET, "response": token}
-    if ip is not None:
+    if ip and ip != "unknown":
         payload["remoteip"] = ip
     try:
         async with httpx.AsyncClient() as client:

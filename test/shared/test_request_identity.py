@@ -1,7 +1,11 @@
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from src.shared.request_identity import resolve_request_identity, resolve_request_scheme
+from src.shared.request_identity import (
+    is_trusted_infrastructure_ip,
+    resolve_request_identity,
+    resolve_request_scheme,
+)
 
 
 def _build_identity_app() -> FastAPI:
@@ -96,3 +100,22 @@ def test_resolve_request_identity_uses_forwarded_for_for_trusted_proxy(monkeypat
         "source_header": "x-forwarded-for",
         "scheme": "https",
     }
+
+
+def test_resolve_request_identity_ignores_spoofed_leftmost_forwarded_entry(monkeypatch):
+    monkeypatch.setenv("SECURITY_TRUSTED_PROXY_CIDRS", "127.0.0.0/8")
+    client = TestClient(_build_identity_app(), client=("127.0.0.1", 45000))
+
+    response = client.get(
+        "/identity",
+        headers={"X-Forwarded-For": "192.0.2.99, 198.51.100.50, 127.0.0.2"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["client_ip"] == "198.51.100.50"
+
+
+def test_trusted_cloudflare_edge_is_never_a_block_target(monkeypatch):
+    monkeypatch.setenv("SECURITY_CDN_TRUSTED_PROXY_CIDRS", "173.245.48.0/20")
+    assert is_trusted_infrastructure_ip("173.245.48.10")
+    assert not is_trusted_infrastructure_ip("198.51.100.10")

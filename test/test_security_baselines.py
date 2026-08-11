@@ -35,6 +35,11 @@ def _posix_shell_command() -> list[str] | None:
     shell = shutil.which("sh") or shutil.which("bash")
     if not shell:
         return None
+    # Windows' legacy System32 bash.exe launches WSL without preserving the
+    # subprocess environment or translating temporary Windows paths. Treat it
+    # as unavailable; Linux CI and container validation exercise this script.
+    if os.name == "nt" and "system32" in shell.lower():
+        return None
     return [shell, "nginx/render_cdn_origin_lockdown.sh"]
 
 
@@ -175,7 +180,36 @@ def test_render_cdn_origin_lockdown_skips_tunnel_only_mode(tmp_path):
     )
 
     assert result.returncode == 0
-    assert "disabled" in output_path.read_text()
+    rendered = output_path.read_text()
+    assert "disabled" in rendered
+    assert "real_ip_header" not in rendered
+
+
+def test_render_cdn_origin_lockdown_restores_cloudflare_origin_ip(tmp_path):
+    output_path = tmp_path / "20-cdn-origin-lockdown.conf"
+    shell_command = _posix_shell_command()
+    if shell_command is None:
+        return
+    result = subprocess.run(  # nosec B603 - controlled test invocation
+        [*shell_command, str(output_path)],
+        cwd=Path.cwd(),
+        env={
+            **os.environ,
+            "SECURITY_CDN_ORIGIN_LOCKDOWN": "false",
+            "SECURITY_CDN_TRUSTED_PROXY_CIDRS": "173.245.48.0/20,2400:cb00::/32",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    rendered = output_path.read_text()
+    assert "set_real_ip_from 173.245.48.0/20;" in rendered
+    assert "set_real_ip_from 2400:cb00::/32;" in rendered
+    assert "real_ip_header CF-Connecting-IP;" in rendered
+    assert "real_ip_recursive on;" in rendered
+    assert "deny all;" not in rendered
 
 
 def test_compose_services_drop_privileges():

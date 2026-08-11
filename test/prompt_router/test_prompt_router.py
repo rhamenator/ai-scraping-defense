@@ -217,22 +217,35 @@ class TestAuthAndRateLimit(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(resp2.status_code, 200)
 
     async def test_proxy_headers_ignored_by_default(self):
-        with patch.dict(os.environ, {"RATE_LIMIT_REQUESTS": "1"}):
+        class FakeTime:
+            @staticmethod
+            def time():
+                return 1.0
+
+        with patch.dict(
+            os.environ,
+            {
+                "RATE_LIMIT_REQUESTS": "1",
+                "SECURITY_TRUSTED_PROXY_CIDRS": "",
+                "SECURITY_CDN_TRUSTED_CIDRS": "",
+            },
+        ):
             spec.loader.exec_module(pr_module)
             global app
             app = pr_module.app
-            headers1 = {
-                "Authorization": f"Bearer {self.shared_secret}",
-                "X-Forwarded-For": "1.1.1.1",
-            }
-            resp1 = await self._post(headers=headers1)
-            self.assertEqual(resp1.status_code, 200)
-            headers2 = {
-                "Authorization": f"Bearer {self.shared_secret}",
-                "X-Forwarded-For": "2.2.2.2",
-            }
-            resp2 = await self._post(headers=headers2)
-            self.assertEqual(resp2.status_code, 429)
+            with patch.object(pr_module, "time", FakeTime()):
+                headers1 = {
+                    "Authorization": f"Bearer {self.shared_secret}",
+                    "X-Forwarded-For": "1.1.1.1",
+                }
+                resp1 = await self._post(headers=headers1)
+                self.assertEqual(resp1.status_code, 200)
+                headers2 = {
+                    "Authorization": f"Bearer {self.shared_secret}",
+                    "X-Forwarded-For": "2.2.2.2",
+                }
+                resp2 = await self._post(headers=headers2)
+                self.assertEqual(resp2.status_code, 429)
 
     async def test_proxy_headers_used_when_trusted(self):
         with patch.dict(

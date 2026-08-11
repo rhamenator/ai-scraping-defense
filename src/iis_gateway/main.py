@@ -25,6 +25,7 @@ from src.shared.observability import (
     trace_span,
 )
 from src.shared.redis_client import get_redis_connection
+from src.shared.request_identity import resolve_request_identity
 
 
 @dataclass
@@ -214,7 +215,7 @@ def _build_forward_headers(request: Request) -> dict[str, str]:
         if key.lower() not in HOP_BY_HOP_HEADERS | FORWARDED_HEADER_NAMES
     }
 
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = resolve_request_identity(request).client_ip
     forwarded_headers["Host"] = request.headers.get("host", request.url.netloc)
     forwarded_headers["X-Forwarded-For"] = client_ip
     forwarded_headers["X-Forwarded-Host"] = request.headers.get(
@@ -232,7 +233,7 @@ def _build_forward_headers(request: Request) -> dict[str, str]:
     "/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
 )
 async def proxy(path: str, request: Request) -> Response:
-    client_ip = request.client.host
+    client_ip = resolve_request_identity(request).client_ip
     try:
         if ip_blocked(client_ip):
             return PlainTextResponse("Forbidden", status_code=403)

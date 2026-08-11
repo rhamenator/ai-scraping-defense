@@ -220,10 +220,21 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
         if self.max_body_size <= 0:
             return await call_next(request)
         length = request.headers.get("content-length")
-        if length and int(length) > self.max_body_size:
-            return JSONResponse(
-                status_code=413, content={"detail": "Request body too large"}
-            )
+        if length:
+            try:
+                parsed_length = int(length)
+            except ValueError:
+                return JSONResponse(
+                    status_code=400, content={"detail": "Invalid Content-Length header"}
+                )
+            if parsed_length < 0:
+                return JSONResponse(
+                    status_code=400, content={"detail": "Invalid Content-Length header"}
+                )
+            if parsed_length > self.max_body_size:
+                return JSONResponse(
+                    status_code=413, content={"detail": "Request body too large"}
+                )
 
         size = 0
         body = bytearray()

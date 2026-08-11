@@ -1,3 +1,4 @@
+import socket
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -40,6 +41,17 @@ class TestPeerBlocklistSync(unittest.IsolatedAsyncioTestCase):
             "src.util.peer_blocklist_sync.httpx.AsyncClient", return_value=mock_client
         ), patch(
             "src.util.peer_blocklist_sync.get_redis_connection", return_value=mock_redis
+        ), patch(
+            "src.shared.ssrf_protection.socket.getaddrinfo",
+            return_value=[
+                (
+                    socket.AF_INET,
+                    socket.SOCK_STREAM,
+                    socket.IPPROTO_TCP,
+                    "",
+                    ("93.184.216.34", 80),
+                )
+            ],
         ), patch.object(
             sync, "PEER_BLOCKLIST_URLS", "http://peer/list"
         ):

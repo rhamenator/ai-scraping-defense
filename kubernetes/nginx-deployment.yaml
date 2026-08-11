@@ -1,4 +1,3 @@
-# kubernetes/nginx-deployment.yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -12,12 +11,7 @@ spec:
       protocol: TCP
       port: 80
       targetPort: 80
-    - name: https
-      protocol: TCP
-      port: 443
-      targetPort: 443
-  type: LoadBalancer # Exposes NGINX to the internet
-
+  type: LoadBalancer
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -38,9 +32,15 @@ spec:
       - name: nginx
         image: openresty/openresty:1.29.2.1-alpine
         imagePullPolicy: Always
+        command:
+        - /bin/sh
+        - -c
+        - /bin/sh /usr/local/bin/render-runtime-config.sh && exec /usr/local/openresty/bin/openresty -g 'daemon off;'
+        envFrom:
+        - configMapRef:
+            name: app-config
         ports:
         - containerPort: 80
-        - containerPort: 443
         resources:
           requests:
             cpu: "100m"
@@ -63,36 +63,41 @@ spec:
         volumeMounts:
         - name: nginx-config
           mountPath: /etc/nginx/conf.d
-        - name: lua-scripts
-          mountPath: /etc/nginx/lua
-        - name: waf-rules
-          mountPath: /etc/nginx/modsecurity
+          readOnly: true
+        - name: nginx-renderer
+          mountPath: /usr/local/bin/render-runtime-config.sh
+          subPath: render-runtime-config.sh
+          readOnly: true
+        - name: generated-config
+          mountPath: /etc/nginx/generated-conf
         - name: robots-txt
           mountPath: /etc/nginx/robots.txt
           subPath: robots.txt
-        # Mount the .htpasswd secret file
-        - name: nginx-auth-secret
-          mountPath: /etc/nginx/secrets
           readOnly: true
         - name: nginx-logs
           mountPath: /var/log/nginx
       volumes:
       - name: nginx-config
         configMap:
-          name: nginx-conf # Assumes a configmap with your nginx.conf exists
-      - name: lua-scripts
+          name: nginx-runtime-config
+          items:
+          - key: default.conf
+            path: default.conf
+      - name: nginx-renderer
         configMap:
-          name: lua-scripts-config # Assumes a configmap for lua scripts exists
-      - name: waf-rules
-        configMap:
-          name: waf-rules
+          name: nginx-runtime-config
+          defaultMode: 0555
+          items:
+          - key: render-runtime-config.sh
+            path: render-runtime-config.sh
+      - name: generated-config
+        emptyDir: {}
       - name: robots-txt
         configMap:
           name: live-robots-txt-config
-      # Define the volume from the secret you created
-      - name: nginx-auth-secret
-        secret:
-          secretName: nginx-auth
+          items:
+          - key: robots.txt
+            path: robots.txt
       - name: nginx-logs
         persistentVolumeClaim:
           claimName: nginx-logs-pvc

@@ -11,6 +11,7 @@ from typing import Any
 
 from src.shared.config import CONFIG, tenant_key
 from src.shared.redis_client import get_redis_connection
+from src.shared.request_identity import is_trusted_infrastructure_ip
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,11 @@ def apply_ip_throttle(
     """Persist a temporary throttle instruction for an IP in Redis."""
 
     if not ip_address or not _validate_ip(ip_address):
+        return False
+    if is_trusted_infrastructure_ip(ip_address):
+        logger.warning(
+            "Refusing to throttle configured proxy/CDN address %s", ip_address
+        )
         return False
 
     redis_conn = get_redis_connection(db_number=CONFIG.REDIS_DB_BLOCKLIST)

@@ -20,6 +20,18 @@ data:
   TARPIT_API_PORT: "8001"
   ADMIN_UI_HOST: "admin-ui"
   ADMIN_UI_PORT: "5002"
+  REAL_BACKEND_HOST: ""
+  # The default community blocklist service is cluster-internal. Set this to
+  # false if COMMUNITY_BLOCKLIST_API_URL points to a public service.
+  COMMUNITY_BLOCKLIST_ALLOW_PRIVATE_NETWORKS: "true"
+
+  # Optional Cloudflare ingress integration. Populate trusted CIDRs from
+  # Cloudflare's published IP ranges before enabling origin lockdown.
+  ENABLE_GLOBAL_CDN: "false"
+  CLOUD_CDN_PROVIDER: "cloudflare"
+  SECURITY_CDN_TRUSTED_PROXY_CIDRS: ""
+  SECURITY_TRUSTED_PROXY_CIDRS: ""
+  SECURITY_CDN_ORIGIN_LOCKDOWN: "false"
 
   # Redis connection details
   REDIS_HOST: "redis" # The service name of the Redis statefulset

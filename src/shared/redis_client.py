@@ -39,6 +39,8 @@ def _get_pool(
     pool = _POOLS.get(key)
     if pool is None:
         max_connections = int(os.getenv("REDIS_MAX_CONNECTIONS", "50"))
+        connect_timeout = float(os.getenv("REDIS_CONNECT_TIMEOUT_SECONDS", "1"))
+        socket_timeout = float(os.getenv("REDIS_SOCKET_TIMEOUT_SECONDS", "1"))
         pool = redis.ConnectionPool(
             host=redis_host,
             port=redis_port,
@@ -46,6 +48,8 @@ def _get_pool(
             db=db_number,
             decode_responses=True,
             max_connections=max_connections,
+            socket_connect_timeout=connect_timeout,
+            socket_timeout=socket_timeout,
         )
         _POOLS[key] = pool
     return pool

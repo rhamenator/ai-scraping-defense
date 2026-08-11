@@ -71,6 +71,29 @@ def _generate_recommendations(metrics: Dict[str, float]) -> Dict[str, int]:
     elif bots_detected < 10:
         recs["BLOCKLIST_TTL_SECONDS"] = max(CONFIG.BLOCKLIST_TTL_SECONDS - 3600, 3600)
 
+    cdn_enabled = os.getenv("ENABLE_GLOBAL_CDN", "false").lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    cdn_provider = os.getenv("CLOUD_CDN_PROVIDER", "cloudflare").lower()
+    min_requests = int(
+        os.getenv("CLOUDFLARE_ATTACK_RECOMMENDATION_MIN_REQUESTS", "100")
+    )
+    min_bot_ratio = float(
+        os.getenv("CLOUDFLARE_ATTACK_RECOMMENDATION_MIN_BOT_RATIO", "0.25")
+    )
+    if (
+        cdn_enabled
+        and cdn_provider == "cloudflare"
+        and total_requests >= min_requests
+        and bots_detected / total_requests >= min_bot_ratio
+    ):
+        # This is deliberately advisory. Operators retain control over whether
+        # Cloudflare Under Attack Mode is appropriate for their traffic.
+        recs["CLOUDFLARE_UNDER_ATTACK_MODE"] = 1
+
     return recs
 
 

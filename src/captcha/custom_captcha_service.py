@@ -17,6 +17,7 @@ from src.shared.observability import (
     register_health_check,
     trace_span,
 )
+from src.shared.request_identity import resolve_request_identity
 
 CAPTCHA_SECRET = get_secret("CAPTCHA_SECRET_FILE") or os.getenv("CAPTCHA_SECRET")
 CAPTCHA_SUCCESS_LOG = os.getenv("CAPTCHA_SUCCESS_LOG", "/app/logs/captcha_success.log")
@@ -144,7 +145,7 @@ async def solve(
         return JSONResponse({"success": False})
     if ans_int != data.get("ans"):
         return JSONResponse({"success": False})
-    ip = request.client.host if request and request.client else "unknown"
+    ip = resolve_request_identity(request).client_ip
     fingerprint = fp_id or data.get("fp") or ""
     with trace_span(
         "captcha.issue_token",

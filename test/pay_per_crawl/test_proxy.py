@@ -21,6 +21,9 @@ class TestPayPerCrawlProxy(unittest.TestCase):
                 "src.pay_per_crawl.proxy.get_crawler", return_value={"token": "tok"}
             ),
             "charge": patch("src.pay_per_crawl.proxy.charge", return_value=True),
+            "add_credit": patch(
+                "src.pay_per_crawl.proxy.add_credit", return_value=True
+            ),
             "AsyncClient": patch("src.pay_per_crawl.proxy.httpx.AsyncClient"),
         }
         self.mocks = {name: p.start() for name, p in self.patches.items()}
@@ -111,6 +114,31 @@ class TestPayPerCrawlProxy(unittest.TestCase):
     def test_pay_rejects_negative_amount(self):
         resp = self.client.post("/pay", json={"token": "tok", "amount": -1})
         self.assertEqual(resp.status_code, 422)
+
+    def test_pay_fails_closed_without_payment_configuration(self):
+        resp = self.client.post("/pay", json={"token": "tok", "amount": 1})
+        self.assertEqual(resp.status_code, 503)
+
+    def test_proxy_does_not_forward_crawler_secret(self):
+        self.client.get("/api/data", headers={"X-API-Key": "tok"})
+        kwargs = self.mocks[
+            "AsyncClient"
+        ].return_value.__aenter__.return_value.request.call_args.kwargs
+        self.assertNotIn("x-api-key", {key.lower() for key in kwargs["headers"]})
+
+    def test_oversized_streamed_body_is_rejected_before_charging(self):
+        with patch.object(self.proxy, "MAX_PROXY_BODY_BYTES", 3), patch.object(
+            self.proxy.pricing_engine, "price_for_path", return_value=0.5
+        ):
+            resp = self.client.post(
+                "/api/data",
+                headers={"X-API-Key": "tok"},
+                content=b"four",
+            )
+
+        self.assertEqual(resp.status_code, 413)
+        self.mocks["charge"].assert_not_called()
+        self.mocks["add_credit"].assert_not_called()
 
 
 if __name__ == "__main__":

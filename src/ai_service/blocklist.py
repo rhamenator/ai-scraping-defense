@@ -9,6 +9,7 @@ from redis.exceptions import ConnectionError, RedisError
 
 from src.shared.config import CONFIG, tenant_key
 from src.shared.redis_client import get_redis_connection as shared_get_redis_connection
+from src.shared.request_identity import is_trusted_infrastructure_ip
 from src.shared.utils import LOG_DIR, log_error, log_event
 
 logger = logging.getLogger(__name__)
@@ -98,6 +99,12 @@ def add_ip_to_blocklist(
             ip_address,
             reason,
             event_details,
+        )
+        return False
+    if is_trusted_infrastructure_ip(ip_address):
+        logger.error(
+            "Refusing to block trusted proxy/CDN infrastructure address %s",
+            ip_address,
         )
         return False
     try:

@@ -27,7 +27,10 @@ from src.shared.observability import (
     trace_span,
 )
 from src.shared.redis_client import get_redis_connection
-from src.shared.request_identity import resolve_request_identity
+from src.shared.request_identity import (
+    is_trusted_infrastructure_ip,
+    resolve_request_identity,
+)
 
 from .bad_api_generator import register_bad_endpoints
 
@@ -366,6 +369,9 @@ async def slow_stream_content(content: str):
 
 def trigger_ip_block(ip: str, reason: str):
     with trace_span("tarpit.trigger_block", attributes={"ip": ip}):
+        if is_trusted_infrastructure_ip(ip):
+            logger.warning("Refusing to block configured proxy/CDN address %s", ip)
+            return False
         if not redis_blocklist:
             logger.error(
                 f"Cannot block IP {ip}, Redis blocklist connection unavailable."

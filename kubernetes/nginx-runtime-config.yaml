@@ -1,0 +1,136 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-runtime-config
+  namespace: ai-defense
+data:
+  default.conf: |
+    limit_req_zone $binary_remote_addr zone=global_limit:10m rate=30r/s;
+    include /etc/nginx/generated-conf/20-client-ip.conf;
+
+    server {
+        listen 80 default_server;
+        server_name _;
+
+        add_header X-Frame-Options "DENY" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+
+        location = /healthz {
+            allow all;
+            access_log off;
+            return 200 "ok\n";
+        }
+
+        location = /robots.txt {
+            alias /etc/nginx/robots.txt;
+            access_log off;
+        }
+
+        location /admin/ {
+            proxy_pass http://admin-ui:5002/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /api/tarpit/ {
+            proxy_pass http://tarpit-api:8001/;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+
+        include /etc/nginx/generated-conf/40-backend-location.conf;
+    }
+  render-runtime-config.sh: |
+    #!/bin/sh
+    set -eu
+
+    output=/etc/nginx/generated-conf/20-client-ip.conf
+    backend_output=/etc/nginx/generated-conf/40-backend-location.conf
+    cidrs=${SECURITY_CDN_TRUSTED_PROXY_CIDRS:-}
+
+    is_truthy() {
+      case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')" in
+        1|true|yes|on) return 0 ;;
+        *) return 1 ;;
+      esac
+    }
+
+    {
+      echo '# Generated at pod startup. Trust client-IP headers only from configured CDN peers.'
+      old_ifs=$IFS
+      IFS=','
+      for cidr in $cidrs; do
+        cidr=$(printf '%s' "$cidr" | tr -d '[:space:]')
+        case "$cidr" in
+          ''|*[!0-9A-Fa-f:./]*|*/*/*)
+            printf >&2 'Invalid SECURITY_CDN_TRUSTED_PROXY_CIDRS entry: %s\n' "$cidr"
+            exit 1
+            ;;
+        esac
+        echo "set_real_ip_from $cidr;"
+      done
+      IFS=$old_ifs
+      if [ -n "$cidrs" ]; then
+        echo 'real_ip_header CF-Connecting-IP;'
+        echo 'real_ip_recursive on;'
+      fi
+      if is_truthy "${SECURITY_CDN_ORIGIN_LOCKDOWN:-false}"; then
+        [ -n "$cidrs" ] || {
+          printf >&2 'Origin lockdown requires SECURITY_CDN_TRUSTED_PROXY_CIDRS.\n'
+          exit 1
+        }
+        echo 'allow 127.0.0.1/32;'
+        echo 'allow ::1/128;'
+        old_ifs=$IFS
+        IFS=','
+        for cidr in $cidrs; do
+          cidr=$(printf '%s' "$cidr" | tr -d '[:space:]')
+          echo "allow $cidr;"
+        done
+        IFS=$old_ifs
+        echo 'deny all;'
+      fi
+    } > "$output"
+
+    backend=${REAL_BACKEND_HOST:-}
+    if [ -z "$backend" ]; then
+      cat > "$backend_output" <<'EOF'
+    location / {
+        default_type text/plain;
+        return 503 "REAL_BACKEND_HOST is not configured\n";
+    }
+    EOF
+      exit 0
+    fi
+    case "$backend" in
+      http://*|https://*) ;;
+      *) printf >&2 'REAL_BACKEND_HOST must use http or https.\n'; exit 1 ;;
+    esac
+    case "$backend" in
+      *[!0-9A-Za-z_./:-]*) printf >&2 'REAL_BACKEND_HOST contains unsupported characters.\n'; exit 1 ;;
+    esac
+    cat > "$backend_output" <<EOF
+    location / {
+        limit_req zone=global_limit burst=60 nodelay;
+        proxy_pass $backend;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 60s;
+    }
+    EOF
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: live-robots-txt-config
+  namespace: ai-defense
+data:
+  robots.txt: |
+    User-agent: *
+    Disallow:

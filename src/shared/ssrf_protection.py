@@ -25,6 +25,7 @@ Usage Example:
 
 import ipaddress
 import logging
+import socket
 from typing import Optional, Sequence
 from urllib.parse import urlparse
 
@@ -48,7 +49,7 @@ def is_private_ip(hostname: str) -> bool:
     """
     try:
         ip = ipaddress.ip_address(hostname)
-        return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+        return not ip.is_global or ip.is_multicast or ip.is_unspecified
     except ValueError:
         # Not an IP address, could be a hostname
         return False
@@ -96,6 +97,7 @@ def validate_url(
     allowed_ports: Optional[Sequence[int]] = None,
     block_private_ips: bool = True,
     require_https: bool = False,
+    resolve_dns: bool = False,
 ) -> None:
     """Validate a URL against SSRF protection rules.
 
@@ -141,6 +143,13 @@ def validate_url(
     hostname = parsed.hostname
     if not hostname:
         raise SSRFProtectionError("Could not extract hostname from URL")
+    if parsed.username is not None or parsed.password is not None:
+        raise SSRFProtectionError("Embedded URL credentials are not allowed")
+
+    try:
+        parsed_port = parsed.port
+    except ValueError as exc:
+        raise SSRFProtectionError(f"Invalid URL port: {exc}") from exc
 
     # Check for localhost
     if is_localhost(hostname):
@@ -154,16 +163,40 @@ def validate_url(
             f"Access to private IP addresses is not allowed: {hostname}"
         )
 
+    if block_private_ips and resolve_dns and not is_private_ip(hostname):
+        try:
+            resolved = {
+                entry[4][0]
+                for entry in socket.getaddrinfo(
+                    hostname,
+                    parsed_port or (443 if parsed.scheme == "https" else 80),
+                    type=socket.SOCK_STREAM,
+                )
+            }
+        except OSError as exc:
+            raise SSRFProtectionError(
+                f"Could not resolve URL hostname '{hostname}': {exc}"
+            ) from exc
+        if not resolved:
+            raise SSRFProtectionError(
+                f"URL hostname '{hostname}' resolved to no addresses"
+            )
+        if any(is_private_ip(address) for address in resolved):
+            raise SSRFProtectionError(
+                f"URL hostname '{hostname}' resolved to a non-public address"
+            )
+
     # Check domain allowlist
     if allowed_domains is not None and len(allowed_domains) > 0:
-        if hostname not in allowed_domains:
+        normalized_domains = {domain.rstrip(".").lower() for domain in allowed_domains}
+        if hostname.rstrip(".").lower() not in normalized_domains:
             raise SSRFProtectionError(
                 f"Domain '{hostname}' not in allowlist. Allowed domains: {allowed_domains}"
             )
 
     # Check port restrictions
     if allowed_ports is not None and len(allowed_ports) > 0:
-        port = parsed.port
+        port = parsed_port
         if port is None:
             # Use default ports for schemes
             port = 443 if parsed.scheme == "https" else 80
@@ -183,6 +216,7 @@ def validate_url_safe(
     allowed_ports: Optional[Sequence[int]] = None,
     block_private_ips: bool = True,
     require_https: bool = False,
+    resolve_dns: bool = False,
 ) -> bool:
     """Validate a URL against SSRF protection rules (non-throwing version).
 
@@ -205,6 +239,7 @@ def validate_url_safe(
             allowed_ports=allowed_ports,
             block_private_ips=block_private_ips,
             require_https=require_https,
+            resolve_dns=resolve_dns,
         )
         return True
     except SSRFProtectionError:

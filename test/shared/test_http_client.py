@@ -1,5 +1,6 @@
 """Tests for HTTP client with SSRF protection."""
 
+import socket
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,6 +11,24 @@ from src.shared.ssrf_protection import SSRFProtectionError
 
 class TestAsyncHttpClientSSRFProtection(unittest.IsolatedAsyncioTestCase):
     """Test SSRF protection in AsyncHttpClient."""
+
+    def setUp(self):
+        self.dns_patcher = patch(
+            "src.shared.ssrf_protection.socket.getaddrinfo",
+            return_value=[
+                (
+                    socket.AF_INET,
+                    socket.SOCK_STREAM,
+                    socket.IPPROTO_TCP,
+                    "",
+                    ("93.184.216.34", 443),
+                )
+            ],
+        )
+        self.dns_patcher.start()
+
+    def tearDown(self):
+        self.dns_patcher.stop()
 
     async def test_post_json_blocks_localhost(self):
         """Test that POST requests to localhost are blocked."""

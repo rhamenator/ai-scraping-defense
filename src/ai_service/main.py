@@ -22,7 +22,10 @@ from src.shared.observability import (
     trace_span,
 )
 from src.shared.redis_client import get_redis_connection
-from src.shared.request_identity import resolve_request_identity
+from src.shared.request_identity import (
+    is_trusted_infrastructure_ip,
+    resolve_request_identity,
+)
 from src.shared.request_utils import read_json_body
 
 logger = logging.getLogger(__name__)
@@ -208,6 +211,11 @@ async def webhook_receiver(
             "ai_service.execute_action", attributes={"action": action, "ip": ip}
         ):
             if action == "block_ip":
+                if is_trusted_infrastructure_ip(ip):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Refusing to block trusted proxy infrastructure",
+                    )
                 redis_conn.sadd(tenant_key("blocklist"), ip)
                 audit_log_event(client_ip, "webhook_block_ip", {"ip": ip})
                 return {"status": "success", "message": f"IP {ip} added to blocklist."}

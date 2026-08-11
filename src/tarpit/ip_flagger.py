@@ -10,6 +10,7 @@ import os
 
 from src.shared.config import tenant_key
 from src.shared.redis_client import get_redis_connection
+from src.shared.request_identity import is_trusted_infrastructure_ip
 
 # Configure logging for this module
 logger = logging.getLogger(__name__)
@@ -44,6 +45,9 @@ def flag_suspicious_ip(ip_address: str, reason: str = "Suspicious activity"):
     (Formerly flag_ip)
     """
     if not _validate_ip(ip_address):
+        return False
+    if is_trusted_infrastructure_ip(ip_address):
+        logger.warning("Refusing to flag configured proxy/CDN address %s", ip_address)
         return False
 
     r = get_redis_connection(db_number=REDIS_DB_FLAGGED_IPS)

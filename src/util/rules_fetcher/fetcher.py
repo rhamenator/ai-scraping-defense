@@ -36,6 +36,7 @@ def fetch_rules(url: str, allowed_domains: Optional[list[str]] = None) -> str:
             allowed_domains=domains if domains else None,
             require_https=True,
             block_private_ips=True,
+            resolve_dns=True,
         )
     except SSRFProtectionError as e:
         logger.error("SSRF protection blocked rules fetch from %s: %s", url, e)

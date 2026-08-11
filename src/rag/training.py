@@ -232,16 +232,14 @@ def setup_database() -> Optional[psycopg2.extensions.connection]:
             connect_timeout=10,
         )
         with conn.cursor() as cursor:
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS requests (
                     id SERIAL PRIMARY KEY, ip TEXT NOT NULL, ident TEXT, user_text TEXT,
                     timestamp_iso TIMESTAMPTZ NOT NULL, method TEXT, path TEXT, protocol TEXT,
                     status INTEGER, bytes INTEGER, referer TEXT, user_agent TEXT
                 );
                 CREATE INDEX IF NOT EXISTS idx_requests_ip_timestamp ON requests (ip, timestamp_iso);
-            """
-            )
+            """)
         conn.commit()
         print("PostgreSQL database table 'requests' verified.")
         return conn
