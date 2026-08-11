@@ -15,8 +15,9 @@ incident response.
   `src.shared.metrics`.  A `/metrics` endpoint is exposed on every service for
   Prometheus scraping.
 * **Tracing** – Lightweight spans are recorded for each request and stored in
-  an in-memory ring buffer accessible via `/observability/traces`.  Spans can
-  be exported downstream or consumed during debugging.
+  an in-memory ring buffer accessible via `/observability/traces`. When
+  `OTEL_EXPORTER_OTLP_ENDPOINT` is set, the same request lifecycle is exported
+  as OpenTelemetry spans over OTLP/gRPC with W3C `traceparent` propagation.
 * **Health checks** – The `/health` endpoint aggregates service-specific
   checks and returns `ok`, `degraded`, or `error` with per-check status to
   support readiness/liveness probes.
@@ -114,9 +115,12 @@ curl http://localhost:8000/observability/performance/history?metric_name=request
   your Prometheus server.  Grafana dashboards can be built on top of the
   standard HTTP metrics.
 * **Traces** – Fetch recent spans via `/observability/traces?limit=200`.  The
-  payload is JSON and can be pushed to Tempo, Jaeger, or any trace store.  The
-  buffer size is configurable via the `OBS_TRACE_HISTORY` environment variable
-  (defaults to 512).
+  payload is JSON and can be consumed directly during debugging. Set
+  `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` to batch-export spans
+  to an OTLP collector; `OTEL_SERVICE_NAME` is not required because each app's
+  configured service name is attached automatically. The exporter flushes on
+  application shutdown and invalid endpoint schemes fail during app creation.
+  The local buffer size is configurable via `OBS_TRACE_HISTORY` (default 512).
 
 ## Health Check Contract
 

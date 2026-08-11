@@ -305,6 +305,10 @@ JWT verification is used by some internal APIs (for example, the escalation engi
 | Variable | Default | Service |
 | --- | --- | --- |
 | `AUDIT_LOG_FILE` | `/app/logs/audit.log` | Shared audit logger; file is created with owner-only (600) permissions |
+| `AUDIT_STORAGE_BACKEND` | `sqlite` | Structured security-event backend: `sqlite` or `postgres`; invalid values, connections, paths, and schema permissions fail during initialization |
+| `SECURITY_EVENTS_DB_PATH` | `/app/data/security_events.db` | SQLite security-event database path |
+| `SECURITY_EVENTS_POSTGRES_DSN` | *(none)* | Optional PostgreSQL DSN; when absent, the dedicated `SECURITY_EVENTS_PG_*` variables fall back to the matching `PG_*` settings |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | *(none)* | Optional HTTP(S) OTLP/gRPC collector endpoint, for example `http://otel-collector:4317`; enables batched OpenTelemetry request-span export |
 | `HONEYPOT_LOG_FILE` | `/app/logs/honeypot_hits.log` | Honeypot logger |
 | `CAPTCHA_SUCCESS_LOG` | `/app/logs/captcha_success.log` | CAPTCHA services |
 | `BLOCK_LOG_FILE` | `/app/logs/block_events.log` | Admin UI |

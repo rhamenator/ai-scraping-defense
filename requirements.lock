@@ -140,6 +140,10 @@ google-auth[requests]==2.56.3
     # via google-genai
 google-genai==1.75.0
     # via -r requirements.txt
+googleapis-common-protos==1.75.1
+    # via opentelemetry-exporter-otlp-proto-grpc
+grpcio==1.83.0
+    # via opentelemetry-exporter-otlp-proto-grpc
 gunicorn==25.3.0
     # via -r requirements.txt
 h11==0.16.0
@@ -252,10 +256,27 @@ openai==2.53.0
     # via -r requirements.txt
 opentelemetry-api==1.39.1
     # via
+    #   -r requirements.txt
     #   mistralai
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
+opentelemetry-exporter-otlp-proto-common==1.39.1
+    # via opentelemetry-exporter-otlp-proto-grpc
+opentelemetry-exporter-otlp-proto-grpc==1.39.1
+    # via -r requirements.txt
+opentelemetry-proto==1.39.1
+    # via
+    #   opentelemetry-exporter-otlp-proto-common
+    #   opentelemetry-exporter-otlp-proto-grpc
+opentelemetry-sdk==1.39.1
+    # via
+    #   -r requirements.txt
+    #   opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-semantic-conventions==0.60b1
-    # via mistralai
+    # via
+    #   mistralai
+    #   opentelemetry-sdk
 packaging==26.3
     # via
     #   black
@@ -290,6 +311,10 @@ propcache==0.5.2
     # via
     #   aiohttp
     #   yarl
+protobuf==6.33.6
+    # via
+    #   googleapis-common-protos
+    #   opentelemetry-proto
 psycopg2==2.9.12 ; platform_system != "Darwin"
     # via -r requirements.txt
 pyarrow==25.0.1
@@ -463,10 +488,13 @@ typing-extensions==4.16.0
     #   cohere
     #   fastapi
     #   google-genai
+    #   grpcio
     #   huggingface-hub
     #   mcp
     #   openai
     #   opentelemetry-api
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
     #   pydantic
     #   pydantic-core

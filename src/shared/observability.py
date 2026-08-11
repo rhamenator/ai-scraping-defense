@@ -21,6 +21,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Optional
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -177,6 +178,92 @@ class ObservabilitySettings:
     span_id_header: str = "X-Span-ID"
     trace_history: int = 512
     log_level: str | None = None
+    otlp_endpoint: str | None = None
+
+
+@dataclass
+class OtelSpanHandle:
+    span: Any
+    context_token: Any
+
+
+class OtelTraceExporter:
+    """Own an OTLP tracer provider without mutating process-global providers."""
+
+    def __init__(self, service_name: str, endpoint: str) -> None:
+        parsed = urlparse(endpoint)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError(
+                "OTEL_EXPORTER_OTLP_ENDPOINT must be an http(s) OTLP/gRPC endpoint"
+            )
+
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+            OTLPSpanExporter,
+        )
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+        self.provider = TracerProvider(
+            resource=Resource.create({"service.name": service_name})
+        )
+        exporter = OTLPSpanExporter(
+            endpoint=endpoint,
+            insecure=parsed.scheme == "http",
+        )
+        self.provider.add_span_processor(BatchSpanProcessor(exporter))
+        self.tracer = self.provider.get_tracer("ai-scraping-defense")
+
+    def start(
+        self, name: str, attributes: dict[str, Any], headers: dict[str, str]
+    ) -> OtelSpanHandle:
+        from opentelemetry import context, propagate, trace
+        from opentelemetry.trace import SpanKind
+
+        parent_context = propagate.extract(headers)
+        span = self.tracer.start_span(
+            name,
+            context=parent_context,
+            kind=SpanKind.SERVER,
+            attributes={
+                key: value for key, value in attributes.items() if value is not None
+            },
+        )
+        span_context = trace.set_span_in_context(span, parent_context)
+        return OtelSpanHandle(span=span, context_token=context.attach(span_context))
+
+    @staticmethod
+    def identifiers(handle: OtelSpanHandle) -> tuple[str, str]:
+        context = handle.span.get_span_context()
+        return f"{context.trace_id:032x}", f"{context.span_id:016x}"
+
+    @staticmethod
+    def finish(
+        handle: OtelSpanHandle,
+        *,
+        status_code: int,
+        error: BaseException | None,
+    ) -> None:
+        from opentelemetry import context
+        from opentelemetry.trace import Status, StatusCode
+
+        handle.span.set_attribute("http.response.status_code", status_code)
+        if error is not None:
+            handle.span.record_exception(error)
+            handle.span.set_status(Status(StatusCode.ERROR, str(error)))
+        elif status_code >= 500:
+            handle.span.set_status(Status(StatusCode.ERROR))
+        else:
+            handle.span.set_status(Status(StatusCode.OK))
+        handle.span.end()
+        context.detach(handle.context_token)
+
+    def shutdown(self) -> None:
+        if not self.provider.force_flush(timeout_millis=5_000):
+            logging.getLogger(__name__).warning(
+                "Timed out flushing OpenTelemetry spans"
+            )
+        self.provider.shutdown()
 
 
 class ObservabilityState:
@@ -184,6 +271,13 @@ class ObservabilityState:
         self.settings = settings
         self.health_checks: list[HealthCheck] = []
         self.trace_buffer = TraceBuffer(maxlen=settings.trace_history)
+        self.otel_exporter = (
+            OtelTraceExporter(
+                settings.service_name or "unknown", settings.otlp_endpoint
+            )
+            if settings.otlp_endpoint
+            else None
+        )
 
     def add_health_check(self, health_check: HealthCheck) -> None:
         self.health_checks.append(health_check)
@@ -392,9 +486,17 @@ def configure_observability(
         or os.getenv("SERVICE_NAME")
         or "ai-scraping-defense-service"
     )
+    settings.otlp_endpoint = settings.otlp_endpoint or os.getenv(
+        "OTEL_EXPORTER_OTLP_ENDPOINT"
+    )
+    if settings.otlp_endpoint is not None:
+        settings.otlp_endpoint = settings.otlp_endpoint.strip() or None
     configure_logging(settings)
     state = ObservabilityState(settings)
     app.state.observability = state
+
+    if state.otel_exporter:
+        app.add_event_handler("shutdown", state.otel_exporter.shutdown)
 
     # Initialize performance analytics
     analytics = PerformanceAnalytics(service_name=settings.service_name)
@@ -412,9 +514,26 @@ def configure_observability(
         request_id = request.headers.get(settings.request_id_header) or str(
             uuid.uuid4()
         )
-        trace_id = request.headers.get(settings.trace_id_header) or request_id
-        span_id = request.headers.get(settings.span_id_header) or uuid.uuid4().hex
         endpoint = getattr(request.scope.get("route"), "path", request.url.path)
+        attributes = {
+            "http.request.method": request.method,
+            "url.path": endpoint,
+            "client.address": request.client.host if request.client else None,
+        }
+        otel_handle = (
+            state.otel_exporter.start(
+                f"http {request.method} {endpoint}",
+                attributes,
+                dict(request.headers),
+            )
+            if state.otel_exporter
+            else None
+        )
+        if otel_handle:
+            trace_id, span_id = state.otel_exporter.identifiers(otel_handle)
+        else:
+            trace_id = request.headers.get(settings.trace_id_header) or request_id
+            span_id = request.headers.get(settings.span_id_header) or uuid.uuid4().hex
         start = _now()
         token_request = _request_id_ctx.set(request_id)
         span = SpanContext(
@@ -433,10 +552,12 @@ def configure_observability(
         token_analytics = _performance_analytics_ctx.set(analytics)
         status_code = 500
         response: Response | None = None
+        request_error: BaseException | None = None
         try:
             response = await call_next(request)
             status_code = response.status_code
         except Exception as exc:
+            request_error = exc
             span.status = "error"
             span.attributes.setdefault("error", repr(exc))
             logger.exception(
@@ -468,6 +589,12 @@ def configure_observability(
                 response.headers.setdefault(settings.request_id_header, request_id)
                 response.headers.setdefault(settings.trace_id_header, trace_id)
                 response.headers.setdefault(settings.span_id_header, span_id)
+            if otel_handle and state.otel_exporter:
+                state.otel_exporter.finish(
+                    otel_handle,
+                    status_code=status_code,
+                    error=request_error,
+                )
             _current_span_ctx.reset(token_span)
             _request_id_ctx.reset(token_request)
             _current_state_ctx.reset(token_state)

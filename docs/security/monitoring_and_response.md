@@ -35,9 +35,11 @@ and is the contract for which detections:
   `src/shared/audit.py`. Forward `/app/logs/audit.log` and service-specific logs
   to a centralized SIEM (e.g., Elastic, Splunk). Retain logs for 180 days.
 - **Durable security events** – Security-relevant audit, decision, alert-delivery,
-  and operational events are also persisted to `SECURITY_EVENTS_DB_PATH`
-  (default: `/app/data/security_events.db`) through `src/shared/security_events.py`.
-  Export them without scraping ad hoc logs:
+  and operational events are persisted through `src/shared/security_events.py`.
+  `AUDIT_STORAGE_BACKEND=sqlite` uses `SECURITY_EVENTS_DB_PATH` (default:
+  `/app/data/security_events.db`); `AUDIT_STORAGE_BACKEND=postgres` uses
+  `SECURITY_EVENTS_POSTGRES_DSN` or the dedicated `SECURITY_EVENTS_PG_*`
+  settings. Export either backend without scraping ad hoc logs:
 
   ```bash
   python scripts/export_security_events.py --output reports/security-events.jsonl

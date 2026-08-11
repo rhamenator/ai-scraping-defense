@@ -6,16 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
 ### Added
+* **Selectable Audit Storage:** Security events can now use SQLite or PostgreSQL through `AUDIT_STORAGE_BACKEND`, with bounded loading/export and startup validation.
+* **OTLP Trace Export:** Shared FastAPI observability can export W3C-correlated traces over OTLP/gRPC when `OTEL_EXPORTER_OTLP_ENDPOINT` is configured.
+* **Cloudflare-Aware Client Identity:** Trusted CDN proxy ranges restore the originating client address while preventing Cloudflare edge addresses from becoming block targets.
+* **Operational Hardening:** Added durable security-event export, internal-service authentication controls, attack-regression profiles, data-protection defaults, and deployment validation safeguards.
 * **Threat Model Document:** Added docs/threat_model.md and linked from the README.
 * **Automated Dependency Scanning:** Added Dependabot configuration and pip-audit workflow.
 
 
 ### Changed
 
+* **Optional Kubernetes Dependencies:** Kubernetes 35.x removes the former `urllib3<2.4.0` constraint, allowing patched urllib3 releases.
+* **Runtime Dependencies:** Refreshed Python and Rust extension dependencies, including the rand soundness-advisory update.
+* **Release and Deployment Tooling:** Hardened installers, CI workflows, staging validation, container publishing, and release metadata.
 * **Markov Training Utility:** Removed `rag/train_markov_postgres.py` and now build the Markov model using the Rust `markov-train-rs` crate via `train_from_corpus_rs`.
 * **Environment Variables:** Replaced deprecated `TARPIT_MAX_HOPS` and `TARPIT_HOP_WINDOW_SECONDS` with `TAR_PIT_MAX_HOPS` and `TAR_PIT_HOP_WINDOW_SECONDS`.
 * **Documentation:** Updated repository references to highlight `src/`, `scripts/`, and `rag/` directories.
+
+### Fixed
+
+* Prevented trusted CDN proxy addresses and credentials embedded in service endpoints from leaking into audit or operational logs.
+* Corrected proxy identity, payment, workflow, configuration-validation, and production failure-handling defects found during release hardening.
 
 ## **[0.0.5] - 2025-05-25**
 

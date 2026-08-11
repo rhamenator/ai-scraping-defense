@@ -2,12 +2,14 @@ import io
 import json
 import logging
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from src.shared.observability import (
     HealthCheckResult,
     ObservabilitySettings,
+    OtelTraceExporter,
     configure_observability,
     register_health_check,
 )
@@ -33,6 +35,51 @@ def test_metrics_endpoint_available() -> None:
 
     assert response.status_code == 200
     assert "http_requests_total" in response.text
+
+
+def test_invalid_otlp_endpoint_fails_configuration() -> None:
+    app = _create_app()
+    settings = ObservabilitySettings(
+        service_name="invalid-otel",
+        otlp_endpoint="file:///tmp/spans",
+    )
+
+    with pytest.raises(ValueError, match=r"http\(s\)"):
+        configure_observability(app, settings)
+
+
+def test_otel_span_export_preserves_w3c_parent_context() -> None:
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+        InMemorySpanExporter,
+    )
+
+    memory_exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(memory_exporter))
+    exporter = object.__new__(OtelTraceExporter)
+    exporter.provider = provider
+    exporter.tracer = provider.get_tracer("test")
+    parent_span_id = "00f067aa0ba902b7"
+
+    handle = exporter.start(
+        "http GET /ping",
+        {"http.request.method": "GET", "url.path": "/ping"},
+        {
+            "traceparent": (
+                "00-0af7651916cd43dd8448eb211c80319c-" f"{parent_span_id}-01"
+            )
+        },
+    )
+    exporter.finish(handle, status_code=200, error=None)
+
+    spans = memory_exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert f"{spans[0].context.trace_id:032x}" == "0af7651916cd43dd8448eb211c80319c"
+    assert f"{spans[0].parent.span_id:016x}" == parent_span_id
+    assert spans[0].attributes["http.response.status_code"] == 200
+    provider.shutdown()
 
 
 def test_health_endpoint_reports_checks_and_status_code() -> None:

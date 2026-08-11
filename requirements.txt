@@ -33,6 +33,11 @@ wikipedia~=1.4
 python-multipart~=0.0.31
 cachetools~=7.0
 prometheus-client~=0.24
+# Mistral 2.x currently requires semantic-conventions 0.60b1, which is paired
+# with the OpenTelemetry 1.39 release line.
+opentelemetry-api>=1.39.0,<1.40
+opentelemetry-sdk>=1.39.0,<1.40
+opentelemetry-exporter-otlp-proto-grpc>=1.39.0,<1.40
 PyJWT>=2.13.0,<3.0
 PyYAML~=6.0
 defusedxml~=0.7
