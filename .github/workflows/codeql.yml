@@ -86,6 +86,9 @@ jobs:
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
+      env:
+        # Overlay databases do not support traced/manual builds.
+        CODEQL_OVERLAY_DATABASE_MODE: ${{ matrix.build-mode == 'manual' && 'none' || '' }}
       uses: github/codeql-action/init@ce729e4d353d580e6cacd6a8cf2921b72e5e310a
       with:
         languages: ${{ matrix.language }}
