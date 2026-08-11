@@ -1,0 +1,34 @@
+name: Documentation improvement
+description: Report missing, incorrect, or unclear documentation
+title: "[Docs]: "
+labels: []
+assignees: []
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Documentation location
+      description: Link to or name the file, page, command help, or code comment.
+      placeholder: README.md, docs/USAGE.md, or a URL
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is unclear or incorrect?
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: Suggested improvement
+      description: Describe the information, example, or wording that would resolve the problem.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I checked the current default branch for an existing correction.
+          required: true

@@ -1,49 +1,38 @@
-## Description
+## Summary
 
-Please include a summary of the change and which issue is fixed or which feature is added. Please also include relevant motivation and context. List any dependencies that are required for this change.
+<!-- Explain what changed and why. Focus on behavior and outcomes. -->
 
-Closes # (issue number)
+## Related issue
+
+<!-- Use "Closes #123" when this PR should close an issue. -->
 
 ## Type of change
 
-Please delete options that are not relevant.
+- [ ] Bug fix
+- [ ] Feature or enhancement
+- [ ] Documentation
+- [ ] Refactor or maintenance
+- [ ] Security hardening
+- [ ] Dependency or CI update
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] This change requires a documentation update
-- [ ] Refactoring / Code cleanup
-- [ ] Build / CI / Configuration change
-- [ ] Other (please describe):
+## Validation
 
-## How Has This Been Tested?
+<!-- List exact commands and results. Explain anything not run. -->
 
-Please describe the tests that you ran to verify your changes. Provide instructions so we can reproduce. Please also list any relevant details for your test configuration.
+```text
+command -> result
+```
 
-- [ ] Manual Test (describe steps)
-- [ ] Unit Test (add new or update existing)
-- [ ] Integration Test (add new or update existing)
-- [ ] Tested locally using `docker-compose up`
+## Operational impact
 
-**Test Configuration Details:**
-
-- OS:
-- Docker Version:
-- Browser (if applicable):
+<!-- Note configuration, API, deployment, migration, performance, privacy, or security effects. Write "None" when not applicable. -->
 
 ## Checklist
 
-- [ ] My code follows the style guidelines of this project (e.g., PEP 8).
-- [ ] I have performed a self-review of my own code.
-- [ ] I have commented my code, particularly in hard-to-understand areas.
-- [ ] I have made corresponding changes to the documentation.
-- [ ] My changes generate no new warnings.
-- [ ] I have added tests that prove my fix is effective or that my feature works.
-- [ ] New and existing unit tests pass locally with my changes.
-- [ ] Any dependent changes have been merged and published in downstream modules.
-- [ ] I have checked my changes haven't introduced sensitive information.
-- [ ] I have updated the `CHANGELOG.md` if applicable.
-
-## Screenshots (if applicable)
-
-Add any relevant screenshots demonstrating the change or fix.
+- [ ] The change is focused and does not include unrelated edits.
+- [ ] Tests cover new or changed behavior where practical.
+- [ ] Relevant formatters, linters, and security checks pass.
+- [ ] Documentation and examples are updated for user-visible changes.
+- [ ] No secrets, credentials, private data, or generated artifacts are committed.
+- [ ] Breaking changes and migration steps are clearly identified.
+- [ ] I followed `CONTRIBUTING.md` and the repository-specific validation guidance.

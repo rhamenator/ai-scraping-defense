@@ -2,6 +2,13 @@
 
 Thank you for considering contributing to this project! We aim to build a robust, ethical, and effective defense against unwanted AI scraping, and community contributions are vital.
 
+## Choose the Right Channel
+
+- Use the structured bug, feature, documentation, or support form when opening an issue.
+- Read [SUPPORT.md](SUPPORT.md) before requesting usage help.
+- Report vulnerabilities privately according to [SECURITY.md](SECURITY.md); never put vulnerability details in a public issue.
+- Follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) in all project interactions.
+
 ## Attribution
 
 If you use this project or its components in your own work (open-source or commercial), you must:
@@ -45,6 +52,13 @@ Contributions should meet the engineering-quality baseline in [docs/engineering_
 - avoid mixing unrelated refactors into security or behavior fixes
 
 The baseline document also explains how local validation maps to the repository CI and release gates.
+
+For typical Python changes, run:
+
+```bash
+pre-commit run --files <changed-file> [<changed-file> ...]
+python -m pytest -q test
+```
 
 ## Code Style (Example)
 

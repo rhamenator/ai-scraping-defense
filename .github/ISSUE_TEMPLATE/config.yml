@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/rhamenator/ai-scraping-defense/security/advisories/new
+    about: Do not disclose vulnerabilities in a public issue.
+  - name: Read the support policy
+    url: https://github.com/rhamenator/ai-scraping-defense/blob/main/SUPPORT.md
+    about: Review supported and unsupported requests before opening an issue.
