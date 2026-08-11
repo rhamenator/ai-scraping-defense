@@ -15,6 +15,7 @@ on:
       - "requirements.txt"
       - "requirements.lock"
       - "constraints.txt"
+      - ".github/workflows/pip-audit.yml"
   schedule:
     - cron: '0 6 * * 0'
 
@@ -87,7 +88,7 @@ jobs:
           # pip-audit does not natively emit SARIF; use JSON output and keep it as an artifact.
           # requirements.lock is fully pinned, so audits are repeatable and do not require installing deps.
           set +e
-          pip-audit -r requirements.lock -f json -o pip-audit.json
+          pip-audit --no-deps -r requirements.lock -f json -o pip-audit.json
           exit_code=$?
           echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
           exit 0
