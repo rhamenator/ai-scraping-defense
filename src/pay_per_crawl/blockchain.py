@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from src.pay_per_crawl.audit_identity import audit_token
+
 LOG_ENABLED = (
     os.getenv("PAY_PER_CRAWL_BLOCKCHAIN_LOG_ENABLED", "false").lower() == "true"
 )
@@ -39,7 +41,7 @@ def _sanitize_data(data: Dict[str, Any]) -> Dict[str, Any]:
     sanitized = dict(data)
     if "token" in sanitized:
         token = str(sanitized["token"])
-        sanitized["token_hash"] = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        sanitized["token_hash"] = audit_token(token)
         sanitized.pop("token", None)
     return sanitized
 

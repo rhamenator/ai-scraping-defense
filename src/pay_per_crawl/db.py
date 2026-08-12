@@ -1,22 +1,16 @@
-import hashlib
 import os
 import sqlite3
 import threading
 from typing import Dict, Optional
 
 from src.pay_per_crawl import blockchain
+from src.pay_per_crawl.audit_identity import audit_token
 
 DB_PATH = os.environ.get("CRAWLER_DB_PATH", "crawler_registry.db")
 
 _CONNECTION: sqlite3.Connection | None = None
 _DB_PATH = DB_PATH
 _DB_LOCK = threading.RLock()
-
-
-def _audit_token(token: str) -> str:
-    """Return a stable, non-reversible crawler identifier for audit records."""
-
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
 
 
 def log_to_blockchain(action: str, data: dict) -> None:
@@ -71,7 +65,7 @@ def register_crawler(name: str, token: str, purpose: str) -> None:
         conn.commit()
     log_to_blockchain(
         "register_crawler",
-        {"name": name, "token_hash": _audit_token(token), "purpose": purpose},
+        {"name": name, "token_hash": audit_token(token), "purpose": purpose},
     )
 
 
@@ -104,7 +98,7 @@ def add_credit(token: str, amount: float) -> bool:
     if cur.rowcount == 0:
         return False
     log_to_blockchain(
-        "add_credit", {"token_hash": _audit_token(token), "amount": amount}
+        "add_credit", {"token_hash": audit_token(token), "amount": amount}
     )
     return True
 
@@ -119,7 +113,7 @@ def charge(token: str, amount: float) -> bool:
         conn.commit()
     if cur.rowcount == 0:
         return False
-    log_to_blockchain("charge", {"token_hash": _audit_token(token), "amount": amount})
+    log_to_blockchain("charge", {"token_hash": audit_token(token), "amount": amount})
     return True
 
 
