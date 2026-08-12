@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import os
+import re
 from dataclasses import dataclass
 
 from starlette.requests import Request
@@ -27,6 +28,33 @@ class RequestIdentity:
     via_trusted_proxy: bool
     via_trusted_cdn: bool
     source_header: str | None = None
+
+
+@dataclass(frozen=True)
+class TlsFingerprint:
+    """Validated TLS client fingerprints supplied by trusted infrastructure."""
+
+    ja3: str | None = None
+    ja4: str | None = None
+    source: str | None = None
+
+
+_JA3_PATTERN = re.compile(r"^[0-9a-f]{32}$")
+_JA4_PATTERN = re.compile(r"^[a-z0-9]{10}_[0-9a-f]{12}_[0-9a-f]{12}$")
+
+
+def normalize_ja3(value: str | None) -> str | None:
+    """Normalize a standard JA3 MD5 digest, rejecting malformed input."""
+
+    candidate = (value or "").strip().lower()
+    return candidate if _JA3_PATTERN.fullmatch(candidate) else None
+
+
+def normalize_ja4(value: str | None) -> str | None:
+    """Normalize the canonical JA4 ``a_b_c`` value, rejecting raw variants."""
+
+    candidate = (value or "").strip().lower()
+    return candidate if _JA4_PATTERN.fullmatch(candidate) else None
 
 
 def _parse_trusted_proxy_networks(name: str) -> list[TrustedProxyNetwork]:
@@ -162,6 +190,16 @@ def resolve_request_identity(request: Request) -> RequestIdentity:
                 source_header="x-forwarded-for",
             )
 
+        # Never reinterpret an infrastructure peer as the originating client
+        # merely because its forwarded identity header is absent or malformed.
+        return RequestIdentity(
+            client_ip="unknown",
+            peer_ip=peer_ip,
+            via_trusted_proxy=True,
+            via_trusted_cdn=via_trusted_cdn,
+            source_header=None,
+        )
+
     return RequestIdentity(
         client_ip=peer_ip or "unknown",
         peer_ip=peer_ip,
@@ -169,6 +207,31 @@ def resolve_request_identity(request: Request) -> RequestIdentity:
         via_trusted_cdn=False,
         source_header=None,
     )
+
+
+def resolve_tls_fingerprint(
+    request: Request, identity: RequestIdentity | None = None
+) -> TlsFingerprint:
+    """Read TLS fingerprints only from the infrastructure that observed TLS."""
+
+    resolved_identity = identity or resolve_request_identity(request)
+    if resolved_identity.via_trusted_cdn:
+        ja3 = normalize_ja3(request.headers.get("cf-ja3-hash"))
+        ja4 = normalize_ja4(request.headers.get("cf-ja4"))
+        return TlsFingerprint(
+            ja3=ja3,
+            ja4=ja4,
+            source="cloudflare" if ja3 or ja4 else None,
+        )
+    if resolved_identity.via_trusted_proxy:
+        ja3 = normalize_ja3(request.headers.get("x-asd-tls-ja3"))
+        ja4 = normalize_ja4(request.headers.get("x-asd-tls-ja4"))
+        return TlsFingerprint(
+            ja3=ja3,
+            ja4=ja4,
+            source="envoy" if ja3 or ja4 else None,
+        )
+    return TlsFingerprint()
 
 
 def resolve_request_scheme(request: Request) -> str:

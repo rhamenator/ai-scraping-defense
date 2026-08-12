@@ -1,0 +1,67 @@
+static_resources:
+  listeners:
+    - name: downstream_tls
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8443
+      listener_filters:
+        - name: envoy.filters.listener.tls_inspector
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+            enable_ja3_fingerprinting: true
+            enable_ja4_fingerprinting: true
+      filter_chains:
+        - transport_socket:
+            name: envoy.transport_sockets.tls
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              common_tls_context:
+                tls_certificates:
+                  - certificate_chain:
+                      filename: /etc/envoy/tls/tls.crt
+                    private_key:
+                      filename: /etc/envoy/tls/tls.key
+          filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ai_scraping_defense
+                use_remote_address: true
+                xff_num_trusted_hops: 0
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: defense_origin
+                      domains: ["*"]
+                      request_headers_to_add:
+                        - header:
+                            key: x-asd-tls-ja3
+                            value: "%TLS_JA3_FINGERPRINT%"
+                          append_action: OVERWRITE_IF_EXISTS_OR_ADD
+                        - header:
+                            key: x-asd-tls-ja4
+                            value: "%TLS_JA4_FINGERPRINT%"
+                          append_action: OVERWRITE_IF_EXISTS_OR_ADD
+                      routes:
+                        - match:
+                            prefix: "/"
+                          route:
+                            cluster: defense_origin
+                http_filters:
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  clusters:
+    - name: defense_origin
+      connect_timeout: 5s
+      type: STRICT_DNS
+      load_assignment:
+        cluster_name: defense_origin
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: defense-origin
+                      port_value: 8080

@@ -30,6 +30,7 @@ from src.shared.redis_client import get_redis_connection
 from src.shared.request_identity import (
     is_trusted_infrastructure_ip,
     resolve_request_identity,
+    resolve_tls_fingerprint,
 )
 
 from .bad_api_generator import register_bad_endpoints
@@ -67,6 +68,11 @@ class EscalationMetadata(BaseModel):
     method: str = Field(..., max_length=10)
     path: str = Field(..., max_length=2048)
     headers: Dict[str, str] = Field(default_factory=dict)
+    tls_ja3: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}$")
+    tls_ja4: str | None = Field(
+        default=None, pattern=r"^[a-z0-9]{10}_[0-9a-f]{12}_[0-9a-f]{12}$"
+    )
+    tls_fingerprint_source: str | None = Field(default=None, max_length=32)
     source: str = Field(default="tarpit_api", max_length=50)
 
     @field_validator("ip")
@@ -425,6 +431,7 @@ async def tarpit_handler(request: Request, path: str = ""):
     if not ENABLE_TARPIT_CATCH_ALL and path:
         raise HTTPException(status_code=404)
     identity = resolve_request_identity(request)
+    tls_fingerprint = resolve_tls_fingerprint(request, identity)
     client_ip = identity.client_ip
     user_agent = request.headers.get("user-agent", "unknown")[:500]  # Limit length
     referer = request.headers.get("referer", "-")[:2048]  # Limit length
@@ -508,6 +515,9 @@ async def tarpit_handler(request: Request, path: str = ""):
             method=http_method,
             path=requested_path,
             headers=dict(request.headers),
+            tls_ja3=tls_fingerprint.ja3,
+            tls_ja4=tls_fingerprint.ja4,
+            tls_fingerprint_source=tls_fingerprint.source,
             source="tarpit_api",
         )
         metadata_dict = metadata.model_dump()

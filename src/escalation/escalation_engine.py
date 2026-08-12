@@ -719,6 +719,11 @@ class RequestMetadata(BaseModel):
     method: Optional[str] = Field(default=None, max_length=16)
     headers: Optional[Dict[str, str]] = None
     fingerprint_id: Optional[str] = Field(default=None, max_length=128)
+    tls_ja3: Optional[str] = Field(default=None, pattern=r"^[0-9a-f]{32}$")
+    tls_ja4: Optional[str] = Field(
+        default=None, pattern=r"^[a-z0-9]{10}_[0-9a-f]{12}_[0-9a-f]{12}$"
+    )
+    tls_fingerprint_source: Optional[str] = Field(default=None, max_length=32)
     source: str = Field(min_length=1, max_length=64)
 
 
