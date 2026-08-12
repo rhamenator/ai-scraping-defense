@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Prevented trusted CDN proxy addresses and credentials embedded in service endpoints from leaking into audit or operational logs.
 * Corrected proxy identity, payment, workflow, configuration-validation, and production failure-handling defects found during release hardening.
 * Prevented concurrent pay-per-crawl charges from overspending a crawler balance.
+* Configured the full Compose profile to store security events in its PostgreSQL
+  service so read-only, non-root containers do not depend on writable SQLite paths.
 
 ## **[0.0.5] - 2025-05-25**
 
