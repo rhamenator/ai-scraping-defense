@@ -331,8 +331,8 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
 
     ```bash
     ENABLE_HTTPS=true
-    TLS_CERT_PATH=./nginx/certs/tls.crt
-    TLS_KEY_PATH=./nginx/certs/tls.key
+    TLS_CERT_PATH=/etc/nginx/certs/tls.crt
+    TLS_KEY_PATH=/etc/nginx/certs/tls.key
     ```
 
 6. **Launch the Stack:**

@@ -34,8 +34,8 @@ NGINX_HTTPS_PORT=8443
 APACHE_HTTP_PORT=8080
 REAL_BACKEND_HOST=http://127.0.0.1:8082
 ENABLE_HTTPS=true
-TLS_CERT_PATH=./nginx/certs/tls.crt
-TLS_KEY_PATH=./nginx/certs/tls.key
+TLS_CERT_PATH=/etc/nginx/certs/tls.crt
+TLS_KEY_PATH=/etc/nginx/certs/tls.key
 ```
 
 For takeover or production mode, switch `NGINX_HTTP_PORT` / `NGINX_HTTPS_PORT`

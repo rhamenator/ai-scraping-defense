@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   service so read-only, non-root containers do not depend on writable SQLite paths.
 * Replaced fast, unkeyed crawler-token audit hashes with keyed HMAC identifiers;
   deployments can set `CRAWLER_AUDIT_HMAC_KEY` for stable cross-restart correlation.
+* Corrected Compose TLS certificate paths so the read-only Nginx container can
+  start successfully when HTTPS is enabled.
 
 ## **[0.0.5] - 2025-05-25**
 
