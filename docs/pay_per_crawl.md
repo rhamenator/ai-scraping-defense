@@ -35,3 +35,11 @@ an HMAC‑SHA3‑512 digest keyed by `PAYMENT_TOKEN_SECRET`. The generic
 anonymization. API keys can be rotated at runtime with `rotate_api_key`, and
 each gateway operation writes to an audit log (`PAYMENT_GATEWAY_AUDIT_LOG`) with
 sensitive values redacted.
+
+### Upstream network safety
+
+The pay-per-crawl proxy rejects upstream targets that resolve to loopback,
+private, link-local, or otherwise non-public addresses by default. Set
+`UPSTREAM_BLOCK_PRIVATE_IPS=false` only when the configured `UPSTREAM_URL` is an
+intentional private service and the deployment supplies an equivalent network
+allowlist or egress boundary. This opt-out weakens the proxy's SSRF protection.

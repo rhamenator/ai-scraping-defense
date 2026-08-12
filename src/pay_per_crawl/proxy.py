@@ -28,12 +28,21 @@ DEFAULT_PRICE = float(os.getenv("DEFAULT_PRICE", "0.0"))
 HTTPX_TIMEOUT = float(os.getenv("HTTPX_TIMEOUT", "10.0"))
 MAX_PROXY_PATH_LENGTH = int(os.getenv("PROXY_MAX_PATH_LENGTH", "2048"))
 MAX_PROXY_BODY_BYTES = int(os.getenv("PROXY_MAX_BODY_BYTES", str(10 * 1024 * 1024)))
-BLOCK_PRIVATE_UPSTREAMS = os.getenv("UPSTREAM_BLOCK_PRIVATE_IPS", "false").lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
+
+
+def _env_enabled(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+BLOCK_PRIVATE_UPSTREAMS = _env_enabled("UPSTREAM_BLOCK_PRIVATE_IPS", True)
 
 pricing_engine = PricingEngine(load_pricing(PRICING_PATH), DEFAULT_PRICE)
 init_db()

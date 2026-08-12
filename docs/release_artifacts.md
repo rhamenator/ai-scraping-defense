@@ -32,6 +32,9 @@ Each tagged release publishes:
 - `ai-scraping-defense-<version>-bundle.zip.sha256`
 - `ai-scraping-defense-<version>-bundle.tar.gz`
 - `ai-scraping-defense-<version>-bundle.tar.gz.sha256`
+- `ai_scraping_defense-<version>-py3-none-any.whl`
+- `ai_scraping_defense-<version>.tar.gz`
+- matching SHA-256 checksum files for both Python distributions
 
 Use the `.zip` bundle on Windows and the `.tar.gz` bundle on Linux or macOS.
 After extraction, run the documented platform entrypoint from the extracted
@@ -40,6 +43,13 @@ repository root:
 - Windows: `./scripts/windows/install.ps1`
 - macOS: `./scripts/macos/install.zsh`
 - Linux: `./scripts/linux/install.sh`
+
+Python users can install the wheel directly without cloning or compiling the
+project:
+
+```bash
+python -m pip install ./ai_scraping_defense-<version>-py3-none-any.whl
+```
 
 The bundle workflow manages only its own installer-bundle section in the GitHub
 Release body. Manual release notes outside that managed section are preserved on

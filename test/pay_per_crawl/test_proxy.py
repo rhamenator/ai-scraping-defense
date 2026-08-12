@@ -8,7 +8,13 @@ from fastapi.testclient import TestClient
 
 class TestPayPerCrawlProxy(unittest.TestCase):
     def setUp(self):
-        self.env = patch.dict(os.environ, {"UPSTREAM_URL": "http://example.com"})
+        self.env = patch.dict(
+            os.environ,
+            {
+                "UPSTREAM_URL": "http://example.com",
+                "UPSTREAM_BLOCK_PRIVATE_IPS": "false",
+            },
+        )
         self.env.start()
         import src.pay_per_crawl.proxy as proxy
 
@@ -110,6 +116,19 @@ class TestPayPerCrawlProxy(unittest.TestCase):
         # Normal case: urljoin produces a URL with same scheme and netloc
         resp = self.client.get("/api/data", headers={"X-API-Key": "tok"})
         self.assertEqual(resp.status_code, 200)
+
+    def test_private_upstream_protection_defaults_on(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertTrue(self.proxy._env_enabled("UPSTREAM_BLOCK_PRIVATE_IPS", True))
+
+    def test_private_upstream_is_rejected_when_protection_is_enabled(self):
+        with patch.object(self.proxy, "BLOCK_PRIVATE_UPSTREAMS", True), patch.object(
+            self.proxy, "UPSTREAM_URL", "http://127.0.0.1"
+        ):
+            resp = self.client.get("/api/data", headers={"X-API-Key": "tok"})
+
+        self.assertEqual(resp.status_code, 400)
+        self.mocks["AsyncClient"].assert_not_called()
 
     def test_pay_rejects_negative_amount(self):
         resp = self.client.post("/pay", json={"token": "tok", "amount": -1})

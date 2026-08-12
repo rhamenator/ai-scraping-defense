@@ -7,11 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-08-12
+
 ### Added
 * **Selectable Audit Storage:** Security events can now use SQLite or PostgreSQL through `AUDIT_STORAGE_BACKEND`, with bounded loading/export and startup validation.
 * **OTLP Trace Export:** Shared FastAPI observability can export W3C-correlated traces over OTLP/gRPC when `OTEL_EXPORTER_OTLP_ENDPOINT` is configured.
 * **Cloudflare-Aware Client Identity:** Trusted CDN proxy ranges restore the originating client address while preventing Cloudflare edge addresses from becoming block targets.
 * **Operational Hardening:** Added durable security-event export, internal-service authentication controls, attack-regression profiles, data-protection defaults, and deployment validation safeguards.
+* **Trusted TLS Fingerprints:** Added JA3/JA4 capture at validated proxy/CDN boundaries and preserved that provenance through escalation and MCP model calls.
 * **Threat Model Document:** Added docs/threat_model.md and linked from the README.
 * **Automated Dependency Scanning:** Added Dependabot configuration and pip-audit workflow.
 
@@ -23,12 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Release and Deployment Tooling:** Hardened installers, CI workflows, staging validation, container publishing, and release metadata.
 * **Markov Training Utility:** Removed `rag/train_markov_postgres.py` and now build the Markov model using the Rust `markov-train-rs` crate via `train_from_corpus_rs`.
 * **Environment Variables:** Replaced deprecated `TARPIT_MAX_HOPS` and `TARPIT_HOP_WINDOW_SECONDS` with `TAR_PIT_MAX_HOPS` and `TAR_PIT_HOP_WINDOW_SECONDS`.
+* **Private Upstream Protection:** Pay-per-crawl now blocks private and special-purpose upstream resolutions by default; private service deployments must explicitly set `UPSTREAM_BLOCK_PRIVATE_IPS=false` and provide an equivalent egress boundary.
 * **Documentation:** Updated repository references to highlight `src/`, `scripts/`, and `rag/` directories.
 
 ### Fixed
 
 * Prevented trusted CDN proxy addresses and credentials embedded in service endpoints from leaking into audit or operational logs.
 * Corrected proxy identity, payment, workflow, configuration-validation, and production failure-handling defects found during release hardening.
+* Prevented concurrent pay-per-crawl charges from overspending a crawler balance.
 
 ## **[0.0.5] - 2025-05-25**
 

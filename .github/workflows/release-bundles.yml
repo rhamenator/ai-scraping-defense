@@ -80,6 +80,45 @@ jobs:
             sha256sum "$artifact" | awk '{ print tolower($1) " *" $2 }' > "$artifact.sha256"
           done
 
+      - name: Build Python Packages
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          package_version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          if [[ "$package_version" != "${{ steps.refs.outputs.version }}" ]]; then
+            echo "pyproject.toml version '$package_version' does not match tag version '${{ steps.refs.outputs.version }}'." >&2
+            exit 1
+          fi
+
+          python3 -m pip install --disable-pip-version-check build twine
+          python3 -m build --outdir artifacts/python-dist
+          python3 -m twine check artifacts/python-dist/*
+
+          cd artifacts/python-dist
+          for artifact in *.whl *.tar.gz; do
+            sha256sum "$artifact" | awk '{ print tolower($1) " *" $2 }' > "$artifact.sha256"
+          done
+
+      - name: Smoke Test Python Package Installation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          wheel="$(find "$GITHUB_WORKSPACE/artifacts/python-dist" -maxdepth 1 -name '*.whl' -print -quit)"
+          sdist="$(find "$GITHUB_WORKSPACE/artifacts/python-dist" -maxdepth 1 -name '*.tar.gz' -print -quit)"
+
+          python3 -m venv /tmp/asd-wheel-smoke
+          /tmp/asd-wheel-smoke/bin/python -m pip install --disable-pip-version-check "$wheel"
+          /tmp/asd-wheel-smoke/bin/python -m pip check
+          cd /tmp
+          /tmp/asd-wheel-smoke/bin/python -c 'from importlib.metadata import version; import src.pay_per_crawl.proxy; assert version("ai-scraping-defense") == "${{ steps.refs.outputs.version }}"'
+
+          python3 -m venv /tmp/asd-sdist-smoke
+          /tmp/asd-sdist-smoke/bin/python -m pip install --disable-pip-version-check --no-deps "$sdist"
+          cd /tmp
+          /tmp/asd-sdist-smoke/bin/python -c 'from importlib.metadata import version; assert version("ai-scraping-defense") == "${{ steps.refs.outputs.version }}"'
+
       - name: Write Release Notes Fragment
         shell: bash
         run: |
@@ -94,6 +133,10 @@ jobs:
           - Windows: ${{ steps.refs.outputs.zip_name }}
           - Linux: ${{ steps.refs.outputs.tar_name }}
           - macOS: ${{ steps.refs.outputs.tar_name }}
+
+          Python packages:
+
+          - wheel and source distribution files are attached for pip-based installations
 
           Verify the matching .sha256 file before running the extracted installer entrypoint.
           <!-- release-bundles:end -->
@@ -144,6 +187,9 @@ jobs:
             artifacts/release-bundles/*.sha256
             artifacts/release-bundles/release-notes-fragment.md
             artifacts/release-bundles/release-notes.md
+            artifacts/python-dist/*.whl
+            artifacts/python-dist/*.tar.gz
+            artifacts/python-dist/*.sha256
 
       - name: Upload Release Assets
         env:
@@ -156,6 +202,9 @@ jobs:
             artifacts/release-bundles/*.zip \
             artifacts/release-bundles/*.tar.gz \
             artifacts/release-bundles/*.sha256 \
+            artifacts/python-dist/*.whl \
+            artifacts/python-dist/*.tar.gz \
+            artifacts/python-dist/*.sha256 \
             --clobber
 
       - name: Summarize Release Bundles
@@ -167,6 +216,9 @@ jobs:
             echo "Published installer bundles:"
             echo ""
             for artifact in artifacts/release-bundles/*; do
+              echo "- \`$(basename "$artifact")\`"
+            done
+            for artifact in artifacts/python-dist/*; do
               echo "- \`$(basename "$artifact")\`"
             done
             echo ""
