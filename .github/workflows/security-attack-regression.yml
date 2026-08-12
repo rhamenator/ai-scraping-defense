@@ -33,6 +33,7 @@ on:
       - "prompt-router/**"
       - "scripts/linux/docker-entrypoint.sh"
       - "scripts/security/**"
+      - "sample.env"
       - "src/**"
       - "test/**"
   pull_request:
@@ -46,6 +47,7 @@ on:
       - "prompt-router/**"
       - "scripts/linux/docker-entrypoint.sh"
       - "scripts/security/**"
+      - "sample.env"
       - "src/**"
       - "test/**"
 permissions:
