@@ -1066,7 +1066,7 @@ async def handle_escalation(
         require_jwt(required_roles=["escalate:write", "engine:invoke"], optional=True)
     ),
 ):
-    client_ip = resolve_request_identity(request).client_ip
+    client_ip = resolve_request_identity(request).activity_key
     # Allow legacy API key if configured and provided (dual auth path)
     api_key = request.headers.get("X-API-Key")
     configured_key = _current_api_key()

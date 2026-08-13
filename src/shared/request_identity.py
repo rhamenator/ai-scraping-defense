@@ -29,6 +29,16 @@ class RequestIdentity:
     via_trusted_cdn: bool
     source_header: str | None = None
 
+    @property
+    def activity_key(self) -> str:
+        """Return a non-actionable key for rate limits and audit correlation."""
+
+        if self.client_ip != "unknown":
+            return self.client_ip
+        if self.peer_ip:
+            return f"unknown-via-{self.peer_ip}"
+        return "unknown"
+
 
 @dataclass(frozen=True)
 class TlsFingerprint:

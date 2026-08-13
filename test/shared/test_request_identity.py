@@ -20,6 +20,7 @@ def _build_identity_app() -> FastAPI:
         resolved = resolve_request_identity(request)
         return {
             "client_ip": resolved.client_ip,
+            "activity_key": resolved.activity_key,
             "peer_ip": resolved.peer_ip,
             "via_trusted_proxy": resolved.via_trusted_proxy,
             "via_trusted_cdn": resolved.via_trusted_cdn,
@@ -48,6 +49,7 @@ def test_resolve_request_identity_uses_cloudflare_header_for_trusted_cdn(monkeyp
     assert response.status_code == 200
     assert response.json() == {
         "client_ip": "203.0.113.24",
+        "activity_key": "203.0.113.24",
         "peer_ip": "127.0.0.1",
         "via_trusted_proxy": True,
         "via_trusted_cdn": True,
@@ -74,6 +76,7 @@ def test_resolve_request_identity_ignores_spoofed_cdn_headers(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {
         "client_ip": "198.51.100.10",
+        "activity_key": "198.51.100.10",
         "peer_ip": "198.51.100.10",
         "via_trusted_proxy": False,
         "via_trusted_cdn": False,
@@ -98,6 +101,7 @@ def test_resolve_request_identity_uses_forwarded_for_for_trusted_proxy(monkeypat
     assert response.status_code == 200
     assert response.json() == {
         "client_ip": "198.51.100.50",
+        "activity_key": "198.51.100.50",
         "peer_ip": "127.0.0.1",
         "via_trusted_proxy": True,
         "via_trusted_cdn": False,
@@ -117,6 +121,22 @@ def test_resolve_request_identity_ignores_spoofed_leftmost_forwarded_entry(monke
 
     assert response.status_code == 200
     assert response.json()["client_ip"] == "198.51.100.50"
+
+
+def test_trusted_proxy_without_valid_forwarded_identity_gets_per_peer_activity_key(
+    monkeypatch,
+):
+    monkeypatch.setenv("SECURITY_TRUSTED_PROXY_CIDRS", "127.0.0.0/8")
+    client = TestClient(_build_identity_app(), client=("127.0.0.2", 45000))
+
+    response = client.get(
+        "/identity",
+        headers={"X-Forwarded-For": "not-an-ip, 127.0.0.3"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["client_ip"] == "unknown"
+    assert response.json()["activity_key"] == "unknown-via-127.0.0.2"
 
 
 def test_trusted_cloudflare_edge_is_never_a_block_target(monkeypatch):

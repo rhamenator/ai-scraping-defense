@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+* Isolated rate-limit and audit activity from trusted proxies that omit a valid
+  forwarded client identity, without promoting infrastructure addresses to
+  actionable client IPs.
+
 ## [0.0.7] - 2026-08-12
 
 ### Added

@@ -187,7 +187,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if self.max_requests <= 0:
             return await call_next(request)
-        ip = resolve_request_identity(request).client_ip
+        ip = resolve_request_identity(request).activity_key
         now = time.time()
         async with self._lock:
             bucket = self._requests.get(ip)
@@ -281,7 +281,7 @@ class GDPRComplianceMiddleware(BaseHTTPMiddleware):
             import datetime
 
             request_data = {
-                "ip_address": resolve_request_identity(request).client_ip,
+                "ip_address": resolve_request_identity(request).activity_key,
                 "user_agent": request.headers.get("user-agent", ""),
                 "path": request.url.path,
                 "method": request.method,

@@ -79,6 +79,27 @@ def test_rate_limit_exceeded() -> None:
     assert client.get("/ping").status_code == 429
 
 
+def test_rate_limit_separates_trusted_proxies_with_missing_forwarded_identity(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("SECURITY_TRUSTED_PROXY_CIDRS", "127.0.0.0/8")
+    app = create_app(max_requests=1, window_seconds=60)
+    first_proxy = TestClient(
+        app,
+        raise_server_exceptions=False,
+        client=("127.0.0.2", 45000),
+    )
+    second_proxy = TestClient(
+        app,
+        raise_server_exceptions=False,
+        client=("127.0.0.3", 45000),
+    )
+
+    assert first_proxy.get("/ping").status_code == 200
+    assert second_proxy.get("/ping").status_code == 200
+    assert first_proxy.get("/ping").status_code == 429
+
+
 def test_rate_limiter_prunes_stale_ips() -> None:
     app = create_app(max_requests=1, window_seconds=1)
     client = TestClient(app, raise_server_exceptions=False)

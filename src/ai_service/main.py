@@ -112,7 +112,7 @@ async def service_health(redis_conn=Depends(get_redis_blocklist)):
 
 
 def get_client_ip(request: Request) -> str:
-    return resolve_request_identity(request).client_ip
+    return resolve_request_identity(request).activity_key
 
 
 def calculate_window_reset(now: float, window: int) -> int:

@@ -250,7 +250,7 @@ def _require_auth_core(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot determine client IP address for rate limiting",
             )
-        client_ip = resolve_request_identity(request).client_ip
+        client_ip = resolve_request_identity(request).activity_key
     redis_conn = get_redis_connection()
     session_id = None
     session_user = None
