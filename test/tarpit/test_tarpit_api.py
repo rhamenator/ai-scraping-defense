@@ -95,6 +95,51 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
         self.mocks["generate_dynamic_tarpit_page"].assert_called_once()
         self.mocks["trigger_ip_block"].assert_not_called()
 
+    async def test_trusted_envoy_fingerprint_is_attested_for_escalation(self):
+        from src.shared.tls_attestation import verify_tls_fingerprint_attestation
+
+        ja3 = "72a589da586844d7f0818ce684948eea"
+        ja4 = "t13d1516h2_8daaf6152771_e5627efa2ab1"
+        key = "0123456789abcdef0123456789abcdef"
+        trusted_client = TestClient(app, client=("127.0.0.1", 50000))
+        self.mock_redis_hops.pipeline.return_value.execute.return_value = [1, True]
+
+        with patch.dict(
+            os.environ,
+            {
+                "SECURITY_TRUSTED_PROXY_CIDRS": "127.0.0.0/8",
+                "TLS_FINGERPRINT_ATTESTATION_KEY": key,
+            },
+            clear=False,
+        ):
+            response = trusted_client.get(
+                "/tarpit/attested",
+                headers={
+                    "X-Forwarded-For": "198.51.100.7",
+                    "X-ASD-TLS-JA3": ja3,
+                    "X-ASD-TLS-JA4": ja4,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = (
+            self.async_client_instance.__aenter__.return_value.post.call_args.kwargs[
+                "json"
+            ]
+        )
+        self.assertTrue(
+            verify_tls_fingerprint_attestation(
+                payload["tls_fingerprint_attestation"],
+                client_ip="198.51.100.7",
+                method="GET",
+                path="/tarpit/attested",
+                ja3=payload["tls_ja3"],
+                ja4=payload["tls_ja4"],
+                source=payload["tls_fingerprint_source"],
+                key=key,
+            )
+        )
+
     async def test_tarpit_handler_hop_limit_exceeded(self):
         """Test that the request is blocked and reported if the hop limit is exceeded."""
         mock_pipeline = self.mock_redis_hops.pipeline.return_value
@@ -105,8 +150,9 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
 
         self.mock_redis_hops.exists.return_value = 1
         self.mocks["is_ip_flagged"].return_value = True
-        with patch("src.tarpit.tarpit_api.TAR_PIT_MAX_HOPS", 250), patch(
-            "src.tarpit.tarpit_api.HOP_LIMIT_ENABLED", True
+        with (
+            patch("src.tarpit.tarpit_api.TAR_PIT_MAX_HOPS", 250),
+            patch("src.tarpit.tarpit_api.HOP_LIMIT_ENABLED", True),
         ):
             response = self.client.get("/tarpit/blocked/path")
 
@@ -139,16 +185,19 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
     async def test_tarpit_handler_bypasses_stream_for_trusted_cdn(self):
         trusted_client = TestClient(app, client=("127.0.0.1", 50000))
 
-        with patch.dict(
-            os.environ,
-            {
-                "CLOUD_CDN_PROVIDER": "cloudflare",
-                "SECURITY_CDN_TRUSTED_PROXY_CIDRS": "127.0.0.0/8",
-                "SECURITY_EDGE_CDN_CONTAINMENT_ACTION": "throttle",
-                "SECURITY_EDGE_CDN_RETRY_AFTER_SECONDS": "90",
-            },
-            clear=False,
-        ), patch("src.tarpit.tarpit_api.logger.info") as mock_info:
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "CLOUD_CDN_PROVIDER": "cloudflare",
+                    "SECURITY_CDN_TRUSTED_PROXY_CIDRS": "127.0.0.0/8",
+                    "SECURITY_EDGE_CDN_CONTAINMENT_ACTION": "throttle",
+                    "SECURITY_EDGE_CDN_RETRY_AFTER_SECONDS": "90",
+                },
+                clear=False,
+            ),
+            patch("src.tarpit.tarpit_api.logger.info") as mock_info,
+        ):
             response = trusted_client.get(
                 "/tarpit/cdn/path",
                 headers={
@@ -198,9 +247,11 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
         content = "\n".join([f"line-{i}" for i in range(20)])
         chunks = []
 
-        with patch("src.tarpit.tarpit_api.MIN_STREAM_DELAY_SEC", 0.2), patch(
-            "src.tarpit.tarpit_api.MAX_STREAM_DELAY_SEC", 0.2
-        ), patch("src.tarpit.tarpit_api.MAX_STREAM_DURATION_SEC", 0.01):
+        with (
+            patch("src.tarpit.tarpit_api.MIN_STREAM_DELAY_SEC", 0.2),
+            patch("src.tarpit.tarpit_api.MAX_STREAM_DELAY_SEC", 0.2),
+            patch("src.tarpit.tarpit_api.MAX_STREAM_DURATION_SEC", 0.01),
+        ):
             async for chunk in tarpit_api.slow_stream_content(content):
                 chunks.append(chunk)
 

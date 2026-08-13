@@ -68,6 +68,8 @@ spec:
         envFrom:
         - configMapRef:
             name: app-config
+        - secretRef:
+            name: tls-fingerprint-attestation
         env:
         # Load the PostgreSQL user from the secret
         - name: PG_USER

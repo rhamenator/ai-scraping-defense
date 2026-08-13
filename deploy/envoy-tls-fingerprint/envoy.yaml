@@ -43,6 +43,10 @@ static_resources:
                             key: x-asd-tls-ja4
                             value: "%TLS_JA4_FINGERPRINT%"
                           append_action: OVERWRITE_IF_EXISTS_OR_ADD
+                        - header:
+                            key: x-asd-tls-source
+                            value: "envoy"
+                          append_action: OVERWRITE_IF_EXISTS_OR_ADD
                       routes:
                         - match:
                             prefix: "/"

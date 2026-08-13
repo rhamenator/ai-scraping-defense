@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 import httpx
 import numpy as np
 from fastapi import Depends, HTTPException, Request, Response
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from src.shared.config import tenant_key
 from src.shared.middleware import create_app
@@ -26,6 +26,13 @@ from src.shared.observability import (
 )
 from src.shared.operational_events import publish_operational_event
 from src.shared.request_identity import resolve_request_identity
+from src.shared.tls_attestation import (
+    normalize_ja3,
+    normalize_ja4,
+    normalize_source,
+    tls_risk_signals,
+    verify_tls_fingerprint_attestation,
+)
 
 # GeoIP
 try:
@@ -724,7 +731,14 @@ class RequestMetadata(BaseModel):
         default=None, pattern=r"^[a-z0-9]{10}_[0-9a-f]{12}_[0-9a-f]{12}$"
     )
     tls_fingerprint_source: Optional[str] = Field(default=None, max_length=32)
+    tls_fingerprint_attestation: Optional[str] = Field(default=None, max_length=128)
+    tls_fingerprint_verified: bool = False
     source: str = Field(min_length=1, max_length=64)
+
+    @field_validator("tls_fingerprint_verified", mode="before")
+    @classmethod
+    def tls_verification_is_server_derived(cls, _value: object) -> bool:
+        return False
 
 
 # --- FastAPI App ---
@@ -807,6 +821,17 @@ def run_heuristic_and_model_analysis(
         rule_score += 0.2
     if is_known_benign:
         rule_score -= 0.5
+
+    tls_known_bad, tls_ua_mismatch = tls_risk_signals(
+        ja3=metadata.tls_ja3,
+        ja4=metadata.tls_ja4,
+        user_agent=metadata.user_agent,
+        verified=metadata.tls_fingerprint_verified,
+    )
+    if tls_known_bad:
+        rule_score += 0.5
+    if tls_ua_mismatch:
+        rule_score += 0.25
 
     if PLUGINS:
         for plugin in PLUGINS:
@@ -1090,6 +1115,27 @@ async def handle_escalation(
     except ValueError:
         logger.warning(f"Invalid IP provided to escalation endpoint: {ip_under_test}")
         raise HTTPException(status_code=400, detail="Invalid IP address")
+    normalized_ja3 = normalize_ja3(metadata_req.tls_ja3)
+    normalized_ja4 = normalize_ja4(metadata_req.tls_ja4)
+    normalized_source = normalize_source(metadata_req.tls_fingerprint_source)
+    tls_verified = verify_tls_fingerprint_attestation(
+        metadata_req.tls_fingerprint_attestation,
+        client_ip=ip_under_test,
+        method=metadata_req.method or "GET",
+        path=metadata_req.path or "",
+        ja3=normalized_ja3,
+        ja4=normalized_ja4,
+        source=normalized_source,
+    )
+    metadata_req = metadata_req.model_copy(
+        update={
+            "tls_ja3": normalized_ja3,
+            "tls_ja4": normalized_ja4,
+            "tls_fingerprint_source": normalized_source,
+            "tls_fingerprint_attestation": None,
+            "tls_fingerprint_verified": tls_verified,
+        }
+    )
     action_taken = "analysis_complete"
     is_bot_decision: Optional[bool] = None
     final_score = -1.0
@@ -1285,6 +1331,10 @@ async def handle_escalation(
             is_bot_decision,
             action_taken,
             timestamp,
+            tls_ja3=metadata_req.tls_ja3,
+            tls_ja4=metadata_req.tls_ja4,
+            tls_fingerprint_source=metadata_req.tls_fingerprint_source,
+            tls_fingerprint_verified=metadata_req.tls_fingerprint_verified,
         )
     except Exception as e:
         logger.error(f"Failed to record decision for IP {ip_under_test}: {e}")

@@ -32,6 +32,9 @@ data:
   SECURITY_CDN_TRUSTED_PROXY_CIDRS: ""
   SECURITY_TRUSTED_PROXY_CIDRS: ""
   SECURITY_CDN_ORIGIN_LOCKDOWN: "false"
+  TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS: "60"
+  TLS_KNOWN_BAD_JA3: ""
+  TLS_KNOWN_BAD_JA4: ""
 
   # Redis connection details
   REDIS_HOST: "redis" # The service name of the Redis statefulset

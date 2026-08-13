@@ -129,6 +129,11 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 | `SECURITY_CDN_ORIGIN_LOCKDOWN` | `false` | Render an Nginx allowlist so only trusted CDN proxy CIDRs (plus localhost probes) can reach the origin directly |
 | `SECURITY_CDN_TRUSTED_PROXY_CIDRS` | *(none)* | Comma-separated Cloudflare/CDN proxy CIDRs trusted to supply real client IP headers |
 | `SECURITY_CDN_CLIENT_IP_HEADERS` | `CF-Connecting-IP,True-Client-IP,X-Forwarded-For` for Cloudflare | Ordered client IP headers to trust for CDN traffic |
+| `TLS_FINGERPRINT_ATTESTATION_KEY` | *(none)* | Random secret of at least 32 bytes used to bind trusted TLS provenance between services; without it TLS values remain unverified |
+| `TLS_FINGERPRINT_ATTESTATION_PREVIOUS_KEY` | *(none)* | Optional previous key accepted only by verifiers during a rolling rotation; remove it after the maximum token lifetime and rollout complete |
+| `TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS` | `60` | Maximum accepted age and future clock skew for a TLS attestation |
+| `TLS_KNOWN_BAD_JA3` | *(none)* | Comma-separated normalized JA3 threat set used only for verified fingerprints |
+| `TLS_KNOWN_BAD_JA4` | *(none)* | Comma-separated canonical JA4 threat set used only for verified fingerprints |
 | `CLOUDFLARE_TUNNEL_TOKEN` | *(none)* | Optional token used by `scripts/linux/start_cloudflare_tunnel.sh` for named tunnels |
 | `CLOUDFLARE_TUNNEL_TARGET_URL` | `http://localhost:${NGINX_HTTP_PORT}` | Optional origin URL for Cloudflare Tunnel script |
 
@@ -141,6 +146,11 @@ If you rely on `CLOUDFLARE_TUNNEL_TOKEN` instead of `SECURITY_CDN_ORIGIN_LOCKDOW
 you still need to keep the origin listener off the public internet yourself. In
 Compose terms that means binding the nginx ports to localhost only, removing the
 published `ports:` mapping, or enforcing an equivalent host firewall policy.
+
+See [Trusted TLS fingerprint attestation](tls_fingerprint_attestation.md) before
+enabling JA3/JA4 scoring. Cloudflare Bot Management exposes these values through
+Workers fields; it does not automatically inject `cf-ja3-hash` or `cf-ja4` into
+origin requests.
 
 ## Tarpit and Blocklist
 

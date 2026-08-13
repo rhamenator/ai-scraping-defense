@@ -29,6 +29,8 @@ baseline for the current release.
 - `RECOMMENDER_API_KEY` is required in production.
 - Proxy and CDN client IP headers are only trusted when the immediate peer is in
   `SECURITY_TRUSTED_PROXY_CIDRS` or `SECURITY_CDN_TRUSTED_PROXY_CIDRS`.
+- TLS fingerprints follow the additional overwrite, origin-isolation, and
+  short-lived HMAC binding in [Trusted TLS fingerprint attestation](tls_fingerprint_attestation.md).
 
 ## Intentional Public Surfaces
 

@@ -49,6 +49,8 @@ spec:
             name: postgres-credentials
         - secretRef:
             name: redis-credentials
+        - secretRef:
+            name: tls-fingerprint-attestation
         resources:
           requests:
             cpu: "100m"

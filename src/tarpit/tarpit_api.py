@@ -32,6 +32,7 @@ from src.shared.request_identity import (
     resolve_request_identity,
     resolve_tls_fingerprint,
 )
+from src.shared.tls_attestation import create_tls_fingerprint_attestation
 
 from .bad_api_generator import register_bad_endpoints
 
@@ -73,6 +74,7 @@ class EscalationMetadata(BaseModel):
         default=None, pattern=r"^[a-z0-9]{10}_[0-9a-f]{12}_[0-9a-f]{12}$"
     )
     tls_fingerprint_source: str | None = Field(default=None, max_length=32)
+    tls_fingerprint_attestation: str | None = Field(default=None, max_length=128)
     source: str = Field(default="tarpit_api", max_length=50)
 
     @field_validator("ip")
@@ -507,6 +509,18 @@ async def tarpit_handler(request: Request, path: str = ""):
 
     # Validate metadata before sending to escalation engine
     try:
+        tls_attestation = (
+            create_tls_fingerprint_attestation(
+                client_ip=client_ip,
+                method=http_method,
+                path=requested_path,
+                ja3=tls_fingerprint.ja3,
+                ja4=tls_fingerprint.ja4,
+                source=tls_fingerprint.source,
+            )
+            if tls_fingerprint.verified
+            else None
+        )
         metadata = EscalationMetadata(
             timestamp=timestamp_iso,
             ip=client_ip,
@@ -518,6 +532,7 @@ async def tarpit_handler(request: Request, path: str = ""):
             tls_ja3=tls_fingerprint.ja3,
             tls_ja4=tls_fingerprint.ja4,
             tls_fingerprint_source=tls_fingerprint.source,
+            tls_fingerprint_attestation=tls_attestation,
             source="tarpit_api",
         )
         metadata_dict = metadata.model_dump()

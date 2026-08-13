@@ -9,6 +9,8 @@ from dataclasses import dataclass
 
 from starlette.requests import Request
 
+from src.shared.tls_attestation import normalize_source
+
 TrustedProxyNetwork = ipaddress.IPv4Network | ipaddress.IPv6Network
 
 _DEFAULT_CLOUDFLARE_HEADERS = (
@@ -47,6 +49,7 @@ class TlsFingerprint:
     ja3: str | None = None
     ja4: str | None = None
     source: str | None = None
+    verified: bool = False
 
 
 _JA3_PATTERN = re.compile(r"^[0-9a-f]{32}$")
@@ -232,14 +235,17 @@ def resolve_tls_fingerprint(
             ja3=ja3,
             ja4=ja4,
             source="cloudflare" if ja3 or ja4 else None,
+            verified=bool(ja3 or ja4),
         )
     if resolved_identity.via_trusted_proxy:
         ja3 = normalize_ja3(request.headers.get("x-asd-tls-ja3"))
         ja4 = normalize_ja4(request.headers.get("x-asd-tls-ja4"))
+        source = normalize_source(request.headers.get("x-asd-tls-source")) or "envoy"
         return TlsFingerprint(
             ja3=ja3,
             ja4=ja4,
-            source="envoy" if ja3 or ja4 else None,
+            source=source if ja3 or ja4 else None,
+            verified=bool(ja3 or ja4),
         )
     return TlsFingerprint()
 

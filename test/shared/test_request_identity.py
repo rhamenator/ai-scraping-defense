@@ -165,6 +165,7 @@ def test_tls_fingerprint_accepts_cloudflare_headers_only_from_trusted_cdn(monkey
     assert fingerprint.ja3 == JA3
     assert fingerprint.ja4 == JA4
     assert fingerprint.source == "cloudflare"
+    assert fingerprint.verified is True
 
 
 def test_tls_fingerprint_ignores_direct_client_spoofing(monkeypatch):
@@ -183,7 +184,9 @@ def test_tls_fingerprint_ignores_direct_client_spoofing(monkeypatch):
         }
     )
 
-    assert resolve_tls_fingerprint(request).source is None
+    fingerprint = resolve_tls_fingerprint(request)
+    assert fingerprint.source is None
+    assert fingerprint.verified is False
 
 
 def test_tls_fingerprint_rejects_malformed_collector_values(monkeypatch):

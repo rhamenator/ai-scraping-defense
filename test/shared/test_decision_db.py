@@ -113,6 +113,44 @@ class TestRecordDecision(unittest.TestCase):
         self.assertEqual(mock_record_event.call_args.kwargs["action"], "block")
         self.assertEqual(mock_record_event.call_args.kwargs["payload"]["ip"], "7.7.7.7")
 
+    def test_record_decision_persists_tls_attestation_provenance(self):
+        db_module = self.reload_module_with_temp_db()
+
+        with patch.object(db_module, "record_security_event") as mock_record_event:
+            db_module.record_decision(
+                "7.7.7.9",
+                "unit_test",
+                0.8,
+                1,
+                "block",
+                "2024-04-06T00:00:00Z",
+                tls_ja3="72a589da586844d7f0818ce684948eea",
+                tls_ja4="t13d1516h2_8daaf6152771_e5627efa2ab1",
+                tls_fingerprint_source="envoy",
+                tls_fingerprint_verified=True,
+            )
+
+        conn = sqlite3.connect(self.temp_db)
+        try:
+            row = conn.execute(
+                "SELECT tls_ja3, tls_ja4, tls_fingerprint_source, "
+                "tls_fingerprint_verified FROM decisions WHERE ip='7.7.7.9'"
+            ).fetchone()
+        finally:
+            conn.close()
+        self.assertEqual(
+            row,
+            (
+                "72a589da586844d7f0818ce684948eea",
+                "t13d1516h2_8daaf6152771_e5627efa2ab1",
+                "envoy",
+                1,
+            ),
+        )
+        payload = mock_record_event.call_args.kwargs["payload"]
+        self.assertTrue(payload["tls_fingerprint_verified"])
+        self.assertEqual(payload["tls_fingerprint_source"], "envoy")
+
     def test_record_decision_marks_containment_tarpit_as_high_severity(self):
         db_module = self.reload_module_with_temp_db()
 
@@ -131,10 +169,10 @@ class TestRecordDecision(unittest.TestCase):
     def test_directory_creation_failure(self):
         """Test that directory creation failure falls back to temp directory."""
         error = OSError("Permission denied")
-        with patch("os.makedirs", side_effect=error) as mock_makedirs, patch(
-            "logging.warning"
-        ) as mock_log_warning, patch.dict(
-            os.environ, {"DECISIONS_DB_PATH": self.temp_db}
+        with (
+            patch("os.makedirs", side_effect=error) as mock_makedirs,
+            patch("logging.warning") as mock_log_warning,
+            patch.dict(os.environ, {"DECISIONS_DB_PATH": self.temp_db}),
         ):
             # Should now fallback to temp and still raise error
             with self.assertRaises(RuntimeError) as cm:

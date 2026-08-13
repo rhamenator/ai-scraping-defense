@@ -42,7 +42,11 @@ CREATE TABLE IF NOT EXISTS decisions (
     score REAL,
     is_bot INTEGER,
     action TEXT,
-    timestamp TEXT
+    timestamp TEXT,
+    tls_ja3 TEXT,
+    tls_ja4 TEXT,
+    tls_fingerprint_source TEXT,
+    tls_fingerprint_verified INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_decisions_tenant ON decisions (tenant_id);
 """
@@ -52,6 +56,15 @@ CREATE INDEX IF NOT EXISTS idx_decisions_tenant ON decisions (tenant_id);
 def get_conn():
     conn = sqlite3.connect(DB_PATH)
     conn.executescript(SCHEMA)
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(decisions)")}
+    for name, definition in (
+        ("tls_ja3", "TEXT"),
+        ("tls_ja4", "TEXT"),
+        ("tls_fingerprint_source", "TEXT"),
+        ("tls_fingerprint_verified", "INTEGER NOT NULL DEFAULT 0"),
+    ):
+        if name not in columns:
+            conn.execute(f"ALTER TABLE decisions ADD COLUMN {name} {definition}")
     try:
         yield conn
         conn.commit()
@@ -67,11 +80,20 @@ def record_decision(
     action: str,
     timestamp: str,
     tenant_id: str | None = None,
+    *,
+    tls_ja3: str | None = None,
+    tls_ja4: str | None = None,
+    tls_fingerprint_source: str | None = None,
+    tls_fingerprint_verified: bool = False,
 ) -> None:
     tid = tenant_id or CONFIG.TENANT_ID
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO decisions (tenant_id, ip, source, score, is_bot, action, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO decisions "
+            "(tenant_id, ip, source, score, is_bot, action, timestamp, "
+            "tls_ja3, tls_ja4, tls_fingerprint_source, "
+            "tls_fingerprint_verified) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 tid,
                 ip,
@@ -80,6 +102,10 @@ def record_decision(
                 None if is_bot is None else int(bool(is_bot)),
                 action,
                 timestamp,
+                tls_ja3,
+                tls_ja4,
+                tls_fingerprint_source,
+                int(tls_fingerprint_verified),
             ),
         )
     try:
@@ -100,6 +126,10 @@ def record_decision(
                 "score": score,
                 "is_bot": is_bot,
                 "timestamp": timestamp,
+                "tls_ja3": tls_ja3,
+                "tls_ja4": tls_ja4,
+                "tls_fingerprint_source": tls_fingerprint_source,
+                "tls_fingerprint_verified": tls_fingerprint_verified,
             },
             created_at=timestamp,
         )
