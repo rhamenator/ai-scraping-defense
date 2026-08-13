@@ -3,6 +3,7 @@ name: Assurance Policy
 on:
   push:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
@@ -42,8 +43,31 @@ jobs:
         run: |
           set -euo pipefail
           body="$(jq -r '.pull_request.body // ""' "$GITHUB_EVENT_PATH")"
+          clean_body="$(perl -0777 -pe 's/<!--.*?-->//gs' <<<"$body")"
+          section_content() {
+            local target="$1"
+            awk -v target="$target" '
+              BEGIN { found = 0 }
+              /^#{2,3}[[:space:]]+/ {
+                heading = $0
+                sub(/^#{2,3}[[:space:]]+/, "", heading)
+                if (found) exit
+                if (tolower(heading) == tolower(target)) found = 1
+                next
+              }
+              found { print }
+            ' <<<"$clean_body"
+          }
           for heading in "Requirement / issue" "Change and impact" "Verification" "Risk and independence"; do
-            grep -Fqi "$heading" <<<"$body" || {
-              echo "Pull request body is missing assurance section: $heading"; exit 1;
+            section_content "$heading" | grep -Eq '[[:alnum:]]' || {
+              echo "Pull request assurance section is missing or empty: $heading"; exit 1;
+            }
+          done
+          for attestation in \
+            "Traceability from objective to implementation and verification is documented." \
+            "New behavior or a defect fix has regression evidence, or the exception is justified with an owner and review date." \
+            "No secrets, personal data, generated build output, or unrelated changes are included."; do
+            grep -Fqi -- "- [x] $attestation" <<<"$clean_body" || {
+              echo "Required assurance attestation is not checked: $attestation"; exit 1;
             }
           done
