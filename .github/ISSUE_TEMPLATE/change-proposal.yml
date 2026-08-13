@@ -1,0 +1,33 @@
+name: Change proposal
+description: Propose a feature, maintenance change, or assurance improvement
+title: "[Change]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective and rationale
+      description: State the need, stakeholder, and intended outcome.
+    validations:
+      required: true
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Proposed requirements and acceptance criteria
+      description: Use verifiable statements and identify derived assumptions.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact and risk
+      description: Cover interfaces, compatibility, security, privacy, data, and operational risk.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification approach
+      description: Identify unit, integration, system, static-analysis, or manual evidence.
+    validations:
+      required: true

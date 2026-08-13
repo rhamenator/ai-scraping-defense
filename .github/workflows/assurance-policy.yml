@@ -1,0 +1,49 @@
+name: Assurance Policy
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: assurance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    name: assurance-policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out controlled baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify required assurance assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            "docs/DO-178C-ASSURANCE-POLICY.md"
+            "SECURITY.md"
+            "CONTRIBUTING.md"
+            "CODE_OF_CONDUCT.md"
+            "SUPPORT.md"
+            ".github/dependabot.yml"
+          )
+          for path in "${required[@]}"; do
+            test -s "$path" || { echo "Missing required assurance asset: $path"; exit 1; }
+          done
+          test -n "$(find .github -maxdepth 2 -iname 'pull_request_template.md' -print -quit)" || {
+            echo "Missing pull request template"; exit 1;
+          }
+      - name: Verify pull-request evidence sections
+        if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(jq -r '.pull_request.body // ""' "$GITHUB_EVENT_PATH")"
+          for heading in "Requirement / issue" "Change and impact" "Verification" "Risk and independence"; do
+            grep -Fqi "$heading" <<<"$body" || {
+              echo "Pull request body is missing assurance section: $heading"; exit 1;
+            }
+          done
