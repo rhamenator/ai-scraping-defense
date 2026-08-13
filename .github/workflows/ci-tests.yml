@@ -204,7 +204,11 @@ jobs:
             Write-Host "No tracked PowerShell scripts found."
             exit 0
           }
-          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
+            Register-PSRepository -Default
+          }
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module -Name PSScriptAnalyzer -Repository PSGallery -Force -Scope CurrentUser
           $issues = foreach ($scriptPath in $trackedScripts) {
             if ($scriptPath -match '^(\\.venv|\\.git|node_modules)(/|\\)') {
               continue
