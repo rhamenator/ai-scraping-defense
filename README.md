@@ -1,3 +1,7 @@
+<p align="center">
+  <img src=".github/assets/logo.png" alt="AI Scraping Defense logo" width="220">
+</p>
+
 # AI Scraping Defense
 
 
