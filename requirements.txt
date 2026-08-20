@@ -72,7 +72,7 @@ ollama~=0.6
 
 # --- Development and Testing Dependencies ---
 freezegun~=1.5
-maturin>=1.5,<2.0
+maturin>=1.14.1,<2.0
 wheel>=0.47.0
 setuptools>=83.0.0
 pytest>=8.4,<10.0
