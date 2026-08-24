@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import getpass
 import json
+import os
 import platform
 import sqlite3
 import subprocess  # nosec B404 - required for controlled script calls
@@ -35,6 +36,29 @@ KEY_SETTINGS = [
 ]
 
 OPTIONAL_FEATURES = {
+    "ENABLE_MCP_MODEL": {
+        "prompt": "Use an MCP model server (the bundled Rust server or your own)?",
+        "extras": [
+            {
+                "key": "MCP_SERVER_PRIMARY_TRANSPORT",
+                "label": "MCP transport (ws or http)",
+                "default": "ws",
+                "required": True,
+            },
+            {
+                "key": "MCP_SERVER_PRIMARY_URL",
+                "label": "MCP server URL",
+                "default": "ws://127.0.0.1:8085/mcp",
+                "required": True,
+            },
+            {
+                "key": "MCP_SERVER_PRIMARY_AUTH_TOKEN",
+                "label": "MCP bearer token (type 'pause' to resume later)",
+                "default": "",
+                "required": True,
+            },
+        ],
+    },
     "ENABLE_GLOBAL_CDN": {
         "prompt": "Enable Cloudflare CDN integration?",
         "extras": [
@@ -329,6 +353,8 @@ def main() -> None:
                     )
                     record_value("CLOUD_CDN_PROVIDER", "cloudflare")
                 record_value("REQUIRE_CLOUDFLARE_ACCOUNT", "true")
+            elif feature == "ENABLE_MCP_MODEL":
+                record_value("MODEL_URI", "mcp://primary/classify")
 
         if "REQUIRE_CLOUDFLARE_ACCOUNT" not in env:
             record_value("REQUIRE_CLOUDFLARE_ACCOUNT", "false")
@@ -351,21 +377,24 @@ def main() -> None:
     store_secrets(root, env)
 
     print("Generating secrets...")
+    generator_env = {**os.environ, **env}
     if is_windows:
         secrets_script = root / "scripts" / "windows" / "Generate-Secrets.ps1"
         # Controlled script call (repo-local path, fixed argv).
         subprocess.run(  # nosec B603
-            ["powershell", "-File", str(secrets_script)],
+            ["powershell", "-File", str(secrets_script), "-UpdateEnv"],
             cwd=str(root),
             check=True,
+            env=generator_env,
         )
     else:
         secrets_script = root / "scripts" / "linux" / "generate_secrets.sh"
         # Controlled script call (repo-local path, fixed argv).
         subprocess.run(  # nosec B603
-            ["bash", str(secrets_script), "--update-env"],
-            cwd=str(root),
-            check=True,
+                ["bash", str(secrets_script), "--update-env"],
+                cwd=str(root),
+                check=True,
+                env=generator_env,
         )
     print("Setup complete. Updated .env and generated secrets.")
 

@@ -27,7 +27,7 @@ if (-not $adminCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Administr
     Write-Warning "It's recommended to run this script from an elevated PowerShell session."
 }
 
-$RootDir = Split-Path -Parent $PSScriptRoot
+$RootDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $K8sDir = Join-Path $RootDir "kubernetes"
 if (-not (Test-Path $K8sDir)) { New-Item -ItemType Directory -Path $K8sDir | Out-Null }
 $OutputFile = Join-Path $K8sDir "secrets.yaml"
@@ -116,11 +116,14 @@ $nginxPassword = New-RandomPassword -Length 32
 $externalApiKey = "key-for-" + (New-RandomPassword)
 $ipReputationApiKey = "key-for-" + (New-RandomPassword)
 $communityBlocklistApiKey = "key-for-" + (New-RandomPassword)
-$openaiApiKey = "sk-" + (New-RandomPassword -Length 40)
-$anthropicApiKey = "sk-ant-" + (New-RandomPassword -Length 40)
-$googleApiKey = "AIza" + (New-RandomPassword -Length 35)
-$cohereApiKey = "coh-" + (New-RandomPassword -Length 40)
-$mistralApiKey = "mistral-" + (New-RandomPassword -Length 40)
+$openaiApiKey = [string]$env:OPENAI_API_KEY
+$anthropicApiKey = [string]$env:ANTHROPIC_API_KEY
+$googleApiKey = [string]$env:GOOGLE_API_KEY
+$cohereApiKey = [string]$env:COHERE_API_KEY
+$mistralApiKey = [string]$env:MISTRAL_API_KEY
+$jwtSecret = New-RandomPassword -Length 64
+$cloudDashboardApiKey = New-RandomPassword -Length 48
+$recommenderApiKey = New-RandomPassword -Length 48
 
 # Create Nginx htpasswd content using bcrypt
 $htpasswdFileContent = (htpasswd -nbBC 12 $adminUiUsername $nginxPassword).Trim()
@@ -143,6 +146,9 @@ $anthropicApiKey_b64 = ConvertTo-Base64 $anthropicApiKey
 $googleApiKey_b64 = ConvertTo-Base64 $googleApiKey
 $cohereApiKey_b64 = ConvertTo-Base64 $cohereApiKey
 $mistralApiKey_b64 = ConvertTo-Base64 $mistralApiKey
+$jwtSecret_b64 = ConvertTo-Base64 $jwtSecret
+$cloudDashboardApiKey_b64 = ConvertTo-Base64 $cloudDashboardApiKey
+$recommenderApiKey_b64 = ConvertTo-Base64 $recommenderApiKey
 
 # Assemble YAML
 $yamlContent = @"
@@ -193,6 +199,15 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
+  name: jwt-secret
+  namespace: ai-defense
+type: Opaque
+data:
+  JWT_SECRET: $jwtSecret_b64
+---
+apiVersion: v1
+kind: Secret
+metadata:
   name: nginx-auth
   namespace: ai-defense
 type: Opaque
@@ -214,6 +229,8 @@ data:
   MISTRAL_API_KEY: $mistralApiKey_b64
   IP_REPUTATION_API_KEY: $ipReputationApiKey_b64
   COMMUNITY_BLOCKLIST_API_KEY: $communityBlocklistApiKey_b64
+  CLOUD_DASHBOARD_API_KEY: $cloudDashboardApiKey_b64
+  RECOMMENDER_API_KEY: $recommenderApiKey_b64
 "@
 
 Set-Content -Path $OutputFile -Value $yamlContent -Encoding UTF8
@@ -226,6 +243,7 @@ if ($ExportPath) {
         POSTGRES_PASSWORD = $postgresPassword
         REDIS_PASSWORD = $redisPassword
         SYSTEM_SEED = $systemSeed
+        JWT_SECRET = $jwtSecret
         OPENAI_API_KEY = $openaiApiKey
         ANTHROPIC_API_KEY = $anthropicApiKey
         GOOGLE_API_KEY = $googleApiKey
@@ -234,6 +252,8 @@ if ($ExportPath) {
         EXTERNAL_API_KEY = $externalApiKey
         IP_REPUTATION_API_KEY = $ipReputationApiKey
         COMMUNITY_BLOCKLIST_API_KEY = $communityBlocklistApiKey
+        CLOUD_DASHBOARD_API_KEY = $cloudDashboardApiKey
+        RECOMMENDER_API_KEY = $recommenderApiKey
         _security_notice = "IMPORTANT: This file contains sensitive credentials. Delete after importing to your secret manager. Never commit to version control."
     }
 
@@ -268,15 +288,18 @@ if ($UpdateEnv) {
     Update-EnvValue -Key 'ADMIN_UI_USERNAME' -Value $adminUiUsername -Path $envPath
     Update-EnvValue -Key 'ADMIN_UI_PASSWORD_HASH' -Value $adminUiPasswordHash -Path $envPath
     Update-EnvValue -Key 'SYSTEM_SEED' -Value $systemSeed -Path $envPath
+    Update-EnvValue -Key 'AUTH_JWT_SECRET' -Value $jwtSecret -Path $envPath
     Update-EnvValue -Key 'NGINX_PASSWORD' -Value $nginxPassword -Path $envPath
-    Update-EnvValue -Key 'OPENAI_API_KEY' -Value $openaiApiKey -Path $envPath
-    Update-EnvValue -Key 'ANTHROPIC_API_KEY' -Value $anthropicApiKey -Path $envPath
-    Update-EnvValue -Key 'GOOGLE_API_KEY' -Value $googleApiKey -Path $envPath
-    Update-EnvValue -Key 'COHERE_API_KEY' -Value $cohereApiKey -Path $envPath
-    Update-EnvValue -Key 'MISTRAL_API_KEY' -Value $mistralApiKey -Path $envPath
+    if (-not [string]::IsNullOrWhiteSpace($openaiApiKey)) { Update-EnvValue -Key 'OPENAI_API_KEY' -Value $openaiApiKey -Path $envPath }
+    if (-not [string]::IsNullOrWhiteSpace($anthropicApiKey)) { Update-EnvValue -Key 'ANTHROPIC_API_KEY' -Value $anthropicApiKey -Path $envPath }
+    if (-not [string]::IsNullOrWhiteSpace($googleApiKey)) { Update-EnvValue -Key 'GOOGLE_API_KEY' -Value $googleApiKey -Path $envPath }
+    if (-not [string]::IsNullOrWhiteSpace($cohereApiKey)) { Update-EnvValue -Key 'COHERE_API_KEY' -Value $cohereApiKey -Path $envPath }
+    if (-not [string]::IsNullOrWhiteSpace($mistralApiKey)) { Update-EnvValue -Key 'MISTRAL_API_KEY' -Value $mistralApiKey -Path $envPath }
     Update-EnvValue -Key 'EXTERNAL_API_KEY' -Value $externalApiKey -Path $envPath
     Update-EnvValue -Key 'IP_REPUTATION_API_KEY' -Value $ipReputationApiKey -Path $envPath
     Update-EnvValue -Key 'COMMUNITY_BLOCKLIST_API_KEY' -Value $communityBlocklistApiKey -Path $envPath
+    Update-EnvValue -Key 'CLOUD_DASHBOARD_API_KEY' -Value $cloudDashboardApiKey -Path $envPath
+    Update-EnvValue -Key 'RECOMMENDER_API_KEY' -Value $recommenderApiKey -Path $envPath
 
     $secretsDir = Join-Path $RootDir 'secrets'
     if (-not (Test-Path $secretsDir)) {

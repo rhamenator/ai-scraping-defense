@@ -61,7 +61,7 @@ For `request-guard-mcp` (formerly the ASD-specific MCP server), the shared compa
 MODEL_URI=mcp://primary/classify
 MCP_SERVER_PRIMARY_TRANSPORT=ws
 MCP_SERVER_PRIMARY_URL=ws://request-guard-mcp:8085/mcp
-MCP_SERVER_PRIMARY_AUTH_TOKEN=replace_me
+MCP_SERVER_PRIMARY_AUTH_TOKEN=<same-strong-token-as-AUTH_TOKENS>
 MCP_SERVER_PRIMARY_TIMEOUT=10
 ```
 

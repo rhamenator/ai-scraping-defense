@@ -86,7 +86,7 @@ cryptography==50.0.0
     #   pyjwt
     #   pyopenssl
     #   webauthn
-datasets==4.8.5
+datasets==5.0.1
     # via
     #   -r requirements.txt
     #   evaluate
@@ -222,7 +222,7 @@ mcp==1.29.0
     # via -r requirements.txt
 mdurl==0.1.2
     # via markdown-it-py
-mistralai==2.9.1
+mistralai==2.9.3
     # via -r requirements.txt
 msgpack==1.2.1
     # via -r requirements.txt

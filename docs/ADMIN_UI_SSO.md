@@ -34,6 +34,11 @@ Optional:
 SAML is typically terminated at a reverse proxy or identity provider gateway,
 which injects trusted headers. The Admin UI consumes those headers directly.
 
+The immediate proxy address must be included in `SECURITY_TRUSTED_PROXY_CIDRS`
+or `SECURITY_CDN_TRUSTED_PROXY_CIDRS`. Requests carrying SAML headers from any
+other peer are rejected. The proxy must strip client-supplied copies of the
+configured SAML headers before injecting verified identity values.
+
 Required headers:
 
 - `X-SSO-User` (override via `ADMIN_UI_SAML_HEADER_USER`)
@@ -42,6 +47,11 @@ Optional:
 
 - `X-SSO-Groups` (override via `ADMIN_UI_SAML_HEADER_GROUPS`)
 - `ADMIN_UI_SAML_REQUIRED_GROUP`
+- `ADMIN_UI_SAML_ADMIN_GROUP` (default: the required group, or `admin`)
+
+For OIDC administrative routes, `ADMIN_UI_OIDC_ADMIN_ROLE` selects the required
+role and defaults to `admin`. Read-only authentication and administrative
+authorization are evaluated separately.
 
 ## MFA behavior
 

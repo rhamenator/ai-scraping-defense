@@ -102,7 +102,12 @@ async def recommendations(
     x_api_key: str | None = Header(default=None, alias="X-API-Key")
 ) -> Dict[str, Dict[str, int]]:
     expected = load_api_key("RECOMMENDER_API_KEY")
-    if expected and not is_api_key_valid(x_api_key, expected):
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="RECOMMENDER_API_KEY is not configured; run python scripts/interactive_setup.py",
+        )
+    if not is_api_key_valid(x_api_key, expected):
         raise HTTPException(status_code=401, detail="Invalid API key")
     with trace_span("config_recommender.fetch_metrics"):
         raw = get_metrics()
