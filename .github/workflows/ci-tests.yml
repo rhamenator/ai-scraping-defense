@@ -152,7 +152,7 @@ jobs:
           rm -rf "$tmpdir"
       - name: Set up Helm
         if: hashFiles('helm/**') != ''
-        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310
       - name: Helm/K8s lint
         if: hashFiles('helm/**') != ''
         run: |
