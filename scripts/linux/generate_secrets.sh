@@ -148,7 +148,7 @@ metadata:
   namespace: ai-defense
 type: Opaque
 data:
-  JWT_SECRET: $(echo -n "$JWT_SECRET" | base64 | tr -d '\n')
+  AUTH_JWT_SECRET: $(echo -n "$JWT_SECRET" | base64 | tr -d '\n')
 ---
 apiVersion: v1
 kind: Secret

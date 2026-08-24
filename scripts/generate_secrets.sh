@@ -106,6 +106,15 @@ store_in_vault() {
   fi
 }
 
+store_optional_in_vault() {
+  local path="$1" key="$2" value="$3"
+  if [ -z "$value" ]; then
+    echo -e "${YELLOW}Skipping ${path}:${key}; no value was provided${NC}"
+    return 0
+  fi
+  store_in_vault "$path" "$key" "$value"
+}
+
 # --- Parse Arguments ---
 update_env=false
 export_path=""
@@ -217,11 +226,11 @@ if [ "$use_vault" = true ]; then
   store_in_vault "${vault_path_prefix}/api/community_blocklist" "key" "$COMMUNITY_BLOCKLIST_API_KEY"
   store_in_vault "${vault_path_prefix}/api/cloud_dashboard" "key" "$CLOUD_DASHBOARD_API_KEY"
   store_in_vault "${vault_path_prefix}/api/recommender" "key" "$RECOMMENDER_API_KEY"
-  store_in_vault "${vault_path_prefix}/llm/openai" "api_key" "$OPENAI_API_KEY"
-  store_in_vault "${vault_path_prefix}/llm/anthropic" "api_key" "$ANTHROPIC_API_KEY"
-  store_in_vault "${vault_path_prefix}/llm/google" "api_key" "$GOOGLE_API_KEY"
-  store_in_vault "${vault_path_prefix}/llm/cohere" "api_key" "$COHERE_API_KEY"
-  store_in_vault "${vault_path_prefix}/llm/mistral" "api_key" "$MISTRAL_API_KEY"
+  store_optional_in_vault "${vault_path_prefix}/llm/openai" "api_key" "$OPENAI_API_KEY"
+  store_optional_in_vault "${vault_path_prefix}/llm/anthropic" "api_key" "$ANTHROPIC_API_KEY"
+  store_optional_in_vault "${vault_path_prefix}/llm/google" "api_key" "$GOOGLE_API_KEY"
+  store_optional_in_vault "${vault_path_prefix}/llm/cohere" "api_key" "$COHERE_API_KEY"
+  store_optional_in_vault "${vault_path_prefix}/llm/mistral" "api_key" "$MISTRAL_API_KEY"
 
   echo -e "${GREEN}✓${NC} All secrets stored in Vault"
 fi
@@ -274,7 +283,7 @@ metadata:
   namespace: ai-defense
 type: Opaque
 data:
-  JWT_SECRET: $(echo -n "$JWT_SECRET" | base64 | tr -d '\n')
+  AUTH_JWT_SECRET: $(echo -n "$JWT_SECRET" | base64 | tr -d '\n')
 ---
 apiVersion: v1
 kind: Secret
