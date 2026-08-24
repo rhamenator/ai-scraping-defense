@@ -58,11 +58,9 @@ except ImportError:
     cohere = None
 
 try:
-    from mistralai.client import MistralClient
-    from mistralai.models.chat_completion import ChatMessage
+    from mistralai import Mistral
 except ImportError:
-    MistralClient = None
-    ChatMessage = None
+    Mistral = None
 
 try:
     import ollama
@@ -254,8 +252,8 @@ class GoogleGeminiAdapter(BaseModelAdapter):
         try:
             # UPDATED: The new SDK uses a different method signature.
             # The model name is passed directly to the method.
-            response = self.model.generate_content(
-                model=f"models/{self.model_uri}",  # The new SDK often requires the "models/" prefix
+            response = self.model.models.generate_content(
+                model=self.model_uri.removeprefix("models/"),
                 contents=data,
             )
             return {"response": response.text}
@@ -290,26 +288,22 @@ class CohereAdapter(BaseModelAdapter):
 
 class MistralAdapter(BaseModelAdapter):
     def _load_model(self):
-        if not MistralClient:
+        if not Mistral:
             logging.error("mistralai library not installed.")
             return
         api_key = os.getenv("MISTRAL_API_KEY")
         if not api_key:
             logging.error("MISTRAL_API_KEY not set.")
             return
-        self.model = MistralClient(api_key=api_key)
+        self.model = Mistral(api_key=api_key)
         logging.info("Mistral AI client configured.")
 
     def predict(self, data: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
-        if not self.model or not ChatMessage:
+        if not self.model:
             return {"error": "Mistral AI client not initialized"}
         try:
-            messages = [
-                ChatMessage(role=msg["role"], content=msg["content"]) for msg in data
-            ]
-            # model_uri is the model name, e.g., "mistral-large-latest"
-            chat_response = self.model.chat(
-                model=self.model_uri, messages=messages, **kwargs
+            chat_response = self.model.chat.complete(
+                model=self.model_uri, messages=data, **kwargs
             )
             return {"response": chat_response.choices[0].message.content}
         except Exception as e:

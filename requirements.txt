@@ -60,7 +60,7 @@ cohere>=5.3,<6.0
 mistralai>=2.9.3,<3.0
 mcp>=1.29.0,<2
 transformers>=4.38,<6.0
-datasets>=2.18,<5.0
+datasets>=5.0.1,<6.0
 evaluate>=0.4,<1.0
 
 # Local LLM Libraries

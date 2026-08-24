@@ -8,19 +8,26 @@ import logging
 import os
 import shlex
 import threading
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, Dict, Mapping, Optional
 from urllib.parse import parse_qs, urlparse
 
+import httpx
+
 logger = logging.getLogger(__name__)
 
 try:  # pragma: no cover - optional dependency import
-    from mcp import ClientSession
-    from mcp.transport import StdioClientTransport, WebSocketClientTransport
+    from mcp import ClientSession, StdioServerParameters, stdio_client
 except ImportError:  # pragma: no cover - handled at runtime
     ClientSession = None
-    WebSocketClientTransport = None
-    StdioClientTransport = None
+    StdioServerParameters = None
+    stdio_client = None
+
+try:  # pragma: no cover - optional dependency import
+    from mcp.client.streamable_http import streamable_http_client
+except ImportError:  # pragma: no cover - handled at runtime
+    streamable_http_client = None
 
 
 class MCPClientError(RuntimeError):
@@ -180,7 +187,7 @@ def load_server_config(
         )
     )
 
-    if transport in {"ws", "wss", "websocket"}:
+    if transport in {"ws", "wss", "websocket", "http", "https", "streamable-http"}:
         if not endpoint:
             raise MCPClientError(
                 f"MCP server '{label}' requires MCP_SERVER_{label.upper()}_URL for websocket transport"
@@ -266,39 +273,24 @@ class MCPClient:
     ) -> Dict[str, Any]:
         if ClientSession is None:
             raise MCPClientError("mcp package is not installed. Run 'pip install mcp'.")
-        transport = await self._create_transport()
-        try:
-            if hasattr(transport, "__aenter__"):
-                async with transport:  # type: ignore[attr-defined]
-                    return await self._invoke_session(
-                        tool_name, arguments, transport, timeout
-                    )
-            return await self._invoke_session(tool_name, arguments, transport, timeout)
-        finally:
-            close = getattr(transport, "close", None)
-            if close:
-                if asyncio.iscoroutinefunction(
-                    close
-                ):  # pragma: no cover - depends on implementation
-                    try:
-                        await close()  # type: ignore[call-arg]
-                    except Exception:  # pragma: no cover - best effort cleanup
-                        logger.debug("Failed to close MCP transport", exc_info=True)
-                else:
-                    try:
-                        close()  # type: ignore[call-arg]
-                    except Exception:  # pragma: no cover - best effort cleanup
-                        logger.debug("Failed to close MCP transport", exc_info=True)
+        transport = self._create_transport()
+        async with transport as streams:
+            read_stream, write_stream = streams[:2]
+            return await self._invoke_session(
+                tool_name, arguments, read_stream, write_stream, timeout
+            )
 
     async def _invoke_session(
         self,
         tool_name: str,
         arguments: Any,
-        transport: Any,
+        read_stream: Any,
+        write_stream: Any,
         timeout: float,
     ) -> Dict[str, Any]:
-        async with ClientSession(self.config.session_name, transport) as session:  # type: ignore[arg-type]
+        async with ClientSession(read_stream, write_stream) as session:  # type: ignore[misc]
             try:
+                await asyncio.wait_for(session.initialize(), timeout=timeout)
                 result = await asyncio.wait_for(
                     session.call_tool(tool_name, arguments=arguments or {}),
                     timeout=timeout,
@@ -311,27 +303,91 @@ class MCPClient:
                 raise MCPClientError(f"MCP tool '{tool_name}' failed: {exc}") from exc
             return _normalise_tool_result(result)
 
-    async def _create_transport(self) -> Any:
+    def _create_transport(self) -> Any:
         transport_type = self.config.transport
         if transport_type in {"ws", "wss", "websocket"}:
-            if WebSocketClientTransport is None:
-                raise MCPClientError(
-                    "WebSocket transport requires the mcp websocket extra."
-                )
-            return WebSocketClientTransport(
-                self.config.endpoint,
-                headers=self.config.headers or None,
-            )  # type: ignore[arg-type]
-        if transport_type in {"stdio", "process"}:
-            if StdioClientTransport is None:
-                raise MCPClientError("Stdio transport requires the mcp stdio extra.")
-            command = (
-                [self.config.executable] + self.config.args
-                if self.config.executable
-                else self.config.args
+            return _websocket_transport(
+                str(self.config.endpoint), headers=self.config.headers or None
             )
-            return StdioClientTransport(command=command, env=self.config.env or None)  # type: ignore[arg-type]
+        if transport_type in {"http", "https", "streamable-http"}:
+            if streamable_http_client is None:
+                raise MCPClientError("HTTP transport requires the mcp HTTP client.")
+            return _streamable_http_transport(
+                str(self.config.endpoint), headers=self.config.headers or None
+            )
+        if transport_type in {"stdio", "process"}:
+            if stdio_client is None or StdioServerParameters is None:
+                raise MCPClientError("Stdio transport requires the mcp stdio extra.")
+            return stdio_client(
+                StdioServerParameters(
+                    command=str(self.config.executable),
+                    args=self.config.args,
+                    env=self.config.env or None,
+                )
+            )
         raise MCPClientError(f"Unsupported MCP transport '{transport_type}'")
+
+
+@asynccontextmanager
+async def _websocket_transport(url: str, headers: Optional[Dict[str, str]] = None):
+    """Yield MCP memory streams over WebSocket, including optional auth headers."""
+
+    try:
+        import anyio
+        import mcp.types as mcp_types
+        from mcp.shared.message import SessionMessage
+        from pydantic import ValidationError
+        from websockets.asyncio.client import connect
+    except ImportError as exc:  # pragma: no cover - dependency installation failure
+        raise MCPClientError(
+            "WebSocket transport dependencies are not installed."
+        ) from exc
+
+    incoming_writer, incoming = anyio.create_memory_object_stream(0)
+    outgoing, outgoing_reader = anyio.create_memory_object_stream(0)
+    connect_options: Dict[str, Any] = {"subprotocols": ["mcp"]}
+    if headers:
+        connect_options["additional_headers"] = headers
+
+    async with connect(url, **connect_options) as socket:
+
+        async def receive_messages() -> None:
+            async with incoming_writer:
+                async for raw_message in socket:
+                    try:
+                        message = mcp_types.JSONRPCMessage.model_validate_json(
+                            raw_message
+                        )
+                        await incoming_writer.send(SessionMessage(message))
+                    except ValidationError as exc:
+                        await incoming_writer.send(exc)
+
+        async def send_messages() -> None:
+            async with outgoing_reader:
+                async for session_message in outgoing_reader:
+                    payload = session_message.message.model_dump(
+                        by_alias=True, mode="json", exclude_none=True
+                    )
+                    await socket.send(json.dumps(payload))
+
+        async with anyio.create_task_group() as task_group:
+            task_group.start_soon(receive_messages)
+            task_group.start_soon(send_messages)
+            yield incoming, outgoing
+            task_group.cancel_scope.cancel()
+
+
+@asynccontextmanager
+async def _streamable_http_transport(
+    url: str, headers: Optional[Dict[str, str]] = None
+):
+    """Yield streams from the official MCP Streamable HTTP transport."""
+
+    if streamable_http_client is None:  # pragma: no cover - checked by caller
+        raise MCPClientError("HTTP transport requires the mcp HTTP client.")
+    async with httpx.AsyncClient(headers=headers or None) as client:
+        async with streamable_http_client(url, http_client=client) as streams:
+            yield streams
 
 
 def _normalise_tool_result(result: Any) -> Dict[str, Any]:
@@ -339,9 +395,16 @@ def _normalise_tool_result(result: Any) -> Dict[str, Any]:
         return {}
     if isinstance(result, Mapping):
         return dict(result)
+    structured_content = getattr(result, "structuredContent", None)
+    if isinstance(structured_content, Mapping):
+        return dict(structured_content)
     if hasattr(result, "model_dump"):
         try:
-            return result.model_dump()  # type: ignore[return-value]
+            dumped = result.model_dump()
+            structured_content = dumped.get("structuredContent")
+            if isinstance(structured_content, Mapping):
+                return dict(structured_content)
+            return dumped  # type: ignore[no-any-return]
         except Exception as e:  # pragma: no cover - defensive
             logger.debug(f"Failed to call model_dump() on result: {e}")
     if hasattr(result, "dict"):

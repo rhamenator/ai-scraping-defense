@@ -169,10 +169,25 @@ async def _redis_health() -> HealthCheckResult:
 API_KEY = load_api_key("CLOUD_DASHBOARD_API_KEY")
 
 
+def _authorize_api_key(provided: str | None) -> JSONResponse | None:
+    if not API_KEY:
+        logger.error("CLOUD_DASHBOARD_API_KEY is not configured; denying request")
+        return JSONResponse(
+            {
+                "error": "CLOUD_DASHBOARD_API_KEY is not configured; "
+                "run python scripts/interactive_setup.py"
+            },
+            status_code=503,
+        )
+    if not is_api_key_valid(provided, API_KEY):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    return None
+
+
 @app.post("/register")
 async def register_installation(payload: Dict[str, Any], request: Request):
-    if API_KEY and not is_api_key_valid(request.headers.get("X-API-Key"), API_KEY):
-        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if response := _authorize_api_key(request.headers.get("X-API-Key")):
+        return response
 
     installation_id = _validate_installation_id(payload.get("installation_id"))
     if not installation_id:
@@ -200,8 +215,8 @@ async def register_installation(payload: Dict[str, Any], request: Request):
 
 @app.post("/metrics")
 async def push_metrics(payload: Dict[str, Any], request: Request):
-    if API_KEY and not is_api_key_valid(request.headers.get("X-API-Key"), API_KEY):
-        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if response := _authorize_api_key(request.headers.get("X-API-Key")):
+        return response
 
     installation_id = _validate_installation_id(payload.get("installation_id"))
     metrics = payload.get("metrics")
@@ -246,8 +261,8 @@ async def push_metrics(payload: Dict[str, Any], request: Request):
 
 @app.get("/metrics/{installation_id}")
 async def get_metrics(installation_id: str, request: Request):
-    if API_KEY and not is_api_key_valid(request.headers.get("X-API-Key"), API_KEY):
-        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if response := _authorize_api_key(request.headers.get("X-API-Key")):
+        return response
     installation_id = _validate_installation_id(installation_id)
     if not installation_id:
         return JSONResponse({"error": "invalid installation_id"}, status_code=400)
@@ -274,7 +289,16 @@ async def get_metrics(installation_id: str, request: Request):
 @app.websocket("/ws/{installation_id}")
 async def metrics_websocket(websocket: WebSocket, installation_id: str):
     client_ip = _client_ip(websocket)
-    if API_KEY and not is_api_key_valid(websocket.headers.get("X-API-Key"), API_KEY):
+    if not API_KEY:
+        _record_websocket_security_event(
+            "denied",
+            installation_id=installation_id,
+            client_ip=client_ip,
+            reason="api_key_not_configured",
+        )
+        await websocket.close(code=1013)
+        return
+    if not is_api_key_valid(websocket.headers.get("X-API-Key"), API_KEY):
         _record_websocket_security_event(
             "denied",
             installation_id=installation_id,
