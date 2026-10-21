@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* Enforced `X-API-Key` on `GET /list` when the public blocklist's key
+  requirement is enabled (GHSA-gh5c-m6x2-g9xj).
 * Isolated rate-limit and audit activity from trusted proxies that omit a valid
   forwarded client identity, without promoting infrastructure addresses to
   actionable client IPs.
