@@ -58,12 +58,14 @@ You can override individual settings per adapter instance by passing a config di
 For `request-guard-mcp` (formerly the ASD-specific MCP server), the shared compatibility contract is:
 
 ```env
-MODEL_URI=mcp://primary/classify
+MODEL_URI=mcp://primary/classify?argument_key=&options_key=
 MCP_SERVER_PRIMARY_TRANSPORT=ws
 MCP_SERVER_PRIMARY_URL=ws://request-guard-mcp:8085/mcp
 MCP_SERVER_PRIMARY_AUTH_TOKEN=<same-strong-token-as-AUTH_TOKENS>
 MCP_SERVER_PRIMARY_TIMEOUT=10
 ```
+
+The empty `argument_key` sends request fields (`ip`, `user_agent`, `path`, and so on) directly as `classify` tool arguments. The empty `options_key` prevents extra prediction options from being nested in a field this tool does not use. Without `argument_key=`, the generic adapter wraps the request under `input`; Request Guard can then return an `allow` verdict without examining the intended fields. These query settings apply to this adapter, not to every MCP tool. The server remains separately installed, and MCP routing is optional.
 
 ## Model Adapter Class Diagram
 
