@@ -50,7 +50,7 @@ cbor2==5.9.0
     # via
     #   -r requirements.txt
     #   webauthn
-certifi==2026.7.22
+certifi==2026.10.19
     # via
     #   httpcore
     #   httpx
@@ -522,7 +522,7 @@ uvicorn[standard]==0.52.1
     # via
     #   -r requirements.txt
     #   mcp
-virtualenv==21.7.13
+virtualenv==21.14.9
     # via
     #   -r requirements.txt
     #   pre-commit
