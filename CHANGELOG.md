@@ -7,11 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-10-21
+
 ### Fixed
 
 * Isolated rate-limit and audit activity from trusted proxies that omit a valid
   forwarded client identity, without promoting infrastructure addresses to
   actionable client IPs.
+* Authenticated AI webhook bodies before parsing and normalized equivalent IP
+  addresses in blocklist operations.
+* Required a trusted SHA-256 digest before loading local model artifacts.
+* Updated vulnerable Python dependencies, including `aiohttp`, `certifi`,
+  `pip`, `setuptools`, `urllib3`, and `virtualenv`.
+
+### Changed
+
+* Removed the extra package index from the default dependency constraints.
+* Local model deployments must configure the model artifact's trusted digest.
 
 ## [0.0.7] - 2026-08-12
 
