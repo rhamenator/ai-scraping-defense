@@ -53,7 +53,7 @@ Set `MODEL_URI` to `mcp://<server_label>/<tool_name>` to use the `MCPAdapter`. I
 You can override individual settings per adapter instance by passing a config dictionary to `get_model_adapter` or by adding query parameters to the URI (for example, `mcp://risk-scorer/classify?timeout=45`).
 
 > **Tip**
-> Install the Python package with the appropriate extras for your transport, for example `pip install "mcp[websocket]"` when using WebSocket servers or `pip install "mcp[stdio]"` for process-based tools.
+> Install the Python MCP package with its `ws` extra for WebSocket servers (`pip install "mcp[ws]"`). The base `mcp` package supports stdio. MCP 1.29.0 does not declare `websocket` or `stdio` extras.
 
 For `request-guard-mcp` (formerly the ASD-specific MCP server), the shared compatibility contract is:
 
