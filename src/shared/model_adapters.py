@@ -448,12 +448,16 @@ class MCPAdapter(BaseModelAdapter):
 
         self.tool_name = tool_name
         self.client = MCPClient(server_config)
-        argument_key_value = config_map.get("argument_key", "input")
+        argument_key_value = config_map.get(
+            "argument_key", query.get("argument_key", "input")
+        )
         if argument_key_value in (None, ""):
             self.argument_key = ""
         else:
             self.argument_key = str(argument_key_value)
-        options_key_value = config_map.get("options_key", "options")
+        options_key_value = config_map.get(
+            "options_key", query.get("options_key", "options")
+        )
         if options_key_value in (None, ""):
             self.options_key = ""
         else:
