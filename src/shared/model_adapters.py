@@ -15,6 +15,7 @@ from src.shared.mcp_client import (
     load_server_config,
     parse_mcp_uri,
 )
+from src.shared.trusted_model import load_verified_joblib
 
 
 def _is_trusted_model_path(path: str) -> bool:
@@ -28,13 +29,6 @@ def _is_trusted_model_path(path: str) -> bool:
     except Exception:
         return False
 
-
-# This pattern ensures that even if an import fails, the module variable
-# is still defined (as None)
-try:
-    import joblib
-except ImportError:
-    joblib = None
 
 try:
     import openai
@@ -104,17 +98,14 @@ class BaseModelAdapter(ABC):
 # --- Adapter Implementations ---
 class SklearnAdapter(BaseModelAdapter):
     def _load_model(self):
-        if not joblib:
-            logging.error(
-                "joblib library not installed. Cannot load scikit-learn model."
-            )
-            return
         if not _is_trusted_model_path(self.model_uri):
             logging.error("model path %s is outside trusted directory", self.model_uri)
             return
         try:
             # model_uri is the file path, e.g., /app/models/model.joblib
-            self.model = joblib.load(self.model_uri)
+            self.model = load_verified_joblib(
+                self.model_uri, os.getenv("MODEL_SHA256", "")
+            )
             logging.info(f"Scikit-learn model loaded from {self.model_uri}")
         except FileNotFoundError:
             logging.error("model file not found")
