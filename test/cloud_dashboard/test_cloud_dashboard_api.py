@@ -12,6 +12,11 @@ from src.shared.observability import WebSocketConnectionLimiter
 
 class TestCloudDashboardAPI(unittest.TestCase):
     def setUp(self):
+        self.env_patcher = patch.dict(
+            os.environ, {"CLOUD_DASHBOARD_API_KEY": "test-secret"}, clear=False
+        )
+        self.env_patcher.start()
+        self.addCleanup(self.env_patcher.stop)
         importlib.reload(cd)
 
         class MockRedis:
@@ -32,7 +37,7 @@ class TestCloudDashboardAPI(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-        self.client = TestClient(cd.app)
+        self.client = TestClient(cd.app, headers={"X-API-Key": "test-secret"})
 
     def tearDown(self):
         self.client.close()
@@ -166,6 +171,14 @@ class TestCloudDashboardAPI(unittest.TestCase):
                     "/ws/x", headers={"X-API-Key": "sek"}
                 ) as ws:
                     self.assertEqual(ws.receive_json(), {})
+
+    def test_missing_api_key_configuration_fails_closed(self):
+        with patch.object(cd, "API_KEY", None):
+            response = self.client.post("/register", json={"installation_id": "closed"})
+            self.assertEqual(response.status_code, 503)
+            with self.assertRaises(WebSocketDisconnect):
+                with self.client.websocket_connect("/ws/closed"):
+                    pass
 
 
 if __name__ == "__main__":

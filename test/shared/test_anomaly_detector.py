@@ -1,4 +1,5 @@
 import gc
+import hashlib
 import os
 import tempfile
 import unittest
@@ -20,8 +21,9 @@ class TestAnomalyDetector(unittest.TestCase):
         mock_load_settings.return_value = ("redis.internal", 6380, 7, "secret")
         model_path = tempfile.NamedTemporaryFile(delete=False, suffix=".joblib").name
         try:
-            with patch.object(AnomalyDetector, "_load_model"), patch.object(
-                AnomalyDetector, "_redis_client", create=True, new=None
+            with (
+                patch.object(AnomalyDetector, "_load_model"),
+                patch.object(AnomalyDetector, "_redis_client", create=True, new=None),
             ):
                 detector = AnomalyDetector(model_path)
         finally:
@@ -46,7 +48,10 @@ class TestAnomalyDetector(unittest.TestCase):
         tmp_path = tmp.name
         tmp.close()
         joblib.dump(model, tmp_path)
-        detector = AnomalyDetector(tmp_path)
+        with open(tmp_path, "rb") as model_file:
+            digest = hashlib.sha256(model_file.read()).hexdigest()
+        with patch.dict(os.environ, {"ANOMALY_MODEL_SHA256": digest}):
+            detector = AnomalyDetector(tmp_path)
         normal = {"f1": 0.0, "f2": 0.0}
         outlier = {"f1": 5.0, "f2": 5.0}
         score_norm = detector.score(normal)

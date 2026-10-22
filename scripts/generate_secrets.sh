@@ -106,6 +106,15 @@ store_in_vault() {
   fi
 }
 
+store_optional_in_vault() {
+  local path="$1" key="$2" value="$3"
+  if [ -z "$value" ]; then
+    echo -e "${YELLOW}Skipping ${path}:${key}; no value was provided${NC}"
+    return 0
+  fi
+  store_in_vault "$path" "$key" "$value"
+}
+
 # --- Parse Arguments ---
 update_env=false
 export_path=""
@@ -185,12 +194,14 @@ NGINX_PASSWORD=$(generate_password 32)
 EXTERNAL_API_KEY="key-for-$(generate_password)"
 IP_REPUTATION_API_KEY="key-for-$(generate_password)"
 COMMUNITY_BLOCKLIST_API_KEY="key-for-$(generate_password)"
-OPENAI_API_KEY="sk-$(generate_password 40)"
-ANTHROPIC_API_KEY="sk-ant-$(generate_password 40)"
-GOOGLE_API_KEY="AIza$(generate_password 35)"
-COHERE_API_KEY="coh-$(generate_password 40)"
-MISTRAL_API_KEY="mistral-$(generate_password 40)"
+OPENAI_API_KEY="${OPENAI_API_KEY:-}"
+ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
+GOOGLE_API_KEY="${GOOGLE_API_KEY:-}"
+COHERE_API_KEY="${COHERE_API_KEY:-}"
+MISTRAL_API_KEY="${MISTRAL_API_KEY:-}"
 JWT_SECRET=$(generate_password 64)
+CLOUD_DASHBOARD_API_KEY=$(generate_password 48)
+RECOMMENDER_API_KEY=$(generate_password 48)
 
 # Create Nginx htpasswd content using bcrypt
 HTPASSWD_FILE_CONTENT=$(htpasswd -nbBC 12 "$ADMIN_UI_USERNAME" "$NGINX_PASSWORD" | tr -d '\n')
@@ -213,11 +224,13 @@ if [ "$use_vault" = true ]; then
   store_in_vault "${vault_path_prefix}/api/external" "key" "$EXTERNAL_API_KEY"
   store_in_vault "${vault_path_prefix}/api/ip_reputation" "key" "$IP_REPUTATION_API_KEY"
   store_in_vault "${vault_path_prefix}/api/community_blocklist" "key" "$COMMUNITY_BLOCKLIST_API_KEY"
-  store_in_vault "${vault_path_prefix}/llm/openai" "api_key" "$OPENAI_API_KEY"
-  store_in_vault "${vault_path_prefix}/llm/anthropic" "api_key" "$ANTHROPIC_API_KEY"
-  store_in_vault "${vault_path_prefix}/llm/google" "api_key" "$GOOGLE_API_KEY"
-  store_in_vault "${vault_path_prefix}/llm/cohere" "api_key" "$COHERE_API_KEY"
-  store_in_vault "${vault_path_prefix}/llm/mistral" "api_key" "$MISTRAL_API_KEY"
+  store_in_vault "${vault_path_prefix}/api/cloud_dashboard" "key" "$CLOUD_DASHBOARD_API_KEY"
+  store_in_vault "${vault_path_prefix}/api/recommender" "key" "$RECOMMENDER_API_KEY"
+  store_optional_in_vault "${vault_path_prefix}/llm/openai" "api_key" "$OPENAI_API_KEY"
+  store_optional_in_vault "${vault_path_prefix}/llm/anthropic" "api_key" "$ANTHROPIC_API_KEY"
+  store_optional_in_vault "${vault_path_prefix}/llm/google" "api_key" "$GOOGLE_API_KEY"
+  store_optional_in_vault "${vault_path_prefix}/llm/cohere" "api_key" "$COHERE_API_KEY"
+  store_optional_in_vault "${vault_path_prefix}/llm/mistral" "api_key" "$MISTRAL_API_KEY"
 
   echo -e "${GREEN}✓${NC} All secrets stored in Vault"
 fi
@@ -270,7 +283,7 @@ metadata:
   namespace: ai-defense
 type: Opaque
 data:
-  JWT_SECRET: $(echo -n "$JWT_SECRET" | base64 | tr -d '\n')
+  AUTH_JWT_SECRET: $(echo -n "$JWT_SECRET" | base64 | tr -d '\n')
 ---
 apiVersion: v1
 kind: Secret
@@ -296,6 +309,8 @@ data:
   MISTRAL_API_KEY: $(echo -n "$MISTRAL_API_KEY" | base64 | tr -d '\n')
   IP_REPUTATION_API_KEY: $(echo -n "$IP_REPUTATION_API_KEY" | base64 | tr -d '\n')
   COMMUNITY_BLOCKLIST_API_KEY: $(echo -n "$COMMUNITY_BLOCKLIST_API_KEY" | base64 | tr -d '\n')
+  CLOUD_DASHBOARD_API_KEY: $(echo -n "$CLOUD_DASHBOARD_API_KEY" | base64 | tr -d '\n')
+  RECOMMENDER_API_KEY: $(echo -n "$RECOMMENDER_API_KEY" | base64 | tr -d '\n')
 EOL
 
 echo -e "${GREEN}✓${NC} Created Kubernetes secrets manifest: ${OUTPUT_FILE}"
@@ -320,7 +335,9 @@ if [ -n "$export_path" ]; then
   "MISTRAL_API_KEY": "$MISTRAL_API_KEY",
   "EXTERNAL_API_KEY": "$EXTERNAL_API_KEY",
   "IP_REPUTATION_API_KEY": "$IP_REPUTATION_API_KEY",
-  "COMMUNITY_BLOCKLIST_API_KEY": "$COMMUNITY_BLOCKLIST_API_KEY"
+  "COMMUNITY_BLOCKLIST_API_KEY": "$COMMUNITY_BLOCKLIST_API_KEY",
+  "CLOUD_DASHBOARD_API_KEY": "$CLOUD_DASHBOARD_API_KEY",
+  "RECOMMENDER_API_KEY": "$RECOMMENDER_API_KEY"
 }
 EOF
   chmod 600 "$export_path"
@@ -342,14 +359,16 @@ if [ "$update_env" = true ]; then
   update_var SYSTEM_SEED "$SYSTEM_SEED" "$ENV_FILE"
   update_var NGINX_PASSWORD "$NGINX_PASSWORD" "$ENV_FILE"
   update_var AUTH_JWT_SECRET "$JWT_SECRET" "$ENV_FILE"
-  update_var OPENAI_API_KEY "$OPENAI_API_KEY" "$ENV_FILE"
-  update_var ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY" "$ENV_FILE"
-  update_var GOOGLE_API_KEY "$GOOGLE_API_KEY" "$ENV_FILE"
-  update_var COHERE_API_KEY "$COHERE_API_KEY" "$ENV_FILE"
-  update_var MISTRAL_API_KEY "$MISTRAL_API_KEY" "$ENV_FILE"
+  [ -z "$OPENAI_API_KEY" ] || update_var OPENAI_API_KEY "$OPENAI_API_KEY" "$ENV_FILE"
+  [ -z "$ANTHROPIC_API_KEY" ] || update_var ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY" "$ENV_FILE"
+  [ -z "$GOOGLE_API_KEY" ] || update_var GOOGLE_API_KEY "$GOOGLE_API_KEY" "$ENV_FILE"
+  [ -z "$COHERE_API_KEY" ] || update_var COHERE_API_KEY "$COHERE_API_KEY" "$ENV_FILE"
+  [ -z "$MISTRAL_API_KEY" ] || update_var MISTRAL_API_KEY "$MISTRAL_API_KEY" "$ENV_FILE"
   update_var EXTERNAL_API_KEY "$EXTERNAL_API_KEY" "$ENV_FILE"
   update_var IP_REPUTATION_API_KEY "$IP_REPUTATION_API_KEY" "$ENV_FILE"
   update_var COMMUNITY_BLOCKLIST_API_KEY "$COMMUNITY_BLOCKLIST_API_KEY" "$ENV_FILE"
+  update_var CLOUD_DASHBOARD_API_KEY "$CLOUD_DASHBOARD_API_KEY" "$ENV_FILE"
+  update_var RECOMMENDER_API_KEY "$RECOMMENDER_API_KEY" "$ENV_FILE"
 
   # Write secret files for Docker Compose
   SECRETS_DIR="$ROOT_DIR/secrets"
