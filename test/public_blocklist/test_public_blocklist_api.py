@@ -16,6 +16,7 @@ class TestPublicBlocklistAPI(unittest.TestCase):
         self.pb = pb
         self.pb.PUBLIC_BLOCKLIST_FILE = self.tempfile.name
         self.pb.PUBLIC_BLOCKLIST_API_KEY = "secret"
+        self.pb.PUBLIC_BLOCKLIST_LIST_REQUIRES_KEY = False
         self.pb.BLOCKLIST_IPS = set(self.pb._load_blocklist())
         self.client = TestClient(self.pb.app)
 
@@ -55,3 +56,20 @@ class TestPublicBlocklistAPI(unittest.TestCase):
         self.assertEqual(resp.status_code, 401)
         resp = self.client.get("/list/auth", headers={"X-API-Key": "secret"})
         self.assertEqual(resp.status_code, 200)
+
+    def test_get_list_requires_key_when_enabled(self):
+        with mock.patch.object(self.pb, "PUBLIC_BLOCKLIST_LIST_REQUIRES_KEY", True):
+            self.assertEqual(self.client.get("/list").status_code, 401)
+            self.assertEqual(
+                self.client.get("/list", headers={"X-API-Key": "wrong"}).status_code,
+                401,
+            )
+            resp = self.client.get("/list", headers={"X-API-Key": "secret"})
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.json(), {"ips": []})
+
+    def test_get_list_requires_configured_key_when_enabled(self):
+        with mock.patch.object(self.pb, "PUBLIC_BLOCKLIST_LIST_REQUIRES_KEY", True), mock.patch.object(
+            self.pb, "PUBLIC_BLOCKLIST_API_KEY", None
+        ):
+            self.assertEqual(self.client.get("/list").status_code, 503)
