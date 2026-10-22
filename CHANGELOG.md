@@ -7,11 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.10] - 2026-10-21
+
 ### Fixed
 
+* Removed unused build tools and their vendored dependencies from the cloud
+  proxy and prompt router images, and required patched `msgpack` in the cloud
+  proxy image.
+
+## [0.0.9] - 2026-10-21
+
+### Fixed
+
+* Removed unused package-build and virtual environment tools from the runtime
+  container, eliminating their bundled vulnerable dependencies.
+
+## [0.0.8] - 2026-10-21
+
+### Fixed
+
+* Enforced `X-API-Key` on `GET /list` when the public blocklist's key
+  requirement is enabled (GHSA-gh5c-m6x2-g9xj).
 * Isolated rate-limit and audit activity from trusted proxies that omit a valid
   forwarded client identity, without promoting infrastructure addresses to
   actionable client IPs.
+* Authenticated AI webhook bodies before parsing and normalized equivalent IP
+  addresses in blocklist operations.
+* Required a trusted SHA-256 digest before loading local model artifacts.
+* Updated vulnerable Python dependencies, including `aiohttp`, `certifi`,
+  `pip`, `setuptools`, `urllib3`, and `virtualenv`.
+
+### Changed
+
+* Removed the extra package index from the default dependency constraints.
+* Local model deployments must configure the model artifact's trusted digest.
 
 ## [0.0.7] - 2026-08-12
 

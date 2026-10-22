@@ -11,12 +11,12 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Install dependencies as root
-RUN python -m pip install --no-cache-dir --upgrade "pip>=26.0" && \
-    pip install --no-cache-dir fastapi uvicorn[standard] httpx cachetools prometheus-client && \
-    # Reduce image attack surface: build tooling is not needed at runtime.
-    pip uninstall -y setuptools wheel || true && \
-    pip check
+# Install dependencies as root, then remove build tools and their vendored code.
+RUN python -m pip install --no-cache-dir --upgrade "pip>=26.2.0" && \
+    pip install --no-cache-dir fastapi 'uvicorn[standard]' httpx cachetools prometheus-client 'msgpack>=1.2.1' && \
+    pip check && \
+    python -m pip uninstall -y setuptools wheel pip && \
+    python -c "import fastapi, uvicorn, httpx, msgpack, importlib.util; assert importlib.util.find_spec('pip') is None"
 
 # Copy application files with proper ownership
 COPY --chown=appuser:appuser main.py /app/main.py
