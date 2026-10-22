@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-scraping-defense"
-version = "0.0.8"
+version = "0.0.9"
 description = "Multi-layered defense services for AI-powered scraping and malicious bots"
 readme = "README.md"
 requires-python = ">=3.11"
