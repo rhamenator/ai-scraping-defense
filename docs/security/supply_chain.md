@@ -10,10 +10,11 @@ Defense, including dependency integrity, SBOM generation, and CI verification.
 - **Integrity check**: `scripts/security/verify_dependencies.py` validates that
   `requirements.txt` entries are represented in `requirements.lock` and warns
   about insecure index overrides.
-- **PyTorch baseline**: CPU-wheel installs are pinned through `constraints.txt`.
-  The supported coordinated set is `torch==2.10.0`, `torchvision==0.25.0`, and
-  `torchaudio==2.10.0` so Dependabot updates are triaged as a family instead of
-  as isolated package bumps.
+- **PyTorch baseline**: `constraints.txt` pins the coordinated set
+  `torch==2.11.0`, `torchvision==0.26.0`, and `torchaudio==2.11.0`.
+  For CPU-only wheels, install this set separately using PyTorch's dedicated
+  `--index-url https://download.pytorch.org/whl/cpu` command before installing
+  the general requirements. Never use an extra index for general resolution.
 
 ## CI Controls
 

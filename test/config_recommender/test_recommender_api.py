@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import patch
 
@@ -8,7 +9,20 @@ from src.config_recommender import recommender_api
 
 class TestConfigRecommender(unittest.TestCase):
     def setUp(self):
-        self.client = TestClient(recommender_api.app)
+        self.env_patcher = patch.dict(
+            os.environ, {"RECOMMENDER_API_KEY": "test-secret"}, clear=False
+        )
+        self.env_patcher.start()
+        self.addCleanup(self.env_patcher.stop)
+        self.client = TestClient(
+            recommender_api.app, headers={"X-API-Key": "test-secret"}
+        )
+
+    def test_missing_api_key_configuration_fails_closed(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("RECOMMENDER_API_KEY", None)
+            response = self.client.get("/recommendations")
+        self.assertEqual(response.status_code, 503)
 
     @patch("src.config_recommender.recommender_api.get_metrics")
     def test_recommendations_generation(self, mock_get_metrics):
