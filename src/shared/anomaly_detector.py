@@ -4,12 +4,11 @@ import os
 from typing import Any, Dict
 
 from src.shared.redis_client import load_redis_runtime_settings
+from src.shared.trusted_model import load_verified_joblib
 
 try:
-    import joblib
     import numpy as np
 except Exception:  # pragma: no cover
-    joblib = None
     np = None
 
 ANOMALY_SCORE_THRESHOLD = float(os.getenv("ANOMALY_SCORE_THRESHOLD", "0.7"))
@@ -47,11 +46,10 @@ class AnomalyDetector:
             self._redis_client = None
 
     def _load_model(self):
-        if not joblib:
-            logging.error("joblib is not installed; anomaly detection disabled")
-            return
         try:
-            self.model = joblib.load(self.model_path)
+            self.model = load_verified_joblib(
+                self.model_path, os.getenv("ANOMALY_MODEL_SHA256", "")
+            )
             logging.info(f"Anomaly model loaded from {self.model_path}")
         except Exception as e:  # pragma: no cover - unexpected
             logging.error(f"Failed to load anomaly model: {e}")

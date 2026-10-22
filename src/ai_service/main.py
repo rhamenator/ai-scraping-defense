@@ -26,7 +26,7 @@ from src.shared.request_identity import (
     is_trusted_infrastructure_ip,
     resolve_request_identity,
 )
-from src.shared.request_utils import read_json_body
+from src.shared.request_utils import parse_json_bytes, read_body_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -145,13 +145,7 @@ async def webhook_receiver(
         raise HTTPException(status_code=500, detail="Shared secret not configured")
     client_ip = get_client_ip(request)
     with trace_span("ai_service.read_payload"):
-        payload = await read_json_body(request)
-    # Validate payload schema
-    try:
-        action_req = WebhookAction.model_validate(payload)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid payload")
-    body_bytes = request.state.body_bytes
+        body_bytes = await read_body_bytes(request)
     signature = request.headers.get("X-Signature", "")
     expected = hmac.new(
         config.WEBHOOK_SHARED_SECRET.encode("utf-8"), body_bytes, hashlib.sha256
@@ -159,6 +153,12 @@ async def webhook_receiver(
     if not hmac.compare_digest(signature, expected):
         audit_log_event(client_ip, "webhook_auth_failed", {"ip": client_ip})
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+    payload = parse_json_bytes(body_bytes)
+    try:
+        action_req = WebhookAction.model_validate(payload)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid payload")
 
     now = time.time()
     window_reset = calculate_window_reset(now, config.WEBHOOK_RATE_LIMIT_WINDOW)
@@ -202,9 +202,14 @@ async def webhook_receiver(
                 detail="Invalid payload",
             )
         try:
-            ipaddress.ip_address(ip)
+            parsed_ip = ipaddress.ip_address(ip)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid payload")
+        ip = (
+            str(parsed_ip.ipv4_mapped or parsed_ip)
+            if isinstance(parsed_ip, ipaddress.IPv6Address)
+            else str(parsed_ip)
+        )
 
     try:
         with trace_span(

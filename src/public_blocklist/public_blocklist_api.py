@@ -112,10 +112,13 @@ class IPReport(BaseModel):
 
 
 @app.get("/list")
-def get_list() -> dict:
+def get_list(x_api_key: Optional[str] = Header(None)) -> dict:
     """Return the list of known malicious IPs."""
-    if PUBLIC_BLOCKLIST_LIST_REQUIRES_KEY and not PUBLIC_BLOCKLIST_API_KEY:
-        raise HTTPException(status_code=503, detail="Service misconfigured")
+    if PUBLIC_BLOCKLIST_LIST_REQUIRES_KEY:
+        if not PUBLIC_BLOCKLIST_API_KEY:
+            raise HTTPException(status_code=503, detail="Service misconfigured")
+        if not is_api_key_valid(x_api_key, PUBLIC_BLOCKLIST_API_KEY):
+            raise HTTPException(status_code=401, detail="Invalid or missing API key")
     return {"ips": sorted(BLOCKLIST_IPS)}
 
 
