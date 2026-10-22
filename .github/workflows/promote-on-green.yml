@@ -33,7 +33,7 @@ jobs:
     environment:
       name: production
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Login GHCR
         run: >-
           echo "${{ secrets.GITHUB_TOKEN }}" |
@@ -78,7 +78,7 @@ jobs:
           cluster_name: ${{ env.GKE_CLUSTER }}
           location: ${{ env.GCP_REGION }}
       # yamllint enable rule:line-length
-      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310
       - name: Helm upgrade/install (prod)
         run: |
           set -eux

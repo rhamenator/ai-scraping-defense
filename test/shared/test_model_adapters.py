@@ -18,8 +18,7 @@ from src.shared.model_adapters import HttpModelAdapter, MarkovAdapter, SklearnAd
 class TestModelAdaptersComprehensive(unittest.TestCase):
 
     def setUp(self):
-        # This setup will be used for patching joblib in the SklearnAdapter test
-        self.joblib_patcher = patch("src.shared.model_adapters.joblib.load")
+        self.joblib_patcher = patch("src.shared.model_adapters.load_verified_joblib")
         self.mock_joblib_load = self.joblib_patcher.start()
 
     def tearDown(self):
@@ -31,15 +30,19 @@ class TestModelAdaptersComprehensive(unittest.TestCase):
         mock_model.predict_proba.return_value = np.array([[0.9, 0.1]])
         self.mock_joblib_load.return_value = mock_model
 
-        # The adapter takes a URI, which is used by joblib.load
-        with patch.dict(os.environ, {"TRUSTED_MODEL_DIR": "/fake"}):
+        # The adapter verifies the configured digest before loading the model.
+        with patch.dict(
+            os.environ, {"TRUSTED_MODEL_DIR": "/fake", "MODEL_SHA256": "a" * 64}
+        ):
             adapter = SklearnAdapter(model_uri="/fake/path/model.joblib")
 
         # The data should be a list of dictionaries as expected by DictVectorizer
         data = [{"feature1": 10, "feature2": 20}]
         predictions = adapter.predict(data)
 
-        self.mock_joblib_load.assert_called_once_with("/fake/path/model.joblib")
+        self.mock_joblib_load.assert_called_once_with(
+            "/fake/path/model.joblib", "a" * 64
+        )
         mock_model.predict_proba.assert_called_once_with(data)
         self.assertIsInstance(predictions, np.ndarray)
         np.testing.assert_array_equal(
@@ -49,7 +52,9 @@ class TestModelAdaptersComprehensive(unittest.TestCase):
     def test_sklearn_adapter_model_not_loaded(self):
         """Test SklearnAdapter returns a default value if the model failed to load."""
         self.mock_joblib_load.side_effect = FileNotFoundError
-        with patch.dict(os.environ, {"TRUSTED_MODEL_DIR": "/bad"}):
+        with patch.dict(
+            os.environ, {"TRUSTED_MODEL_DIR": "/bad", "MODEL_SHA256": "a" * 64}
+        ):
             with self.assertLogs(level="ERROR") as cm:
                 adapter = SklearnAdapter(model_uri="/bad/path/model.joblib")
                 self.assertIn("model file not found", cm.output[0])
