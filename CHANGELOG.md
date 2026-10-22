@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.10] - 2026-10-21
+
+### Fixed
+
+* Removed unused build tools and their vendored dependencies from the cloud
+  proxy and prompt router images, and required patched `msgpack` in the cloud
+  proxy image.
+
 ## [0.0.9] - 2026-10-21
 
 ### Fixed
