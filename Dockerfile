@@ -61,15 +61,14 @@ COPY requirements.txt constraints.txt ./
 
 # Install dependencies as root into the image's site-packages. We still run the
 # app as non-root, but avoid pip falling back to a user-install (which requires
-# a writable $HOME).
-RUN python -m pip install --no-cache-dir --upgrade "pip>=26.0" "setuptools>=83.0.0" && \
+# a writable $HOME). Remove build and environment-management tools afterward:
+# their bundled wheels and vendored libraries can retain vulnerable versions.
+RUN python -m pip install --no-cache-dir --upgrade "pip>=26.2.0" "setuptools>=83.0.0" && \
     pip install --no-cache-dir -r requirements.txt -c constraints.txt && \
-    rm -rf /root/.cache/pip && \
-    # Trivy may flag vulnerabilities in setuptools' vendored dependencies (e.g. jaraco.context).
-    # We keep setuptools for build tooling included in requirements.txt (pip-tools), but remove
-    # unused vendored modules to reduce exposure in the runtime image.
-    python -c "import shutil; from pathlib import Path; import setuptools; vendor=Path(setuptools.__file__).parent/'_vendor'; [shutil.rmtree(p, ignore_errors=True) for p in vendor.glob('jaraco.context-*.dist-info')]; ctx=vendor/'jaraco'/'context.py'; ctx.exists() and ctx.unlink(); [shutil.rmtree(p, ignore_errors=True) for p in vendor.glob('wheel-*.dist-info')]; wh=vendor/'wheel'; wh.exists() and shutil.rmtree(wh, ignore_errors=True)" && \
-    pip check
+    pip check && \
+    python -m pip uninstall -y pip-tools virtualenv setuptools pip && \
+    python -c "import fastapi, redis, urllib3, importlib.util; assert importlib.util.find_spec('pip') is None" && \
+    rm -rf /root/.cache/pip
 
 COPY --chown=appuser:appuser src/ /app/src/
 

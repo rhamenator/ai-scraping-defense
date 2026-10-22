@@ -9,6 +9,24 @@ from src.shared.model_adapters import MCPAdapter
 class TestMCPAdapter(unittest.TestCase):
     @patch("src.shared.model_adapters.MCPClient")
     @patch("src.shared.model_adapters.load_server_config")
+    def test_request_guard_uri_sends_classify_fields_directly(
+        self, mock_load_config, mock_client_cls
+    ):
+        request = {
+            "ip": "192.0.2.42",
+            "user_agent": "GPTBot/1.0",
+            "path": "/robots.txt",
+            "method": "GET",
+        }
+        adapter = MCPAdapter("mcp://primary/classify?argument_key=&options_key=")
+        adapter.predict(request)
+        mock_client_cls.return_value.call_tool.assert_called_once_with(
+            "classify", request, timeout=None
+        )
+        self.assertTrue(mock_load_config.called)
+
+    @patch("src.shared.model_adapters.MCPClient")
+    @patch("src.shared.model_adapters.load_server_config")
     @patch("src.shared.model_adapters.parse_mcp_uri")
     def test_predict_success(self, mock_parse, mock_load_config, mock_client_cls):
         mock_parse.return_value = ("demo", "summarize", {})
