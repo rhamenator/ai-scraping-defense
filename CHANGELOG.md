@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-10-21
+
+### Fixed
+
+* Removed unused package-build and virtual environment tools from the runtime
+  container, eliminating their bundled vulnerable dependencies.
+
 ## [0.0.8] - 2026-10-21
 
 ### Fixed
