@@ -34,6 +34,9 @@ os.environ.setdefault(
 os.environ.setdefault(
     "DECISIONS_DB_PATH", os.path.join(test_data_dir, "test_decisions.db")
 )
+os.environ.setdefault(
+    "SECURITY_EVENTS_DB_PATH", os.path.join(test_data_dir, "security_events.db")
+)
 os.environ.setdefault("SURICATA_EVE_LOG", os.path.join(test_logs_dir, "test_eve.json"))
 
 

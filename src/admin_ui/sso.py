@@ -5,6 +5,7 @@ from fastapi import HTTPException, Request, status
 
 from src.shared.authz import _roles_from_claims
 from src.shared.config import get_secret
+from src.shared.request_identity import resolve_request_identity
 
 try:
     import jwt
@@ -126,6 +127,11 @@ def _saml_user(request: Request) -> Optional[dict[str, Any]]:
     username = request.headers.get(header_user)
     if not username:
         return None
+    if not resolve_request_identity(request).via_trusted_proxy:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Untrusted SAML assertion source",
+        )
     groups_raw = request.headers.get(header_groups, "")
     groups = {g.strip() for g in groups_raw.split(",") if g.strip()}
     required_group = os.getenv("ADMIN_UI_SAML_REQUIRED_GROUP")
@@ -133,7 +139,12 @@ def _saml_user(request: Request) -> Optional[dict[str, Any]]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient group"
         )
-    return {"username": str(username), "groups": sorted(groups), "provider": "saml"}
+    return {
+        "username": str(username),
+        "groups": sorted(groups),
+        "roles": sorted(groups),
+        "provider": "saml",
+    }
 
 
 def get_sso_user(request: Request) -> Optional[dict[str, Any]]:

@@ -446,6 +446,13 @@ When referencing a local file with the `sklearn://` scheme, the model must resid
 in a trusted directory. By default, the adapters only load models from the
 `models/` folder (override with the `TRUSTED_MODEL_DIR` environment variable).
 Files outside this directory are ignored to avoid executing untrusted code.
+Because joblib models contain pickle data, set `MODEL_SHA256` to the SHA-256 of
+the approved model before enabling the sklearn adapter. Set
+`ANOMALY_MODEL_SHA256` when `ANOMALY_MODEL_PATH` is configured. Calculate each
+digest with `sha256sum /path/to/model.joblib` after training, then distribute
+the digest through trusted deployment configuration. A model with a missing or
+mismatched digest is not loaded. Do not derive the trusted digest from a file
+beside the model or from an untrusted download.
 
 All LLM requests from the Escalation Engine are sent to the **Prompt Router**. The
 router constructs the final target URL from `PROMPT_ROUTER_HOST` and
