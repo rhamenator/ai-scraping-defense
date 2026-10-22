@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.11] - 2026-10-22
+
+### Changed
+
+* Updated runtime dependencies, including Redis, pandas, and Google Gen AI,
+  and refreshed pinned GitHub Actions after review and CI verification.
+
 ## [0.0.10] - 2026-10-21
 
 ### Fixed
