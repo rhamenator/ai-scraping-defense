@@ -1,5 +1,6 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.13.0
-torchvision==0.24.1
-torchaudio==2.9.0
+# Install CPU-only PyTorch from its dedicated index in a separate command;
+# never mix a second index into the general dependency resolver.
+torch==2.11.0
+torchvision==0.26.0
+torchaudio==2.11.0
 python-multipart==0.0.31

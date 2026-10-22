@@ -262,6 +262,10 @@ def _require_auth_core(
         sso_user = sso.get_sso_user(request)
     if sso_user:
         username = sso_user["username"]
+        request.state.admin_ui_auth_provider = sso_user.get("provider", "sso")
+        request.state.admin_ui_roles = set(
+            sso_user.get("roles", sso_user.get("groups", []))
+        )
         sso_mfa_required = _admin_ui_sso_mfa_required()
         if not sso_mfa_required:
             if redis_conn:
@@ -343,6 +347,9 @@ def _require_auth_core(
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
     LOGIN_ATTEMPTS.labels(result="success").inc()
+    if request is not None:
+        request.state.admin_ui_auth_provider = "basic"
+        request.state.admin_ui_roles = {ADMIN_UI_ROLE}
 
     return _require_mfa(
         request,
@@ -404,9 +411,22 @@ def _set_session_cookie(
         )
 
 
-def require_admin(user: str = Depends(require_auth)) -> str:
+def require_admin(request: Request, user: str = Depends(require_auth)) -> str:
     """Ensure the authenticated user has admin privileges."""
-    if ADMIN_UI_ROLE != "admin":
+    provider = getattr(request.state, "admin_ui_auth_provider", "basic")
+    roles = getattr(request.state, "admin_ui_roles", set())
+    if provider == "oidc":
+        required_role = os.getenv("ADMIN_UI_OIDC_ADMIN_ROLE", "admin")
+        is_admin = required_role in roles
+    elif provider == "saml":
+        required_role = os.getenv(
+            "ADMIN_UI_SAML_ADMIN_GROUP",
+            os.getenv("ADMIN_UI_SAML_REQUIRED_GROUP", "admin"),
+        )
+        is_admin = required_role in roles
+    else:
+        is_admin = ADMIN_UI_ROLE == "admin"
+    if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
     return user
 

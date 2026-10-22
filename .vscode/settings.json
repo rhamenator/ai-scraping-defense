@@ -1,4 +1,10 @@
 {
+    // The GitHub Actions extension cannot validate environment-scoped secrets
+    // until it can query the repository. Treat workflows as YAML locally so
+    // valid production/staging environment references do not fill Problems.
+    "files.associations": {
+        ".github/workflows/*.yml": "yaml"
+    },
     "python-envs.defaultEnvManager": "ms-python.python:venv",
     "python-envs.pythonProjects": [],
     "python.testing.unittestArgs": [
