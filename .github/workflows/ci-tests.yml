@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: { fetch-depth: 0 }
       - name: Set up Python
         if: hashFiles('**/*.py') != ''
@@ -152,7 +152,7 @@ jobs:
           rm -rf "$tmpdir"
       - name: Set up Helm
         if: hashFiles('helm/**') != ''
-        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310
       - name: Helm/K8s lint
         if: hashFiles('helm/**') != ''
         run: |
@@ -171,7 +171,7 @@ jobs:
       PYTHON_VERSION: "3.14"
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: { fetch-depth: 0 }
       - name: Set up Python
         if: hashFiles('**/*.py') != ''
@@ -229,7 +229,7 @@ jobs:
       PYTHON_VERSION: "3.14"
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: { fetch-depth: 0 }
       - name: Set up Python
         if: hashFiles('**/*.py') != ''
