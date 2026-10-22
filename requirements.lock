@@ -40,7 +40,7 @@ bcrypt==5.0.0
     # via -r requirements.txt
 beautifulsoup4==4.15.0
     # via wikipedia
-black==26.5.1
+black==26.10.1
     # via -r requirements.txt
 build==1.5.0
     # via pip-tools
@@ -69,14 +69,6 @@ click==8.4.2
     #   uvicorn
 cohere==5.21.1
     # via -r requirements.txt
-colorama==0.4.6
-    # via
-    #   build
-    #   click
-    #   pytest
-    #   qrcode
-    #   tqdm
-    #   typer
 coverage==7.15.4
     # via -r requirements.txt
 cryptography==50.0.0
@@ -131,6 +123,7 @@ frozenlist==1.8.0
     #   aiosignal
 fsspec[http]==2026.6.0
     # via
+    #   -r requirements.txt
     #   datasets
     #   evaluate
     #   huggingface-hub
@@ -138,7 +131,7 @@ geoip2==5.3.0
     # via -r requirements.txt
 google-auth[requests]==2.56.3
     # via google-genai
-google-genai==1.75.0
+google-genai==2.32.0
     # via -r requirements.txt
 googleapis-common-protos==1.75.1
     # via opentelemetry-exporter-otlp-proto-grpc
@@ -186,8 +179,6 @@ idna==3.18
     #   httpx
     #   requests
     #   yarl
-importlib-metadata==8.7.1
-    # via opentelemetry-api
 iniconfig==2.3.0
     # via pytest
 isort==8.0.1
@@ -228,6 +219,7 @@ msgpack==1.2.1
     # via -r requirements.txt
 multidict==6.9.1
     # via
+    #   -r requirements.txt
     #   aiohttp
     #   yarl
 multiprocess==0.70.19
@@ -250,30 +242,35 @@ numpy==2.5.2
     #   scipy
     #   transformers
     #   xgboost
+nvidia-nccl-cu13==2.32.3
+    # via xgboost
 ollama==0.6.2
     # via -r requirements.txt
 openai==2.53.0
     # via -r requirements.txt
-opentelemetry-api==1.39.1
+opentelemetry-api==1.45.1
     # via
     #   -r requirements.txt
     #   mistralai
     #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-exporter-otlp-proto-common==1.39.1
+opentelemetry-exporter-otlp-common==0.66b1
     # via opentelemetry-exporter-otlp-proto-grpc
-opentelemetry-exporter-otlp-proto-grpc==1.39.1
+opentelemetry-exporter-otlp-proto-common==1.45.1
+    # via opentelemetry-exporter-otlp-proto-grpc
+opentelemetry-exporter-otlp-proto-grpc==1.45.1
     # via -r requirements.txt
-opentelemetry-proto==1.39.1
+opentelemetry-proto==1.45.1
     # via
     #   opentelemetry-exporter-otlp-proto-common
     #   opentelemetry-exporter-otlp-proto-grpc
-opentelemetry-sdk==1.39.1
+opentelemetry-sdk==1.45.1
     # via
     #   -r requirements.txt
+    #   opentelemetry-exporter-otlp-common
     #   opentelemetry-exporter-otlp-proto-grpc
-opentelemetry-semantic-conventions==0.60b1
+opentelemetry-semantic-conventions==0.66b1
     # via
     #   mistralai
     #   opentelemetry-sdk
@@ -287,6 +284,7 @@ packaging==26.3
     #   huggingface-hub
     #   pytest
     #   transformers
+    #   virtualenv
     #   wheel
 pandas==3.0.5
     # via
@@ -380,7 +378,7 @@ python-dateutil==2.9.0.post0
     #   freezegun
     #   mistralai
     #   pandas
-python-discovery==1.5.1
+python-discovery==1.6.4
     # via virtualenv
 python-dotenv==1.2.2
     # via
@@ -392,8 +390,6 @@ python-multipart==0.0.32
     #   mcp
 pytokens==0.4.1
     # via black
-pywin32==312
-    # via mcp
 pyyaml==6.0.3
     # via
     #   -r requirements.txt
@@ -404,7 +400,7 @@ pyyaml==6.0.3
     #   uvicorn
 qrcode==8.2
     # via -r requirements.txt
-redis==7.4.1
+redis==8.1.0
     # via -r requirements.txt
 referencing==0.37.0
     # via
@@ -506,14 +502,13 @@ typing-inspection==0.4.3
     #   mistralai
     #   pydantic
     #   pydantic-settings
-tzdata==2026.3
-    # via pandas
 ua-parser==1.0.2
     # via user-agents
 ua-parser-builtins==202606
     # via ua-parser
 urllib3==2.8.0
     # via
+    #   -r requirements.txt
     #   requests
     #   types-requests
 user-agents==2.2.0
@@ -522,6 +517,8 @@ uvicorn[standard]==0.52.1
     # via
     #   -r requirements.txt
     #   mcp
+uvloop==0.23.0
+    # via uvicorn
 virtualenv==21.14.9
     # via
     #   -r requirements.txt
@@ -546,10 +543,8 @@ xxhash==3.8.1
     # via
     #   datasets
     #   evaluate
-yarl==1.24.5
+yarl==1.25.1
     # via aiohttp
-zipp==4.1.0
-    # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
 # pip

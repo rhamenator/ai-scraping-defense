@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Updated runtime dependencies, including Redis, pandas, and Google Gen AI,
   and refreshed pinned GitHub Actions after review and CI verification.
+* Updated OpenTelemetry to 1.45.1 and Black to 26.10.1 to address
+  CVE-2026-114603 and CVE-2026-114134.
 
 ## [0.0.10] - 2026-10-21
 
