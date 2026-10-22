@@ -80,6 +80,28 @@ class TestAIWebhookComprehensive(unittest.TestCase):
             "default:blocklist", "20.0.0.2"
         )
 
+    def test_equivalent_ipv6_addresses_use_one_blocklist_key(self):
+        block = self._post({"action": "block_ip", "ip": "2001:0db8:0000:0000::1"})
+        allow = self._post({"action": "allow_ip", "ip": "2001:db8::1"})
+
+        self.assertEqual(block.status_code, 200)
+        self.assertEqual(allow.status_code, 200)
+        self.mock_redis_client.sadd.assert_called_once_with(
+            "default:blocklist", "2001:db8::1"
+        )
+        self.mock_redis_client.srem.assert_called_once_with(
+            "default:blocklist", "2001:db8::1"
+        )
+
+    def test_mapped_ipv4_cannot_bypass_trusted_proxy_protection(self):
+        with patch.dict(
+            os.environ, {"SECURITY_CDN_TRUSTED_PROXY_CIDRS": "173.245.48.0/20"}
+        ):
+            response = self._post({"action": "block_ip", "ip": "::ffff:173.245.48.10"})
+
+        self.assertEqual(response.status_code, 400)
+        self.mock_redis_client.sadd.assert_not_called()
+
     def test_webhook_receiver_flag_ip_success(self):
         """Test a successful 'flag_ip' action."""
         payload = {
@@ -184,6 +206,28 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()["detail"], "Unauthorized")
 
+    def test_unsigned_malformed_payload_is_rejected_before_json_parsing(self):
+        response = self.client.post(
+            "/webhook",
+            content=b"{",
+            headers={"Content-Type": "application/json"},
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["detail"], "Unauthorized")
+
+    def test_signed_invalid_utf8_returns_bad_request(self):
+        body = b"\xff"
+        signature = hmac.new(self.secret.encode(), body, hashlib.sha256).hexdigest()
+        response = self.client.post(
+            "/webhook",
+            content=body,
+            headers={"X-Signature": signature, "Content-Type": "application/json"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Invalid JSON")
+
     def test_webhook_receiver_redis_unavailable(self):
         """Test that a 503 error is returned if the Redis connection fails."""
         ai_webhook.app.dependency_overrides[ai_webhook.get_redis_blocklist] = (
@@ -224,10 +268,13 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
 class TestCommunityReportingTimeout(unittest.IsolatedAsyncioTestCase):
     async def test_reporting_redis_client_uses_shared_secret_loader(self):
-        with patch(
-            "src.ai_service.community_reporting.load_redis_runtime_settings",
-            return_value=("redis.internal", 6380, 6, "secret"),
-        ), patch("src.ai_service.community_reporting.redis.Redis") as redis_cls:
+        with (
+            patch(
+                "src.ai_service.community_reporting.load_redis_runtime_settings",
+                return_value=("redis.internal", 6380, 6, "secret"),
+            ),
+            patch("src.ai_service.community_reporting.redis.Redis") as redis_cls,
+        ):
             await community_reporting.get_redis_client()
 
         redis_cls.assert_called_once_with(
@@ -252,17 +299,20 @@ class TestCommunityReportingTimeout(unittest.IsolatedAsyncioTestCase):
         async def slow_to_thread(func, *args, **kwargs):
             await asyncio.sleep(1)
 
-        with patch(
-            "src.ai_service.community_reporting.httpx.AsyncClient",
-            return_value=mock_client,
-        ), patch(
-            "src.ai_service.community_reporting.asyncio.to_thread",
-            side_effect=slow_to_thread,
-        ), patch(
-            "src.ai_service.community_reporting.increment_counter_metric"
-        ) as mock_metric, patch(
-            "src.ai_service.community_reporting.logger.error"
-        ) as mock_log:
+        with (
+            patch(
+                "src.ai_service.community_reporting.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
+            patch(
+                "src.ai_service.community_reporting.asyncio.to_thread",
+                side_effect=slow_to_thread,
+            ),
+            patch(
+                "src.ai_service.community_reporting.increment_counter_metric"
+            ) as mock_metric,
+            patch("src.ai_service.community_reporting.logger.error") as mock_log,
+        ):
             original_timeout = community_reporting.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT
             community_reporting.COMMUNITY_BLOCKLIST_REPORT_TIMEOUT = 0.01
             result = await community_reporting.report_ip_to_community(
