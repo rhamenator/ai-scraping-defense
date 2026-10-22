@@ -90,7 +90,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r .github/tools/e2e/requirements.txt
       - name: k6 install (Linux)
-        uses: grafana/setup-k6-action@ffe7d7290dfa715e48c2ccc924d068444c94bde2
+        uses: grafana/setup-k6-action@db07bd9765aac508ef18982e52ab937fe633a065
         with:
           k6-version: "0.50.0"
       - name: k6 rich scenarios
