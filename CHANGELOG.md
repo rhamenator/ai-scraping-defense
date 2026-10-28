@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+* Added cooldown-limited attack incident alerts with recent-window thresholds,
+  Cloudflare operator guidance, and health-gated manual failover guidance.
+
 ### Fixed
 
+* Corrected proxy and tarpit forwarding behavior found in the Python end-to-end
+  regression run.
+* Repaired the scheduled security-issue and closed-issue maintenance workflows.
 * Isolated rate-limit and audit activity from trusted proxies that omit a valid
   forwarded client identity, without promoting infrastructure addresses to
   actionable client IPs.
