@@ -114,6 +114,21 @@ def _load_smtp_password() -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 
+def _webhook_payload(event_data: "WebhookEvent") -> dict:
+    return {
+        "alert_type": (
+            "AI_DEFENSE_ATTACK_INCIDENT"
+            if event_data.event_type == "attack_incident"
+            else "AI_DEFENSE_BLOCK"
+        ),
+        "reason": event_data.reason,
+        "timestamp": str(event_data.timestamp_utc),
+        "ip_address": event_data.details.get("ip", "N/A"),
+        "user_agent": event_data.details.get("user_agent", "N/A"),
+        "details": event_data.details,
+    }
+
+
 async def send_generic_webhook_alert(event_data: "WebhookEvent") -> bool:
     """Send generic webhook alert using the layered alert abstraction."""
     if not ALERT_GENERIC_WEBHOOK_URL:
@@ -126,18 +141,7 @@ async def send_generic_webhook_alert(event_data: "WebhookEvent") -> bool:
             generic_sender = HttpAlertSender(
                 webhook_url=ALERT_GENERIC_WEBHOOK_URL, timeout=10.0
             )
-            alert_data = {
-                "alert_type": (
-                    "AI_DEFENSE_ATTACK_INCIDENT"
-                    if event_data.event_type == "attack_incident"
-                    else "AI_DEFENSE_BLOCK"
-                ),
-                "reason": event_data.reason,
-                "timestamp": str(event_data.timestamp_utc),
-                "ip_address": ip,
-                "user_agent": event_data.details.get("user_agent", "N/A"),
-                "details": event_data.details,
-            }
+            alert_data = _webhook_payload(event_data)
             success = await generic_sender.send_alert(alert_data)
             if success:
                 log_event(
@@ -175,18 +179,7 @@ async def _send_generic_webhook_alert_legacy(event_data: "WebhookEvent") -> bool
 
     ip = event_data.details.get("ip", "N/A")
     logger.info("Sending generic webhook alert (legacy) for IP: %s", ip)
-    payload = {
-        "alert_type": (
-            "AI_DEFENSE_ATTACK_INCIDENT"
-            if event_data.event_type == "attack_incident"
-            else "AI_DEFENSE_BLOCK"
-        ),
-        "reason": event_data.reason,
-        "timestamp": str(event_data.timestamp_utc),
-        "ip_address": ip,
-        "user_agent": event_data.details.get("user_agent", "N/A"),
-        "details": event_data.details,
-    }
+    payload = _webhook_payload(event_data)
     try:
         json_payload = json.loads(json.dumps(payload, default=str))
         async with httpx.AsyncClient() as client:
@@ -319,6 +312,44 @@ async def _send_slack_alert_legacy(event_data: "WebhookEvent") -> bool:
     return False
 
 
+def _open_smtp_connection():
+    if ALERT_SMTP_PORT == 465:
+        return smtplib.SMTP_SSL(
+            str(ALERT_SMTP_HOST),
+            ALERT_SMTP_PORT,
+            timeout=15,
+            context=ssl.create_default_context(),
+        )
+    return smtplib.SMTP(str(ALERT_SMTP_HOST), ALERT_SMTP_PORT, timeout=15)
+
+
+def _authenticate_smtp(smtp_conn) -> None:
+    if ALERT_SMTP_USE_TLS and ALERT_SMTP_PORT != 465:
+        smtp_conn.starttls(context=ssl.create_default_context())
+    if ALERT_SMTP_USER:
+        smtp_password = _load_smtp_password()
+        if smtp_password:
+            smtp_conn.login(ALERT_SMTP_USER, smtp_password)
+        else:
+            logger.warning(
+                "SMTP authentication skipped: ALERT_SMTP_USER is set but no password was provided. "
+                "Check SMTP configuration."
+            )
+
+
+def _record_smtp_delivery(ip: str, reason: str) -> None:
+    logger.info("SMTP alert sent for IP %s to %s.", ip, ALERT_EMAIL_TO)
+    log_event(
+        ALERT_LOG_FILE,
+        "ALERT_SENT_SMTP",
+        {"reason": reason, "ip": ip, "to": ALERT_EMAIL_TO},
+    )
+    publish_operational_event(
+        "alert_sent",
+        {"channel": "smtp", "ip": ip, "reason": reason, "to": ALERT_EMAIL_TO},
+    )
+
+
 async def send_smtp_alert(event_data: "WebhookEvent") -> bool:
     if not ALERT_EMAIL_TO or not ALERT_SMTP_HOST or not ALERT_EMAIL_FROM:
         log_error("SMTP alert config missing.")
@@ -347,46 +378,12 @@ IP added to blocklist (TTL: {CONFIG.BLOCKLIST_TTL_SECONDS}s). Logs in {LOG_DIR}.
     def smtp_send_sync() -> bool:
         smtp_conn = None
         try:
-            if ALERT_SMTP_PORT == 465:
-                smtp_conn = smtplib.SMTP_SSL(
-                    str(ALERT_SMTP_HOST),
-                    ALERT_SMTP_PORT,
-                    timeout=15,
-                    context=ssl.create_default_context(),
-                )
-            else:
-                smtp_conn = smtplib.SMTP(
-                    str(ALERT_SMTP_HOST), ALERT_SMTP_PORT, timeout=15
-                )
-            if ALERT_SMTP_USE_TLS and ALERT_SMTP_PORT != 465:
-                smtp_conn.starttls(context=ssl.create_default_context())
-            if ALERT_SMTP_USER:
-                smtp_password = _load_smtp_password()
-                if smtp_password:
-                    smtp_conn.login(ALERT_SMTP_USER, smtp_password)
-                else:
-                    logger.warning(
-                        "SMTP authentication skipped: ALERT_SMTP_USER is set but no password was provided. "
-                        "Check SMTP configuration."
-                    )
+            smtp_conn = _open_smtp_connection()
+            _authenticate_smtp(smtp_conn)
             from_addr = ALERT_EMAIL_FROM if ALERT_EMAIL_FROM else ""
             to_addrs = ALERT_EMAIL_TO.split(",") if ALERT_EMAIL_TO else []
             smtp_conn.sendmail(from_addr, to_addrs, msg.as_string())
-            logger.info("SMTP alert sent for IP %s to %s.", ip, ALERT_EMAIL_TO)
-            log_event(
-                ALERT_LOG_FILE,
-                "ALERT_SENT_SMTP",
-                {"reason": reason, "ip": ip, "to": ALERT_EMAIL_TO},
-            )
-            publish_operational_event(
-                "alert_sent",
-                {
-                    "channel": "smtp",
-                    "ip": ip,
-                    "reason": reason,
-                    "to": ALERT_EMAIL_TO,
-                },
-            )
+            _record_smtp_delivery(ip, reason)
             return True
         except smtplib.SMTPException as e:
             log_error(f"SMTP error for IP {ip} (Host: {ALERT_SMTP_HOST})", e)
