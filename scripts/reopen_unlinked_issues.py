@@ -61,7 +61,7 @@ def fetch_closed_issues(limit: int = DEFAULT_LIMIT) -> list[dict]:
         "--state",
         "closed",
         "--json",
-        "number,title,closedAt,stateReason",
+        "number,title,closedAt",
         "--limit",
         str(limit),
     ]
@@ -81,12 +81,16 @@ def fetch_pull_requests(state: str = "all", limit: int = DEFAULT_LIMIT) -> list[
         "--state",
         state,
         "--json",
-        "number,title,body,merged,mergedAt,closingIssuesReferences",
+        "number,title,body,mergedAt",
         "--limit",
         str(limit),
     ]
     result = run_gh_command(cmd)
     prs = json.loads(result.stdout)
+    for pr in prs:
+        # gh exposes mergedAt, but not a merged boolean or native closing issue
+        # references in `gh pr list --json`.
+        pr["merged"] = bool(pr.get("mergedAt"))
     LOG.info(f"Fetched {len(prs)} pull requests.")
     return prs
 

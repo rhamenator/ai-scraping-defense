@@ -56,6 +56,21 @@ class TestReopenUnlinkedIssues(unittest.TestCase):
         self.assertIn(2, result)
         self.assertEqual(result[2], {30, 40, 50})
 
+    @patch("scripts.reopen_unlinked_issues.run_gh_command")
+    def test_fetch_pull_requests_uses_supported_gh_fields(self, mock_gh_command):
+        mock_gh_command.return_value.stdout = (
+            '[{"number": 1, "title": "Fix #10", "body": "", '
+            '"mergedAt": "2026-10-01T00:00:00Z"}, '
+            '{"number": 2, "title": "Work", "body": "", '
+            '"mergedAt": null}]'
+        )
+        prs = reopen_unlinked_issues.fetch_pull_requests(limit=2)
+        self.assertEqual([pr["merged"] for pr in prs], [True, False])
+        fields = mock_gh_command.call_args.args[0]
+        self.assertEqual(
+            fields[fields.index("--json") + 1], "number,title,body,mergedAt"
+        )
+
     def test_build_issue_to_prs_map(self):
         """Test building issue to PRs mapping."""
         pr_to_issues = {1: {10, 20}, 2: {20, 30}}

@@ -551,9 +551,17 @@ async def tarpit_handler(request: Request, path: str = ""):
         }
 
     try:
+        escalation_headers = (
+            {"X-API-Key": CONFIG.ESCALATION_API_KEY}
+            if CONFIG.ESCALATION_API_KEY
+            else {}
+        )
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                ESCALATION_ENDPOINT, json=metadata_dict, timeout=5.0
+                ESCALATION_ENDPOINT,
+                json=metadata_dict,
+                headers=escalation_headers,
+                timeout=5.0,
             )
             if response.status_code >= 400:
                 logger.warning(
