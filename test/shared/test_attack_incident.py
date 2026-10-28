@@ -20,14 +20,19 @@ class TestAttackIncident(unittest.IsolatedAsyncioTestCase):
         with (
             patch.dict(os.environ, settings),
             patch("src.shared.attack_incident._record_signal", return_value=(3, 2)),
-            patch("src.shared.attack_incident._claim_alert", return_value=True),
+            patch("src.shared.attack_incident._claim_alert", return_value="claim"),
+            patch("src.shared.attack_incident._release_alert"),
             patch(
                 "src.shared.attack_incident._origin_health",
                 new_callable=AsyncMock,
                 side_effect=["unhealthy", "healthy"],
             ),
             patch("src.shared.attack_incident.publish_operational_event"),
-            patch("src.ai_service.alerts.send_alert", new_callable=AsyncMock) as send,
+            patch(
+                "src.ai_service.alerts.send_alert",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as send,
         ):
             await record_and_alert_attack("198.51.100.8", 0.96, "tarpit_api")
 
@@ -53,14 +58,19 @@ class TestAttackIncident(unittest.IsolatedAsyncioTestCase):
         with (
             patch.dict(os.environ, settings),
             patch("src.shared.attack_incident._record_signal", return_value=(3, 2)),
-            patch("src.shared.attack_incident._claim_alert", return_value=True),
+            patch("src.shared.attack_incident._claim_alert", return_value="claim"),
+            patch("src.shared.attack_incident._release_alert"),
             patch(
                 "src.shared.attack_incident._origin_health",
                 new_callable=AsyncMock,
                 side_effect=["healthy", "healthy"],
             ),
             patch("src.shared.attack_incident.publish_operational_event"),
-            patch("src.ai_service.alerts.send_alert", new_callable=AsyncMock) as send,
+            patch(
+                "src.ai_service.alerts.send_alert",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as send,
         ):
             await record_and_alert_attack("198.51.100.8", 0.96, "tarpit_api")
 
@@ -81,14 +91,21 @@ class TestAttackIncident(unittest.IsolatedAsyncioTestCase):
                 "src.shared.attack_incident._record_signal",
                 side_effect=[(2, 2), (3, 2), (4, 2)],
             ),
-            patch("src.shared.attack_incident._claim_alert", side_effect=[True, False]),
+            patch(
+                "src.shared.attack_incident._claim_alert", side_effect=["claim", None]
+            ),
+            patch("src.shared.attack_incident._release_alert"),
             patch(
                 "src.shared.attack_incident._origin_health",
                 new_callable=AsyncMock,
                 return_value="unconfigured",
             ),
             patch("src.shared.attack_incident.publish_operational_event"),
-            patch("src.ai_service.alerts.send_alert", new_callable=AsyncMock) as send,
+            patch(
+                "src.ai_service.alerts.send_alert",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as send,
         ):
             for _ in range(3):
                 await record_and_alert_attack("198.51.100.8", 0.96, "tarpit_api")
@@ -102,3 +119,31 @@ class TestAttackIncident(unittest.IsolatedAsyncioTestCase):
         ):
             await record_and_alert_attack("198.51.100.8", 0.96, "tarpit_api")
         record.assert_not_called()
+
+    async def test_failed_delivery_releases_claim_for_retry(self):
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "ALERT_METHOD": "webhook",
+                    "ATTACK_INCIDENT_MIN_EVENTS": "1",
+                    "ATTACK_INCIDENT_MIN_UNIQUE_IPS": "1",
+                },
+            ),
+            patch("src.shared.attack_incident._record_signal", return_value=(1, 1)),
+            patch("src.shared.attack_incident._claim_alert", return_value="claim"),
+            patch("src.shared.attack_incident._release_alert") as release,
+            patch(
+                "src.shared.attack_incident._origin_health",
+                new_callable=AsyncMock,
+                return_value="unconfigured",
+            ),
+            patch("src.shared.attack_incident.publish_operational_event"),
+            patch(
+                "src.ai_service.alerts.send_alert",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+        ):
+            await record_and_alert_attack("198.51.100.8", 0.96, "test")
+        release.assert_called_once_with("claim")

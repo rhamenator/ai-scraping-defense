@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import time
+import uuid
 from datetime import datetime, timezone
 
 import httpx
@@ -50,23 +51,41 @@ def _record_signal(ip: str) -> tuple[int, int] | None:
         return None
 
 
-def _claim_alert() -> bool:
+def _claim_alert() -> str | None:
     redis_conn = get_redis_connection(db_number=0)
     if redis_conn is None:
-        return False
+        return None
     cooldown = _positive_int("ATTACK_INCIDENT_COOLDOWN_SECONDS", 900)
     try:
-        return bool(
-            redis_conn.set(
+        token = uuid.uuid4().hex
+        return (
+            token
+            if redis_conn.set(
                 tenant_key("attack_incident:alert_cooldown"),
-                "1",
+                token,
                 nx=True,
                 ex=cooldown,
             )
+            else None
         )
     except RedisError as exc:
         logger.warning("Attack incident alert could not be claimed: %s", exc)
-        return False
+        return None
+
+
+def _release_alert(token: str) -> None:
+    redis_conn = get_redis_connection(db_number=0)
+    if redis_conn is None:
+        return
+    try:
+        redis_conn.eval(
+            "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
+            1,
+            tenant_key("attack_incident:alert_cooldown"),
+            token,
+        )
+    except RedisError as exc:
+        logger.warning("Attack incident alert claim could not be released: %s", exc)
 
 
 async def _origin_health(url: str | None) -> str:
@@ -102,8 +121,24 @@ async def record_and_alert_attack(ip: str, score: float, source: str) -> None:
     min_sources = _positive_int("ATTACK_INCIDENT_MIN_UNIQUE_IPS", 5)
     if count < min_events or unique_sources < min_sources:
         return
-    if not await asyncio.to_thread(_claim_alert):
+    claim = await asyncio.to_thread(_claim_alert)
+    if not claim:
         return
+
+    try:
+        delivered = await _deliver_incident_alert(
+            ip, score, source, count, unique_sources
+        )
+    except Exception:
+        await asyncio.to_thread(_release_alert, claim)
+        raise
+    if not delivered:
+        await asyncio.to_thread(_release_alert, claim)
+
+
+async def _deliver_incident_alert(
+    ip: str, score: float, source: str, count: int, unique_sources: int
+) -> bool:
 
     primary, backup = await asyncio.gather(
         _origin_health(os.getenv("ATTACK_INCIDENT_PRIMARY_HEALTH_URL")),
@@ -143,4 +178,4 @@ async def record_and_alert_attack(ip: str, score: float, source: str) -> None:
         timestamp_utc=datetime.now(timezone.utc).isoformat(),
         details=details,
     )
-    await send_alert(event)
+    return await send_alert(event)

@@ -114,10 +114,10 @@ def _load_smtp_password() -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 
-async def send_generic_webhook_alert(event_data: "WebhookEvent") -> None:
+async def send_generic_webhook_alert(event_data: "WebhookEvent") -> bool:
     """Send generic webhook alert using the layered alert abstraction."""
     if not ALERT_GENERIC_WEBHOOK_URL:
-        return
+        return False
 
     ip = event_data.details.get("ip", "N/A")
 
@@ -153,6 +153,7 @@ async def send_generic_webhook_alert(event_data: "WebhookEvent") -> None:
                         "reason": event_data.reason,
                     },
                 )
+                return True
             else:
                 log_error(
                     f"Failed to send generic webhook alert for IP {ip} using new alert system"
@@ -162,14 +163,15 @@ async def send_generic_webhook_alert(event_data: "WebhookEvent") -> None:
                 f"Error using new generic alert system for IP {ip}, falling back to legacy",
                 e,
             )
-            await _send_generic_webhook_alert_legacy(event_data)
+            return await _send_generic_webhook_alert_legacy(event_data)
     else:
-        await _send_generic_webhook_alert_legacy(event_data)
+        return await _send_generic_webhook_alert_legacy(event_data)
+    return False
 
 
-async def _send_generic_webhook_alert_legacy(event_data: "WebhookEvent") -> None:
+async def _send_generic_webhook_alert_legacy(event_data: "WebhookEvent") -> bool:
     if not ALERT_GENERIC_WEBHOOK_URL:
-        return
+        return False
 
     ip = event_data.details.get("ip", "N/A")
     logger.info("Sending generic webhook alert (legacy) for IP: %s", ip)
@@ -206,6 +208,7 @@ async def _send_generic_webhook_alert_legacy(event_data: "WebhookEvent") -> None
                     "reason": event_data.reason,
                 },
             )
+            return True
     except json.JSONDecodeError as e:
         log_error(f"Failed to serialize generic webhook payload for IP {ip}", e)
     except httpx.RequestError as e:
@@ -220,11 +223,12 @@ async def _send_generic_webhook_alert_legacy(event_data: "WebhookEvent") -> None
         )
     except Exception as e:  # pragma: no cover - unexpected
         log_error(f"Unexpected error sending generic webhook alert for IP {ip}", e)
+    return False
 
 
-async def send_slack_alert(event_data: "WebhookEvent") -> None:
+async def send_slack_alert(event_data: "WebhookEvent") -> bool:
     if not ALERT_SLACK_WEBHOOK_URL:
-        return
+        return False
 
     ip = event_data.details.get("ip", "N/A")
     reason = event_data.reason
@@ -257,6 +261,7 @@ async def send_slack_alert(event_data: "WebhookEvent") -> None:
                         "event_type": event_data.event_type,
                     },
                 )
+                return True
             else:
                 log_error(
                     f"Failed to send Slack alert for IP {ip} using new alert system"
@@ -266,14 +271,15 @@ async def send_slack_alert(event_data: "WebhookEvent") -> None:
                 f"Error using new Slack alert system for IP {ip}, falling back to legacy",
                 e,
             )
-            await _send_slack_alert_legacy(event_data)
+            return await _send_slack_alert_legacy(event_data)
     else:
-        await _send_slack_alert_legacy(event_data)
+        return await _send_slack_alert_legacy(event_data)
+    return False
 
 
-async def _send_slack_alert_legacy(event_data: "WebhookEvent") -> None:
+async def _send_slack_alert_legacy(event_data: "WebhookEvent") -> bool:
     if not ALERT_SLACK_WEBHOOK_URL:
-        return
+        return False
 
     ip = event_data.details.get("ip", "N/A")
     ua = event_data.details.get("user_agent", "N/A")
@@ -304,17 +310,19 @@ async def _send_slack_alert_legacy(event_data: "WebhookEvent") -> None:
                 "event_type": event_data.event_type,
             },
         )
+        return True
     except httpx.HTTPError as e:
         # Do not log the webhook URL: it is a credential-bearing secret.
         log_error(f"Failed to send Slack alert for IP {ip}", e)
     except Exception as e:  # pragma: no cover - unexpected
         log_error(f"Unexpected error sending Slack alert for IP {ip}", e)
+    return False
 
 
-async def send_smtp_alert(event_data: "WebhookEvent") -> None:
+async def send_smtp_alert(event_data: "WebhookEvent") -> bool:
     if not ALERT_EMAIL_TO or not ALERT_SMTP_HOST or not ALERT_EMAIL_FROM:
         log_error("SMTP alert config missing.")
-        return
+        return False
 
     ip = event_data.details.get("ip", "N/A")
     ua = event_data.details.get("user_agent", "N/A")
@@ -336,7 +344,7 @@ IP added to blocklist (TTL: {CONFIG.BLOCKLIST_TTL_SECONDS}s). Logs in {LOG_DIR}.
     msg["From"] = ALERT_EMAIL_FROM
     msg["To"] = ALERT_EMAIL_TO
 
-    def smtp_send_sync() -> None:
+    def smtp_send_sync() -> bool:
         smtp_conn = None
         try:
             if ALERT_SMTP_PORT == 465:
@@ -379,6 +387,7 @@ IP added to blocklist (TTL: {CONFIG.BLOCKLIST_TTL_SECONDS}s). Logs in {LOG_DIR}.
                     "to": ALERT_EMAIL_TO,
                 },
             )
+            return True
         except smtplib.SMTPException as e:
             log_error(f"SMTP error for IP {ip} (Host: {ALERT_SMTP_HOST})", e)
         except Exception as e:  # pragma: no cover - unexpected
@@ -389,14 +398,16 @@ IP added to blocklist (TTL: {CONFIG.BLOCKLIST_TTL_SECONDS}s). Logs in {LOG_DIR}.
                     smtp_conn.quit()
                 except Exception as e:  # pragma: no cover - cleanup failure
                     logger.error(f"Error quitting SMTP connection: {e}")
+        return False
 
     try:
-        await asyncio.to_thread(smtp_send_sync)
+        return await asyncio.to_thread(smtp_send_sync)
     except Exception as e:  # pragma: no cover - unexpected
         log_error(f"Error executing SMTP send thread for IP {ip}", e)
+        return False
 
 
-async def send_alert(event_data: "WebhookEvent") -> None:
+async def send_alert(event_data: "WebhookEvent") -> bool:
     severity_map = {
         "High Heuristic": 1,
         "Local LLM": 2,
@@ -419,7 +430,7 @@ async def send_alert(event_data: "WebhookEvent") -> None:
             event_severity,
             min_severity,
         )
-        return
+        return False
 
     logger.info(
         "Dispatching alert for IP %s via method: %s (Severity: %s)",
@@ -428,13 +439,14 @@ async def send_alert(event_data: "WebhookEvent") -> None:
         event_severity,
     )
     if ALERT_METHOD == "webhook":
-        await send_generic_webhook_alert(event_data)
+        return await send_generic_webhook_alert(event_data)
     elif ALERT_METHOD == "slack":
-        await send_slack_alert(event_data)
+        return await send_slack_alert(event_data)
     elif ALERT_METHOD == "smtp":
-        await send_smtp_alert(event_data)
+        return await send_smtp_alert(event_data)
     elif ALERT_METHOD != "none":
         log_error(f"Alert method '{ALERT_METHOD}' invalid.")
+    return False
 
 
 # ---------------------------------------------------------------------------
