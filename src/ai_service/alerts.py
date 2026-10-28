@@ -127,7 +127,11 @@ async def send_generic_webhook_alert(event_data: "WebhookEvent") -> None:
                 webhook_url=ALERT_GENERIC_WEBHOOK_URL, timeout=10.0
             )
             alert_data = {
-                "alert_type": "AI_DEFENSE_BLOCK",
+                "alert_type": (
+                    "AI_DEFENSE_ATTACK_INCIDENT"
+                    if event_data.event_type == "attack_incident"
+                    else "AI_DEFENSE_BLOCK"
+                ),
                 "reason": event_data.reason,
                 "timestamp": str(event_data.timestamp_utc),
                 "ip_address": ip,
@@ -170,7 +174,11 @@ async def _send_generic_webhook_alert_legacy(event_data: "WebhookEvent") -> None
     ip = event_data.details.get("ip", "N/A")
     logger.info("Sending generic webhook alert (legacy) for IP: %s", ip)
     payload = {
-        "alert_type": "AI_DEFENSE_BLOCK",
+        "alert_type": (
+            "AI_DEFENSE_ATTACK_INCIDENT"
+            if event_data.event_type == "attack_incident"
+            else "AI_DEFENSE_BLOCK"
+        ),
         "reason": event_data.reason,
         "timestamp": str(event_data.timestamp_utc),
         "ip_address": ip,
@@ -398,10 +406,11 @@ async def send_alert(event_data: "WebhookEvent") -> None:
         "IP Reputation": 1,
         "Anomaly Score": 2,
         "Anomaly": 2,
+        "Attack Incident": 3,
     }
     reason_key = event_data.reason.split("(")[0].strip()
     event_severity = severity_map.get(reason_key, 0)
-    min_severity_reason = ALERT_MIN_REASON_SEVERITY.split(" ")[0].strip()
+    min_severity_reason = ALERT_MIN_REASON_SEVERITY.strip()
     min_severity = severity_map.get(min_severity_reason, 1)
     if event_severity < min_severity:
         logger.debug(
