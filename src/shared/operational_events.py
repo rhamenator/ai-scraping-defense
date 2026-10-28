@@ -38,7 +38,11 @@ def publish_operational_event(
             actor="system",
             action=event_type,
             source=str(payload.get("source", "operational_event")),
-            severity="warning" if "failed" in event_type else "info",
+            severity=(
+                "warning"
+                if "failed" in event_type or event_type == "attack_incident_detected"
+                else "info"
+            ),
             payload=payload,
         )
     except Exception as exc:  # pragma: no cover - defensive

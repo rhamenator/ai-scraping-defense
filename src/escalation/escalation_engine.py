@@ -17,6 +17,7 @@ import numpy as np
 from fastapi import Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
+from src.shared.attack_incident import record_and_alert_attack
 from src.shared.config import tenant_key
 from src.shared.middleware import create_app
 from src.shared.observability import (
@@ -1343,6 +1344,13 @@ async def handle_escalation(
     if ip_rep_result:
         log_msg += f", IPRepMalicious={ip_rep_result.get('is_malicious')}, IPRepScore={ip_rep_result.get('score')}"
     logger.info(f"Escalation Complete: {log_msg}")
+    if is_bot_decision or final_score >= ESCALATION_THRESHOLD:
+        try:
+            await record_and_alert_attack(
+                ip_under_test, final_score, metadata_req.source
+            )
+        except Exception:
+            logger.exception("Attack incident advisory failed for IP %s", ip_under_test)
     return {
         "status": "processed",
         "action": action_taken,

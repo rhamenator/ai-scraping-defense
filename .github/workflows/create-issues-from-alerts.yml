@@ -99,7 +99,7 @@ jobs:
         run: |
           mkdir -p reports
           echo "Running in ${{ steps.mode.outputs.mode_label }} mode"
-          python scripts/create_issues_from_alerts.py \
+          python -m scripts.create_issues_from_alerts \
             --owner ${{ github.repository_owner }} \
             --repo ${{ github.event.repository.name }} \
             --plan-output reports/security-response-plan.json \
