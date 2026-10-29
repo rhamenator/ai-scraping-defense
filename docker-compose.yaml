@@ -283,6 +283,8 @@ services:
     command: ["python", "-m", "src.admin_ui.admin_ui"]
     env_file:
       - .env
+    environment:
+      - FLASK_RUN_HOST=0.0.0.0
     ports:
       - "${ADMIN_UI_PORT:-5002}:5002"
     volumes:

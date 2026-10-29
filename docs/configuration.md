@@ -241,6 +241,12 @@ JWT verification is used by some internal APIs (for example, the escalation engi
 | `ALERT_EMAIL_FROM` | `$ALERT_SMTP_USER` | Sender address for alerts |
 | `ALERT_EMAIL_TO` | *(none)* | Destination email addresses |
 | `ALERT_MIN_REASON_SEVERITY` | `Local LLM` | Minimum reason to trigger alerts |
+| `ATTACK_INCIDENT_WINDOW_SECONDS` | `300` | Window for suspicious request counts |
+| `ATTACK_INCIDENT_MIN_EVENTS` | `25` | Suspicious requests needed in the window |
+| `ATTACK_INCIDENT_MIN_UNIQUE_IPS` | `5` | Distinct client IPs needed in the window |
+| `ATTACK_INCIDENT_COOLDOWN_SECONDS` | `900` | Minimum time between incident alerts per tenant |
+| `ATTACK_INCIDENT_PRIMARY_HEALTH_URL` | *(none)* | Internal HTTP(S) primary health endpoint |
+| `ATTACK_INCIDENT_BACKUP_HEALTH_URL` | *(none)* | Internal HTTP(S) backup health endpoint |
 | `ENABLE_COMMUNITY_REPORTING` | `true` | Report IPs to community blocklist |
 | `COMMUNITY_BLOCKLIST_API_URL` | `https://mock_community_blocklist_api:8000` | Operator-configured community blocklist base URL |
 | `COMMUNITY_BLOCKLIST_ALLOW_PRIVATE_NETWORKS` | `true` | Permit the built-in community sync service on the private container/Kubernetes network; set to `false` for a public endpoint to enable DNS-based SSRF checks |
@@ -250,6 +256,8 @@ JWT verification is used by some internal APIs (for example, the escalation engi
 | `WEBHOOK_SHARED_SECRET` | *(none)* | Secret used to verify webhook HMAC signatures |
 | `WEBHOOK_RATE_LIMIT_REQUESTS` | `60` | Requests allowed per IP in each window |
 | `WEBHOOK_RATE_LIMIT_WINDOW` | `60` | Rate limit window size in seconds |
+
+Recent suspicious traffic generates an `AI_DEFENSE_ATTACK_INCIDENT` alert through the configured alert channel. Set `ALERT_METHOD` and its destination to receive it; `none` disables incident tracking. The alert recommends that an operator review Cloudflare Under Attack Mode when Cloudflare is configured. It recommends reviewing failover only if the primary health endpoint fails and the backup passes. These are operator decisions: this service does not change Cloudflare settings or switch origins. Configure the two health URLs on a trusted internal network.
 
 ## Escalation Engine and Classification
 

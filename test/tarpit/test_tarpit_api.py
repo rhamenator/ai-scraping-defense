@@ -95,6 +95,23 @@ class TestTarpitAPIComprehensive(unittest.IsolatedAsyncioTestCase):
         self.mocks["generate_dynamic_tarpit_page"].assert_called_once()
         self.mocks["trigger_ip_block"].assert_not_called()
 
+    async def test_tarpit_escalation_uses_configured_api_key(self):
+        """The internal escalation call must authenticate with the engine."""
+        from src.tarpit import tarpit_api
+
+        self.mock_redis_hops.pipeline.return_value.execute.return_value = [1, True]
+
+        with patch("src.tarpit.tarpit_api.CONFIG", wraps=tarpit_api.CONFIG) as config:
+            config.ESCALATION_API_KEY = "test-escalation-key"
+            response = self.client.get("/tarpit/authenticated")
+
+        self.assertEqual(response.status_code, 200)
+        post = self.async_client_instance.__aenter__.return_value.post
+        self.assertEqual(
+            post.call_args.kwargs["headers"],
+            {"X-API-Key": "test-escalation-key"},
+        )
+
     async def test_trusted_envoy_fingerprint_is_attested_for_escalation(self):
         from src.shared.tls_attestation import verify_tls_fingerprint_attestation
 
