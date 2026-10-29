@@ -1,15 +1,20 @@
 import asyncio
+import json
 import unittest
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import httpx2
+import mcp.types as mcp_types
+from mcp.shared.message import SessionMessage
+from websockets.asyncio.server import serve
 
 from src.shared.mcp_client import (
     MCPClient,
     MCPServerConfig,
     _streamable_http_transport,
+    _websocket_transport,
     load_server_config,
 )
 
@@ -45,6 +50,28 @@ class FakeSession:
 
 
 class TestMCPClient(unittest.TestCase):
+    def test_websocket_transport_exchanges_mcp2_jsonrpc_messages(self):
+        async def serve_one(socket):
+            request = json.loads(await socket.recv())
+            self.assertEqual(request["method"], "ping")
+            await socket.send(json.dumps({"jsonrpc": "2.0", "id": 1, "result": {}}))
+
+        async def exercise():
+            async with serve(serve_one, "127.0.0.1", 0) as server:
+                port = server.sockets[0].getsockname()[1]
+                async with _websocket_transport(f"ws://127.0.0.1:{port}") as streams:
+                    incoming, outgoing = streams
+                    await outgoing.send(
+                        SessionMessage(
+                            mcp_types.JSONRPCRequest(jsonrpc="2.0", id=1, method="ping")
+                        )
+                    )
+                    response = await asyncio.wait_for(incoming.receive(), timeout=3)
+                    self.assertIsInstance(response.message, mcp_types.JSONRPCResponse)
+                    self.assertEqual(response.message.result, {})
+
+        asyncio.run(exercise())
+
     def test_http_transport_uses_mcp2_http_client_with_headers(self):
         seen = {}
 

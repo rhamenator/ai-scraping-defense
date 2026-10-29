@@ -353,7 +353,7 @@ async def _websocket_transport(url: str, headers: Optional[Dict[str, str]] = Non
             async with incoming_writer:
                 async for raw_message in socket:
                     try:
-                        message = mcp_types.JSONRPCMessage.model_validate_json(
+                        message = mcp_types.jsonrpc_message_adapter.validate_json(
                             raw_message
                         )
                         await incoming_writer.send(SessionMessage(message))
