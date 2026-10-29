@@ -106,7 +106,7 @@ fastapi==0.135.4
     # via -r requirements.txt
 fastavro==1.12.2
     # via cohere
-filelock==3.32.2
+filelock==4.2.1
     # via
     #   -r requirements.txt
     #   datasets
@@ -215,7 +215,7 @@ mdurl==0.1.2
     # via markdown-it-py
 mistralai==2.9.3
     # via -r requirements.txt
-msgpack==1.2.1
+msgpack==1.2.3
     # via -r requirements.txt
 multidict==6.9.1
     # via
@@ -519,7 +519,7 @@ uvicorn[standard]==0.52.1
     #   mcp
 uvloop==0.23.0
     # via uvicorn
-virtualenv==21.14.9
+virtualenv==21.14.10
     # via
     #   -r requirements.txt
     #   pre-commit
