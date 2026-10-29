@@ -13,8 +13,6 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Mapping, Optional
 from urllib.parse import parse_qs, urlparse
 
-import httpx
-
 logger = logging.getLogger(__name__)
 
 try:  # pragma: no cover - optional dependency import
@@ -355,7 +353,7 @@ async def _websocket_transport(url: str, headers: Optional[Dict[str, str]] = Non
             async with incoming_writer:
                 async for raw_message in socket:
                     try:
-                        message = mcp_types.JSONRPCMessage.model_validate_json(
+                        message = mcp_types.jsonrpc_message_adapter.validate_json(
                             raw_message
                         )
                         await incoming_writer.send(SessionMessage(message))
@@ -385,7 +383,9 @@ async def _streamable_http_transport(
 
     if streamable_http_client is None:  # pragma: no cover - checked by caller
         raise MCPClientError("HTTP transport requires the mcp HTTP client.")
-    async with httpx.AsyncClient(headers=headers or None) as client:
+    import httpx2
+
+    async with httpx2.AsyncClient(headers=headers or None) as client:
         async with streamable_http_client(url, http_client=client) as streams:
             yield streams
 

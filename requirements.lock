@@ -26,6 +26,7 @@ anyio==4.14.2
     #   anthropic
     #   google-genai
     #   httpx
+    #   httpx2
     #   mcp
     #   openai
     #   sse-starlette
@@ -113,7 +114,7 @@ filelock==4.2.1
     #   huggingface-hub
     #   python-discovery
     #   virtualenv
-flake8==7.3.0
+flake8==7.5.0
     # via -r requirements.txt
 freezegun==1.5.5
     # via -r requirements.txt
@@ -142,11 +143,14 @@ gunicorn==25.3.0
 h11==0.16.0
     # via
     #   httpcore
+    #   httpcore2
     #   uvicorn
 hf-xet==1.6.0
     # via huggingface-hub
 httpcore==1.0.9
     # via httpx
+httpcore2==2.16.0
+    # via httpx2
 httptools==0.8.0
     # via uvicorn
 httpx==0.28.1
@@ -157,11 +161,10 @@ httpx==0.28.1
     #   datasets
     #   google-genai
     #   huggingface-hub
-    #   mcp
     #   mistralai
     #   ollama
     #   openai
-httpx-sse==0.4.3
+httpx2==2.16.0
     # via mcp
 huggingface-hub==1.27.0
     # via
@@ -177,6 +180,7 @@ idna==3.18
     # via
     #   anyio
     #   httpx
+    #   httpx2
     #   requests
     #   yarl
 iniconfig==2.3.0
@@ -209,8 +213,10 @@ maxminddb==3.1.1
     # via geoip2
 mccabe==0.7.0
     # via flake8
-mcp==1.30.0
+mcp==2.3.0
     # via -r requirements.txt
+mcp-types==2.3.0
+    # via mcp
 mdurl==0.1.2
     # via markdown-it-py
 mistralai==2.9.3
@@ -251,6 +257,7 @@ openai==2.53.0
 opentelemetry-api==1.45.1
     # via
     #   -r requirements.txt
+    #   mcp
     #   mistralai
     #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-sdk
@@ -326,7 +333,7 @@ pyasn1-modules==0.4.2
     # via
     #   google-auth
     #   webauthn
-pycodestyle==2.14.0
+pycodestyle==2.15.0
     # via flake8
 pycparser==3.0
     # via cffi
@@ -337,17 +344,15 @@ pydantic==2.13.4
     #   fastapi
     #   google-genai
     #   mcp
+    #   mcp-types
     #   mistralai
     #   ollama
     #   openai
-    #   pydantic-settings
 pydantic-core==2.46.4
     # via
     #   cohere
     #   pydantic
-pydantic-settings==2.15.0
-    # via mcp
-pyflakes==3.4.0
+pyflakes==4.1.0
     # via flake8
 pygments==2.20.0
     # via
@@ -381,9 +386,7 @@ python-dateutil==2.9.0.post0
 python-discovery==1.6.4
     # via virtualenv
 python-dotenv==1.2.2
-    # via
-    #   pydantic-settings
-    #   uvicorn
+    # via uvicorn
 python-multipart==0.0.32
     # via
     #   -r requirements.txt
@@ -473,6 +476,10 @@ tqdm==4.70.0
     #   transformers
 transformers==5.15.0
     # via -r requirements.txt
+truststore==0.10.5
+    # via
+    #   httpcore2
+    #   httpx2
 typer==0.27.1
     # via transformers
 types-requests==2.33.0.20260712
@@ -487,6 +494,7 @@ typing-extensions==4.16.0
     #   grpcio
     #   huggingface-hub
     #   mcp
+    #   mcp-types
     #   openai
     #   opentelemetry-api
     #   opentelemetry-exporter-otlp-proto-grpc
@@ -501,7 +509,6 @@ typing-inspection==0.4.3
     #   mcp
     #   mistralai
     #   pydantic
-    #   pydantic-settings
 ua-parser==1.0.2
     # via user-agents
 ua-parser-builtins==202606
@@ -513,7 +520,7 @@ urllib3==2.8.0
     #   types-requests
 user-agents==2.2.0
     # via -r requirements.txt
-uvicorn[standard]==0.52.1
+uvicorn[standard]==0.54.0
     # via
     #   -r requirements.txt
     #   mcp
