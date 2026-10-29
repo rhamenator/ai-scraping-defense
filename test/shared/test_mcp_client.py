@@ -1,9 +1,17 @@
 import asyncio
 import unittest
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from src.shared.mcp_client import MCPClient, MCPServerConfig, load_server_config
+import httpx2
+
+from src.shared.mcp_client import (
+    MCPClient,
+    MCPServerConfig,
+    _streamable_http_transport,
+    load_server_config,
+)
 
 
 class FakeTransport:
@@ -37,6 +45,29 @@ class FakeSession:
 
 
 class TestMCPClient(unittest.TestCase):
+    def test_http_transport_uses_mcp2_http_client_with_headers(self):
+        seen = {}
+
+        @asynccontextmanager
+        async def fake_transport(url, *, http_client):
+            seen["url"] = url
+            seen["client_type"] = type(http_client)
+            seen["headers"] = http_client.headers
+            yield ("read-stream", "write-stream")
+
+        async def exercise():
+            async with _streamable_http_transport(
+                "https://example.test/mcp", {"X-Test": "value"}
+            ) as streams:
+                self.assertEqual(streams, ("read-stream", "write-stream"))
+
+        with patch("src.shared.mcp_client.streamable_http_client", fake_transport):
+            asyncio.run(exercise())
+
+        self.assertEqual(seen["url"], "https://example.test/mcp")
+        self.assertIs(seen["client_type"], httpx2.AsyncClient)
+        self.assertEqual(seen["headers"]["x-test"], "value")
+
     def test_http_transport_is_accepted(self):
         config = load_server_config(
             "custom",
