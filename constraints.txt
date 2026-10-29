@@ -1,6 +1,6 @@
 # Install CPU-only PyTorch from its dedicated index in a separate command;
 # never mix a second index into the general dependency resolver.
 torch==2.11.0
-torchvision==0.26.0
+torchvision==0.29.1
 torchaudio==2.11.0
 python-multipart==0.0.31
