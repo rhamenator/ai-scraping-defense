@@ -1,7 +1,7 @@
 # Web frameworks and servers
 fastapi>=0.128.2,<0.136
 starlette>=0.49.1,<2.0
-uvicorn[standard]~=0.38
+uvicorn[standard]~=0.54
 gunicorn~=25.1
 jinja2>=3.1.6,<4.0
 
@@ -52,7 +52,7 @@ anthropic>=0.25,<1.0
 google-genai>=2.18.1,<3.0
 cohere>=5.3,<6.0
 mistralai>=2.9.3,<3.0
-mcp>=1.29.0,<2
+mcp>=2.3.0,<3
 transformers>=4.38,<6.0
 datasets>=5.0.1,<6.0
 evaluate>=0.4,<1.0
