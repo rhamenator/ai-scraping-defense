@@ -11,6 +11,65 @@ from fastapi.testclient import TestClient
 from src.admin_ui import admin_ui, auth, passkeys
 
 
+class TestWebAuthnCredentialParsing(unittest.TestCase):
+    def test_registration_passes_credential_dict_to_verifier(self):
+        credential = {"id": "credential-id", "response": {"clientDataJSON": "data"}}
+        verification = MagicMock(
+            credential_id=b"credential-id", credential_public_key=b"key", sign_count=0
+        )
+        with (
+            patch(
+                "src.admin_ui.passkeys._consume_challenge", return_value=b"challenge"
+            ),
+            patch("src.admin_ui.passkeys._get_rp_id", return_value="example.com"),
+            patch(
+                "src.admin_ui.passkeys._get_origin", return_value="https://example.com"
+            ),
+            patch(
+                "src.admin_ui.passkeys.verify_registration_response",
+                return_value=verification,
+            ) as verify,
+            patch("src.admin_ui.passkeys._store_credential") as store,
+        ):
+            response = passkeys.complete_registration(
+                {"credential": credential}, "user"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIs(verify.call_args.kwargs["credential"], credential)
+        store.assert_called_once()
+
+    def test_login_passes_credential_dict_to_verifier(self):
+        credential = {"id": "credential-id", "response": {"clientDataJSON": "data"}}
+        stored = {
+            "credential_id": b"credential-id",
+            "public_key": b"key",
+            "sign_count": 0,
+        }
+        with (
+            patch("src.admin_ui.passkeys._load_credential", return_value=stored),
+            patch(
+                "src.admin_ui.passkeys._consume_challenge", return_value=b"challenge"
+            ),
+            patch("src.admin_ui.passkeys._get_rp_id", return_value="example.com"),
+            patch(
+                "src.admin_ui.passkeys._get_origin", return_value="https://example.com"
+            ),
+            patch(
+                "src.admin_ui.passkeys.verify_authentication_response",
+                return_value=MagicMock(new_sign_count=1),
+            ) as verify,
+            patch("src.admin_ui.passkeys._store_credential"),
+            patch("src.admin_ui.passkeys._store_passkey_token"),
+        ):
+            response = passkeys.complete_login(
+                {"username": "user", "credential": credential}
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIs(verify.call_args.kwargs["credential"], credential)
+
+
 class TestPasskeyEncryption(unittest.TestCase):
     def setUp(self):
         key = base64.b64encode(b"1" * 32).decode()
