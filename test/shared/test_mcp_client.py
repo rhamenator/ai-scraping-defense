@@ -1,5 +1,6 @@
 import asyncio
 import json
+import secrets
 import unittest
 from contextlib import asynccontextmanager
 from http import HTTPStatus
@@ -71,7 +72,7 @@ class TestMCPClient(unittest.TestCase):
         )
 
     def test_websocket_handshake_rejections_become_safe_client_errors(self):
-        secret = "sensitive-test-token"
+        secret = secrets.token_urlsafe(24)
 
         async def unused_handler(socket):
             self.fail("Rejected handshakes must not reach the handler")
