@@ -324,7 +324,7 @@ psycopg2==2.9.12 ; platform_system != "Darwin"
     # via -r requirements.txt
 pyarrow==25.0.1
     # via datasets
-pyasn1==0.6.4
+pyasn1==0.6.5
     # via
     #   -r requirements.txt
     #   pyasn1-modules
