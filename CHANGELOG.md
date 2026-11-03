@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.12] - 2026-11-02
+
 ### Added
 
 * Added cooldown-limited attack incident alerts with recent-window thresholds,
@@ -17,6 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Corrected proxy and tarpit forwarding behavior found in the Python end-to-end
   regression run.
 * Repaired the scheduled security-issue and closed-issue maintenance workflows.
+* Adapted passkey credential verification for WebAuthn 3.
+
+### Security
+
+* Updated pyasn1 and Rust ZIP pins to resolve reported vulnerabilities.
+
+### Changed
+
+* Updated Python dependency minimums, the reproducible lockfile, and pinned
+  GitHub Actions after audit and CI validation.
 
 ## [0.0.11] - 2026-10-22
 
