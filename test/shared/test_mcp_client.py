@@ -1,7 +1,9 @@
 import asyncio
 import json
+import secrets
 import unittest
 from contextlib import asynccontextmanager
+from http import HTTPStatus
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -12,7 +14,9 @@ from websockets.asyncio.server import serve
 
 from src.shared.mcp_client import (
     MCPClient,
+    MCPClientError,
     MCPServerConfig,
+    _normalise_tool_result,
     _streamable_http_transport,
     _websocket_transport,
     load_server_config,
@@ -50,6 +54,54 @@ class FakeSession:
 
 
 class TestMCPClient(unittest.TestCase):
+    def test_mcp23_structured_result_is_returned_directly(self):
+        expected = {"verdict": "block", "score": 0.9, "signals": ["user_agent"]}
+        result = mcp_types.CallToolResult(content=[], structured_content=expected)
+        self.assertEqual(_normalise_tool_result(result), expected)
+        self.assertEqual(
+            _normalise_tool_result({"structured_content": expected}), expected
+        )
+        self.assertEqual(
+            _normalise_tool_result({"structuredContent": expected}), expected
+        )
+        self.assertEqual(
+            _normalise_tool_result(
+                SimpleNamespace(model_dump=lambda: {"structured_content": expected})
+            ),
+            expected,
+        )
+
+    def test_websocket_handshake_rejections_become_safe_client_errors(self):
+        secret = secrets.token_urlsafe(24)
+
+        async def unused_handler(socket):
+            self.fail("Rejected handshakes must not reach the handler")
+
+        async def exercise(status):
+            def reject(connection, request):
+                return connection.respond(status, "Denied")
+
+            async with serve(
+                unused_handler, "127.0.0.1", 0, process_request=reject
+            ) as server:
+                port = server.sockets[0].getsockname()[1]
+                client = MCPClient(
+                    MCPServerConfig(
+                        label="test",
+                        transport="ws",
+                        endpoint=f"ws://127.0.0.1:{port}",
+                        headers={"Authorization": f"Bearer {secret}"},
+                    )
+                )
+                with self.assertRaises(MCPClientError) as caught:
+                    await client._call_tool("classify", {"path": "/"}, 1.0)
+                self.assertIn(f"HTTP {status.value}", str(caught.exception))
+                self.assertNotIn(secret, str(caught.exception))
+
+        for status in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN):
+            with self.subTest(status=status):
+                asyncio.run(exercise(status))
+
     def test_websocket_transport_exchanges_mcp2_jsonrpc_messages(self):
         async def serve_one(socket):
             request = json.loads(await socket.recv())
