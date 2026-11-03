@@ -271,12 +271,19 @@ class MCPClient:
     ) -> Dict[str, Any]:
         if ClientSession is None:
             raise MCPClientError("mcp package is not installed. Run 'pip install mcp'.")
-        transport = self._create_transport()
-        async with transport as streams:
-            read_stream, write_stream = streams[:2]
-            return await self._invoke_session(
-                tool_name, arguments, read_stream, write_stream, timeout
-            )
+        try:
+            transport = self._create_transport()
+            async with transport as streams:
+                read_stream, write_stream = streams[:2]
+                return await self._invoke_session(
+                    tool_name, arguments, read_stream, write_stream, timeout
+                )
+        except MCPClientError:
+            raise
+        except Exception as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            detail = f" (HTTP {status})" if isinstance(status, int) else ""
+            raise MCPClientError(f"MCP transport failed{detail}") from exc
 
     async def _invoke_session(
         self,
@@ -394,16 +401,22 @@ def _normalise_tool_result(result: Any) -> Dict[str, Any]:
     if result is None:
         return {}
     if isinstance(result, Mapping):
+        for key in ("structured_content", "structuredContent"):
+            structured_content = result.get(key)
+            if isinstance(structured_content, Mapping):
+                return dict(structured_content)
         return dict(result)
-    structured_content = getattr(result, "structuredContent", None)
-    if isinstance(structured_content, Mapping):
-        return dict(structured_content)
+    for key in ("structured_content", "structuredContent"):
+        structured_content = getattr(result, key, None)
+        if isinstance(structured_content, Mapping):
+            return dict(structured_content)
     if hasattr(result, "model_dump"):
         try:
             dumped = result.model_dump()
-            structured_content = dumped.get("structuredContent")
-            if isinstance(structured_content, Mapping):
-                return dict(structured_content)
+            for key in ("structured_content", "structuredContent"):
+                structured_content = dumped.get(key)
+                if isinstance(structured_content, Mapping):
+                    return dict(structured_content)
             return dumped  # type: ignore[no-any-return]
         except Exception as e:  # pragma: no cover - defensive
             logger.debug(f"Failed to call model_dump() on result: {e}")
