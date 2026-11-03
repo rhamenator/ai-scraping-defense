@@ -17,11 +17,7 @@ from webauthn import (
     verify_authentication_response,
     verify_registration_response,
 )
-from webauthn.helpers.structs import (
-    AuthenticationCredential,
-    PublicKeyCredentialDescriptor,
-    RegistrationCredential,
-)
+from webauthn.helpers.structs import PublicKeyCredentialDescriptor
 
 from src.shared.config import tenant_key
 from src.shared.redis_client import get_redis_connection
@@ -203,7 +199,7 @@ def begin_registration(user: str) -> JSONResponse:
 
 
 def complete_registration(data: dict, user: str) -> JSONResponse:
-    credential = RegistrationCredential.parse_raw(json.dumps(data["credential"]))
+    credential = data["credential"]
     challenge = _consume_challenge(user)
     if not challenge:
         raise HTTPException(status_code=400, detail="Challenge expired")
@@ -247,7 +243,7 @@ def complete_login(data: dict) -> JSONResponse:
     challenge = _consume_challenge(username)
     if not challenge:
         raise HTTPException(status_code=400, detail="Challenge expired")
-    credential = AuthenticationCredential.parse_raw(json.dumps(data["credential"]))
+    credential = data["credential"]
     verification = verify_authentication_response(
         credential=credential,
         expected_challenge=challenge,
