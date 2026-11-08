@@ -1,22 +1,23 @@
 import json
-import subprocess
+import runpy
 import sys
 from pathlib import Path
+
+import pytest
 
 from scripts.manage_alerts_issues_prs import AlertManager
 from scripts.security_response_plan import build_response_plan_entry
 
 
-def test_manager_runs_as_script_from_repository_root():
+def test_manager_runs_as_script_from_repository_root(monkeypatch, capsys):
     root = Path(__file__).resolve().parents[2]
-    result = subprocess.run(
-        [sys.executable, "scripts/manage_alerts_issues_prs.py", "--help"],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr
+    script = root / "scripts/manage_alerts_issues_prs.py"
+    monkeypatch.syspath_prepend(str(script.parent))
+    monkeypatch.setattr(sys, "argv", [str(script), "--help"])
+    with pytest.raises(SystemExit) as exit_status:
+        runpy.run_path(str(script), run_name="__main__")
+    assert exit_status.value.code == 0
+    assert "--owner" in capsys.readouterr().out
 
 
 def test_manager_writes_response_plan(tmp_path):
