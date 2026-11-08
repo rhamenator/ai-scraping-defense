@@ -1,7 +1,22 @@
 import json
+import subprocess
+import sys
+from pathlib import Path
 
 from scripts.manage_alerts_issues_prs import AlertManager
 from scripts.security_response_plan import build_response_plan_entry
+
+
+def test_manager_runs_as_script_from_repository_root():
+    root = Path(__file__).resolve().parents[2]
+    result = subprocess.run(
+        [sys.executable, "scripts/manage_alerts_issues_prs.py", "--help"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_manager_writes_response_plan(tmp_path):

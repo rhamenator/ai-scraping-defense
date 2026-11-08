@@ -30,11 +30,18 @@ from datetime import datetime
 from difflib import SequenceMatcher
 from typing import Dict, List
 
-from scripts.security_response_plan import (
-    build_plan_payload,
-    build_response_plan_entry,
-    write_plan_payload,
-)
+if __package__:
+    from scripts.security_response_plan import (
+        build_plan_payload,
+        build_response_plan_entry,
+        write_plan_payload,
+    )
+else:
+    from security_response_plan import (
+        build_plan_payload,
+        build_response_plan_entry,
+        write_plan_payload,
+    )
 
 try:
     import requests
