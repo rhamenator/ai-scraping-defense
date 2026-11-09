@@ -109,7 +109,7 @@ jobs:
 
       - name: Upload response plan
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: create-issues-response-plan-${{ github.run_number }}
           path: reports/security-response-plan.json

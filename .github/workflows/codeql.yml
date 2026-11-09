@@ -74,7 +74,7 @@ jobs:
 
     - name: Set up .NET
       if: matrix.language == 'csharp'
-      uses: actions/setup-dotnet@9a946fdbd5fb07b82b2f5a4466058b876ab72bb2
+      uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73
       with:
         dotnet-version: '8.0.x'
 

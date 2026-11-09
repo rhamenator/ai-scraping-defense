@@ -160,7 +160,7 @@ jobs:
           docker compose -f docker-compose.yaml logs --no-color > artifacts/compose.log || true
       - name: Upload compose logs
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: security-attack-regression-artifacts
           path: artifacts/
@@ -255,7 +255,7 @@ jobs:
             --json | tee artifacts/attack-regression.stdout.json
       - name: Upload hosted staging artifacts
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: security-attack-regression-staging-artifacts
           path: artifacts/
