@@ -43,7 +43,7 @@ cbor2>=6.2.0
 cryptography>=50.0.0,<51.0
 msgpack>=1.2.1,<2.0
 pyasn1>=0.6.5,<1.0
-pyOpenSSL>=26.0.0,<27.0
+pyOpenSSL>=26.4.0,<27.0
 hvac~=2.4
 
 # Model providers and local inference
