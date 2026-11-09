@@ -102,5 +102,5 @@ jobs:
               print(f"| {k.capitalize()} | {d.get(k,0)} |")
           print(f"| **Total** | **{d.get('total',0)}** |")
           PY
-      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with: { name: security-reports, path: reports/ }
