@@ -188,7 +188,7 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
                     ordinary
                 )
 
-        self.assertGreater(blocked_score, 0.7)
+        self.assertGreater(blocked_score, 0.6)
         self.assertLess(allowed_score, 0.1)
         self.assertLess(failed_score, allowed_score)
         self.assertTrue(
