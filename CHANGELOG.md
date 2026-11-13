@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.14] - 2026-11-13
+
+### Fixed
+
+* Send supported request metadata to Request Guard MCP classification and use
+  its validated verdict and score in escalation scoring; retain heuristic
+  fallback for classifier errors.
+* Repair the scheduled alert manager import.
+
+### Changed
+
+* Update routine dependencies and GitHub Actions pins after CI verification.
+
 ## [0.0.13] - 2026-11-03
 
 ### Fixed
