@@ -5,6 +5,7 @@ import hashlib
 import ipaddress
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -20,6 +21,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 from src.shared.attack_incident import record_and_alert_attack
 from src.shared.config import tenant_key
 from src.shared.middleware import create_app
+from src.shared.model_adapters import MCPAdapter
 from src.shared.observability import (
     HealthCheckResult,
     register_health_check,
@@ -852,7 +854,32 @@ def run_heuristic_and_model_analysis(
     features_dict = extract_features(log_entry_dict, frequency_features)
     if MODEL_LOADED and model_adapter:
         try:
-            if features_dict:
+            if isinstance(model_adapter, MCPAdapter):
+                response = model_adapter.predict(
+                    {
+                        "ip": metadata.ip,
+                        "user_agent": metadata.user_agent,
+                        "path": metadata.path,
+                        "method": method,
+                    }
+                )
+                if not isinstance(response, dict) or "error" in response:
+                    raise ValueError("MCP classification unavailable")
+                verdict = response.get("verdict")
+                score = response.get("score")
+                if verdict not in {"allow", "flag", "challenge", "block"}:
+                    raise ValueError("Invalid MCP verdict")
+                if (
+                    isinstance(score, bool)
+                    or not isinstance(score, (int, float))
+                    or not math.isfinite(score)
+                    or not 0.0 <= score <= 1.0
+                ):
+                    raise ValueError("Invalid MCP score")
+                model_score = float(score)
+                model_used = True
+                increment_counter_metric(RF_MODEL_PREDICTIONS)
+            elif features_dict:
                 probabilities = model_adapter.predict([features_dict])
                 model_score = probabilities[0][1]
                 model_used = True
@@ -862,7 +889,7 @@ def run_heuristic_and_model_analysis(
                     f"Could not extract features for RF model (IP: {metadata.ip})"
                 )
         except Exception as e:
-            logger.error(f"RF model prediction failed for IP {metadata.ip}: {e}")
+            logger.error("Model prediction failed for IP %s: %s", metadata.ip, e)
             increment_counter_metric(RF_MODEL_ERRORS)
 
     anomaly_score = 0.0
