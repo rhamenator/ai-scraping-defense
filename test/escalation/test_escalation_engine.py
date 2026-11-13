@@ -16,6 +16,7 @@ from src.escalation import escalation_engine
 
 # Correctly import only the existing classes from the module
 from src.escalation.escalation_engine import RequestMetadata, ValidationError, app
+from src.shared.model_adapters import MCPAdapter
 
 
 class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
@@ -143,6 +144,56 @@ class TestEscalationEngineComprehensive(unittest.IsolatedAsyncioTestCase):
         # Check that the score is a blend of heuristic and model
         self.assertGreater(score, 0.5)  # Should be high due to bad UA and model
         mock_model.predict.assert_called_once()
+
+    def test_mcp_scoring_uses_classify_verdict_and_keeps_errors_distinct(self):
+        adapter = MCPAdapter.__new__(MCPAdapter)
+        adapter.client = MagicMock()
+        adapter.tool_name = "classify"
+        adapter.argument_key = ""
+        adapter.options_key = ""
+        adapter.forward_full_payload = False
+        scanner = RequestMetadata(
+            timestamp="2023-01-01T12:00:00Z",
+            ip="192.0.2.42",
+            source="test",
+            user_agent="sqlmap/1.0",
+            path="/wp-login.php",
+            method="GET",
+            headers={"accept-language": "en-US"},
+        )
+        ordinary = scanner.model_copy(
+            update={"user_agent": "Mozilla/5.0", "path": "/products"}
+        )
+        with (
+            patch.object(escalation_engine, "model_adapter", adapter),
+            patch.object(escalation_engine, "MODEL_LOADED", True),
+        ):
+            adapter.client.call_tool.return_value = {"verdict": "block", "score": 0.95}
+            blocked_score = escalation_engine.run_heuristic_and_model_analysis(scanner)
+            adapter.client.call_tool.assert_called_with(
+                "classify",
+                {
+                    "ip": "192.0.2.42",
+                    "user_agent": "sqlmap/1.0",
+                    "path": "/wp-login.php",
+                    "method": "GET",
+                },
+                timeout=None,
+            )
+            adapter.client.call_tool.return_value = {"verdict": "allow", "score": 0.05}
+            allowed_score = escalation_engine.run_heuristic_and_model_analysis(ordinary)
+            adapter.client.call_tool.return_value = {"error": "transport unavailable"}
+            with self.assertLogs(escalation_engine.logger, level="ERROR") as logs:
+                failed_score = escalation_engine.run_heuristic_and_model_analysis(
+                    ordinary
+                )
+
+        self.assertGreater(blocked_score, 0.7)
+        self.assertLess(allowed_score, 0.1)
+        self.assertLess(failed_score, allowed_score)
+        self.assertTrue(
+            any("MCP classification unavailable" in entry for entry in logs.output)
+        )
 
     def test_tls_scoring_requires_server_verified_provenance(self):
         ja3 = "72a589da586844d7f0818ce684948eea"
