@@ -1,5 +1,6 @@
 import os
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import pyotp
@@ -12,6 +13,16 @@ from src.shared.request_identity import RequestIdentity
 
 
 class TestAdminUiSso(unittest.TestCase):
+    def test_public_kubernetes_proxy_drops_saml_identity_headers(self):
+        config = (
+            Path(__file__).resolve().parents[2]
+            / "kubernetes"
+            / "nginx-runtime-config.yaml"
+        ).read_text()
+        admin_location = config.split("location /admin/ {", 1)[1].split("}", 1)[0]
+        self.assertIn('proxy_set_header X-SSO-User "";', admin_location)
+        self.assertIn('proxy_set_header X-SSO-Groups "";', admin_location)
+
     def setUp(self):
         self.app = create_app()
 
@@ -101,6 +112,32 @@ class TestAdminUiSso(unittest.TestCase):
                 )
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()["detail"], "Untrusted SAML assertion source")
+
+    def test_saml_sso_works_without_local_mfa_when_proxy_is_verified(self):
+        trusted = RequestIdentity(
+            client_ip="198.51.100.10",
+            peer_ip="127.0.0.1",
+            via_trusted_proxy=True,
+            via_trusted_cdn=False,
+        )
+        with patch.dict(
+            os.environ,
+            {
+                "ADMIN_UI_SSO_ENABLED": "true",
+                "ADMIN_UI_SSO_MODE": "saml",
+                "ADMIN_UI_SSO_MFA_REQUIRED": "false",
+            },
+            clear=False,
+        ):
+            with patch("src.admin_ui.auth.get_redis_connection", return_value=None):
+                with patch(
+                    "src.admin_ui.sso.resolve_request_identity", return_value=trusted
+                ):
+                    response = self.client.get(
+                        "/whoami", headers={"X-SSO-User": "verified-user"}
+                    )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["user"], "verified-user")
 
     def test_oidc_sso_requires_mfa_by_default(self):
         with patch.dict(
