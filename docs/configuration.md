@@ -348,11 +348,15 @@ exemptions and other heuristics. A matching disallowed path routes directly to
 `/api/tarpit`, even with otherwise normal browser headers. A request to a permitted
 path gains no robots penalty and continues through the existing checks.
 
-The edge currently reads `User-agent: *` disallow prefixes. Per-agent rules,
-allow rules, wildcards, and URI normalization are not yet supported by this Lua
-parser; see issue #1929. Crawler exemptions require verified DNS identity; a benign User-Agent token alone
-is not proof of crawler identity.
-
+The edge applies RFC 9309 rule matching: directive/group names are case
+insensitive, while paths retain case. It strips comments, decodes percent-encoded
+unreserved ASCII octets, preserves encoded reserved delimiters, and compares
+UTF-8 bytes consistently. `Disallow: /` disallows every path except the implicitly
+permitted `/robots.txt`. The most specific matching rule wins; equivalent allow
+rules win ties. Wildcards, end anchors, multiple-agent groups and repeated groups
+are supported. Specific matching agent groups replace the wildcard fallback;
+selecting a robots group is distinct from granting a trusted crawler exemption.
+Crawler exemptions additionally require verified DNS identity.
 Run the access-script regression checks from the repository root with
 `lua test/nginx/test_detect_bot.lua`. CI runs these alongside Lua linting.
 
