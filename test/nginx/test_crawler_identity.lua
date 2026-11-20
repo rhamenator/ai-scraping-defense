@@ -1,16 +1,13 @@
 -- luacheck: ignore 212/self
 -- No live DNS: run the production verifier with a controlled resolver/timer/cache.
-local function scenario(options)
-    options = options or {}
-    local now, queue, values, expires = 0, {}, {}, {}
-    local reverse_calls, forward_calls = 0, 0
-    local cache = {}
+local function new_cache(state)
+    local values, expires, cache = {}, {}, {}
     function cache:get(key)
-        if expires[key] and expires[key] <= now then values[key] = nil end
+        if expires[key] and expires[key] <= state.now then values[key] = nil end
         return values[key]
     end
     function cache:set(key, value, ttl)
-        values[key], expires[key] = value, now + ttl
+        values[key], expires[key] = value, state.now + ttl
         return true
     end
     function cache:add(key, value, ttl)
@@ -18,6 +15,10 @@ local function scenario(options)
         return self:set(key, value, ttl)
     end
     function cache:delete(key) values[key] = nil end
+    return cache
+end
+
+local function new_resolver(options, state)
     local resolver = {TYPE_A = 1, TYPE_AAAA = 28}
     function resolver:new(settings)
         assert(settings.timeout == 1000 and settings.retrans == 1)
@@ -26,14 +27,14 @@ local function scenario(options)
     end
     function resolver:set_timeout(ms) assert(ms > 0 and ms <= 1000) end
     function resolver:reverse_query()
-        reverse_calls = reverse_calls + 1
+        state.reverse_calls = state.reverse_calls + 1
         if options.exception then error("resolver failure") end
         if options.reverse_failure then return nil, "timeout" end
-        if options.deadline then now = now + 2 end
+        if options.deadline then state.now = state.now + 2 end
         return {{ptrdname = options.hostname or "crawl.example.googlebot.com"}}
     end
     function resolver:query(_, settings)
-        forward_calls = forward_calls + 1
+        state.forward_calls = state.forward_calls + 1
         if options.forward_failure then return nil, "timeout" end
         return {{type = settings.qtype, address = options.address or "192.0.2.10"}}
     end
@@ -43,16 +44,20 @@ local function scenario(options)
         end
         return ip
     end
+    return resolver
+end
+
+local function new_env(options, state, cache, resolver)
     local env = setmetatable({
         os = {getenv = function(name)
             if name == "VERIFIED_CRAWLERS" then return options.enabled end
         end},
         ngx = {
-            now = function() return now end,
+            now = function() return state.now end,
             shared = {crawler_verification_cache = cache},
             timer = {at = function(_, callback, ...)
                 if options.timer_failure then return nil, "too many pending timers" end
-                queue[#queue + 1] = {callback, ...}
+                state.queue[#state.queue + 1] = {callback, ...}
                 return true
             end},
         },
@@ -62,21 +67,30 @@ local function scenario(options)
         end,
     }, {__index = _G})
     if options.no_cache then env.ngx.shared = {} end
-    local script
+    return env
+end
+
+local function load_module(env)
     if setfenv then
-        script = assert(loadfile("nginx/lua/crawler_identity.lua"))
+        local script = assert(loadfile("nginx/lua/crawler_identity.lua"))
         setfenv(script, env)
-    else
-        script = assert(loadfile("nginx/lua/crawler_identity.lua", "t", env))
+        return script()
     end
-    local verifier = script()
+    return assert(loadfile("nginx/lua/crawler_identity.lua", "t", env))()
+end
+
+local function scenario(options)
+    options = options or {}
+    local state = {now = 0, queue = {}, reverse_calls = 0, forward_calls = 0}
+    local env = new_env(options, state, new_cache(state), new_resolver(options, state))
+    local verifier = load_module(env)
     local function drain()
         local unpack_args = table.unpack or unpack
-        for _, job in ipairs(queue) do job[1](false, unpack_args(job, 2)) end
-        queue = {}
+        for _, job in ipairs(state.queue) do job[1](false, unpack_args(job, 2)) end
+        state.queue = {}
     end
-    return verifier, drain, function() return reverse_calls, forward_calls, #queue end,
-        function() now = now + 7201 end
+    return verifier, drain, function() return state.reverse_calls, state.forward_calls, #state.queue end,
+        function() state.now = state.now + 7201 end
 end
 
 local ip, ua = "192.0.2.10", "Googlebot/2.1"
