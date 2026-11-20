@@ -164,11 +164,16 @@ reports/
 *.log
 *.vspscc
 iis/DefenseModule/bin/
-iis/DefenseModule/obj/Debug/
-iis/DefenseModule/obj/DefenseModule.csproj.nuget.dgspec.json
-iis/DefenseModule/obj/project.assets.json
-iis/DefenseModule/obj/project.nuget.cache
+iis/DefenseModule/obj/
 
 .fake
 automation/
 backups/
+
+# Obsolete local/API/diagnostic snapshots (see docs/root_cleanup.md)
+/models.json
+/compliance_problems.json
+/problems.txt
+/CODE_SCANNING_ISSUES.md
+/issue_milestone_assignments.json
+/problem_file_map.json

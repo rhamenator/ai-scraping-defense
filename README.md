@@ -634,7 +634,7 @@ python scripts/manage_alerts_issues_prs.py \
 The script intelligently groups items by their essential properties (problem description, not file paths or IDs), ensuring that duplicate alerts affecting different files are properly consolidated. All closed items receive notes referencing the primary item.
 
 **Documentation:**
-- **Quick Start:** [QUICK_START_ALERT_MANAGEMENT.md](QUICK_START_ALERT_MANAGEMENT.md)
+- **Quick Start:** [QUICK_START_ALERT_MANAGEMENT.md](docs/archive/root-notes/QUICK_START_ALERT_MANAGEMENT.md)
 - **Detailed Guide:** [docs/alert_management_guide.md](docs/alert_management_guide.md)
 - **Technical Docs:** [scripts/ALERT_MANAGEMENT_README.md](scripts/ALERT_MANAGEMENT_README.md)
 

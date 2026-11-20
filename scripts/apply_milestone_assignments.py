@@ -20,7 +20,7 @@ from typing import Dict, Iterable, Optional
 
 import requests
 
-DEFAULT_ASSIGNMENTS = Path("issue_milestone_assignments.json")
+DEFAULT_ASSIGNMENTS = Path("docs/triage/issue_milestone_assignments.json")
 DEFAULT_OWNER = "rhamenator"
 DEFAULT_REPO = "ai-scraping-defense"
 REQUEST_TIMEOUT = 30

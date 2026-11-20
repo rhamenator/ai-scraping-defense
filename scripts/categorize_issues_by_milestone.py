@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-DEFAULT_INPUT = Path("problem_file_map.json")
-DEFAULT_OUTPUT = Path("issue_milestone_assignments.json")
+DEFAULT_INPUT = Path("docs/triage/problem_file_map.json")
+DEFAULT_OUTPUT = Path("docs/triage/issue_milestone_assignments.json")
 
 MILESTONE_SEQUENCE = [
     "Local Stability",

@@ -33,7 +33,7 @@ conn.close()
 
 # Verify JSON
 print("\n=== JSON VERIFICATION ===")
-with open("problem_file_map.json", "r") as f:
+with open("docs/triage/problem_file_map.json", "r") as f:
     data = json.load(f)
 first_problem = list(data.values())[0]
 print("  Sample Problem Fields:")

@@ -36,7 +36,7 @@ import requests
 
 LOG = logging.getLogger("sync_issue_metadata")
 
-DEFAULT_JSON = Path("problem_file_map.json")
+DEFAULT_JSON = Path("docs/triage/problem_file_map.json")
 DEFAULT_OWNER = "rhamenator"
 DEFAULT_REPO = "ai-scraping-defense"
 LABEL_PREFIX_CATEGORY = "category::"

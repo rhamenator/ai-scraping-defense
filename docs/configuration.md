@@ -292,7 +292,7 @@ Recent suspicious traffic generates an `AI_DEFENSE_ATTACK_INCIDENT` alert throug
 | `CAPTCHA_VERIFICATION_URL` | *(none)* | CAPTCHA verification endpoint |
 | `CAPTCHA_SECRET_FILE` | *(none)* | Secret key file for verification |
 | `CAPTCHA_SUCCESS_LOG` | `/app/logs/captcha_success.log` | Log path for successful verifications |
-| `TRAINING_ROBOTS_TXT_PATH` | `/app/config/robots.txt` | robots.txt used for training |
+| `TRAINING_ROBOTS_TXT_PATH` | `/app/config/robots.txt` | robots.txt used for training and escalation policy |
 
 ## Model and Anomaly Detection
 
@@ -339,3 +339,67 @@ Recent suspicious traffic generates an `AI_DEFENSE_ATTACK_INCIDENT` alert throug
 | `UVICORN_WORKERS` | `2` | Worker processes for FastAPI services |
 
 This list focuses on the variables loaded via `src/shared/config.py` and the modules that build on that configuration. Other scripts such as the optional blocklist sync daemons define additional variables. Refer to `sample.env` for a full listing.
+
+## NGINX robots.txt enforcement
+
+The Compose edge reads the mounted `/etc/nginx/robots.txt` (provided by
+`config/robots.txt`). Its disallow check runs for every client before User-Agent
+exemptions and other heuristics. A matching disallowed path routes directly to
+`/api/tarpit`, even with otherwise normal browser headers. A request to a permitted
+path gains no robots penalty and continues through the existing checks.
+
+The edge applies RFC 9309 rule matching: directive/group names are case
+insensitive, while paths retain case. It strips comments, decodes percent-encoded
+unreserved ASCII octets, preserves encoded reserved delimiters, and compares
+UTF-8 bytes consistently. `Disallow: /` disallows every path except the implicitly
+permitted `/robots.txt`. The most specific matching rule wins; equivalent allow
+rules win ties. Wildcards, end anchors, multiple-agent groups and repeated groups
+are supported. Specific matching agent groups replace the wildcard fallback;
+selecting a robots group is distinct from granting a trusted crawler exemption.
+Crawler exemptions additionally require verified DNS identity.
+Run the access-script regression checks from the repository root with
+`lua test/nginx/test_detect_bot.lua`. CI runs these alongside Lua linting.
+
+### Verified crawlers at the NGINX edge
+
+Only Googlebot and Bingbot can currently receive a crawler exemption. A matching
+UA token starts an asynchronous reverse-DNS lookup. The PTR name must end in
+`.googlebot.com` or `.google.com` for Googlebot, or `.search.msn.com` for Bingbot;
+forward A/AAAA resolution must return the same client IP. Bad-tool UAs still go
+through the bad-UA checks even from a verified IP. Robots rules run first for all
+clients, including verified crawlers.
+
+The access handler only reads a shared cache and schedules a timer. On cache
+miss, the current request uses normal checks while DNS runs off the request path.
+Success and failure are cached per IP and provider for two hours. DNS errors,
+exceptions, missing cache, timer exhaustion and timeouts grant no exemption.
+Reverse and forward lookups share a one-second budget without retries. The cache
+uses NGINX's `remote_addr`, never a caller-supplied forwarding header; configure
+trusted proxy address restoration explicitly when deploying behind a proxy.
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `VERIFIED_CRAWLERS` | `googlebot,bingbot` | Comma-separated enabled providers; empty disables exemptions |
+| `CRAWLER_DNS_NAMESERVER` | `127.0.0.11` | Trusted resolver address; Docker's embedded DNS by default |
+
+Compose passes both settings to NGINX. Custom OpenResty configurations must retain
+the `env` directives from `nginx/nginx.conf`, the Lua package path, and a
+`lua_shared_dict crawler_verification_cache 1m` in their HTTP context. Reload
+workers after changing these settings. No optional IP-range trust is enabled.
+
+### Robots violations in the escalation engine
+
+The Python engine applies the same rule semantics to every client's supplied
+path and UA, using `TRAINING_ROBOTS_TXT_PATH`. The heuristic evidence weight
+remains **+0.6**. The authenticated `/escalate` endpoint checks robots policy
+before classifier/reputation work and applies the configured block tier for a
+violation. Its recorded action is `containment_block_robots_violation`; the
+reported decision score is at least `ESCALATION_BLOCK_THRESHOLD`. A model result
+cannot dilute this primary trigger. Permitted paths receive no robots penalty.
+
+The backend grants no identity exemption or score discount from a claimed benign
+UA. `KNOWN_BENIGN_CRAWLERS_UAS` no longer grants backend privileges, and the
+legacy `ua_is_known_benign_crawler` feature stays zero for unverified input.
+Google/Bing identity verification and its cache live at the NGINX edge; callers
+cannot assert a verified identity in escalation metadata. The engine still
+applies legitimate agent-specific robots policy, which is separate from trust.

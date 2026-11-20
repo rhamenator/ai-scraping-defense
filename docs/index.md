@@ -63,7 +63,7 @@ This page is the canonical docs map for the Python stack. It intentionally avoid
 ## Legal and Project Policy
 
 - [License](../LICENSE)
-- [License Summary](../license_summary.md)
+- [License Summary](license_summary.md)
 - [Third-Party Licenses](third_party_licenses.md)
 - [Privacy Policy](privacy_policy.md)
 - [Data Protection Baseline](data_protection_baseline.md)
@@ -78,3 +78,22 @@ This page is the canonical docs map for the Python stack. It intentionally avoid
 ## Note on Scope
 
 The Windows + IIS-first implementation is maintained in the separate `.NET` repository. See [IIS Deployment Note](iis_deployment.md) for the boundary and handoff.
+
+## Historical Notes and Maintenance Data
+
+- [Root cleanup decisions and checked consumers](root_cleanup.md)
+- [Historical presentation](presentations/AI_Scraping_Defense_System_Presentation.pptx)
+- [Problem map](triage/problem_file_map.json), [compliance input catalogue](triage/compliance_problems.json), and [milestone assignments](triage/issue_milestone_assignments.json)
+
+These older working notes are retained as historical context, not current setup instructions:
+
+- [Alert Management Summary](archive/root-notes/ALERT_MANAGEMENT_SUMMARY.md)
+- [Quick Start Alert Management](archive/root-notes/QUICK_START_ALERT_MANAGEMENT.md)
+- [Start Here Alert Management](archive/root-notes/START_HERE_ALERT_MANAGEMENT.md)
+- [Code Scanning Issues](archive/root-notes/CODE_SCANNING_ISSUES.md)
+- [Security Summary](archive/root-notes/SECURITY_SUMMARY.md)
+- [Workflow Fixes Summary](archive/root-notes/WORKFLOW_FIXES_SUMMARY.md)
+- [Workflow Investigation Summary](archive/root-notes/WORKFLOW_INVESTIGATION_SUMMARY.md)
+- [Issues To Create](archive/root-notes/ISSUES_TO_CREATE.md)
+- [Chat Relevant Playbook](archive/root-notes/CHAT_RELEVANT_PLAYBOOK.md)
+- [Windows Handoff](archive/root-notes/WINDOWS_HANDOFF.md)
