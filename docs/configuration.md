@@ -339,3 +339,19 @@ Recent suspicious traffic generates an `AI_DEFENSE_ATTACK_INCIDENT` alert throug
 | `UVICORN_WORKERS` | `2` | Worker processes for FastAPI services |
 
 This list focuses on the variables loaded via `src/shared/config.py` and the modules that build on that configuration. Other scripts such as the optional blocklist sync daemons define additional variables. Refer to `sample.env` for a full listing.
+
+## NGINX robots.txt enforcement
+
+The Compose edge reads the mounted `/etc/nginx/robots.txt` (provided by
+`config/robots.txt`). Its disallow check runs for every client before User-Agent
+exemptions and other heuristics. A matching disallowed path routes directly to
+`/api/tarpit`, even with otherwise normal browser headers. A request to a permitted
+path gains no robots penalty and continues through the existing checks.
+
+The edge currently reads `User-agent: *` disallow prefixes. Per-agent rules,
+allow rules, wildcards, and URI normalization are not yet supported by this Lua
+parser; see issue #1929. Crawler identity verification is tracked in #1928;
+a benign User-Agent token alone is not proof of crawler identity.
+
+Run the access-script regression checks from the repository root with
+`lua test/nginx/test_detect_bot.lua`. CI runs these alongside Lua linting.
