@@ -74,6 +74,7 @@ for _, case in ipairs(cases) do
         ngx = ngx_stub, io = {open = open_robots},
         require = function(name)
             if name == "robots_policy" then return dofile("nginx/lua/robots_policy.lua") end
+            if name == "blocklist" then return {check = function() end} end
             assert(name == "crawler_identity")
             return {is_verified = function() return case[4] == true end}
         end,
