@@ -23,6 +23,14 @@ from src.shared import robots_policy as policy
         ("Disallow: /", "/robots.txt?v=1", False),
         ("Disallow: /\nAllow: /public/", "/public/page", False),
         ("Allow: /same\nDisallow: /same", "/same", False),
+        # The "$" end anchor counts toward specificity (RFC 9309), in either rule order.
+        ("Allow: /private\nDisallow: /private$", "/private", True),
+        ("Disallow: /private$\nAllow: /private", "/private", True),
+        ("Allow: /private\nDisallow: /private$", "/private/doc", False),
+        ("Disallow: /private\nAllow: /private$", "/private", False),
+        ("Disallow: /private\nAllow: /private$", "/private/doc", True),
+        ("Allow: /a*\nDisallow: /a*b$", "/axb", True),
+        ("Allow: /a*\nDisallow: /a*b$", "/axbc", False),
         ("Disallow: /same\nAllow: /same", "/same", False),
         (
             "Disallow: /\nAllow: /public/\nDisallow: /public/private",
