@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.15] - 2026-11-20
+
 ### Changed
 
 * Relocate working notes, issue-triage data, license summary and historical
@@ -27,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Enforce the NGINX robots.txt disallow check for every client before User-Agent
   exemptions and heuristic scoring, routing violations directly to the tarpit.
+
+* Strip client-supplied SAML identity headers (`X-SSO-User`, `X-SSO-Groups`) at
+  the public Kubernetes NGINX `/admin/` route; SAML needs a separate trusted
+  identity-aware gateway.
 
 ## [0.0.14] - 2026-11-13
 
