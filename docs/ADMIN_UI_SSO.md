@@ -39,6 +39,12 @@ or `SECURITY_CDN_TRUSTED_PROXY_CIDRS`. Requests carrying SAML headers from any
 other peer are rejected. The proxy must strip client-supplied copies of the
 configured SAML headers before injecting verified identity values.
 
+The public Kubernetes NGINX proxy clears the default SAML identity headers on
+`/admin/` and does not perform SAML authentication. To use SAML with that
+deployment, place an identity-aware gateway on a separate trusted route that
+strips incoming identity headers and injects verified values. If you override
+the header names, update that gateway's stripping rules before enabling SAML.
+
 Required headers:
 
 - `X-SSO-User` (override via `ADMIN_UI_SAML_HEADER_USER`)
