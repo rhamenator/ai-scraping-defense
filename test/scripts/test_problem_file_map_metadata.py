@@ -3,7 +3,9 @@ import re
 import unittest
 from pathlib import Path
 
-PROBLEM_FILE_MAP = Path(__file__).resolve().parents[2] / "problem_file_map.json"
+PROBLEM_FILE_MAP = (
+    Path(__file__).resolve().parents[2] / "docs/triage/problem_file_map.json"
+)
 STALE_BATCH_FILE_PATTERN = re.compile(
     r"(^|docs/)[a-z_]+_problems_batch\d+\.json(?: \(Proposed\))?$"
 )

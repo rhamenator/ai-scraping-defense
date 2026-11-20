@@ -7,7 +7,7 @@ import urllib.request
 from urllib.parse import urlparse
 
 # Configuration
-JSON_FILE = "problem_file_map.json"
+JSON_FILE = "docs/triage/problem_file_map.json"
 DB_FILE = "problem_file_map.db"
 API_KEY = os.environ.get("GEMINI_API_KEY")
 STATE_FILE = "metadata_population_state.json"

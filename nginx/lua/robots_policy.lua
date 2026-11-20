@@ -28,31 +28,6 @@ local function normalize(value, pattern)
     return table.concat(result)
 end
 
-local function build_rule(key, value)
-    if value == "" or (value:sub(1, 1) ~= "/" and value:sub(1, 1) ~= "*") then return nil end
-    local anchored = value:sub(-1) == "$"
-    if anchored then value = value:sub(1, -2) end
-    value = normalize(value, true)
-    local octets = value:gsub("%%(%x%x)", "X"):gsub("%*", "")
-    return {
-        -- RFC 9309: the longest pattern is the most specific. The "$" is part
-        -- of the pattern, so an anchored rule outranks the same text without it.
-        pattern = value, anchored = anchored, length = #octets + (anchored and 1 or 0),
-        allow = key == "allow",
-    }
-end
-
-local function start_group(groups, current, value)
-    value = value:lower()
-    if value ~= "*" and not value:match("^[a-z_%-]+$") then return current end
-    if not current or current.has_rules then
-        current = {agents = {}, rules = {}}
-        groups[#groups + 1] = current
-    end
-    current.agents[#current.agents + 1] = value
-    return current
-end
-
 function M.parse(text)
     local groups, current = {}, nil
     -- A UTF-8 BOM is not part of the first directive.
@@ -62,11 +37,25 @@ function M.parse(text)
         local key, value = line:match("^%s*([%a%-]+)%s*:%s*(.-)%s*$")
         key = key and key:lower()
         if key == "user-agent" then
-            current = start_group(groups, current, value)
+            value = value:lower()
+            if value == "*" or value:match("^[a-z_%-]+$") then
+                if not current or current.has_rules then
+                    current = {agents = {}, rules = {}}
+                    groups[#groups + 1] = current
+                end
+                current.agents[#current.agents + 1] = value
+            end
         elseif current and (key == "allow" or key == "disallow") then
             current.has_rules = true
-            local rule = build_rule(key, value)
-            if rule then current.rules[#current.rules + 1] = rule end
+            if value ~= "" and (value:sub(1, 1) == "/" or value:sub(1, 1) == "*") then
+                local anchored = value:sub(-1) == "$"
+                if anchored then value = value:sub(1, -2) end
+                value = normalize(value, true)
+                local octets = value:gsub("%%(%x%x)", "X"):gsub("%*", "")
+                current.rules[#current.rules + 1] = {
+                    pattern = value, anchored = anchored, length = #octets, allow = key == "allow",
+                }
+            end
         end
     end
     return groups
@@ -93,31 +82,26 @@ local function matches(path, rule)
     return j > #pattern
 end
 
-local function agent_selected(ua, agent)
-    return ua:find("%f[%a_%-]" .. agent:gsub("%-", "%%-") .. "%f[^%a_%-]") ~= nil
-end
-
--- Groups naming the client win; otherwise the "*" groups apply.
-local function select_groups(groups, ua)
+function M.is_disallowed(groups, path, ua)
+    if not path then return false end
+    path = normalize(path, false)
+    if path == "/robots.txt" or path:sub(1, 12) == "/robots.txt?" then return false end
+    ua = (ua or ""):lower()
     local specific, wildcard = {}, {}
     for _, group in ipairs(groups) do
         local selected, fallback = false, false
         for _, agent in ipairs(group.agents) do
             if agent == "*" then
                 fallback = true
-            elseif agent_selected(ua, agent) then
+            elseif ua:find("%f[%a_%-]" .. agent:gsub("%-", "%%-") .. "%f[^%a_%-]") then
                 selected = true
             end
         end
         if selected then specific[#specific + 1] = group end
         if fallback then wildcard[#wildcard + 1] = group end
     end
-    return #specific > 0 and specific or wildcard
-end
-
-local function verdict_allows(groups, path)
     local best, allowed = -1, true
-    for _, group in ipairs(groups) do
+    for _, group in ipairs(#specific > 0 and specific or wildcard) do
         for _, rule in ipairs(group.rules) do
             if rule.length >= best and matches(path, rule) then
                 if rule.length > best then allowed = rule.allow else allowed = allowed or rule.allow end
@@ -125,14 +109,7 @@ local function verdict_allows(groups, path)
             end
         end
     end
-    return allowed
-end
-
-function M.is_disallowed(groups, path, ua)
-    if not path then return false end
-    path = normalize(path, false)
-    if path == "/robots.txt" or path:sub(1, 12) == "/robots.txt?" then return false end
-    return not verdict_allows(select_groups(groups, (ua or ""):lower()), path)
+    return not allowed
 end
 
 return M
