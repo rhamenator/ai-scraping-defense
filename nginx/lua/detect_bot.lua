@@ -11,14 +11,7 @@ local bad_bots = {
   "sqlmap", "nikto"
 }
 
--- List of known benign crawlers (case-insensitive)
-local benign_bots = {
-  "googlebot", "adsbot-google", "apis-google", "mediapartners-google",
-  "googlebot-image", "googlebot-news", "googlebot-video", "bingbot",
-  "adidxbot", "bingpreview", "msnbot", "duckduckbot", "baiduspider",
-  "yandexbot", "yandeximages", "slurp", "facebookexternalhit", "facebot",
-  "linkedinbot", "twitterbot", "applebot"
-}
+local crawler_identity = require "crawler_identity"
 
 -- Path to the robots.txt file mounted in the Docker container
 -- (as per docker-compose.yml: ./config/robots.txt:/etc/nginx/robots.txt:ro)
@@ -155,17 +148,16 @@ if is_path_disallowed(request_uri, dynamic_disallowed_paths) then
 end
 
 -- 2. Check if it's a known benign bot on a permitted path.
-local is_benign, benign_pattern = contains_string(user_agent, benign_bots)
-if is_benign then
+local is_bad_ua, bad_ua_pattern = contains_string(user_agent, bad_bots)
+local is_benign = crawler_identity.is_verified(remote_addr, user_agent)
+if is_benign and not is_bad_ua then
   ngx.log(
     ngx.INFO,
     "[BENIGN BOT ALLOWED] IP: ",
     remote_addr,
     ", UA: ",
     user_agent,
-    " (Matched: ",
-    benign_pattern,
-    ")"
+    " (DNS verified)"
   )
   local chosen = pick_backend()
   if chosen then
@@ -179,7 +171,6 @@ end
 local suspicion_score = 0
 local reasons = {}
 
-local is_bad_ua, bad_ua_pattern = contains_string(user_agent, bad_bots)
 if is_bad_ua then
   suspicion_score = suspicion_score + 0.8
   table.insert(reasons, "KnownBadUA("..bad_ua_pattern..")")

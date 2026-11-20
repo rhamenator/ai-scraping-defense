@@ -13,6 +13,12 @@ local cases = {
     {"Googlebot", "/pricing", "ALLOWED"},
     {"Bingbot", "/pricing", "ALLOWED"},
     {"sqlmap", "/pricing", "TARPIT"},
+    {"sqlmap/1.7 (compatible; Googlebot/2.1)", "/pricing", "TARPIT"},
+    {"nikto (Bingbot/2.0)", "/pricing", "TARPIT"},
+    {"sqlmap Googlebot/2.1", "/pricing", "TARPIT", true},
+    {"Googlebot/2.1", "/admin/", "TARPIT", true},
+    {"Googlebot/2.1", "/pricing", "ALLOWED", true, true},
+    {"Googlebot/2.1", "/pricing", "TARPIT", false, true},
 }
 
 for _, case in ipairs(cases) do
@@ -30,6 +36,7 @@ for _, case in ipairs(cases) do
         var = {remote_addr = "192.0.2.10", request_uri = uri},
         req = {
             get_headers = function()
+                if case[5] then return {["User-Agent"] = user_agent, ["Accept"] = "*/*"} end
                 return {
                     ["User-Agent"] = user_agent,
                     ["Accept"] = "text/html",
@@ -38,7 +45,7 @@ for _, case in ipairs(cases) do
                     ["Referer"] = "https://example.test/",
                 }
             end,
-            get_method = function() return "GET" end,
+            get_method = function() return case[5] and "TRACE" or "GET" end,
         },
         now = function() return 1 end,
         log = function(_, ...)
@@ -49,7 +56,13 @@ for _, case in ipairs(cases) do
             result = "TARPIT"
         end,
     }
-    local env = setmetatable({ngx = ngx_stub, io = {open = open_robots}}, {__index = _G})
+    local env = setmetatable({
+        ngx = ngx_stub, io = {open = open_robots},
+        require = function(name)
+            assert(name == "crawler_identity")
+            return {is_verified = function() return case[4] == true end}
+        end,
+    }, {__index = _G})
     local script
     if setfenv then -- Lua 5.1 / LuaJIT (OpenResty)
         script = assert(loadfile("nginx/lua/detect_bot.lua"))
@@ -58,7 +71,8 @@ for _, case in ipairs(cases) do
         script = assert(loadfile("nginx/lua/detect_bot.lua", "t", env))
     end
     script()
-    print(user_agent .. " GET " .. uri .. " -> " .. result .. " (expected " .. expected .. ")")
+    local method = case[5] and " TRACE " or " GET "
+    print(user_agent .. method .. uri .. " -> " .. result .. " (expected " .. expected .. ")")
     if result ~= expected then
         failures = failures + 1
     end

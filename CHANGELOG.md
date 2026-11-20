@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* Require cached forward-confirmed reverse DNS for Googlebot/Bingbot exemptions
+  at the NGINX edge; unverified claims receive normal checks and offensive-tool
+  UAs cannot bypass detection by including a benign crawler token.
+
 * Enforce the NGINX robots.txt disallow check for every client before User-Agent
   exemptions and heuristic scoring, routing violations directly to the tarpit.
 

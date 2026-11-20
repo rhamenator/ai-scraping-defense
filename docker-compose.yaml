@@ -73,6 +73,8 @@ services:
       - nginx_scgi_temp:/var/cache/nginx/scgi_temp
       - nginx_logs:/var/log/nginx
     environment:
+      - VERIFIED_CRAWLERS=${VERIFIED_CRAWLERS-googlebot,bingbot}
+      - CRAWLER_DNS_NAMESERVER=${CRAWLER_DNS_NAMESERVER:-127.0.0.11}
       - LUA_PATH=/usr/local/openresty/lualib/?.lua;;
       - AI_SERVICE_HOST=ai_service
       - ESCALATION_ENGINE_HOST=escalation_engine

@@ -350,8 +350,35 @@ path gains no robots penalty and continues through the existing checks.
 
 The edge currently reads `User-agent: *` disallow prefixes. Per-agent rules,
 allow rules, wildcards, and URI normalization are not yet supported by this Lua
-parser; see issue #1929. Crawler identity verification is tracked in #1928;
-a benign User-Agent token alone is not proof of crawler identity.
+parser; see issue #1929. Crawler exemptions require verified DNS identity; a benign User-Agent token alone
+is not proof of crawler identity.
 
 Run the access-script regression checks from the repository root with
 `lua test/nginx/test_detect_bot.lua`. CI runs these alongside Lua linting.
+
+### Verified crawlers at the NGINX edge
+
+Only Googlebot and Bingbot can currently receive a crawler exemption. A matching
+UA token starts an asynchronous reverse-DNS lookup. The PTR name must end in
+`.googlebot.com` or `.google.com` for Googlebot, or `.search.msn.com` for Bingbot;
+forward A/AAAA resolution must return the same client IP. Bad-tool UAs still go
+through the bad-UA checks even from a verified IP. Robots rules run first for all
+clients, including verified crawlers.
+
+The access handler only reads a shared cache and schedules a timer. On cache
+miss, the current request uses normal checks while DNS runs off the request path.
+Success and failure are cached per IP and provider for two hours. DNS errors,
+exceptions, missing cache, timer exhaustion and timeouts grant no exemption.
+Reverse and forward lookups share a one-second budget without retries. The cache
+uses NGINX's `remote_addr`, never a caller-supplied forwarding header; configure
+trusted proxy address restoration explicitly when deploying behind a proxy.
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `VERIFIED_CRAWLERS` | `googlebot,bingbot` | Comma-separated enabled providers; empty disables exemptions |
+| `CRAWLER_DNS_NAMESERVER` | `127.0.0.11` | Trusted resolver address; Docker's embedded DNS by default |
+
+Compose passes both settings to NGINX. Custom OpenResty configurations must retain
+the `env` directives from `nginx/nginx.conf`, the Lua package path, and a
+`lua_shared_dict crawler_verification_cache 1m` in their HTTP context. Reload
+workers after changing these settings. No optional IP-range trust is enabled.
