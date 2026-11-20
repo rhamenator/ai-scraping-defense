@@ -142,40 +142,37 @@ ngx.log(
   sanitize_for_log(request_uri)
 )
 
--- 1. Check if it's a known benign bot
-local is_benign, benign_pattern = contains_string(user_agent, benign_bots)
+-- 1. Enforce robots.txt for every client before UA exemptions or heuristics.
+if is_path_disallowed(request_uri, dynamic_disallowed_paths) then
+  ngx.log(
+    ngx.WARN,
+    "[TAR PIT TRIGGER] Client accessed disallowed path: ",
+    sanitize_for_log(request_uri),
+    " IP: ",
+    sanitize_for_log(remote_addr)
+  )
+  return ngx.exec("/api/tarpit")
+end
 
+-- 2. Check if it's a known benign bot on a permitted path.
+local is_benign, benign_pattern = contains_string(user_agent, benign_bots)
 if is_benign then
-  -- 2. If benign, check if it's accessing a disallowed path from loaded robots.txt
-  if is_path_disallowed(request_uri, dynamic_disallowed_paths) then
-    ngx.log(
-      ngx.WARN,
-      "[TAR PIT TRIGGER] Benign bot (",
-      benign_pattern,
-      ") accessed disallowed path: ",
-      request_uri,
-      " IP: ",
-      remote_addr
-    )
-    return ngx.exec("/api/tarpit") -- Send rule-violating benign bots to tarpit
-  else
-    ngx.log(
-      ngx.INFO,
-      "[BENIGN BOT ALLOWED] IP: ",
-      remote_addr,
-      ", UA: ",
-      user_agent,
-      " (Matched: ",
-      benign_pattern,
-      ")"
-    )
-    local chosen = pick_backend()
-    if chosen then
-        ngx.var.lua_proxy_pass_upstream = chosen
-        return ngx.OK -- Signal to Nginx to use this upstream
-    end
-    return -- Allow request (ngx.OK is implicit if no upstream set by Lua)
+  ngx.log(
+    ngx.INFO,
+    "[BENIGN BOT ALLOWED] IP: ",
+    remote_addr,
+    ", UA: ",
+    user_agent,
+    " (Matched: ",
+    benign_pattern,
+    ")"
+  )
+  local chosen = pick_backend()
+  if chosen then
+    ngx.var.lua_proxy_pass_upstream = chosen
+    return ngx.OK -- Signal to Nginx to use this upstream
   end
+  return -- Allow request (ngx.OK is implicit if no upstream set by Lua)
 end
 
 -- 3. If not benign, apply heuristic checks for suspicious activity
