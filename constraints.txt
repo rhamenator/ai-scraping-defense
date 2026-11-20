@@ -3,4 +3,4 @@
 torch==2.11.0
 torchvision==0.26.0
 torchaudio==2.11.0
-python-multipart==0.0.31
+python-multipart==0.0.34
