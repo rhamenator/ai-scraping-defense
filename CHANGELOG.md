@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* Apply robots policy consistently in Python escalation scoring and HTTP
+  enforcement. Remove UA-only crawler discounts; retain +0.6 robots evidence and
+  route a violation directly to the configured block tier before classifiers.
+
 * Parse NGINX robots rules with RFC 9309 case/encoding/comment semantics,
   full-root disallows, allow precedence, wildcard/anchor and agent-group support.
 

@@ -292,7 +292,7 @@ Recent suspicious traffic generates an `AI_DEFENSE_ATTACK_INCIDENT` alert throug
 | `CAPTCHA_VERIFICATION_URL` | *(none)* | CAPTCHA verification endpoint |
 | `CAPTCHA_SECRET_FILE` | *(none)* | Secret key file for verification |
 | `CAPTCHA_SUCCESS_LOG` | `/app/logs/captcha_success.log` | Log path for successful verifications |
-| `TRAINING_ROBOTS_TXT_PATH` | `/app/config/robots.txt` | robots.txt used for training |
+| `TRAINING_ROBOTS_TXT_PATH` | `/app/config/robots.txt` | robots.txt used for training and escalation policy |
 
 ## Model and Anomaly Detection
 
@@ -386,3 +386,20 @@ Compose passes both settings to NGINX. Custom OpenResty configurations must reta
 the `env` directives from `nginx/nginx.conf`, the Lua package path, and a
 `lua_shared_dict crawler_verification_cache 1m` in their HTTP context. Reload
 workers after changing these settings. No optional IP-range trust is enabled.
+
+### Robots violations in the escalation engine
+
+The Python engine applies the same rule semantics to every client's supplied
+path and UA, using `TRAINING_ROBOTS_TXT_PATH`. The heuristic evidence weight
+remains **+0.6**. The authenticated `/escalate` endpoint checks robots policy
+before classifier/reputation work and applies the configured block tier for a
+violation. Its recorded action is `containment_block_robots_violation`; the
+reported decision score is at least `ESCALATION_BLOCK_THRESHOLD`. A model result
+cannot dilute this primary trigger. Permitted paths receive no robots penalty.
+
+The backend grants no identity exemption or score discount from a claimed benign
+UA. `KNOWN_BENIGN_CRAWLERS_UAS` no longer grants backend privileges, and the
+legacy `ua_is_known_benign_crawler` feature stays zero for unverified input.
+Google/Bing identity verification and its cache live at the NGINX edge; callers
+cannot assert a verified identity in escalation metadata. The engine still
+applies legitimate agent-specific robots policy, which is separate from trust.
