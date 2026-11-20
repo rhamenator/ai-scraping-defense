@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+* Refuse a blocklisted address on `location /` as well. `location /` sets its own `access_by_lua_file`, which replaced the server-level `check_blocklist.lua`, so addresses blocked in Redis were still served on the main content location. The check now lives in `nginx/lua/blocklist.lua` and `detect_bot.lua` runs it first (#1941).
+
 ## [0.0.15] - 2026-11-20
 
 ### Changed

@@ -12,6 +12,7 @@ local bad_bots = {
 }
 
 local crawler_identity = require "crawler_identity"
+local blocklist = require "blocklist"
 
 -- Path to the robots.txt file mounted in the Docker container
 -- (as per docker-compose.yml: ./config/robots.txt:/etc/nginx/robots.txt:ro)
@@ -86,6 +87,10 @@ ngx.log(
   ", URI: ",
   sanitize_for_log(request_uri)
 )
+
+-- 0. A blocklisted address is refused first. `location /` has its own access handler, which replaces
+-- the server-level check_blocklist.lua, so the check must run here as well.
+blocklist.check()
 
 -- 1. Enforce robots.txt for every client before UA exemptions or heuristics.
 if robots_policy.is_disallowed(robots_groups, request_uri, user_agent) then
