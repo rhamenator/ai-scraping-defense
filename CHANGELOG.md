@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+* Enforce the NGINX robots.txt disallow check for every client before User-Agent
+  exemptions and heuristic scoring, routing violations directly to the tarpit.
+
 ## [0.0.14] - 2026-11-13
 
 ### Fixed
