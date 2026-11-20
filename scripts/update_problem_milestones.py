@@ -37,7 +37,7 @@ from typing import Dict, Iterable, Optional, Tuple
 import requests
 
 # === CONFIG ===
-DEFAULT_JSON_FILE = Path("problem_file_map.json")
+DEFAULT_JSON_FILE = Path("docs/triage/problem_file_map.json")
 DEFAULT_DB_FILE = Path("problem_file_map.db")
 DEFAULT_OWNER = "rhamenator"
 DEFAULT_REPO = "ai-scraping-defense"

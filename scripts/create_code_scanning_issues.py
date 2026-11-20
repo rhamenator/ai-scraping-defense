@@ -178,7 +178,8 @@ def main():
                 failed_count += 1
 
     if create_report:
-        report_file = "CODE_SCANNING_ISSUES.md"
+        report_file = "reports/security/CODE_SCANNING_ISSUES.md"
+        os.makedirs(os.path.dirname(report_file), exist_ok=True)
         with open(report_file, "w") as f:
             f.writelines(report_lines)
         print(f"\n✓ Generated report: {report_file}")

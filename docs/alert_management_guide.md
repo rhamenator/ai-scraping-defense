@@ -367,7 +367,7 @@ For issues or questions:
 
 ## Related Documentation
 
-- `QUICK_START_ALERT_MANAGEMENT.md` - Quick start guide
+- [Archived quick start](archive/root-notes/QUICK_START_ALERT_MANAGEMENT.md) - Quick start guide
 - `scripts/ALERT_MANAGEMENT_README.md` - Detailed technical documentation
 - `scripts/manage_alerts_issues_prs.py` - Script source code (well commented)
 - `.github/workflows/manage-alerts.yml` - GitHub Actions workflow

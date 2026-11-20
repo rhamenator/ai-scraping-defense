@@ -5,7 +5,7 @@ import subprocess
 import time
 
 # Configuration
-PROBLEM_MAP_FILE = "problem_file_map.json"
+PROBLEM_MAP_FILE = "docs/triage/problem_file_map.json"
 
 
 def fetch_gh_issues(limit=1000):
