@@ -19,6 +19,14 @@ local cases = {
     {"Googlebot/2.1", "/admin/", "TARPIT", true},
     {"Googlebot/2.1", "/pricing", "ALLOWED", true, true},
     {"Googlebot/2.1", "/pricing", "TARPIT", false, true},
+    {"Firefox", "/api/metrics", "TARPIT"},
+    {"Firefox", "/static/app.js", "TARPIT"},
+    {"Firefox", "/%61dmin/", "TARPIT"},
+    {"Firefox", "/Admin/", "TARPIT", robots = "User-agent: *\nDisallow: /Admin/\n"},
+    {"Firefox", "/admin/", "ALLOWED", robots = "User-agent: *\nDisallow: /Admin/\n"},
+    {"Firefox", "/anything", "TARPIT", robots = "User-agent: *\nDisallow: /\n"},
+    {"Firefox", "/", "TARPIT", robots = "User-agent: *\nDisallow: /\n"},
+    {"Firefox", "/robots.txt", "ALLOWED", robots = "User-agent: *\nDisallow: /\n"},
 }
 
 for _, case in ipairs(cases) do
@@ -27,6 +35,12 @@ for _, case in ipairs(cases) do
     local logs = {}
     local function open_robots(path, mode)
         if path == "/etc/nginx/robots.txt" then
+            if case.robots then
+                local file = assert(io.tmpfile())
+                file:write(case.robots)
+                file:seek("set", 0)
+                return file
+            end
             return io.open("config/robots.txt", mode)
         end
         return io.open(path, mode)
@@ -59,6 +73,7 @@ for _, case in ipairs(cases) do
     local env = setmetatable({
         ngx = ngx_stub, io = {open = open_robots},
         require = function(name)
+            if name == "robots_policy" then return dofile("nginx/lua/robots_policy.lua") end
             assert(name == "crawler_identity")
             return {is_verified = function() return case[4] == true end}
         end,
@@ -76,7 +91,8 @@ for _, case in ipairs(cases) do
     if result ~= expected then
         failures = failures + 1
     end
-    if uri == "/admin/" or uri == "/wp-admin/" or uri == "/secrets/" then
+    if expected == "TARPIT" and not case.robots
+        and (uri == "/admin/" or uri == "/wp-admin/" or uri == "/secrets/") then
         -- Robots enforcement must happen before the UA heuristics/exemptions.
         if not string.find(table.concat(logs), "accessed disallowed path", 1, true) then
             failures = failures + 1

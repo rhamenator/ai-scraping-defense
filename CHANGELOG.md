@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* Parse NGINX robots rules with RFC 9309 case/encoding/comment semantics,
+  full-root disallows, allow precedence, wildcard/anchor and agent-group support.
+
 * Require cached forward-confirmed reverse DNS for Googlebot/Bingbot exemptions
   at the NGINX edge; unverified claims receive normal checks and offensive-tool
   UAs cannot bypass detection by including a benign crawler token.
