@@ -18,6 +18,7 @@ import numpy as np
 from fastapi import Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
+from src.shared import robots_policy
 from src.shared.attack_incident import record_and_alert_attack
 from src.shared.config import tenant_key
 from src.shared.middleware import create_app
@@ -409,44 +410,33 @@ FREQUENCY_TRACKING_ENABLED = bool(redis_client_freq)
 redis_client_fingerprints = get_redis_connection(db_number=REDIS_DB_FINGERPRINTS)
 FINGERPRINT_TRACKING_ENABLED = bool(redis_client_fingerprints)
 
-# Robots.txt loading (Preserved)
+# Robots policy is shared by feature extraction and the enforcement decision.
+ROBOTS_VIOLATION_WEIGHT = 0.6
+robots_groups = []
 disallowed_paths = set()
 
 
 def load_robots_txt(path):
-    global disallowed_paths
+    global robots_groups, disallowed_paths
+    robots_groups = []
     disallowed_paths = set()
     try:
-        current_ua_is_star = False
-        with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            for line in f:
-                line = line.strip().lower()
-                if not line or line.startswith("#"):
-                    continue
-                if line.startswith("user-agent:"):
-                    ua_spec = line.split(":", 1)[1].strip()
-                    current_ua_is_star = ua_spec == "*"
-                elif line.startswith("disallow:") and current_ua_is_star:
-                    rule = line.split(":", 1)[1].strip()
-                    if rule and rule != "/":
-                        disallowed_paths.add(rule)
+        with open(path, "r", encoding="utf-8", errors="ignore") as file:
+            robots_groups = robots_policy.parse(file.read())
+        disallowed_paths = {
+            rule.pattern
+            for group in robots_groups
+            for rule in group.rules
+            if not rule.allow
+        }
     except FileNotFoundError:
         logger.warning(f"robots.txt not found at {path}.")
-    except Exception as e:
-        logger.error(f"Error loading robots.txt from {path}: {e}")
-
-
-def is_path_disallowed(path):
-    if not path or not disallowed_paths:
-        return False
-    try:
-        for disallowed in disallowed_paths:
-            if disallowed and path.startswith(disallowed):
-                return True
     except Exception as exc:
-        logger.debug("Failed to check disallowed path %s: %s", path, exc)
-        return False
-    return False
+        logger.error(f"Error loading robots.txt from {path}: {exc}")
+
+
+def is_path_disallowed(path, user_agent=""):
+    return robots_policy.is_disallowed(robots_groups, path, user_agent)
 
 
 # --- GeoIP Lookup ---
@@ -497,15 +487,14 @@ def extract_features(
     features["path_is_root"] = 1 if path == "/" else 0
     features["path_has_docs"] = 1 if "/docs" in path else 0
     features["path_is_wp"] = 1 if ("/wp-" in path or "/xmlrpc.php" in path) else 0
-    features["path_disallowed"] = 1 if is_path_disallowed(path) else 0
+    features["path_disallowed"] = 1 if is_path_disallowed(path, ua_string) else 0
 
     ua_lower = ua_string.lower()
     features["ua_is_known_bad"] = (
         1 if any(bad in ua_lower for bad in KNOWN_BAD_UAS) else 0
     )
-    features["ua_is_known_benign_crawler"] = (
-        1 if any(good in ua_lower for good in KNOWN_BENIGN_CRAWLERS_UAS) else 0
-    )
+    # A claimed crawler token cannot become a trusted identity model feature.
+    features["ua_is_known_benign_crawler"] = 0
     features["ua_is_empty"] = 1 if not ua_string else 0
 
     ua_parse_failed = False
@@ -802,13 +791,14 @@ def run_heuristic_and_model_analysis(
     if fp_count > FINGERPRINT_REUSE_THRESHOLD:
         rule_score += 0.2
 
-    is_known_benign = any(good in ua for good in KNOWN_BENIGN_CRAWLERS_UAS)
-    if any(bad in ua for bad in KNOWN_BAD_UAS) and not is_known_benign:
+    # UA tokens are claims, not verified identity. The edge verifies crawlers;
+    # this backend grants no UA-only score discount or bad-UA/robots exemption.
+    if any(bad in ua for bad in KNOWN_BAD_UAS):
         rule_score += 0.7
     if not metadata.user_agent:
         rule_score += 0.5
-    if is_path_disallowed(path) and not is_known_benign:
-        rule_score += 0.6
+    if is_path_disallowed(path, metadata.user_agent):
+        rule_score += ROBOTS_VIOLATION_WEIGHT
     if method not in {"GET", "HEAD"}:
         rule_score += 0.2
     if "accept-language" not in {k.lower() for k in headers.keys()}:
@@ -822,9 +812,6 @@ def run_heuristic_and_model_analysis(
         and frequency_features.get("time_since", -1.0) < 0.3
     ):
         rule_score += 0.2
-    if is_known_benign:
-        rule_score -= 0.5
-
     tls_known_bad, tls_ua_mismatch = tls_risk_signals(
         ja3=metadata.tls_ja3,
         ja4=metadata.tls_ja4,
@@ -1169,26 +1156,33 @@ async def handle_escalation(
     final_score = -1.0
 
     try:
-        # Launch asynchronous checks concurrently
+        # Robots violations are primary evidence, independent of model output.
+        robots_violation = is_path_disallowed(
+            metadata_req.path, metadata_req.user_agent
+        )
         tasks = []
         ip_rep_task = local_llm_task = external_api_task = None
 
-        if ENABLE_IP_REPUTATION:
+        if not robots_violation and ENABLE_IP_REPUTATION:
             ip_rep_task = asyncio.create_task(check_ip_reputation(ip_under_test))
             tasks.append(ip_rep_task)
-        if ENABLE_LOCAL_LLM_CLASSIFICATION:
+        if not robots_violation and ENABLE_LOCAL_LLM_CLASSIFICATION:
             local_llm_task = asyncio.create_task(
                 classify_with_local_llm_api(metadata_req)
             )
             tasks.append(local_llm_task)
-        if ENABLE_EXTERNAL_API_CLASSIFICATION:
+        if not robots_violation and ENABLE_EXTERNAL_API_CLASSIFICATION:
             external_api_task = asyncio.create_task(
                 classify_with_external_api(metadata_req)
             )
             tasks.append(external_api_task)
 
         # Calculate heuristic/model score while async tasks run
-        base_score = run_heuristic_and_model_analysis(metadata_req, None)
+        base_score = (
+            ROBOTS_VIOLATION_WEIGHT
+            if robots_violation
+            else run_heuristic_and_model_analysis(metadata_req, None)
+        )
 
         ip_rep_result = None
         local_llm_result = None
@@ -1251,7 +1245,17 @@ async def handle_escalation(
 
         # Adjust score with IP reputation if malicious
         final_score = base_score
-        if ip_rep_result and ip_rep_result.get("is_malicious"):
+        if robots_violation:
+            # Keep the +0.6 evidence weight; raise the action score to the
+            # configured block tier so a classifier cannot dilute the trigger.
+            final_score = max(base_score, ESCALATION_BLOCK_THRESHOLD)
+            action_taken, is_bot_decision = await _apply_containment_action(
+                metadata_req,
+                score=final_score,
+                source="robots_violation",
+                detail="robots_disallow_match",
+            )
+        elif ip_rep_result and ip_rep_result.get("is_malicious"):
             logger.info(
                 f"IP {ip_under_test} flagged by IP Reputation. Escalating directly."
             )
