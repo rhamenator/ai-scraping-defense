@@ -47,12 +47,21 @@ local order = {}
 local ngx_stub = {
     ERR = "ERR", INFO = "INFO", WARN = "WARN", DEBUG = "DEBUG", OK = 0,
     var = {remote_addr = "192.0.2.10", request_uri = "/pricing"},
-    req = {get_headers = function() return {["User-Agent"] = "Firefox", ["Accept-Language"] = "en", ["Sec-Fetch-Site"] = "same-origin", ["Referer"] = "https://example.test/"} end,
-           get_method = function() return "GET" end},
+    req = {
+        get_headers = function()
+            return {
+                ["User-Agent"] = "Firefox",
+                ["Accept-Language"] = "en",
+                ["Sec-Fetch-Site"] = "same-origin",
+                ["Referer"] = "https://example.test/",
+            }
+        end,
+        get_method = function() return "GET" end,
+    },
     now = function() return 1 end, log = function() end, exec = function() order[#order + 1] = "exec" end,
 }
 local env = setmetatable({
-    ngx = ngx_stub, io = {open = function(path, mode) return io.open("config/robots.txt", mode) end},
+    ngx = ngx_stub, io = {open = function(_, mode) return io.open("config/robots.txt", mode) end},
     require = function(name)
         if name == "robots_policy" then return dofile("nginx/lua/robots_policy.lua") end
         if name == "blocklist" then return {check = function() order[#order + 1] = "blocklist" end} end
