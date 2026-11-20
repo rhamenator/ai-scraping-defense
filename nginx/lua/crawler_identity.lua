@@ -31,6 +31,23 @@ local function hostname_matches(hostname, provider)
     end
 end
 
+local function normalized(resolver, address, ipv6)
+    return ipv6 and resolver.expand_ipv6_addr(address):lower() or address
+end
+
+-- True when a forward lookup of the claimed hostname returns the connecting address.
+local function forward_confirms(resolver, r, hostname, expected, ipv6)
+    local qtype = ipv6 and resolver.TYPE_AAAA or resolver.TYPE_A
+    local forward = r:query(hostname, {qtype = qtype})
+    if not forward or forward.errcode then return false end
+    for _, answer in ipairs(forward) do
+        if answer.type == qtype and answer.address and normalized(resolver, answer.address, ipv6) == expected then
+            return true
+        end
+    end
+    return false
+end
+
 local function verify(ip, provider)
     local resolver = require "resty.dns.resolver"
     local r = resolver:new({nameservers = {nameserver}, retrans = 1, timeout = budget_ms})
@@ -39,23 +56,14 @@ local function verify(ip, provider)
     local reverse = r:reverse_query(ip)
     if not reverse or reverse.errcode then return false end
     local ipv6 = ip:find(":", 1, true) ~= nil
-    local expected = ipv6 and resolver.expand_ipv6_addr(ip):lower() or ip
+    local expected = normalized(resolver, ip, ipv6)
     for _, ptr in ipairs(reverse) do
         local hostname = ptr.ptrdname and hostname_matches(ptr.ptrdname, provider)
         if hostname then
             local remaining = math.floor((deadline - ngx.now()) * 1000)
             if remaining <= 0 then return false end
             r:set_timeout(remaining)
-            local qtype = ipv6 and resolver.TYPE_AAAA or resolver.TYPE_A
-            local forward = r:query(hostname, {qtype = qtype})
-            if forward and not forward.errcode then
-                for _, answer in ipairs(forward) do
-                    if answer.type == qtype and answer.address then
-                        local address = ipv6 and resolver.expand_ipv6_addr(answer.address):lower() or answer.address
-                        if address == expected then return true end
-                    end
-                end
-            end
+            if forward_confirms(resolver, r, hostname, expected, ipv6) then return true end
         end
     end
     return false
