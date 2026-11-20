@@ -20,7 +20,7 @@ from pr_claims import (
 PROBLEMS_DIR = "."
 API_KEY = os.environ.get("GEMINI_API_KEY")
 DB_FILE = "problem_file_map.db"
-JSON_FILE = "problem_file_map.json"
+JSON_FILE = "docs/triage/problem_file_map.json"
 
 
 def call_gemini(prompt):

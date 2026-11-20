@@ -3,7 +3,7 @@ import os
 import sqlite3
 
 # Configuration
-JSON_FILE = "problem_file_map.json"
+JSON_FILE = "docs/triage/problem_file_map.json"
 DB_FILE = "problem_file_map.db"
 
 

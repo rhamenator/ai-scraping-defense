@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+* Relocate working notes, issue-triage data, license summary and historical
+  presentation into docs; update maintenance consumers and remove unused snapshots.
+
 ### Fixed
 
 * Parse NGINX robots rules with RFC 9309 case/encoding/comment semantics,

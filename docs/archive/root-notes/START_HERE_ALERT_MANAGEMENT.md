@@ -231,10 +231,10 @@ Choose your path:
 → Follow the "Quick Start" above (3 steps)
 
 ### 📚 Want to Understand It First?
-→ Read [docs/alert_management_guide.md](docs/alert_management_guide.md)
+→ Read [docs/alert_management_guide.md](../../alert_management_guide.md)
 
 ### 🔧 Want to Customize It?
-→ Read [scripts/ALERT_MANAGEMENT_README.md](scripts/ALERT_MANAGEMENT_README.md)
+→ Read [scripts/ALERT_MANAGEMENT_README.md](../../../scripts/ALERT_MANAGEMENT_README.md)
 
 ### 🤖 Want to Automate It?
 → Use `.github/workflows/manage-alerts.yml`

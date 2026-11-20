@@ -65,7 +65,7 @@ nav:
     - Roadmap: docs/ROADMAP.md
   - Legal & Compliance:
     - License: LICENSE # Link to the raw license file
-    - License Summary: license_summary.md # Corrected filename
+    - License Summary: docs/license_summary.md # Corrected filename
     - Third-Party Licenses: docs/third_party_licenses.md
     - Security Policy: SECURITY.md
     - Privacy Policy: docs/privacy_policy.md

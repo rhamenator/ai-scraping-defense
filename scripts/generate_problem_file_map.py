@@ -6,8 +6,8 @@ import urllib.error
 import urllib.request
 
 # Configuration
-PROBLEMS_DIR = "."
-OUTPUT_FILE = "problem_file_map.json"
+PROBLEMS_DIR = "docs/triage"
+OUTPUT_FILE = "docs/triage/problem_file_map.json"
 API_KEY = os.environ.get("GEMINI_API_KEY")
 
 
@@ -58,10 +58,10 @@ def load_problems():
         if (
             filename.endswith(".json")
             and "problems" in filename
-            and filename != OUTPUT_FILE
+            and filename != os.path.basename(OUTPUT_FILE)
         ):
             try:
-                with open(filename, "r") as f:
+                with open(os.path.join(PROBLEMS_DIR, filename), "r") as f:
                     data = json.load(f)
                     for key, val in data.items():
                         if isinstance(val, dict) and "problems" in val:

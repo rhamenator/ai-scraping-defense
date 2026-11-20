@@ -71,7 +71,7 @@ python3 scripts/create_code_scanning_issues.py
 
 # Or generate a markdown report if GH_TOKEN is not available
 python3 scripts/create_code_scanning_issues.py
-# This will create CODE_SCANNING_ISSUES.md
+# This will create reports/security/CODE_SCANNING_ISSUES.md
 ```
 
 ### Manual Issue Creation
