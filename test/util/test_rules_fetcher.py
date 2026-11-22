@@ -25,6 +25,15 @@ class MockResponse:
             self.text = text
             self.content = text.encode()
 
+        self.headers = {}
+
+    def iter_content(self, chunk_size=65536):
+        for start in range(0, len(self.content), chunk_size):
+            yield self.content[start : start + chunk_size]
+
+    def close(self):
+        pass
+
     def raise_for_status(self):
         if self.status_code >= 400:
             raise requests.exceptions.HTTPError()
@@ -32,7 +41,7 @@ class MockResponse:
 
 class TestRulesFetcher(unittest.TestCase):
     def setUp(self):
-        self.patcher_get = patch("src.util.rules_fetcher.fetcher.requests.get")
+        self.patcher_get = patch("src.util.rules_fetcher.download.requests.get")
         self.mock_get = self.patcher_get.start()
         self.addCleanup(self.patcher_get.stop)
         self.patcher_subprocess = patch("src.util.rules_fetcher.fetcher.subprocess.run")
@@ -145,7 +154,7 @@ class TestRulesFetcher(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = rules_fetcher.download_and_extract_crs(
-                "http://example.com/crs.tar.gz", tmpdir
+                "https://example.com/crs.tar.gz", tmpdir
             )
             self.assertTrue(result)
             self.assertTrue(os.path.exists(os.path.join(tmpdir, "crs-setup.conf")))
@@ -158,7 +167,7 @@ class TestRulesFetcher(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = rules_fetcher.download_and_extract_crs(
-                "http://example.com/crs.zip", tmpdir
+                "https://example.com/crs.zip", tmpdir
             )
             self.assertFalse(result)
 
@@ -168,7 +177,7 @@ class TestRulesFetcher(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = rules_fetcher.download_and_extract_crs(
-                "http://example.com/crs.tar.gz", tmpdir
+                "https://example.com/crs.tar.gz", tmpdir
             )
             self.assertFalse(result)
 
@@ -195,7 +204,7 @@ class TestRulesFetcher(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = rules_fetcher.download_and_extract_crs(
-                "http://example.com/crs.tar.gz", tmpdir
+                "https://example.com/crs.tar.gz", tmpdir
             )
             self.assertFalse(result)
             self.assertFalse(os.path.exists(os.path.join(tmpdir, "crs-setup.conf")))
@@ -212,7 +221,7 @@ class TestRulesFetcher(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = rules_fetcher.download_and_extract_crs(
-                "http://example.com/crs.zip", tmpdir
+                "https://example.com/crs.zip", tmpdir
             )
             self.assertFalse(result)
             self.assertFalse(os.path.exists(os.path.join(tmpdir, "crs-setup.conf")))
@@ -240,7 +249,7 @@ class TestRulesFetcher(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = rules_fetcher.download_and_extract_crs(
-                "http://example.com/crs.tar.gz", tmpdir
+                "https://example.com/crs.tar.gz", tmpdir
             )
             self.assertTrue(result)
             self.assertTrue(os.path.exists(os.path.join(tmpdir, "crs-setup.conf")))
