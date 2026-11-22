@@ -433,8 +433,10 @@ signatures, custom secret headers). The engine keeps them from spreading with tw
 - **Inside the system** the tarpit forwards, and the engine accepts, only the headers the engine itself reads: `accept`,
   `accept-encoding`, `accept-language`, `sec-ch-ua`, `sec-ch-ua-mobile`, `sec-ch-ua-platform`, `sec-fetch-dest`,
   `sec-fetch-mode`, `sec-fetch-site`, `dnt`, `upgrade-insecure-requests`, `x-original-method`, `method`, and
-  `x-captcha-token` (which the engine verifies itself). Names are lowercased; values lose control characters and are cut
-  at 512 characters. Everything else is dropped.
+  `x-captcha-token` (which the engine verifies itself), plus any non-credential header you add through
+  `EXTERNAL_API_HEADER_ALLOWLIST` (it has to get in before it can be sent out). Names are lowercased; values lose control
+  characters and are cut at 512 characters, except the CAPTCHA response, which is kept whole up to 8192 characters and
+  otherwise dropped rather than truncated. Everything else is dropped.
 - **Outside the engine** (the external classifier, the local language model, the blocklist record and the webhook body)
   only the browser-identification headers go: the list above without `x-original-method`, `method` and
   `x-captcha-token`. The CAPTCHA response never leaves the engine. `EXTERNAL_API_HEADER_ALLOWLIST` replaces this list,

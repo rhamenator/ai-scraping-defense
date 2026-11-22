@@ -1,6 +1,5 @@
 """What the escalation engine sends outward must carry only allowlisted headers (#1904)."""
 
-import asyncio
 import os
 import sys
 import unittest

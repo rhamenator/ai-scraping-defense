@@ -82,6 +82,24 @@ class ExternalHeaders(unittest.TestCase):
         with patch.dict(os.environ, {"EXTERNAL_API_HEADER_ALLOWLIST": ""}):
             self.assertEqual(policy.external_headers(headers), {}, "an empty list sends no headers")
 
+    def test_a_configured_header_survives_the_way_in_so_the_override_actually_works(self):
+        headers = {"X-Trace-Id": "trace-123", "Authorization": "Bearer abc", "Accept": "a"}
+        with patch.dict(os.environ, {"EXTERNAL_API_HEADER_ALLOWLIST": "x-trace-id,authorization,accept"}):
+            inside = policy.internal_headers(headers)
+            self.assertEqual(inside, {"x-trace-id": "trace-123", "accept": "a"})
+            self.assertEqual(policy.external_headers(inside), {"x-trace-id": "trace-123", "accept": "a"})
+        self.assertNotIn("x-trace-id", policy.internal_headers(headers), "without the setting it is dropped")
+
+    def test_a_long_captcha_response_is_kept_intact_inside_and_never_exported(self):
+        token = "r" * 3000
+        inside = policy.internal_headers({"X-Captcha-Token": token, "Accept": "a"})
+        self.assertEqual(inside["x-captcha-token"], token)
+        self.assertNotIn("x-captcha-token", policy.external_headers(inside))
+
+    def test_an_absurdly_long_captcha_response_is_dropped_not_truncated(self):
+        inside = policy.internal_headers({"X-Captcha-Token": "r" * 9000})
+        self.assertNotIn("x-captcha-token", inside)
+
     def test_sensitive_name_detection(self):
         for name in SECRETS:
             if name not in ("X-Forwarded-For", "X-Totally-Custom", "Host"):
