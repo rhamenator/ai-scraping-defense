@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+* Tarpit page generation can no longer hang or freeze the service (#1908). The Python Markov fallback retried forever when the transition table was empty or the database was unreachable; it now stops after a few empty lookups, a lookup budget or a deadline (`MARKOV_GENERATION_TIMEOUT_SECONDS`, default 2) and serves static content. Generation runs in a worker thread with its own timeout (`TARPIT_GENERATION_TIMEOUT_SECONDS`, default 4), so a slow generator no longer blocks health checks or other requests, and the database pool is now thread-safe with a statement timeout (`MARKOV_STATEMENT_TIMEOUT_MS`, default 2000). Fixes a defect found on the way: with the Rust `tarpit_rs` extension installed, the API called its function with an RNG argument it does not accept, so every request got an error page; the API now always goes through the backend-aware wrapper. `/health` reports `generator_implementation` (`rust` or `python`).
+
 ### Added
 
 * Admin Security page (`/security`, admin only): shows the signed-in identity and sign-in method, whether a passkey is enrolled, whether TOTP is set up, and how many backup codes remain, with a confirmed Regenerate action and Sign out (#1952). New codes are shown once, uncached, and removed from the page when dismissed or when the page is left. `POST /mfa/backup-codes` now requires the CSRF token (`X-CSRF-Token` matching the `csrf_token` cookie) because regenerating invalidates every earlier code; API clients that call it with Basic credentials alone must send it.
