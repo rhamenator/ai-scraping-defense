@@ -165,6 +165,9 @@ jobs:
             helm lint helm/ai-scraping-defense-v9
             helm template helm/ai-scraping-defense-v9 | kubeconform -ignore-missing-schemas -strict
           fi
+          if [ -f helm/values-production.yaml ]; then
+            scripts/check_helm_tls_policy.sh
+          fi
   tests-windows:
     permissions:
       contents: read

@@ -139,6 +139,12 @@ Check the status of your pods to ensure everything is running correctly:
 kubectl get pods -n ai-defense -w
 ```
 
+> **Use HTTPS in production.** The raw manifests expose the `nginx-proxy` Service over plain HTTP (port 80). Before you
+> put it on the internet, terminate TLS in front of it and redirect HTTP to HTTPS: apply `kubernetes/ingress-tls.example.yaml`
+> (edit the host and secret first) or terminate TLS at your cloud load balancer, and make the Service `ClusterIP`. The Helm
+> chart does this for you: `helm/values-production.yaml` sets `ingress.requireTLS: true`, and the chart refuses to render
+> unless every host is covered by a `tls` entry with a `secretName` (see `docs/helm-chart.md`).
+
 Once all pods are in the Running state, you can find the external IP address of your Nginx service to access the application:
 
 ```bash or PowerShell

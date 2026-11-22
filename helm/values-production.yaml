@@ -11,13 +11,21 @@ images:
 ingress:
   enabled: true
   className: nginx
+  # With cert-manager, name your issuer so the certificate for the secret below is requested and renewed for you:
+  #   cert-manager.io/cluster-issuer: letsencrypt-prod
+  # Without it, create the TLS secret yourself (kubectl create secret tls asd-prod-tls --cert=... --key=...).
   annotations: {}
+  # Refuse to render without TLS for every host (#1915). Replace the host below, keep this on.
+  requireTLS: true
   hosts:
     - host: prod-yourdomain.example.com
       paths:
         - path: /
           pathType: Prefix
-  tls: []
+  tls:
+    - secretName: asd-prod-tls
+      hosts:
+        - prod-yourdomain.example.com
 
 vault:
   enabled: true
