@@ -166,9 +166,141 @@ function fetchBlockStats() {
         .catch(err => console.error('Error fetching block stats:', err));
 }
 
+// ---- Blocklist: browse, block and unblock (#1950) ----
+const blocklistBody = document.getElementById('blocklist-body');
+const blocklistStatus = document.getElementById('blocklist-status');
+const blocklistSearch = document.getElementById('blocklist-search');
+const blocklistError = document.getElementById('blocklist-error');
+const blockForm = document.getElementById('block-form');
+let blockedAddresses = [];
+
+function csrfToken() {
+    // The CSRF cookie is HttpOnly, so the server also renders the token into the page.
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.content : '';
+}
+
+function showBlocklistError(message) {
+    if (!blocklistError) return;
+    blocklistError.textContent = message || '';
+    blocklistError.hidden = !message;
+}
+
+function confirmAction(title, message) {
+    const dialog = document.getElementById('confirm-dialog');
+    if (!dialog || typeof dialog.showModal !== 'function') {
+        return Promise.resolve(window.confirm(`${title}\n\n${message}`));
+    }
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-message').textContent = message;
+    return new Promise(resolve => {
+        dialog.addEventListener('close', () => resolve(dialog.returnValue === 'ok'), { once: true });
+        dialog.returnValue = 'cancel';
+        dialog.showModal();
+    });
+}
+
+function renderBlocklist() {
+    if (!blocklistBody) return;
+    clearElement(blocklistBody);
+    const query = blocklistSearch ? blocklistSearch.value.trim().toLowerCase() : '';
+    const shown = blockedAddresses.filter(ip => !query || ip.toLowerCase().includes(query));
+    for (const ip of shown) {
+        const row = document.createElement('tr');
+        const address = document.createElement('td');
+        address.textContent = ip;
+        const action = document.createElement('td');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = 'Unblock';
+        button.setAttribute('aria-label', `Unblock ${ip}`);
+        button.addEventListener('click', () => unblockAddress(ip));
+        action.appendChild(button);
+        row.append(address, action);
+        blocklistBody.appendChild(row);
+    }
+    if (blocklistStatus) {
+        blocklistStatus.textContent = blockedAddresses.length
+            ? `Showing ${shown.length} of ${blockedAddresses.length} blocked addresses.`
+            : 'No addresses are blocked.';
+    }
+}
+
+async function fetchBlocklist() {
+    try {
+        const response = await fetch('/blocklist', { credentials: 'same-origin' });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'The blocklist could not be loaded.');
+        blockedAddresses = payload.map(String).sort();
+        renderBlocklist();
+    } catch (err) {
+        if (blocklistStatus) blocklistStatus.textContent = `Blocklist unavailable: ${err.message}`;
+    }
+}
+
+async function readChangeResponse(response) {
+    let payload = {};
+    try { payload = await response.json(); } catch (e) { /* non-JSON error body */ }
+    if (!response.ok) {
+        throw new Error(payload.error || payload.detail || `Request failed (${response.status}).`);
+    }
+    return payload;
+}
+
+function changeRequestInit(body) {
+    return {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+        body: JSON.stringify(body)
+    };
+}
+
+// Fixed URLs, one function each: the endpoints are never built from user input.
+const blockRequest = async body => readChangeResponse(await fetch('/block', changeRequestInit(body)));
+const unblockRequest = async body => readChangeResponse(await fetch('/unblock', changeRequestInit(body)));
+
+async function unblockAddress(ip) {
+    showBlocklistError('');
+    if (!await confirmAction('Unblock this address?', `${ip} will be able to reach the protected site again.`)) return;
+    try {
+        await unblockRequest({ ip });
+        await fetchBlocklist();
+        fetchBlockStats();
+    } catch (err) {
+        showBlocklistError(err.message);
+    }
+}
+
+async function blockAddress(event) {
+    event.preventDefault();
+    showBlocklistError('');
+    const ip = document.getElementById('block-ip').value.trim();
+    const reason = document.getElementById('block-reason').value.trim();
+    if (!ip || !reason) {
+        showBlocklistError('Enter both an IP address and a reason.');
+        return;
+    }
+    if (!await confirmAction('Block this address?', `${ip} will be refused by the protected site. Reason: ${reason}`)) return;
+    try {
+        await blockRequest({ ip, reason });
+        blockForm.reset();
+        await fetchBlocklist();
+        fetchBlockStats();
+    } catch (err) {
+        showBlocklistError(err.message);
+    }
+}
+
+if (blocklistSearch) blocklistSearch.addEventListener('input', renderBlocklist);
+if (blockForm) blockForm.addEventListener('submit', blockAddress);
+
 // Start the WebSocket connection
 connectWebSocket();
 
 // Periodically fetch block statistics
 fetchBlockStats();
 setInterval(fetchBlockStats, 10000);
+
+fetchBlocklist();
+setInterval(fetchBlocklist, 30000);

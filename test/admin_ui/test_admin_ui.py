@@ -1,6 +1,7 @@
 # test/admin_ui/test_admin_ui.py
 import json
 import os
+from pathlib import Path
 import secrets
 import tempfile
 import time
@@ -49,6 +50,12 @@ class TestAdminUIComprehensive(unittest.TestCase):
     def _totp_headers(self) -> dict:
         secret = os.environ["ADMIN_UI_2FA_SECRET"]
         return {"X-2FA-Code": pyotp.TOTP(secret).now()}
+
+    def _csrf_headers(self, token: str | None = None) -> dict:
+        """TOTP headers plus a matching CSRF cookie/header pair for state-changing calls."""
+        token = token or secrets.token_urlsafe(16)
+        self.client.cookies.set("csrf_token", token)
+        return {**self._totp_headers(), "X-CSRF-Token": token}
 
     def _set_session_cookie(self, value: str | None) -> None:
         if value is None:
@@ -428,7 +435,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
             "/block",
             json={"ip": "3.3.3.3"},
             auth=self.auth,
-            headers=self._totp_headers(),
+            headers=self._csrf_headers(),
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "success", "ip": "3.3.3.3"})
@@ -445,7 +452,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
             "/unblock",
             json={"ip": "1.1.1.1"},
             auth=self.auth,
-            headers=self._totp_headers(),
+            headers=self._csrf_headers(),
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "success", "ip": "1.1.1.1"})
@@ -463,7 +470,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
             "/block",
             json={"ip": "4.4.4.4"},
             auth=self.auth,
-            headers=self._totp_headers(),
+            headers=self._csrf_headers(),
         )
         self.assertEqual(response.status_code, 403)
         os.environ["ADMIN_UI_ROLE"] = "admin"
@@ -475,10 +482,132 @@ class TestAdminUIComprehensive(unittest.TestCase):
             "/block",
             json={"address": "3.3.3.3"},
             auth=self.auth,
-            headers=self._totp_headers(),
+            headers=self._csrf_headers(),
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json(), {"error": "Invalid request, missing ip"})
+
+    @patch("src.admin_ui.blocklist.get_redis_connection")
+    def test_block_and_unblock_require_a_matching_csrf_token(self, mock_get_redis):
+        """Basic credentials alone are not enough: block and unblock must echo the CSRF cookie (#1950)."""
+        redis_conn = MagicMock()
+        mock_get_redis.return_value = redis_conn
+        for path in ("/block", "/unblock"):
+            # no cookie and no header
+            self.client.cookies.clear()
+            response = self.client.post(
+                path, json={"ip": "5.5.5.5"}, auth=self.auth, headers=self._totp_headers()
+            )
+            self.assertEqual(response.status_code, 403, path)
+            # header present but cookie missing
+            response = self.client.post(
+                path,
+                json={"ip": "5.5.5.5"},
+                auth=self.auth,
+                headers={**self._totp_headers(), "X-CSRF-Token": "abc"},
+            )
+            self.assertEqual(response.status_code, 403, path)
+            # cookie and header disagree
+            self.client.cookies.set("csrf_token", "cookie-value")
+            response = self.client.post(
+                path,
+                json={"ip": "5.5.5.5"},
+                auth=self.auth,
+                headers={**self._totp_headers(), "X-CSRF-Token": "different"},
+            )
+            self.assertEqual(response.status_code, 403, path)
+        redis_conn.sadd.assert_not_called()
+        redis_conn.srem.assert_not_called()
+
+    @patch("src.admin_ui.blocklist.log_event")
+    @patch("src.admin_ui.blocklist.get_redis_connection")
+    def test_block_records_a_normalised_reason_in_the_audit_log(self, mock_get_redis, mock_log):
+        mock_get_redis.return_value = MagicMock()
+        response = self.client.post(
+            "/block",
+            json={"ip": "6.6.6.6", "reason": "  repeated   scraping \n of /private  "},
+            auth=self.auth,
+            headers=self._csrf_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        mock_log.assert_called_once()
+        details = mock_log.call_args.args[2]
+        self.assertEqual(details, {"ip": "6.6.6.6", "reason": "repeated scraping of /private"})
+
+    @patch("src.admin_ui.blocklist.get_redis_connection")
+    def test_block_rejects_an_overlong_or_non_text_reason(self, mock_get_redis):
+        redis_conn = MagicMock()
+        mock_get_redis.return_value = redis_conn
+        for reason in ("x" * (blocklist.MAX_BLOCK_REASON_LENGTH + 1), 123, ["a"]):
+            response = self.client.post(
+                "/block",
+                json={"ip": "7.7.7.7", "reason": reason},
+                auth=self.auth,
+                headers=self._csrf_headers(),
+            )
+            self.assertEqual(response.status_code, 400, reason)
+        redis_conn.sadd.assert_not_called()
+
+    def test_dashboard_renders_blocklist_controls_and_the_csrf_token(self):
+        response = self.client.get("/", auth=self.auth, headers=self._totp_headers())
+        self.assertEqual(response.status_code, 200)
+        html = response.text
+        for expected in (
+            'id="blocklist-table"',
+            'id="blocklist-search"',
+            'id="block-form"',
+            'id="confirm-dialog"',
+            'maxlength="200"',
+        ):
+            self.assertIn(expected, html)
+        token = response.cookies.get("csrf_token")
+        self.assertTrue(token)
+        self.assertIn(f'<meta name="csrf-token" content="{token}">', html)
+
+    def test_csrf_cookie_is_secure_only_over_https(self):
+        """A Secure cookie is never returned over plain HTTP, which would break every protected call there."""
+        plain = self.client.get("/", auth=self.auth, headers=self._totp_headers())
+        self.assertNotIn("Secure", plain.headers["set-cookie"].split("csrf_token=")[1])
+        self.assertIn("HttpOnly", plain.headers["set-cookie"])
+        self.assertIn("SameSite=Strict", plain.headers["set-cookie"])
+        forwarded = self.client.get(
+            "/",
+            auth=self.auth,
+            headers={**self._totp_headers(), "X-Forwarded-Proto": "https"},
+        )
+        self.assertIn("Secure", forwarded.headers["set-cookie"].split("csrf_token=")[1])
+
+    def test_every_admin_page_sets_the_csrf_cookie_without_secure_over_plain_http(self):
+        """Settings, Plugins and Security forms depend on the cookie too, so none may hard-code Secure."""
+        fake = self._FakeRedis()
+        with patch("src.admin_ui.admin_ui.get_redis_connection", return_value=fake):
+            for path in ("/", "/settings", "/plugins", "/security"):
+                plain = self.client.get(path, auth=self.auth, headers=self._totp_headers())
+                self.assertEqual(plain.status_code, 200, path)
+                cookie = plain.headers["set-cookie"].split("csrf_token=")[1]
+                self.assertNotIn("Secure", cookie, path)
+                self.assertIn("HttpOnly", cookie, path)
+                secure = self.client.get(
+                    path,
+                    auth=self.auth,
+                    headers={**self._totp_headers(), "X-Forwarded-Proto": "https"},
+                )
+                self.assertIn("Secure", secure.headers["set-cookie"].split("csrf_token=")[1], path)
+
+    def test_dashboard_script_confirms_and_sends_the_csrf_header(self):
+        script = (
+            Path(blocklist.__file__).resolve().parent / "static" / "admin.js"
+        ).read_text()
+        self.assertIn("'X-CSRF-Token': csrfToken()", script)
+        # The state-changing endpoints are fixed URLs, never built from a variable.
+        self.assertIn("fetch('/block', changeRequestInit(body))", script)
+        self.assertIn("fetch('/unblock', changeRequestInit(body))", script)
+        self.assertNotIn("fetch(path", script)
+        # Both state changes go through the confirmation step and name the exact address.
+        self.assertIn("confirmAction('Unblock this address?'", script)
+        self.assertIn("confirmAction('Block this address?'", script)
+        # Dynamic values are written with textContent, never innerHTML.
+        self.assertNotIn("innerHTML", script)
 
     def test_2fa_required_and_valid(self):
         """Requests succeed when a valid TOTP code is supplied."""

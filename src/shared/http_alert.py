@@ -28,7 +28,6 @@ Usage Example:
     })
 """
 
-import hashlib
 import json
 import logging
 from datetime import datetime, timezone
@@ -37,28 +36,14 @@ from urllib.parse import urlparse
 
 from .http_client import AsyncHttpClient, httpx
 from .security_events import record_security_event
+from .url_redaction import install_url_redaction, safe_endpoint_for_logs
 
 logger = logging.getLogger(__name__)
+install_url_redaction(logger)
 
 
-def _safe_endpoint_for_logs(url: str) -> str:
-    """Return a non-sensitive identifier for an alert endpoint.
-
-    Webhook URLs commonly embed credentials/tokens in their path. Logging the full URL
-    leaks secrets to logs and crash reports. We log only the origin plus a short
-    stable fingerprint to aid debugging without disclosure.
-    """
-    try:
-        parsed = urlparse(url)
-        origin = (
-            f"{parsed.scheme}://{parsed.netloc}"
-            if parsed.scheme and parsed.netloc
-            else "<invalid-url>"
-        )
-    except Exception:  # pragma: no cover - defensive
-        origin = "<invalid-url>"
-    fp = hashlib.sha256(url.encode("utf-8")).hexdigest()[:10]
-    return f"{origin} (id={fp})"
+# Kept under its old private name for existing callers; the implementation lives in url_redaction.
+_safe_endpoint_for_logs = safe_endpoint_for_logs
 
 
 def _record_delivery_event(
