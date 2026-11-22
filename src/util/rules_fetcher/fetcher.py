@@ -14,7 +14,13 @@ from .download import (
     validate_rules_text,
     verify_digest,
 )
-from .kubernetes import KUBE_AVAILABLE, get_kubernetes_api, update_configmap
+from .kubernetes import (
+    KUBE_AVAILABLE,
+    get_apps_api,
+    get_kubernetes_api,
+    rollout_restart,
+    update_configmap,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -75,9 +81,33 @@ def _reload_after_crs() -> bool:
         return False
 
 
+def _apply_crs() -> bool:
+    """Tell Nginx about the newly installed CRS (``WAF_RELOAD_MODE``); restore the previous rules if that fails."""
+    mode = config.WAF_RELOAD_MODE
+    if mode == "local":
+        return _reload_after_crs()
+    if mode == "none":
+        logger.info("WAF_RELOAD_MODE=none: rules installed; Nginx will use them when it next restarts or reloads.")
+        return True
+    if mode == "kubernetes":
+        return _restart_nginx_deployment()
+    logger.error("Unknown WAF_RELOAD_MODE %r (use local, kubernetes or none); rolling back.", mode)
+    rollback_crs(MODSEC_DIR)
+    return False
+
+
+def _restart_nginx_deployment() -> bool:
+    api = get_apps_api()
+    if api is not None and rollout_restart(api, config.WAF_RESTART_DEPLOYMENT, config.CONFIGMAP_NAMESPACE):
+        return True
+    logger.error("Could not roll the Nginx Deployment; restoring the previous rules.")
+    rollback_crs(MODSEC_DIR)
+    return False
+
+
 def _install_crs() -> bool:
     logger.info("Fetching OWASP CRS from %s", CRS_DOWNLOAD_URL)
-    return download_and_extract_crs(CRS_DOWNLOAD_URL, MODSEC_DIR) and _reload_after_crs()
+    return download_and_extract_crs(CRS_DOWNLOAD_URL, MODSEC_DIR) and _apply_crs()
 
 
 def _install_rules_url() -> bool:

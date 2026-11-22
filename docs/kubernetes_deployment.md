@@ -124,6 +124,7 @@ kubectl apply -f kubernetes/corpus-updater-cronjob.yaml
 kubectl apply -f kubernetes/markov-model-trainer.yaml
 kubectl apply -f kubernetes/robots-fetcher-cronjob.yaml
 kubectl apply -f kubernetes/waf-rules-fetcher-cronjob.yaml
+# (The CRS CronJob is suspended until Nginx runs a ModSecurity-capable image; see kubernetes/optional-waf-crs/README.md.)
 
 # 6. Deploy the Nginx ingress proxy
 kubectl apply -f kubernetes/nginx-deployment.yaml

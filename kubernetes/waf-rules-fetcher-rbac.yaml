@@ -18,6 +18,12 @@ rules:
   resources: ["configmaps"]
   resourceNames: ["waf-rules"]
   verbs: ["get", "patch", "update"]
+# Lets the job trigger a rolling restart of the Nginx Deployment after installing new rules
+# (WAF_RELOAD_MODE=kubernetes); limited to that one Deployment.
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  resourceNames: ["nginx-proxy"]
+  verbs: ["get", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
