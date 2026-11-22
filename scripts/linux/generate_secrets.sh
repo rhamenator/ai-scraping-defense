@@ -15,6 +15,10 @@
 #
 # See SECURITY.md for comprehensive secret management guidelines.
 
+# Every file this script creates holds secrets, so create them owner-only from the first write rather than
+# tightening permissions afterwards (#1912). Files that must be readable by a container user are widened explicitly.
+umask 077
+
 # --- Configuration ---
 GREEN='\033[0;32m'; YELLOW='\033[0;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -94,6 +98,9 @@ RECOMMENDER_API_KEY=$(generate_password 48)
 HTPASSWD_FILE_CONTENT=$(htpasswd -nbBC 12 "$ADMIN_UI_USERNAME" "$NGINX_PASSWORD" | tr -d '\n')
 # Write htpasswd file for local Docker Compose usage
 echo "$HTPASSWD_FILE_CONTENT" > "$HTPASSWD_OUTPUT_FILE"
+# The nginx worker processes read this file as a different user inside the container, so it has to stay readable. It
+# holds only a bcrypt hash (cost 12), never the password.
+chmod 644 "$HTPASSWD_OUTPUT_FILE"
 
 # Write YAML to file
 cat > "$OUTPUT_FILE" << EOL
