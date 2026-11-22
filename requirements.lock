@@ -24,6 +24,7 @@ anthropic==0.121.0
 anyio==4.14.2
     # via
     #   anthropic
+    #   fastapi
     #   google-genai
     #   httpx
     #   httpx2
@@ -103,7 +104,7 @@ eval-type-backport==0.4.0
     # via mistralai
 evaluate==0.4.6
     # via -r requirements.txt
-fastapi==0.135.4
+fastapi==0.165.0
     # via -r requirements.txt
 fastavro==1.12.2
     # via cohere
@@ -161,11 +162,12 @@ httpx==0.28.1
     #   datasets
     #   google-genai
     #   huggingface-hub
-    #   mistralai
     #   ollama
     #   openai
 httpx2==2.16.0
-    # via mcp
+    # via
+    #   mcp
+    #   mistralai
 huggingface-hub==1.27.0
     # via
     #   datasets
@@ -219,7 +221,7 @@ mcp-types==2.3.0
     # via mcp
 mdurl==0.1.2
     # via markdown-it-py
-mistralai==2.9.3
+mistralai==3.8.0
     # via -r requirements.txt
 msgpack==1.2.3
     # via -r requirements.txt
@@ -257,6 +259,7 @@ openai==2.53.0
 opentelemetry-api==1.45.2
     # via
     #   -r requirements.txt
+    #   fastapi
     #   mcp
     #   mistralai
     #   opentelemetry-exporter-otlp-proto-grpc
@@ -387,7 +390,7 @@ python-discovery==1.6.4
     # via virtualenv
 python-dotenv==1.2.2
     # via uvicorn
-python-multipart==0.0.32
+python-multipart==0.0.34
     # via
     #   -r requirements.txt
     #   mcp
@@ -544,7 +547,7 @@ wheel==0.47.0
     #   pip-tools
 wikipedia==1.4.0
     # via -r requirements.txt
-xgboost==3.4.0
+xgboost==3.4.1
     # via -r requirements.txt
 xxhash==3.8.1
     # via
