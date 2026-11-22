@@ -34,15 +34,25 @@ def fingerprint(url: str) -> str:
     return hashlib.sha256(url.encode("utf-8")).hexdigest()[:10]
 
 
+def _is_configured_url(key: str, value: str) -> bool:
+    return bool(CONFIGURED_KEYS.match(key.strip())) and value.startswith("http")
+
+
+def _env_file_urls(env_file: Path | None) -> set[str]:
+    if not env_file or not env_file.is_file():
+        return set()
+    urls = set()
+    for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
+        key, _, value = line.partition("=")
+        value = value.strip().strip("'\"")
+        if _is_configured_url(key, value):
+            urls.add(value)
+    return urls
+
+
 def configured_urls(env_file: Path | None, environ: dict[str, str]) -> set[str]:
-    values = {value for key, value in environ.items() if CONFIGURED_KEYS.match(key) and value.startswith("http")}
-    if env_file and env_file.is_file():
-        for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
-            key, _, value = line.partition("=")
-            value = value.strip().strip("'\"")
-            if CONFIGURED_KEYS.match(key.strip()) and value.startswith("http"):
-                values.add(value)
-    return values
+    from_environment = {value for key, value in environ.items() if _is_configured_url(key, value)}
+    return from_environment | _env_file_urls(env_file)
 
 
 def iter_files(paths: list[Path]):
@@ -55,6 +65,17 @@ def iter_files(paths: list[Path]):
             yield path
 
 
+def _line_findings(line: str, number: int, configured: set[str]) -> list[tuple[int, str, str]]:
+    findings: list[tuple[int, str, str]] = []
+    seen: set[str] = set()
+    for kind, pattern in KNOWN_PATTERNS.items():
+        for match in pattern.finditer(line):
+            seen.add(match.group(0))
+            findings.append((number, kind, fingerprint(match.group(0))))
+    findings.extend((number, "configured", fingerprint(url)) for url in configured if url in line and url not in seen)
+    return findings
+
+
 def scan_file(path: Path, configured: set[str]) -> list[tuple[int, str, str]]:
     """(line number, kind, fingerprint) for every webhook URL on every line; the URL itself is never returned."""
     findings: list[tuple[int, str, str]] = []
@@ -63,14 +84,7 @@ def scan_file(path: Path, configured: set[str]) -> list[tuple[int, str, str]]:
             return findings
         with path.open("r", encoding="utf-8", errors="replace") as handle:
             for number, line in enumerate(handle, 1):
-                seen: set[str] = set()
-                for kind, pattern in KNOWN_PATTERNS.items():
-                    for match in pattern.finditer(line):
-                        seen.add(match.group(0))
-                        findings.append((number, kind, fingerprint(match.group(0))))
-                for url in configured:
-                    if url in line and url not in seen:
-                        findings.append((number, "configured", fingerprint(url)))
+                findings.extend(_line_findings(line, number, configured))
     except OSError:
         pass
     return findings
