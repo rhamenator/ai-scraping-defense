@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+* Disable HTTP/2 and TLS 1.3 in the bundled OpenResty TLS examples and generated listener while its NGINX core remains below the 1.30.7/1.31.9 fixes. Add a CI guard against enabling the affected optional modules or TLS 1.3 (#1944). TLS clients must support TLS 1.2 until a patched OpenResty image is available.
+
 ## [0.0.16] - 2026-11-20
 
 ### Fixed
