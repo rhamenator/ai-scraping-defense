@@ -72,6 +72,34 @@ class SecurityPageTests(unittest.TestCase):
         self.assertTrue(token)
         self.assertIn(f'<meta name="csrf-token" content="{token}">', page.text)
 
+    def test_sso_users_get_a_note_instead_of_a_sign_out_button(self):
+        """Signing out locally would just be undone by the provider or proxy, so the button is not offered."""
+        plain = self._page().text
+        self.assertIn('id="sign-out"', plain)
+        self.assertNotIn("sso-signout-note", plain)
+        with patch.object(admin_ui, "_security_page_context") as context:
+            context.return_value = {
+                "user": "admin",
+                "method": "Single sign-on (SAML)",
+                "sso": True,
+                "passkey_enrolled": False,
+                "totp_enabled": False,
+                "backup": {"remaining": 0, "total": 0, "created_at": None, "created_text": None},
+            }
+            sso = self._page().text
+        self.assertIn('id="sso-signout-note"', sso)
+        self.assertIn("sign out through your provider", sso)
+        self.assertNotIn('id="sign-out"', sso)
+
+    def test_context_marks_oidc_and_saml_as_sso(self):
+        for provider, expected in (("oidc", True), ("saml", True), ("basic", False)):
+            request = type("R", (), {})()
+            request.state = type("S", (), {"admin_ui_auth_provider": provider})()
+            request.cookies = {}
+            with patch.object(passkeys, "_load_credential", return_value=None):
+                context = admin_ui._security_page_context(request, "admin")
+            self.assertEqual(context["sso"], expected, provider)
+
     def test_a_passkey_store_failure_does_not_break_the_page(self):
         with patch.object(passkeys, "_load_credential", side_effect=RuntimeError("boom")):
             self.assertEqual(self._page().status_code, 200)

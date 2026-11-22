@@ -69,7 +69,8 @@ document.getElementById('regenerate-codes').addEventListener('click', async () =
 document.getElementById('dismiss-codes').addEventListener('click', hideCodes);
 window.addEventListener('pagehide', hideCodes);
 
-document.getElementById('sign-out').addEventListener('click', async () => {
+const signOut = document.getElementById('sign-out');
+if (signOut) signOut.addEventListener('click', async () => {
     showError('');
     try {
         await post('/logout');

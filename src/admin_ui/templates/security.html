@@ -46,7 +46,12 @@
     </section>
 
     <h2>Sign out</h2>
+    {% if sso %}
+    <p id="sso-signout-note">You signed in through single sign-on. Signing out here would only end this application's own
+       session and your identity provider or proxy would sign you straight back in, so sign out through your provider.</p>
+    {% else %}
     <button type="button" id="sign-out">Sign out</button>
+    {% endif %}
 
     <dialog id="confirm-dialog" aria-labelledby="confirm-title">
         <form method="dialog">
