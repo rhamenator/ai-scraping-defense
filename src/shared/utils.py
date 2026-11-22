@@ -7,6 +7,8 @@ import time
 from logging.handlers import RotatingFileHandler
 from typing import Dict, Optional
 
+from src.shared.url_redaction import redact_urls
+
 LOG_DIR = os.getenv("LOG_DIR", "/app/logs")
 ERROR_LOG_FILE = os.path.join(LOG_DIR, "aiservice_errors.log")
 LOG_MAX_BYTES = 1_000_000
@@ -129,6 +131,8 @@ def log_error(
     log_entry = f"{timestamp} - ERROR: {message}"
     if exception:
         log_entry += f" | Exception: {type(exception).__name__}: {exception}"
+    # Exception text from HTTP libraries embeds the full request URL, which may carry a webhook secret (#1906).
+    log_entry = redact_urls(log_entry)
     try:
         logger_to_use = (
             _error_logger if log_file == ERROR_LOG_FILE else _get_event_logger(log_file)
