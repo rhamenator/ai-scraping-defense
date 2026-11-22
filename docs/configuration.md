@@ -280,6 +280,8 @@ Recent suspicious traffic generates an `AI_DEFENSE_ATTACK_INCIDENT` alert throug
 | `CAPTCHA_BIND_IP` | `true` | A built-in CAPTCHA challenge can only be solved from the address it was issued to |
 | `CAPTCHA_RATE_LIMIT_PER_MINUTE` | `30` | Challenges and solve attempts per client address per minute (0 disables) |
 | `CAPTCHA_STORE` | `auto` | `auto` uses Redis when reachable, `memory` forces process memory (single replica only) |
+| `CAPTCHA_MIN_SOLVE_SECONDS` | `1.5` | A correct answer faster than this asks the visitor to try again (never blocks); 0 disables |
+| `CAPTCHA_REQUIRE_PROOF` | `true` | Require the page's client proof with a solve; a missing or wrong one asks the visitor to try again |
 | `TRAINING_CAPTCHA_OVERRIDES_LABELS` | `false` | Let CAPTCHA successes relabel training rows as human (they are unauthenticated telemetry, so off by default) |
 | `ENABLE_IP_REPUTATION` | `false` | Query IP reputation service |
 | `IP_REPUTATION_API_URL` | *(none)* | IP reputation endpoint |
