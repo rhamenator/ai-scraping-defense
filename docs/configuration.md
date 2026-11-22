@@ -276,6 +276,10 @@ Recent suspicious traffic generates an `AI_DEFENSE_ATTACK_INCIDENT` alert throug
 | `ENABLE_LOCAL_LLM_CLASSIFICATION` | `true` | Use local LLM for scoring |
 | `ENABLE_EXTERNAL_API_CLASSIFICATION` | `true` | Use external API for scoring |
 | `EXTERNAL_API_HEADER_ALLOWLIST` | *(built-in list)* | Comma-separated request headers that may leave the escalation engine (external classifier, local model, blocklist records, webhooks). Replaces the default list; credential-like names are refused even if listed. See [What leaves the engine](#what-leaves-the-escalation-engine). |
+| `CAPTCHA_BIND_IP` | `true` | A built-in CAPTCHA challenge can only be solved from the address it was issued to |
+| `CAPTCHA_RATE_LIMIT_PER_MINUTE` | `30` | Challenges and solve attempts per client address per minute (0 disables) |
+| `CAPTCHA_STORE` | `auto` | `auto` uses Redis when reachable, `memory` forces process memory (single replica only) |
+| `TRAINING_CAPTCHA_OVERRIDES_LABELS` | `false` | Let CAPTCHA successes relabel training rows as human (they are unauthenticated telemetry, so off by default) |
 | `ENABLE_IP_REPUTATION` | `false` | Query IP reputation service |
 | `IP_REPUTATION_API_URL` | *(none)* | IP reputation endpoint |
 | `IP_REPUTATION_API_KEY_FILE` | `/run/secrets/ip_reputation_api_key` | IP reputation API key file |

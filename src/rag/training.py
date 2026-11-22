@@ -113,14 +113,20 @@ def _dataset_metadata_path(file_path: str) -> str:
     return f"{file_path}.metadata.json"
 
 
+def captcha_overrides_labels() -> bool:
+    """Whether CAPTCHA successes may relabel rows as human (``TRAINING_CAPTCHA_OVERRIDES_LABELS``, default false)."""
+    return os.getenv("TRAINING_CAPTCHA_OVERRIDES_LABELS", "false").lower() == "true"
+
+
 def _feedback_override_summary(
     original_labels: pd.Series,
     df: pd.DataFrame,
     honeypot_triggers: set,
     captcha_successes: set,
+    captcha_applied: bool = True,
 ) -> dict:
     bot_override_mask = df["ip"].isin(honeypot_triggers)
-    human_override_mask = df["ip"].isin(captcha_successes)
+    human_override_mask = df["ip"].isin(captcha_successes) & captcha_applied
     conflicting_ips = sorted(honeypot_triggers & captcha_successes)
     return {
         "bot_override_count": int(bot_override_mask.sum()),
@@ -133,6 +139,8 @@ def _feedback_override_summary(
         ),
         "conflicting_ip_count": len(conflicting_ips),
         "conflicting_ips_sample": conflicting_ips[:10],
+        "captcha_overrides_applied": captcha_applied,
+        "captcha_success_ips_seen": len(captcha_successes),
     }
 
 
@@ -495,12 +503,17 @@ def assign_labels_and_scores(
 
     # Override labels based on feedback files (highest priority)
     df.loc[df["ip"].isin(honeypot_triggers), "label"] = "bot"
-    df.loc[df["ip"].isin(captcha_successes), "label"] = "human"
+    # CAPTCHA successes are self-reported by an unauthenticated endpoint, so they do not relabel anything unless the
+    # operator opts in (#1903); otherwise they are only counted in the provenance summary.
+    captcha_applied = captcha_overrides_labels()
+    if captcha_applied:
+        df.loc[df["ip"].isin(captcha_successes), "label"] = "human"
     override_summary = _feedback_override_summary(
         original_labels,
         df,
         honeypot_triggers,
         captcha_successes,
+        captcha_applied,
     )
     df.attrs["feedback_override_summary"] = override_summary
     if (
