@@ -347,6 +347,24 @@ def _record_setting_change(name: str, actor: str) -> None:
         logger.warning("Could not record who changed %s: %s", name, exc)
 
 
+def _decode(value) -> str:
+    return value.decode() if isinstance(value, bytes) else value
+
+
+def _parse_change_entry(value) -> dict[str, str] | None:
+    """One stored change record as {actor, at}, or None when it is not a usable record."""
+    try:
+        entry = json.loads(_decode(value))
+    except (ValueError, AttributeError):
+        return None
+    if not isinstance(entry, dict):
+        return None
+    return {
+        "actor": str(entry.get("actor") or "unknown"),
+        "at": str(entry.get("at") or ""),
+    }
+
+
 def _last_changes() -> dict[str, dict[str, str]]:
     """Who last changed each setting and when, from the record kept beside the settings.
 
@@ -359,21 +377,12 @@ def _last_changes() -> dict[str, dict[str, str]]:
     except Exception as exc:  # the page must render even when this lookup fails
         logger.warning("Could not read the settings change record: %s", exc)
         return {}
-    last: dict[str, dict[str, str]] = {}
-    for key, value in (raw or {}).items():
-        name = key.decode() if isinstance(key, bytes) else key
-        if name not in EDITABLE_SETTING_MAP:
-            continue
-        try:
-            entry = json.loads(value.decode() if isinstance(value, bytes) else value)
-        except (ValueError, AttributeError):
-            continue
-        if isinstance(entry, dict):
-            last[name] = {
-                "actor": str(entry.get("actor") or "unknown"),
-                "at": str(entry.get("at") or ""),
-            }
-    return last
+    parsed = {_decode(key): _parse_change_entry(value) for key, value in (raw or {}).items()}
+    return {
+        name: entry
+        for name, entry in parsed.items()
+        if name in EDITABLE_SETTING_MAP and entry is not None
+    }
 
 
 def _serialize_editable_setting(
