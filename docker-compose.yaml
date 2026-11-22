@@ -5,12 +5,15 @@
 # It represents the best of both worlds.
 
 services:
+  # Only nginx_proxy (80/443) is the public edge. Every other published port binds to loopback by default; set
+  # PUBLISH_ADDRESS (for example to a VPN or private interface address) only on a trusted network. Never publish the
+  # data stores, the model servers or the admin surfaces on a public address.
   mailhog:
     image: mailhog/mailhog@sha256:8d76a3d4ffa32a3661311944007a415332c4bb855657f4f6c57996405c009bea
     container_name: mailhog
     ports:
-      - "${ALERT_SMTP_PORT:-1025}:1025"
-      - "${ALERT_SMTP_WEB_PORT:-8025}:8025"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:${ALERT_SMTP_PORT:-1025}:1025"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:${ALERT_SMTP_WEB_PORT:-8025}:8025"
     networks:
       - defense_network
     restart: unless-stopped
@@ -22,7 +25,7 @@ services:
     volumes:
       - ./mocks/external_api.yaml:/mocks/external_api.yaml:ro
     ports:
-      - "4010:4010"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:4010:4010"
     networks:
       - defense_network
     restart: unless-stopped
@@ -107,7 +110,7 @@ services:
     image: httpd:2.4@sha256:32e9403360ab2f1047523e72f256527fb9aee68b342abf6ad03f0d629157f3d9
     container_name: apache_proxy
     ports:
-      - "${APACHE_HTTP_PORT:-8080}:80"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:${APACHE_HTTP_PORT:-8080}:80"
     volumes:
       - ./apache/httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
     depends_on:
@@ -296,7 +299,7 @@ services:
     environment:
       - FLASK_RUN_HOST=0.0.0.0
     ports:
-      - "${ADMIN_UI_PORT:-5002}:5002"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:${ADMIN_UI_PORT:-5002}:5002"
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
@@ -393,7 +396,7 @@ services:
     env_file:
       - .env
     ports:
-      - "${CLOUD_DASHBOARD_PORT:-5006}:5006"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:${CLOUD_DASHBOARD_PORT:-5006}:5006"
     volumes:
       - ./src:/app/src
       - ./secrets:/run/secrets:ro
@@ -438,7 +441,7 @@ services:
     env_file:
       - .env
     ports:
-      - "8010:8010"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:8010:8010"
     volumes:
       - ./src:/app/src:ro
       - ./secrets:/run/secrets:ro
@@ -481,7 +484,7 @@ services:
     env_file:
       - .env
     ports:
-      - "${CLOUD_PROXY_PORT:-8008}:8008"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:${CLOUD_PROXY_PORT:-8008}:8008"
     volumes:
       - ./cloud-proxy:/app:ro
       - ./src:/app/src:ro
@@ -528,7 +531,7 @@ services:
     env_file:
       - .env
     ports:
-      - "${PROMPT_ROUTER_PORT:-8009}:8009"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:${PROMPT_ROUTER_PORT:-8009}:8009"
     volumes:
       - ./prompt-router:/app:ro
       - ./src:/app/src:ro
@@ -570,7 +573,7 @@ services:
       - POSTGRES_PASSWORD_FILE=${PG_PASSWORD_FILE}
       - POSTGRES_DB=${PG_DBNAME}
     ports:
-      - "${PG_PORT:-5432}:5432"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:${PG_PORT:-5432}:5432"
     networks:
       - defense_network
     restart: unless-stopped
@@ -587,7 +590,7 @@ services:
     command:
       ["sh", "-c", "redis-server --requirepass $(cat ${REDIS_PASSWORD_FILE})"]
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
       - ./secrets:/run/secrets:ro
@@ -697,8 +700,8 @@ services:
       - --api.dashboard=true
       - --api.insecure=false
     ports:
-      - "8005:80"
-      - "8081:8080"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:8005:80"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:8081:8080"
     networks:
       - defense_network
       - docker_api
@@ -711,7 +714,7 @@ services:
     container_name: llama3
     command: ["sh", "-c", "ollama pull llama3 && ollama serve"]
     ports:
-      - "11434:11434"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:11434:11434"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.llm.rule=PathPrefix(`/`)"
@@ -734,7 +737,7 @@ services:
     container_name: mixtral
     command: ["sh", "-c", "ollama pull mixtral && ollama serve"]
     ports:
-      - "11435:11434"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:11435:11434"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.llm.rule=PathPrefix(`/`)"
@@ -758,7 +761,7 @@ services:
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
     networks:
       - defense_network
     restart: unless-stopped
@@ -767,7 +770,7 @@ services:
     image: grafana/grafana:12.4.1@sha256:e932bd6ed0e026595b08483cd0141e5103e1ab7ff8604839ff899b8dc54cabcb
     container_name: grafana
     ports:
-      - "${GRAFANA_PORT:-3000}:3000"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
     volumes:
       - grafana_data:/var/lib/grafana
     networks:
