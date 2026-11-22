@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 from redis.exceptions import RedisError
 
 from src.shared.config import CONFIG, tenant_key
+from src.shared.header_policy import internal_headers
 from src.shared.middleware import create_app
 from src.shared.observability import (
     HealthCheckResult,
@@ -76,6 +77,12 @@ class EscalationMetadata(BaseModel):
     tls_fingerprint_source: str | None = Field(default=None, max_length=32)
     tls_fingerprint_attestation: str | None = Field(default=None, max_length=128)
     source: str = Field(default="tarpit_api", max_length=50)
+
+    @field_validator("headers")
+    @classmethod
+    def forward_only_needed_headers(cls, v):
+        """Only the headers the escalation engine uses are forwarded; credentials and identity never are (#1904)."""
+        return internal_headers(v)
 
     @field_validator("ip")
     @classmethod
