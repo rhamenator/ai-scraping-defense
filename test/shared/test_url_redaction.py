@@ -124,7 +124,8 @@ class FilterTests(unittest.TestCase):
         self.assertIn("Traceback", output)
 
     def test_a_malformed_format_string_does_not_break_logging(self):
-        self.logger.error("needs two %s %s", SECRET_URL)
+        # The malformed format string (two placeholders, one argument) is the point of this test.
+        self.logger.error("needs two %s %s", SECRET_URL)  # pylint: disable=logging-too-few-args
         output = self.stream.getvalue()
         self.assertNotIn(CANARY, output)
         self.assertIn("needs two", output)
