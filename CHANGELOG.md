@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+* Update the locked dependencies that `pip-audit` flagged on `main`: opentelemetry packages 1.45.1 to 1.45.2 (CVE-2026-126360, trace-context extraction) and soupsieve 2.9.2 to 4.1.3 (CVE-2026-126190 to -126193, selector ReDoS and deep recursion, used through beautifulsoup4 in the e2e tools). `pip-audit` now reports no known vulnerabilities for `requirements.lock`.
+
 ### Removed
 
 * The autofix workflows (`autofix-and-guard.yml`, `autofix.yml`, `security-autofix.yml`, the `autofix` job and input in the comprehensive audits and `master-problem-detection.yml`, and the unused `.github/tools/autofix.sh`) (#1911). They had run once, failed, and combined unpinned tool downloads, a write token and default automerge. The audits themselves remain and now run with read-only repository permissions.
