@@ -2,6 +2,7 @@
 
 import os
 import re
+import secrets
 import shutil
 import stat
 import subprocess  # nosec B404 - runs the repository's own setup script in a temp tree
@@ -45,7 +46,7 @@ class PythonSetupTests(unittest.TestCase):
 
     def test_env_updates_and_progress_state_are_owner_only(self):
         env = self.tmp / ".env"
-        interactive_setup.update_env_file(env, {"ADMIN_UI_PASSWORD_HASH": "x"})
+        interactive_setup.update_env_file(env, {"ADMIN_UI_PASSWORD_HASH": secrets.token_hex(8)})
         state = self.tmp / ".setup_state.json"
         interactive_setup.save_setup_state(state, {"A"})
         self.assertEqual(mode(env), 0o600)
@@ -53,7 +54,7 @@ class PythonSetupTests(unittest.TestCase):
 
     def test_the_secrets_database_is_owner_only_before_any_secret_is_stored(self):
         with patch("builtins.input", return_value="y"):
-            interactive_setup.store_secrets(self.tmp, {"POSTGRES_PASSWORD": "canary-db-secret"})
+            interactive_setup.store_secrets(self.tmp, {"POSTGRES_PASSWORD": secrets.token_hex(8)})
         self.assertEqual(mode(self.tmp / "secrets" / "local_secrets.db"), 0o600)
 
     def test_create_private_file_tightens_an_existing_database(self):
