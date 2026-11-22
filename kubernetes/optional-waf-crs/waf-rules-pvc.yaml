@@ -1,0 +1,14 @@
+# Shared volume for the OWASP CRS rules: written by the owasp-crs-fetcher CronJob, read by the Nginx pods.
+# ReadWriteMany so the job and every Nginx replica can mount it from any node. If your storage class only offers
+# ReadWriteOnce, either run a single Nginx replica on the same node as the job, or use an RWX-capable class.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: waf-rules
+  namespace: ai-defense
+spec:
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: 1Gi
+  # storageClassName: <an RWX-capable class>

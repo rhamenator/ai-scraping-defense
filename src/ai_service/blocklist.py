@@ -7,6 +7,7 @@ from typing import Optional
 
 from redis.exceptions import ConnectionError, RedisError
 
+from src.shared import blocklist_store
 from src.shared.config import CONFIG, tenant_key
 from src.shared.redis_client import get_redis_connection as shared_get_redis_connection
 from src.shared.request_identity import is_trusted_infrastructure_ip
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 REDIS_HOST = CONFIG.REDIS_HOST
 REDIS_PORT = CONFIG.REDIS_PORT
 REDIS_DB_BLOCKLIST = CONFIG.REDIS_DB_BLOCKLIST
-BLOCKLIST_KEY_PREFIX = tenant_key("blocklist:ip:")
+BLOCKLIST_KEY_PREFIX = blocklist_store.block_key_prefix()
 BLOCKLIST_TTL_SECONDS = CONFIG.BLOCKLIST_TTL_SECONDS
 
 BLOCK_LOG_FILE = os.path.join(LOG_DIR, "block_events.log")

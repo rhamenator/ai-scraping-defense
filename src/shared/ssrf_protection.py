@@ -90,6 +90,28 @@ def is_localhost(hostname: str) -> bool:
     return hostname_lower in localhost_patterns
 
 
+def resolve_public_addresses(hostname: str, port: int) -> list[str]:
+    """Resolve ``hostname`` once and return its addresses, refusing unless every one is public.
+
+    A client that connects to the address returned here, rather than resolving the name again, cannot be redirected to
+    an internal address by a DNS answer that changes between the check and the connection (DNS rebinding).
+    """
+    try:
+        entries = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+    except OSError as exc:
+        raise SSRFProtectionError(
+            f"Could not resolve URL hostname '{hostname}': {exc}"
+        ) from exc
+    addresses = list(dict.fromkeys(entry[4][0] for entry in entries))
+    if not addresses:
+        raise SSRFProtectionError(f"URL hostname '{hostname}' resolved to no addresses")
+    if any(is_private_ip(address) for address in addresses):
+        raise SSRFProtectionError(
+            f"URL hostname '{hostname}' resolved to a non-public address"
+        )
+    return addresses
+
+
 def validate_url(
     url: str,
     allowed_schemes: Optional[Sequence[str]] = None,
@@ -164,27 +186,9 @@ def validate_url(
         )
 
     if block_private_ips and resolve_dns and not is_private_ip(hostname):
-        try:
-            resolved = {
-                entry[4][0]
-                for entry in socket.getaddrinfo(
-                    hostname,
-                    parsed_port or (443 if parsed.scheme == "https" else 80),
-                    type=socket.SOCK_STREAM,
-                )
-            }
-        except OSError as exc:
-            raise SSRFProtectionError(
-                f"Could not resolve URL hostname '{hostname}': {exc}"
-            ) from exc
-        if not resolved:
-            raise SSRFProtectionError(
-                f"URL hostname '{hostname}' resolved to no addresses"
-            )
-        if any(is_private_ip(address) for address in resolved):
-            raise SSRFProtectionError(
-                f"URL hostname '{hostname}' resolved to a non-public address"
-            )
+        resolve_public_addresses(
+            hostname, parsed_port or (443 if parsed.scheme == "https" else 80)
+        )
 
     # Check domain allowlist
     if allowed_domains is not None and len(allowed_domains) > 0:

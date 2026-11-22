@@ -10,6 +10,21 @@ This project supports an optional ModSecurity-based Web Application Firewall (WA
 
 Alternatively, you can provide a `RULES_DOWNLOAD_URL` environment variable to fetch a remote rules file at startup. The URL must begin with `https://`. To restrict which hosts can be used, set `RULES_ALLOWED_DOMAINS` to a comma-separated list of permitted domains.
 
+### Should I pin a digest?
+
+Both choices are supported; pick the one that matches how you want to run it.
+
+| | Pinned (`RULES_SHA256` / `CRS_SHA256` set) | Not pinned (the default) |
+| --- | --- | --- |
+| What you get | Only the exact file you reviewed is ever installed | Whatever the host serves at that URL today |
+| If the host is compromised or the file changes | The download is refused and nothing changes | The new content is installed if it passes the safety checks below |
+| Updating | A deliberate step: new URL or file, new digest | Automatic |
+| Good for | Production, and anywhere a rule change should be reviewed | Trying things out, or rules you control at both ends |
+
+Compute the digest of what you reviewed with `sha256sum rules-file` (or the archive). `RULES_REQUIRE_DIGEST=true` turns a
+missing pin into a refusal instead of a warning, so a setting can't be left off by accident. The default stays "not
+pinned, with a warning" so existing setups keep working; the safety checks below apply either way.
+
 ### Downloaded rules are verified before they are used
 
 Downloaded rules (`RULES_DOWNLOAD_URL`) and the OWASP CRS archive (`CRS_DOWNLOAD_URL`) are treated as untrusted input:

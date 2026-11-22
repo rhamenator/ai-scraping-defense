@@ -11,8 +11,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from redis.exceptions import RedisError
 
+from src.shared import blocklist_store
 from src.shared.audit import log_event
-from src.shared.config import tenant_key
+from src.shared.config import CONFIG
 from src.shared.redis_client import get_redis_connection
 from src.shared.request_identity import is_trusted_infrastructure_ip
 from src.shared.request_utils import read_json_body
@@ -106,36 +107,49 @@ def _load_recent_block_events(limit: int = 5) -> list[dict]:
 _load_recent_block_events_func = _load_recent_block_events
 
 
-@router.get("/block_stats")
-async def block_stats(user: str = Depends(require_auth)):
-    """Return blocklist counts and bot detection statistics."""
-    metrics_dict = {}
+_legacy_migrated = False
+
+
+def _blocklist_connection():
+    """The blocklist database, the one the edge reads (#1902).
+
+    The first time it is used, blocks that earlier releases stored where the edge never looked are moved to the real
+    key (the admin UI used a set in the default database).
+    """
+    global _legacy_migrated
+    conn = get_redis_connection(db_number=CONFIG.REDIS_DB_BLOCKLIST)
+    if conn and not _legacy_migrated:
+        _legacy_migrated = True
+        try:
+            blocklist_store.migrate_legacy(conn=conn, extra_conns=(get_redis_connection(),))
+        except Exception as exc:  # noqa: BLE001 - migration must never break the admin UI
+            logger.error("Legacy blocklist migration failed: %s", exc)
+    return conn
+
+
+def _bot_human_totals() -> tuple[float, float]:
     try:
         metrics_dict = metrics._get_metrics_dict_func()
     except Exception as exc:
         logger.error("Failed to load metrics", exc_info=exc)
         metrics_dict = {}
-    total_bots = sum(
-        float(v) for k, v in metrics_dict.items() if k.startswith("bots_detected")
-    )
-    total_humans = sum(
-        float(v) for k, v in metrics_dict.items() if k.startswith("humans_detected")
-    )
+    bots = sum(float(v) for k, v in metrics_dict.items() if k.startswith("bots_detected"))
+    humans = sum(float(v) for k, v in metrics_dict.items() if k.startswith("humans_detected"))
+    return bots, humans
 
-    redis_conn = get_redis_connection()
-    blocked_ips = set()
+
+@router.get("/block_stats")
+async def block_stats(user: str = Depends(require_auth)):
+    """Return blocklist counts and bot detection statistics."""
+    total_bots, total_humans = _bot_human_totals()
+
+    redis_conn = _blocklist_connection()
+    blocked_ip_count = 0
     temp_block_count = 0
     if redis_conn:
         try:
-            blocked_ips = redis_conn.smembers(tenant_key("blocklist")) or set()
-            pattern = tenant_key("blocklist:ip:*")
-            cursor = 0
-            temp_block_count = 0
-            while True:
-                cursor, keys = redis_conn.scan(cursor=cursor, match=pattern, count=1000)
-                temp_block_count += len(keys)
-                if cursor == 0:
-                    break
+            totals = blocklist_store.counts(redis_conn)
+            blocked_ip_count, temp_block_count = totals["blocked"], totals["temporary"]
         except RedisError as exc:
             logger.error("Error loading blocklist from redis", exc_info=exc)
             return JSONResponse(
@@ -147,7 +161,7 @@ async def block_stats(user: str = Depends(require_auth)):
     recent_events = _load_recent_block_events_func(5)
     return JSONResponse(
         {
-            "blocked_ip_count": len(blocked_ips),
+            "blocked_ip_count": blocked_ip_count,
             "temporary_block_count": temp_block_count,
             "total_bots_detected": total_bots,
             "total_humans_detected": total_humans,
@@ -158,28 +172,34 @@ async def block_stats(user: str = Depends(require_auth)):
 
 @router.get("/blocklist")
 async def get_blocklist(user: str = Depends(require_auth)):
-    redis_conn = get_redis_connection()
+    redis_conn = _blocklist_connection()
     if not redis_conn:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
 
     try:
-        blocklist_set = redis_conn.smembers(tenant_key("blocklist"))
-        if asyncio.iscoroutine(blocklist_set):
-            blocklist_set = await blocklist_set
+        return JSONResponse(blocklist_store.list_blocked(redis_conn))
     except RedisError as exc:
         logger.error("Error retrieving blocklist", exc_info=exc)
         return JSONResponse(
             {"error": "Service temporarily unavailable"}, status_code=503
         )
 
-    if isinstance(blocklist_set, (set, list)):
-        return JSONResponse(list(blocklist_set))
 
-    logger.error(
-        "Unexpected blocklist response type from Redis: %s",
-        type(blocklist_set).__name__,
-    )
-    return JSONResponse({"error": "Redis returned invalid data"}, status_code=503)
+def _block_request(json_data) -> tuple[str | None, str, JSONResponse | None]:
+    """The address and reason of a block request, or the error response to send instead."""
+    ip = json_data.get("ip")
+    if not ip:
+        return None, "", JSONResponse({"error": "Invalid request, missing ip"}, status_code=400)
+    try:
+        normalized_ip = str(ipaddress.ip_address(ip))
+    except ValueError:
+        return None, "", JSONResponse({"error": "Invalid ip"}, status_code=400)
+    if is_trusted_infrastructure_ip(normalized_ip):
+        return None, "", JSONResponse(
+            {"error": "Refusing to block a configured proxy or CDN address"},
+            status_code=400,
+        )
+    return normalized_ip, _clean_reason(json_data.get("reason")), None
 
 
 @router.post("/block")
@@ -191,28 +211,18 @@ async def block_ip(request: Request, user: str = Depends(require_admin)):
             {"error": "Invalid request, missing JSON body"}, status_code=400
         )
 
-    ip = json_data.get("ip")
-    if not ip:
-        return JSONResponse({"error": "Invalid request, missing ip"}, status_code=400)
-    try:
-        normalized_ip = str(ipaddress.ip_address(ip))
-    except ValueError:
-        return JSONResponse({"error": "Invalid ip"}, status_code=400)
-    reason = _clean_reason(json_data.get("reason"))
-    if is_trusted_infrastructure_ip(normalized_ip):
-        return JSONResponse(
-            {"error": "Refusing to block a configured proxy or CDN address"},
-            status_code=400,
-        )
+    normalized_ip, reason, error = _block_request(json_data)
+    if error is not None:
+        return error
 
-    redis_conn = get_redis_connection()
+    redis_conn = _blocklist_connection()
     if not redis_conn:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
 
-    try:
-        redis_conn.sadd(tenant_key("blocklist"), normalized_ip)
-    except RedisError as exc:
-        logger.error("Error adding IP to blocklist", exc_info=exc)
+    # An administrator's block stays until it is lifted; the edge reads this key (#1902).
+    if not blocklist_store.block(
+        normalized_ip, reason or "blocked by administrator", source="admin_ui", conn=redis_conn
+    ):
         return JSONResponse(
             {"error": "Service temporarily unavailable"}, status_code=503
         )
@@ -240,14 +250,13 @@ async def unblock_ip(request: Request, user: str = Depends(require_admin)):
     except ValueError:
         return JSONResponse({"error": "Invalid ip"}, status_code=400)
 
-    redis_conn = get_redis_connection()
+    redis_conn = _blocklist_connection()
     if not redis_conn:
         return JSONResponse({"error": "Redis service unavailable"}, status_code=503)
 
-    try:
-        redis_conn.srem(tenant_key("blocklist"), normalized_ip)
-    except RedisError as exc:
-        logger.error("Error removing IP from blocklist", exc_info=exc)
+    if not blocklist_store.unblock(
+        normalized_ip, conn=redis_conn, legacy_conns=(get_redis_connection(),)
+    ):
         return JSONResponse(
             {"error": "Service temporarily unavailable"}, status_code=503
         )

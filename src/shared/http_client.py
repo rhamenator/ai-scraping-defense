@@ -23,12 +23,17 @@ Usage Example:
 import asyncio
 import logging
 import os
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Sequence
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from .ssrf_protection import SSRFProtectionError, validate_url
+from .validated_transport import ValidatedTransport
+
+# Headers that carry a credential: dropped when a redirect leaves the origin they were meant for.
+_CREDENTIAL_HEADER = re.compile(r"(authorization|cookie|api[-_]?key|token|secret|auth)", re.IGNORECASE)
 
 try:
     import httpx
@@ -157,7 +162,8 @@ class AsyncHttpClient:
     def __init__(
         self,
         timeout: float = 30.0,
-        follow_redirects: bool = True,
+        follow_redirects: bool = False,
+        max_redirects: int | None = None,
         verify: bool = True,
         max_connections: int = 100,
         max_keepalive_connections: int = 20,
@@ -194,6 +200,9 @@ class AsyncHttpClient:
 
         self.timeout = timeout
         self.follow_redirects = follow_redirects
+        if max_redirects is None:
+            max_redirects = _parse_int_env("HTTP_CLIENT_MAX_REDIRECTS", 5)
+        self.max_redirects = max(0, max_redirects)
         self.verify = verify
         self.max_connections = max_connections
         self.max_keepalive_connections = max_keepalive_connections
@@ -256,12 +265,21 @@ class AsyncHttpClient:
             )
 
             # Initialize the httpx client with our configuration
+            # Redirects are never followed by httpx itself: when enabled they are followed here, one validated hop at a
+            # time. With private-address blocking on, connections go through a transport that resolves, checks and
+            # connects in one step (#1905).
+            transport = (
+                ValidatedTransport(verify=self.verify, http2=self.http2, limits=limits)
+                if self.block_private_ips
+                else None
+            )
             self._client = httpx.AsyncClient(
                 timeout=self.timeout,
-                follow_redirects=self.follow_redirects,
+                follow_redirects=False,
                 verify=self.verify,
                 limits=limits,
                 http2=self.http2,
+                transport=transport,
             )
 
             logger.debug(
@@ -347,18 +365,8 @@ class AsyncHttpClient:
             delay = min(delay, retry_after, self.retry_backoff_max)
         return max(delay, 0.0)
 
-    async def _request(
-        self,
-        method: str,
-        url: str,
-        *,
-        params: Optional[Dict[str, str]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        json_body: Optional[Dict[str, Any]] = None,
-        timeout: Optional[float] = None,
-        max_retries: Optional[int] = None,
-    ) -> "httpx.Response":
-        # Validate URL for SSRF protection first (before checking client availability)
+    def _validate_destination(self, method: str, url: str) -> None:
+        """Early check of a URL (scheme, host rules, allowlist, resolved addresses) with a clear error."""
         try:
             validate_url(
                 url,
@@ -371,68 +379,146 @@ class AsyncHttpClient:
             logger.error(f"SSRF protection blocked {method} request to {url}: {e}")
             raise
 
+    @staticmethod
+    def _origin(url: str) -> tuple[str, str, int]:
+        parsed = urlparse(url)
+        default = 443 if parsed.scheme == "https" else 80
+        return (parsed.scheme, (parsed.hostname or "").lower(), parsed.port or default)
+
+    @staticmethod
+    def _without_credentials(headers: Optional[Dict[str, str]]) -> Optional[Dict[str, str]]:
+        """Headers for a different origin: anything that looks like a credential is dropped."""
+        if not headers:
+            return headers
+        return {k: v for k, v in headers.items() if not _CREDENTIAL_HEADER.search(k)}
+
+    @staticmethod
+    def _redirect_request(status: int, method: str, body: Any, headers: Optional[Dict[str, str]]):
+        """Method, body and headers for the request that follows a redirect with ``status``."""
+        if status == 303 or (status in (301, 302) and method == "POST"):
+            kept = {k: v for k, v in (headers or {}).items() if k.lower() != "content-type"}
+            return "GET", None, kept
+        return method, body, headers
+
+    async def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        params: Optional[Dict[str, str]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        json_body: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = None,
+        max_retries: Optional[int] = None,
+    ) -> "httpx.Response":
+        # Validate URL for SSRF protection first (before checking client availability)
+        self._validate_destination(method, url)
+
         if not self.is_available:
             raise RuntimeError("HTTP client is not available or not initialized")
 
-        request_timeout = timeout if timeout is not None else self.timeout
         retries_allowed = self.max_retries if max_retries is None else max_retries
         if not self.retry_enabled:
             retries_allowed = 0
 
-        host = self._host_key(url)
-        attempt = 0
+        first = {
+            "method": method,
+            "url": url,
+            "params": params,
+            "headers": headers,
+            "json_body": json_body,
+            "request_timeout": timeout if timeout is not None else self.timeout,
+        }
+        return await self._follow(first, retries_allowed)
 
+    async def _follow(self, current: Dict[str, Any], retries_allowed: int) -> "httpx.Response":
+        """Send ``current`` and, when redirects are enabled, each validated hop after it, up to ``max_redirects``."""
+        redirects_left = self.max_redirects
+        while True:
+            response = await self._send_with_retries(current, retries_allowed)
+            location = response.headers.get("location")
+            if not (self.follow_redirects and response.is_redirect and location):
+                return response
+            if redirects_left <= 0:
+                raise httpx.TooManyRedirects(
+                    f"Exceeded {self.max_redirects} redirects", request=response.request
+                )
+            redirects_left -= 1
+            current = self._next_hop(current, response, location)
+
+    def _next_hop(self, current: Dict[str, Any], response: "httpx.Response", location: str) -> Dict[str, Any]:
+        """The request to send after a redirect, validated exactly like the first one (#1905)."""
+        next_url = urljoin(current["url"], location)
+        self._validate_destination(current["method"], next_url)
+        if urlparse(current["url"]).scheme == "https" and urlparse(next_url).scheme != "https":
+            raise SSRFProtectionError("Refusing a redirect from HTTPS to HTTP")
+        headers = current["headers"]
+        if self._origin(current["url"]) != self._origin(next_url):
+            headers = self._without_credentials(headers)
+        method, body, headers = self._redirect_request(
+            response.status_code, current["method"], current["json_body"], headers
+        )
+        return {
+            **current,
+            "method": method,
+            "url": next_url,
+            "params": None,
+            "headers": headers,
+            "json_body": body,
+        }
+
+    async def _send_once(self, request: Dict[str, Any]) -> "httpx.Response":
+        logger.debug(f"Making {request['method']} request to {request['url']}")
+        response = await self._client.request(
+            request["method"],
+            request["url"],
+            params=request["params"],
+            headers=request["headers"],
+            json=request["json_body"],
+            timeout=request["request_timeout"],
+        )
+        logger.debug(
+            f"Received response: {response.status_code} from {request['url']} "
+            f"(Content-Length: {len(response.content)} bytes)"
+        )
+        return response
+
+    async def _back_off(
+        self, attempt: int, retries_allowed: int, request: Dict[str, Any], response: Optional["httpx.Response"], error: object
+    ) -> None:
+        delay = self._retry_delay(attempt, response)
+        logger.warning(
+            "Retrying %s %s after %s (attempt %s/%s) in %.2fs",
+            request["method"],
+            request["url"],
+            f"status {response.status_code}" if response is not None else f"error: {error}",
+            attempt,
+            retries_allowed,
+            delay,
+        )
+        await asyncio.sleep(delay)
+
+    async def _send_with_retries(self, request: Dict[str, Any], retries_allowed: int) -> "httpx.Response":
+        """One hop with the configured retries. The connection check happens in the transport, on every attempt."""
+        host = self._host_key(request["url"])
+        attempt = 0
         while True:
             attempt += 1
             self._check_circuit(host)
             try:
-                logger.debug(f"Making {method} request to {url}")
-                response = await self._client.request(
-                    method,
-                    url,
-                    params=params,
-                    headers=headers,
-                    json=json_body,
-                    timeout=request_timeout,
-                )
-                logger.debug(
-                    f"Received response: {response.status_code} from {url} "
-                    f"(Content-Length: {len(response.content)} bytes)"
-                )
-                if (
-                    response.status_code in self.retry_statuses
-                    and attempt <= retries_allowed
-                ):
-                    self._record_failure(host)
-                    delay = self._retry_delay(attempt, response)
-                    logger.warning(
-                        "Retryable status %s from %s (attempt %s/%s). Retrying in %.2fs",
-                        response.status_code,
-                        url,
-                        attempt,
-                        retries_allowed,
-                        delay,
-                    )
-                    await asyncio.sleep(delay)
-                    continue
-                self._record_success(host)
-                return response
+                response = await self._send_once(request)
             except (httpx.TimeoutException, httpx.RequestError) as e:
                 self._record_failure(host)
-                if attempt <= retries_allowed:
-                    delay = self._retry_delay(attempt, None)
-                    logger.warning(
-                        "Request error on %s %s (attempt %s/%s): %s. Retrying in %.2fs",
-                        method,
-                        url,
-                        attempt,
-                        retries_allowed,
-                        e,
-                        delay,
-                    )
-                    await asyncio.sleep(delay)
-                    continue
-                raise
+                if attempt > retries_allowed:
+                    raise
+                await self._back_off(attempt, retries_allowed, request, None, e)
+                continue
+            if response.status_code in self.retry_statuses and attempt <= retries_allowed:
+                self._record_failure(host)
+                await self._back_off(attempt, retries_allowed, request, response, None)
+                continue
+            self._record_success(host)
+            return response
 
     async def async_post_json(
         self,

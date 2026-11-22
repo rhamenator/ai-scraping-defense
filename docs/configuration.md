@@ -76,6 +76,7 @@ See `src/security/secret_rotation.py` for rotation service implementation.
 | `TARPIT_API_PORT` | `8001` | Tarpit API |
 | `ADMIN_UI_PORT` | `5002` | Admin UI |
 | `CLOUD_DASHBOARD_PORT` | `5006` | Cloud Dashboard |
+| `CLOUD_DASHBOARD_ALLOW_SHARED_KEY` | `false` | Let the operator key push metrics for any installation (legacy behaviour). Off by default; see [docs/cloud_dashboard.md](cloud_dashboard.md) |
 | `CONFIG_RECOMMENDER_PORT` | `8010` | Config Recommender |
 | `PROMPT_ROUTER_PORT` | `8009` | Prompt Router |
 

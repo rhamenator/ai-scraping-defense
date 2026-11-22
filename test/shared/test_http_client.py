@@ -26,8 +26,12 @@ class TestAsyncHttpClientSSRFProtection(unittest.IsolatedAsyncioTestCase):
             ],
         )
         self.dns_patcher.start()
+        # These tests replace httpx.AsyncClient (and Limits) with mocks, so the real connection transport is not built.
+        self.transport_patcher = patch("src.shared.http_client.ValidatedTransport")
+        self.transport_patcher.start()
 
     def tearDown(self):
+        self.transport_patcher.stop()
         self.dns_patcher.stop()
 
     async def test_post_json_blocks_localhost(self):
