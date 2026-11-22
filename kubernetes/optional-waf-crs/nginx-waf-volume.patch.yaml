@@ -1,0 +1,17 @@
+# Strategic-merge patch that gives the nginx-proxy Deployment read-only access to the shared CRS rules.
+#   kubectl -n ai-defense patch deployment nginx-proxy --patch-file kubernetes/optional-waf-crs/nginx-waf-volume.patch.yaml
+# Apply it only together with a ModSecurity-capable Nginx image and a modsecurity.conf that includes the CRS (README.md).
+spec:
+  template:
+    spec:
+      containers:
+      - name: nginx
+        volumeMounts:
+        - name: waf-rules
+          mountPath: /etc/nginx/modsecurity/crs
+          readOnly: true
+      volumes:
+      - name: waf-rules
+        persistentVolumeClaim:
+          claimName: waf-rules
+          readOnly: true
