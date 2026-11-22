@@ -51,8 +51,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
         secret = os.environ["ADMIN_UI_2FA_SECRET"]
         return {"X-2FA-Code": pyotp.TOTP(secret).now()}
 
-    def _csrf_headers(self, token: str = "csrf-test-token") -> dict:
+    def _csrf_headers(self, token: str | None = None) -> dict:
         """TOTP headers plus a matching CSRF cookie/header pair for state-changing calls."""
+        token = token or secrets.token_urlsafe(16)
         self.client.cookies.set("csrf_token", token)
         return {**self._totp_headers(), "X-CSRF-Token": token}
 
