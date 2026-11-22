@@ -70,7 +70,7 @@ class TestMarkovGenerator(unittest.TestCase):
 
     # --- Test _get_db_connection ---
     @patch("src.tarpit.markov_generator._get_pg_password", return_value="test_password")
-    @patch("src.tarpit.markov_generator.pool.SimpleConnectionPool")
+    @patch("src.tarpit.markov_generator.pool.ThreadedConnectionPool")
     def test_get_db_connection_success_new_connection(
         self, mock_pool_cls, mock_get_pass
     ):
@@ -101,7 +101,7 @@ class TestMarkovGenerator(unittest.TestCase):
         markov_generator._db_pool = mock_pool
 
         with patch(
-            "src.tarpit.markov_generator.pool.SimpleConnectionPool"
+            "src.tarpit.markov_generator.pool.ThreadedConnectionPool"
         ) as mock_pool_cls:
             conn, cursor = markov_generator._get_db_connection()
             self.assertEqual(conn, mock_conn)
@@ -123,7 +123,7 @@ class TestMarkovGenerator(unittest.TestCase):
 
     @patch("src.tarpit.markov_generator._get_pg_password", return_value="test_password")
     @patch(
-        "src.tarpit.markov_generator.pool.SimpleConnectionPool",
+        "src.tarpit.markov_generator.pool.ThreadedConnectionPool",
         side_effect=psycopg2.OperationalError("DB connection failed"),
     )
     @patch.object(markov_generator.logger, "error")
