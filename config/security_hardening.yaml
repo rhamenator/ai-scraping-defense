@@ -13,6 +13,7 @@ compose:
     - config_recommender
     - prompt_router
     - blocklist_sync
+    - docker_socket_proxy
 
   service_requirements:
     security_opt:

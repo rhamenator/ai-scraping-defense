@@ -11,7 +11,11 @@ future refresh PRs can be scoped into small, reviewable batches.
 Python 3.14 is now the default container runtime target for this repository.
 The Dockerfiles use `PYTHON_VERSION` build args so operators can temporarily
 fall back during dependency triage without editing Dockerfiles. Rust builder
-images are pinned by `RUST_VERSION` instead of `rust:latest`.
+images are pinned by `RUST_VERSION` instead of `rust:latest`. The base images
+are also pinned by digest (`PYTHON_DIGEST`, `RUST_DIGEST`), so a fallback sets
+the version **and** the digest of that image together, for example
+`PYTHON_VERSION=3.13 PYTHON_DIGEST=sha256:<digest of python:3.13-slim>`. The
+build fails with a clear message if a version and its digest disagree, rather	han quietly building on the pinned image.
 
 MCP remains an optional runtime capability: no MCP server is contacted unless
 `MODEL_URI` is set to `mcp://<label>/<tool>` or the prompt router explicitly

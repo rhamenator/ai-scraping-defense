@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: openresty/openresty:1.29.2.1-alpine
+        image: openresty/openresty:1.29.2.1-alpine@sha256:711a9c269a6e4f4b5540fe6bdb4924bba14fc95ff16a77d6da76f89a78ad3e11
         imagePullPolicy: Always
         command:
         - /bin/sh
