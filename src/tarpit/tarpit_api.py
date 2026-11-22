@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, field_validator
 # The direct 'redis' import is no longer needed as the client handles it.
 from redis.exceptions import RedisError
 
+from src.shared import blocklist_store
 from src.shared.config import CONFIG, tenant_key
 from src.shared.header_policy import internal_headers
 from src.shared.middleware import create_app
@@ -402,25 +403,20 @@ def trigger_ip_block(ip: str, reason: str):
                 f"Cannot block IP {ip}, Redis blocklist connection unavailable."
             )
             return False
-        try:
-            key = tenant_key(f"blocklist:{ip}")
-            if redis_blocklist.exists(key):
-                logger.info(f"IP {ip} already in blocklist. TTL refreshed")
-            result = redis_blocklist.setex(key, BLOCKLIST_TTL_SECONDS, reason)
-            if result:
-                logger.warning(
-                    f"BLOCKED IP {ip} for {BLOCKLIST_TTL_SECONDS}s. Reason: {reason}"
-                )
-                return True
-            else:
-                logger.error(f"Failed to set blocklist key for IP {ip} in Redis.")
-                return False
-        except RedisError as e:
-            logger.error(f"Redis error while trying to block IP {ip}: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"Unexpected error while blocking IP {ip}: {e}")
-            return False
+        # The key the edge reads, with a TTL, read back before reporting success (#1902).
+        if blocklist_store.block(
+            ip,
+            reason,
+            source="tarpit",
+            ttl_seconds=BLOCKLIST_TTL_SECONDS,
+            conn=redis_blocklist,
+        ):
+            logger.warning(
+                f"BLOCKED IP {ip} for {BLOCKLIST_TTL_SECONDS}s. Reason: {reason}"
+            )
+            return True
+        logger.error(f"Failed to set blocklist key for IP {ip} in Redis.")
+        return False
 
 
 SENSITIVE_HEADERS = {"authorization", "cookie", "set-cookie"}

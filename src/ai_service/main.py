@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from redis.exceptions import RedisError
 
 from src.shared.audit import log_event as audit_log_event
+from src.shared import blocklist_store
 from src.shared.config import CONFIG, Config, tenant_key
 from src.shared.middleware import create_app
 from src.shared.observability import (
@@ -221,11 +222,25 @@ async def webhook_receiver(
                         status_code=400,
                         detail="Refusing to block trusted proxy infrastructure",
                     )
-                redis_conn.sadd(tenant_key("blocklist"), ip)
+                # Stored where the edge reads it, and only reported as success once it is there (#1902).
+                if not blocklist_store.block(
+                    ip,
+                    action_req.reason or "blocked by signed webhook",
+                    source="signed_webhook",
+                    conn=redis_conn,
+                ):
+                    raise HTTPException(
+                        status_code=503, detail="The block could not be applied"
+                    )
                 audit_log_event(client_ip, "webhook_block_ip", {"ip": ip})
                 return {"status": "success", "message": f"IP {ip} added to blocklist."}
             elif action == "allow_ip":
-                redis_conn.srem(tenant_key("blocklist"), ip)
+                if not blocklist_store.unblock(
+                    ip, conn=redis_conn, legacy_conns=(get_redis_connection(),)
+                ):
+                    raise HTTPException(
+                        status_code=503, detail="The block could not be removed"
+                    )
                 audit_log_event(client_ip, "webhook_allow_ip", {"ip": ip})
                 return {
                     "status": "success",
