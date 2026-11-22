@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+* Production Helm values now require TLS for the ingress (#1915). `helm/values-production.yaml` shipped `tls: []`, so a production install served the admin UI and API over plain HTTP. It now sets `ingress.requireTLS: true` and a `tls` entry (`asd-prod-tls`; replace the placeholder host), and the chart fails to render when `requireTLS` is on and any host lacks a `tls` entry with a `secretName`. With `tls` set on the nginx class, HTTP is redirected to HTTPS. **Action for existing production installs:** set your real host and create the TLS secret (or name a cert-manager issuer) before upgrading, or the render will fail; `ingress.requireTLS: false` opts out. Added `kubernetes/ingress-tls.example.yaml` and documentation for the raw manifests, which still serve HTTP on port 80 inside the cluster and need TLS terminated in front of them. Staging and the sample values are unchanged.
+
 ### Fixed
 
 * Tarpit page generation can no longer hang or freeze the service (#1908). The Python Markov fallback retried forever when the transition table was empty or the database was unreachable; it now stops after a few empty lookups, a lookup budget or a deadline (`MARKOV_GENERATION_TIMEOUT_SECONDS`, default 2) and serves static content. Generation runs in a worker thread with its own timeout (`TARPIT_GENERATION_TIMEOUT_SECONDS`, default 4), so a slow generator no longer blocks health checks or other requests, and the database pool is now thread-safe with a statement timeout (`MARKOV_STATEMENT_TIMEOUT_MS`, default 2000). Fixes a defect found on the way: with the Rust `tarpit_rs` extension installed, the API called its function with an RNG argument it does not accept, so every request got an error page; the API now always goes through the backend-aware wrapper. `/health` reports `generator_implementation` (`rust` or `python`).

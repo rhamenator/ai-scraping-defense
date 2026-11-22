@@ -13,6 +13,9 @@ ingress:
   enabled: true
   className: nginx
   annotations: {}
+  # Fail the render unless every host is covered by a tls entry with a secretName (#1915). Off here so the sample
+  # renders; on in helm/values-production.yaml.
+  requireTLS: false
   hosts:
     - host: example.local
       paths:

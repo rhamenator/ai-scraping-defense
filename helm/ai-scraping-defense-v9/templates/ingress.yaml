@@ -1,9 +1,35 @@
 {{- if .Values.ingress.enabled }}
+{{- /*
+  TLS policy (#1915). With ingress.requireTLS the render fails unless every host is covered by a tls entry that names a
+  secret, so a production install cannot silently serve the admin UI and API over plain HTTP. When TLS is configured,
+  HTTP is redirected to HTTPS (nginx class); the controller's HSTS default then applies to those hosts.
+*/ -}}
+{{- $tls := .Values.ingress.tls | default list }}
+{{- if .Values.ingress.requireTLS }}
+{{- if not $tls }}
+{{- fail "ingress.requireTLS is set but ingress.tls is empty: add a tls entry with a secretName (or a certificate issuer) for every host" }}
+{{- end }}
+{{- range .Values.ingress.hosts }}
+{{- $host := .host }}
+{{- $covered := false }}
+{{- range $tls }}
+{{- if and .secretName (has $host (.hosts | default list)) }}{{- $covered = true }}{{- end }}
+{{- end }}
+{{- if not $covered }}
+{{- fail (printf "ingress.requireTLS is set but host %q is not listed under an ingress.tls entry that has a secretName" $host) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $annotations := .Values.ingress.annotations | default dict }}
+{{- if and $tls (eq (.Values.ingress.className | default "") "nginx") }}
+{{- /* merge gives its first argument precedence, so the operator's own annotations win over these defaults */ -}}
+{{- $annotations = merge (deepCopy $annotations) (dict "nginx.ingress.kubernetes.io/ssl-redirect" "true" "nginx.ingress.kubernetes.io/force-ssl-redirect" "true") }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ include "asd.fullname" . }}
-  {{- with .Values.ingress.annotations }}
+  {{- with $annotations }}
   annotations:
 {{ toYaml . | indent 4 }}
   {{- end }}
@@ -35,7 +61,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/canary: "true"
     nginx.ingress.kubernetes.io/canary-weight: "0"
-    {{- with .Values.ingress.annotations }}
+    {{- with $annotations }}
 {{ toYaml . | indent 4 }}
     {{- end }}
 spec:
