@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * Fix the Settings page GDPR deletion form (#1958): its script read the `HttpOnly` CSRF cookie, so the token was always empty and every request was refused. The token is now rendered into the page and read from there.
+* Admin dashboard: browse, search, block and unblock addresses from the Blocklist section (#1950). Every change names the exact address in a confirmation step and shows API errors to the admin. `POST /block` and `POST /unblock` now require the CSRF token (`X-CSRF-Token` matching the `csrf_token` cookie, which the dashboard page sets); API clients that call them with Basic credentials alone must send it. `POST /block` accepts an optional `reason` (at most 200 characters) that is written to the audit log.
 
 ### Security
 

@@ -73,3 +73,9 @@ h1, h2 {
 .log-pager a { margin-right: 16px; }
 #log-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
 #log-table th, #log-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; }
+#blocklist-container table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+#blocklist-container th, #blocklist-container td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; }
+#blocklist-container input[type="search"], #block-form input { display: block; width: 100%; max-width: 420px; padding: 6px; margin: 4px 0 10px; box-sizing: border-box; }
+#block-form button, #blocklist-body button, #confirm-dialog button { padding: 6px 12px; margin-right: 6px; cursor: pointer; }
+#blocklist-error { color: #8a1c1c; font-weight: bold; }
+#confirm-dialog { max-width: 420px; border-radius: 8px; border: 1px solid #999; }
