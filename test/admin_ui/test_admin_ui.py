@@ -564,6 +564,19 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertTrue(token)
         self.assertIn(f'<meta name="csrf-token" content="{token}">', html)
 
+    def test_csrf_cookie_is_secure_only_over_https(self):
+        """A Secure cookie is never returned over plain HTTP, which would break every protected call there."""
+        plain = self.client.get("/", auth=self.auth, headers=self._totp_headers())
+        self.assertNotIn("Secure", plain.headers["set-cookie"].split("csrf_token=")[1])
+        self.assertIn("HttpOnly", plain.headers["set-cookie"])
+        self.assertIn("SameSite=Strict", plain.headers["set-cookie"])
+        forwarded = self.client.get(
+            "/",
+            auth=self.auth,
+            headers={**self._totp_headers(), "X-Forwarded-Proto": "https"},
+        )
+        self.assertIn("Secure", forwarded.headers["set-cookie"].split("csrf_token=")[1])
+
     def test_dashboard_script_confirms_and_sends_the_csrf_header(self):
         script = (
             Path(blocklist.__file__).resolve().parent / "static" / "admin.js"

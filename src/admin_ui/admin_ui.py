@@ -386,6 +386,29 @@ def _ensure_csrf_token(csrf_token: str | None) -> str:
     return csrf_token
 
 
+def _request_is_https(request: Request) -> bool:
+    forwarded = request.headers.get("x-forwarded-proto", "").split(",")[0].strip().lower()
+    return request.url.scheme == "https" or forwarded == "https"
+
+
+def _set_csrf_cookie(response, request: Request, token: str) -> None:
+    """Set the CSRF cookie, marking it Secure only when the request arrived over HTTPS.
+
+    A Secure cookie is never sent back over plain HTTP, which would make every protected call fail on the
+    documented HTTP deployment. Plain HTTP is already exposed to Basic-credential sniffing, and SameSite=Strict
+    still applies.
+    """
+    response.set_cookie(
+        "csrf_token",
+        token,
+        httponly=True,
+        secure=_request_is_https(request),
+        samesite="Strict",
+        path="/",
+        max_age=CSRF_COOKIE_TTL,
+    )
+
+
 def _validate_csrf(csrf_cookie: str | None, submitted: str | None) -> None:
     if not csrf_cookie or not submitted or csrf_cookie != submitted:
         raise HTTPException(status_code=400, detail="Invalid CSRF token")
@@ -496,15 +519,7 @@ async def index(
     response = templates.TemplateResponse(
         request, "index.html", {"user": user, "csrf_token": csrf_token}
     )
-    response.set_cookie(
-        "csrf_token",
-        csrf_token,
-        httponly=True,
-        secure=True,
-        samesite="Strict",
-        path="/",
-        max_age=CSRF_COOKIE_TTL,
-    )
+    _set_csrf_cookie(response, request, csrf_token)
     return response
 
 
