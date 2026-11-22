@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>AI Scraping Defense - Admin Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
 </head>
@@ -24,11 +25,41 @@
             <div id="last-updated">Last updated: Never</div>
         </div>
 
-        <div id="blocklist-container"></div>
+        <section id="blocklist-container" aria-labelledby="blocklist-heading">
+            <h2 id="blocklist-heading">Blocklist</h2>
+            <p id="blocklist-status" role="status">Loading blocklist...</p>
+            <label for="blocklist-search">Search addresses</label>
+            <input id="blocklist-search" type="search" autocomplete="off" placeholder="e.g. 203.0.113">
+            <table id="blocklist-table">
+                <thead>
+                    <tr><th scope="col">Blocked address</th><th scope="col">Action</th></tr>
+                </thead>
+                <tbody id="blocklist-body"></tbody>
+            </table>
+        </section>
 
         <div id="block-stats"></div>
 
-        <div id="manual-ip-block"></div>
+        <section id="manual-ip-block" aria-labelledby="block-heading">
+            <h2 id="block-heading">Block an address</h2>
+            <form id="block-form" autocomplete="off">
+                <label for="block-ip">IP address</label>
+                <input id="block-ip" name="ip" required maxlength="45" inputmode="text" placeholder="203.0.113.7">
+                <label for="block-reason">Reason (required)</label>
+                <input id="block-reason" name="reason" required maxlength="200">
+                <button type="submit">Block address</button>
+            </form>
+            <p id="blocklist-error" role="alert" hidden></p>
+        </section>
+
+        <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+            <form method="dialog">
+                <h2 id="confirm-title"></h2>
+                <p id="confirm-message"></p>
+                <button value="cancel">Cancel</button>
+                <button value="ok" id="confirm-ok">Confirm</button>
+            </form>
+        </dialog>
     </div>
 
     <script src="{{ url_for('static', filename='admin.js') }}"></script>

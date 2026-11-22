@@ -1,12 +1,13 @@
 import asyncio
 import datetime
+import hmac
 import ipaddress
 import json
 import logging
 import os
 from collections import deque
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from redis.exceptions import RedisError
 
@@ -24,6 +25,35 @@ logger = logging.getLogger(__name__)
 BLOCK_LOG_FILE = os.getenv("BLOCK_LOG_FILE", "/app/logs/block_events.log")
 
 router = APIRouter()
+
+MAX_BLOCK_REASON_LENGTH = 200
+
+
+def _require_csrf(request: Request) -> None:
+    """Reject state-changing calls that do not echo the CSRF cookie in X-CSRF-Token.
+
+    The admin API accepts Basic credentials, which browsers resend on cross-site requests, so
+    block and unblock must prove the request came from a page this server rendered (#1950).
+    """
+    cookie = request.cookies.get("csrf_token")
+    header = request.headers.get("X-CSRF-Token")
+    if not cookie or not header or not hmac.compare_digest(cookie, header):
+        raise HTTPException(status_code=403, detail="Invalid CSRF token")
+
+
+def _clean_reason(value) -> str | None:
+    """Return a bounded single-line reason, or None when none was supplied."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise HTTPException(status_code=400, detail="reason must be text")
+    reason = " ".join(value.split())
+    if len(reason) > MAX_BLOCK_REASON_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"reason must be at most {MAX_BLOCK_REASON_LENGTH} characters",
+        )
+    return reason or None
 
 
 def _load_recent_block_events(limit: int = 5) -> list[dict]:
@@ -154,6 +184,7 @@ async def get_blocklist(user: str = Depends(require_auth)):
 
 @router.post("/block")
 async def block_ip(request: Request, user: str = Depends(require_admin)):
+    _require_csrf(request)
     json_data = await read_json_body(request)
     if not json_data:
         return JSONResponse(
@@ -167,6 +198,7 @@ async def block_ip(request: Request, user: str = Depends(require_admin)):
         normalized_ip = str(ipaddress.ip_address(ip))
     except ValueError:
         return JSONResponse({"error": "Invalid ip"}, status_code=400)
+    reason = _clean_reason(json_data.get("reason"))
     if is_trusted_infrastructure_ip(normalized_ip):
         return JSONResponse(
             {"error": "Refusing to block a configured proxy or CDN address"},
@@ -184,12 +216,16 @@ async def block_ip(request: Request, user: str = Depends(require_admin)):
         return JSONResponse(
             {"error": "Service temporarily unavailable"}, status_code=503
         )
-    log_event(user, "block_ip", {"ip": normalized_ip})
+    details = {"ip": normalized_ip}
+    if reason:
+        details["reason"] = reason
+    log_event(user, "block_ip", details)
     return JSONResponse({"status": "success", "ip": normalized_ip})
 
 
 @router.post("/unblock")
 async def unblock_ip(request: Request, user: str = Depends(require_admin)):
+    _require_csrf(request)
     json_data = await read_json_body(request)
     if not json_data:
         return JSONResponse(

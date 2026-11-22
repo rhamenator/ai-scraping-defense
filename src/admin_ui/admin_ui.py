@@ -483,9 +483,29 @@ app.include_router(auth_routes.router)
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, user: str = Depends(require_auth)):
-    """Serves the main dashboard HTML page."""
-    return templates.TemplateResponse(request, "index.html", {"user": user})
+async def index(
+    request: Request,
+    csrf_token: str | None = Cookie(None),
+    user: str = Depends(require_auth),
+):
+    """Serves the main dashboard HTML page.
+
+    The CSRF cookie is HttpOnly, so the token is also rendered into the page for the blocklist controls.
+    """
+    csrf_token = _ensure_csrf_token(csrf_token)
+    response = templates.TemplateResponse(
+        request, "index.html", {"user": user, "csrf_token": csrf_token}
+    )
+    response.set_cookie(
+        "csrf_token",
+        csrf_token,
+        httponly=True,
+        secure=True,
+        samesite="Strict",
+        path="/",
+        max_age=CSRF_COOKIE_TTL,
+    )
+    return response
 
 
 @app.get("/settings", response_class=HTMLResponse)
