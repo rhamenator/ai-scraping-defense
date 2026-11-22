@@ -2,27 +2,33 @@ name: Canary Shift
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: "Target environment (staging|production|preview)"
-        required: false
-      ref:
-        description: "Git ref to run against"
-        required: false
-      weight: { description: "Canary weight (0-100)", required: true, type: number }
-      namespace: { description: "Kubernetes namespace", required: false, default: production }
-      canary_ingress: { description: "Canary ingress name", required: false, default: ai-scraping-defense-canary }
+      weight: { description: "Canary weight (whole number, 0-100)", required: true, type: number }
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.environment || github.ref }}
-  cancel-in-progress: true
+  group: canary-shift-production
+  cancel-in-progress: false
 jobs:
   shift:
+    # The production environment holds the cloud secrets and requires reviewer approval before this job can start.
+    environment: production
     permissions:
       contents: read
       id-token: write
     runs-on: ubuntu-latest
+    env:
+      # Fixed on purpose: the canary shift only ever touches this ingress in this namespace.
+      CANARY_NAMESPACE: production
+      CANARY_INGRESS: ai-scraping-defense-canary
+      CANARY_WEIGHT: ${{ inputs.weight }}
     steps:
+      - name: Validate inputs
+        run: |
+          set -euo pipefail
+          if ! [[ "${CANARY_WEIGHT}" =~ ^[0-9]+$ ]] || (( CANARY_WEIGHT > 100 )); then
+            echo "weight must be a whole number from 0 to 100" >&2
+            exit 1
+          fi
       - id: auth
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
         with:
@@ -35,7 +41,8 @@ jobs:
           location: ${{ secrets.GCP_REGION }}
       - name: Set weight
         run: |
-          kubectl -n "${{ inputs.namespace }}" annotate ingress "${{ inputs.canary_ingress }}" \
+          set -euo pipefail
+          kubectl -n "${CANARY_NAMESPACE}" annotate ingress "${CANARY_INGRESS}" \
             nginx.ingress.kubernetes.io/canary="true" \
-            nginx.ingress.kubernetes.io/canary-weight="${{ inputs.weight }}" --overwrite
-          kubectl -n "${{ inputs.namespace }}" get ingress "${{ inputs.canary_ingress }}" -o yaml
+            nginx.ingress.kubernetes.io/canary-weight="${CANARY_WEIGHT}" --overwrite
+          kubectl -n "${CANARY_NAMESPACE}" get ingress "${CANARY_INGRESS}" -o yaml

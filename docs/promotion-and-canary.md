@@ -9,4 +9,5 @@ Manual Prod Deploy:
 
 Canary:
 - Chart ships `ai-scraping-defense` (primary) and `ai-scraping-defense-canary` ingress with NGINX canary annotations.
-- Adjust traffic with `.github/workflows/canary-shift.yml` input `weight` (0–100).
+- Adjust traffic with `.github/workflows/canary-shift.yml`, whose only input is `weight` (a whole number from 0 to 100). The job runs in the `production` environment, so it waits for that environment's required-reviewer approval and uses the cloud secrets stored there. The namespace (`production`) and the ingress (`ai-scraping-defense-canary`) are fixed in the workflow and cannot be chosen at dispatch time.
+- Keep the service account behind `GCP_SERVICE_ACCOUNT` limited to annotating that one ingress (a namespaced Role with `get` and `patch` on that ingress name only) and store the GCP values as `production` environment secrets rather than repository secrets.
