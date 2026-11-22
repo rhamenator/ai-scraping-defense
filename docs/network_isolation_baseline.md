@@ -12,6 +12,14 @@ Kubernetes deployments.
 These are the only components intended to accept untrusted internet traffic by
 default.
 
+## Published ports bind to loopback by default
+
+In `docker-compose.yaml` only `nginx_proxy` (80/443) publishes on every interface. All other published ports
+(operator surfaces, development endpoints, data stores and model servers) bind to `127.0.0.1` through
+`${PUBLISH_ADDRESS:-127.0.0.1}`. To reach them from another machine, put them behind a VPN, bastion or SSH tunnel; if you
+must publish on a specific private interface, set `PUBLISH_ADDRESS` to that interface's address, never to `0.0.0.0` on an
+internet-facing host. `test/deploy/test_compose_port_bindings.py` enforces this.
+
 ## Operator Access Only
 
 These services may be published for trusted operators, but must not be exposed

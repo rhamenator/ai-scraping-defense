@@ -360,6 +360,7 @@ For a full walkthrough of bringing the stack live, review [docs/test_to_producti
     If you'd like to try the proxy in front of a WordPress site, run `./setup_wordpress_website.sh` (or `./setup_wordpress_website.ps1` on Windows) instead. It launches WordPress and MariaDB containers and sets `REAL_BACKEND_HOST` automatically. For a smaller test, `./setup_fake_website.sh` creates a simple nginx site and updates the variable in the same way.
 
 7. **Access the Services:**
+    These services are published on `127.0.0.1` only (just the nginx edge on 80/443 listens on every interface). From another machine, use an SSH tunnel or VPN, or set `PUBLISH_ADDRESS` to a private interface address; never set it to `0.0.0.0` on an internet-facing host.
     - **Admin UI:** `http://localhost:5002`
     - **Cloud Dashboard:** `http://localhost:5006`
     - **Cloud Proxy:** `http://localhost:8008`
