@@ -2,15 +2,35 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Block Events - AI Scraping Defense</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
 </head>
 <body>
 <div class="container">
-    <h1>Recent Block Events</h1>
+    <h1>Block Events</h1>
+    <nav><a href="/">Dashboard</a></nav>
+    <form method="get" action="/logs" id="log-filter" class="log-filter">
+        <label for="log-q">Search address or reason</label>
+        <input id="log-q" name="q" type="search" value="{{ q }}" maxlength="100" autocomplete="off">
+        <label for="log-range">Time range</label>
+        <select id="log-range" name="range">
+            {% for option in ranges %}
+            <option value="{{ option }}"{% if option == range %} selected{% endif %}>{{ {'1h': 'Last hour', '24h': 'Last 24 hours', '7d': 'Last 7 days', '30d': 'Last 30 days', 'all': 'All available'}[option] }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Apply</button>
+        <a id="log-export" href="/logs/export.csv?{{ {'q': q, 'range': range} | urlencode }}">Export CSV</a>
+    </form>
+    <p id="log-summary" role="status">
+        {{ result.total }} matching event{{ '' if result.total == 1 else 's' }};
+        page {{ result.page }} of {{ result.pages }}.
+        {% if result.truncated %}Only the newest {{ "{:,}".format(scan_limit) }} log lines were searched; older events are not shown.{% endif %}
+        {% if result.total > export_limit %}The CSV export contains the newest {{ "{:,}".format(export_limit) }} matches.{% endif %}
+    </p>
     {% if events %}
-    <table class="min-w-full bg-white border">
-        <thead class="bg-gray-200"><tr><th>Time</th><th>IP</th><th>Reason</th></tr></thead>
+    <table class="min-w-full bg-white border" id="log-table">
+        <thead class="bg-gray-200"><tr><th scope="col">Time</th><th scope="col">IP</th><th scope="col">Reason</th></tr></thead>
         <tbody>
         {% for ev in events %}
         <tr><td>{{ ev.timestamp }}</td><td>{{ ev.ip }}</td><td>{{ ev.reason }}</td></tr>
@@ -18,8 +38,16 @@
         </tbody>
     </table>
     {% else %}
-    <p>No recent events.</p>
+    <p>No events match.</p>
     {% endif %}
+    <nav class="log-pager" aria-label="Pages">
+        {% if result.page > 1 %}
+        <a id="log-prev" href="/logs?{{ {'q': q, 'range': range, 'page': result.page - 1, 'page_size': result.page_size} | urlencode }}">&larr; Newer</a>
+        {% endif %}
+        {% if result.page < result.pages %}
+        <a id="log-next" href="/logs?{{ {'q': q, 'range': range, 'page': result.page + 1, 'page_size': result.page_size} | urlencode }}">Older &rarr;</a>
+        {% endif %}
+    </nav>
 </div>
 </body>
 </html>

@@ -67,3 +67,9 @@ h1, h2 {
 #new-codes pre { font-size: 1.1em; letter-spacing: 1px; }
 #security-error { color: #8a1c1c; font-weight: bold; }
 #regenerate-codes, #sign-out, #dismiss-codes, #confirm-dialog button { padding: 6px 12px; margin-right: 6px; cursor: pointer; }
+.log-filter label { display: block; margin-top: 8px; }
+.log-filter input, .log-filter select { padding: 6px; margin: 4px 8px 10px 0; }
+.log-filter button { padding: 6px 12px; margin-right: 12px; cursor: pointer; }
+.log-pager a { margin-right: 16px; }
+#log-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+#log-table th, #log-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; }
