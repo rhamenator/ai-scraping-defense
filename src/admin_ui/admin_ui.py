@@ -560,15 +560,7 @@ async def settings_page(
             **page_context,
         },
     )
-    response.set_cookie(
-        "csrf_token",
-        csrf_token,
-        httponly=True,
-        secure=True,
-        samesite="Strict",
-        path="/",
-        max_age=CSRF_COOKIE_TTL,
-    )
+    _set_csrf_cookie(response, request, csrf_token)
     return response
 
 
@@ -799,15 +791,7 @@ async def security_page(
         "security.html",
         {**_security_page_context(request, user), "csrf_token": csrf_token},
     )
-    response.set_cookie(
-        "csrf_token",
-        csrf_token,
-        httponly=True,
-        secure=True,
-        samesite="Strict",
-        path="/",
-        max_age=CSRF_COOKIE_TTL,
-    )
+    _set_csrf_cookie(response, request, csrf_token)
     response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -824,15 +808,7 @@ async def plugins_page(request: Request, user: str = Depends(require_auth)):
         "plugins.html",
         {"available": available, "enabled": enabled, "csrf_token": csrf_token},
     )
-    response.set_cookie(
-        "csrf_token",
-        csrf_token,
-        httponly=True,
-        secure=True,
-        samesite="Strict",
-        path="/",
-        max_age=CSRF_COOKIE_TTL,
-    )
+    _set_csrf_cookie(response, request, csrf_token)
     return response
 
 

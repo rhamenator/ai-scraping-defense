@@ -577,6 +577,23 @@ class TestAdminUIComprehensive(unittest.TestCase):
         )
         self.assertIn("Secure", forwarded.headers["set-cookie"].split("csrf_token=")[1])
 
+    def test_every_admin_page_sets_the_csrf_cookie_without_secure_over_plain_http(self):
+        """Settings, Plugins and Security forms depend on the cookie too, so none may hard-code Secure."""
+        fake = self._FakeRedis()
+        with patch("src.admin_ui.admin_ui.get_redis_connection", return_value=fake):
+            for path in ("/", "/settings", "/plugins", "/security"):
+                plain = self.client.get(path, auth=self.auth, headers=self._totp_headers())
+                self.assertEqual(plain.status_code, 200, path)
+                cookie = plain.headers["set-cookie"].split("csrf_token=")[1]
+                self.assertNotIn("Secure", cookie, path)
+                self.assertIn("HttpOnly", cookie, path)
+                secure = self.client.get(
+                    path,
+                    auth=self.auth,
+                    headers={**self._totp_headers(), "X-Forwarded-Proto": "https"},
+                )
+                self.assertIn("Secure", secure.headers["set-cookie"].split("csrf_token=")[1], path)
+
     def test_dashboard_script_confirms_and_sends_the_csrf_header(self):
         script = (
             Path(blocklist.__file__).resolve().parent / "static" / "admin.js"
