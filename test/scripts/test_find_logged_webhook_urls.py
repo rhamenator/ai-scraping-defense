@@ -71,6 +71,29 @@ class ScannerTests(unittest.TestCase):
         self.assertIn("old.log:1: configured", out)
         self.assertNotIn(self.token, out + err)
 
+    def test_every_webhook_url_variable_is_recognised_including_escalation_and_file_variants(self):
+        urls = {name: f"https://alerts.example.test/{name.lower()}/{secrets.token_hex(8)}" for name in (
+            "ESCALATION_WEBHOOK_URL", "ALERT_SLACK_WEBHOOK_URL", "ALERT_GENERIC_WEBHOOK_URL", "WEBHOOK_URL")}
+        secret_file = self.write("secret.txt", "https://alerts.example.test/from-a-file/" + self.token + "\n")
+        env = "\n".join(f"{name}={url}" for name, url in urls.items()) + f"\nALERT_TEAMS_WEBHOOK_URL_FILE={secret_file}\nNOT_A_WEBHOOK=https://x.test/y\n"
+        env_file = self.write(".env", env)
+        self.write("app.log", "\n".join(f"failed {url}" for url in [*urls.values(), "https://alerts.example.test/from-a-file/" + self.token]) + "\nNOT_A_WEBHOOK https://x.test/y\n")
+
+        status, out, err = run("--env-file", str(env_file), str(self.tmp / "app.log"))
+
+        self.assertEqual(status, 1)
+        self.assertEqual(len(out.strip().splitlines()), 5)
+        self.assertIn("5 configured URL(s) from 5 recognised variable(s)", err)
+        self.assertNotIn(self.token, out + err)
+        for url in urls.values():
+            self.assertNotIn(url.rsplit("/", 1)[1], out + err)
+
+    def test_the_summary_says_what_was_checked_so_a_clean_result_is_not_over_read(self):
+        self.write("clean.log", "nothing\n")
+        _, _, err = run(str(self.tmp / "clean.log"))
+        self.assertIn("Checked for: Slack, Teams and Discord URL shapes, and 0 configured URL(s) from 0 recognised", err)
+        self.assertIn("A webhook of another kind", err)
+
     def test_clean_files_and_plain_origins_are_not_reported(self):
         self.write("clean.log", "connecting to https://hooks.slack.com\nhttps://example.com/path\nplain text\n")
 

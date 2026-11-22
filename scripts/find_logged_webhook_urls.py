@@ -26,7 +26,10 @@ KNOWN_PATTERNS = {
     "discord": re.compile(r"https://(?:ptb\.|canary\.)?discord(?:app)?\.com/api/webhooks/\d+/[A-Za-z0-9_\-]+"),
     "teams": re.compile(r"https://[A-Za-z0-9.\-]*(?:webhook\.office|outlook\.office(?:365)?)\.com/[A-Za-z0-9/_@.\-]*webhook[A-Za-z0-9/_@.\-]*"),
 }
-CONFIGURED_KEYS = re.compile(r"^(?:ALERT_[A-Z0-9_]*WEBHOOK_URL|WEBHOOK_URL|ALERT_SLACK_WEBHOOK_URL|ALERT_TEAMS_WEBHOOK_URL)$")
+# Any variable that holds a webhook URL (ALERT_SLACK_WEBHOOK_URL, ALERT_GENERIC_WEBHOOK_URL, ESCALATION_WEBHOOK_URL,
+# WEBHOOK_URL, ...), or names a file that does (the same name plus _FILE, the usual secret-file convention).
+CONFIGURED_KEYS = re.compile(r"^[A-Z0-9_]*WEBHOOK_URL$")
+CONFIGURED_FILE_KEYS = re.compile(r"^[A-Z0-9_]*WEBHOOK_URL_FILE$")
 MAX_FILE_BYTES = 200 * 1024 * 1024  # skip anything larger than this rather than reading it all
 
 
@@ -38,21 +41,36 @@ def _is_configured_url(key: str, value: str) -> bool:
     return bool(CONFIGURED_KEYS.match(key.strip())) and value.startswith("http")
 
 
-def _env_file_urls(env_file: Path | None) -> set[str]:
+def _url_from_file(key: str, value: str) -> str | None:
+    """The URL stored in the file a *_WEBHOOK_URL_FILE variable points at, if it can be read."""
+    if not CONFIGURED_FILE_KEYS.match(key.strip()) or not value:
+        return None
+    try:
+        text = Path(value).read_text(encoding="utf-8", errors="replace").strip()
+    except OSError:
+        return None
+    return text if text.startswith("http") else None
+
+
+def _pairs_from_env_file(env_file: Path | None):
     if not env_file or not env_file.is_file():
-        return set()
-    urls = set()
+        return
     for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
         key, _, value = line.partition("=")
-        value = value.strip().strip("'\"")
-        if _is_configured_url(key, value):
-            urls.add(value)
-    return urls
+        yield key.strip(), value.strip().strip("'\"")
 
 
-def configured_urls(env_file: Path | None, environ: dict[str, str]) -> set[str]:
-    from_environment = {value for key, value in environ.items() if _is_configured_url(key, value)}
-    return from_environment | _env_file_urls(env_file)
+def configured_urls(env_file: Path | None, environ: dict[str, str]) -> tuple[set[str], int]:
+    """The webhook URLs configured in the environment and the .env file, and how many variables were recognised."""
+    urls: set[str] = set()
+    recognised = 0
+    for key, value in [*environ.items(), *_pairs_from_env_file(env_file)]:
+        found = value if _is_configured_url(key, value) else _url_from_file(key, value)
+        if CONFIGURED_KEYS.match(key.strip()) or CONFIGURED_FILE_KEYS.match(key.strip()):
+            recognised += 1
+        if found:
+            urls.add(found)
+    return urls, recognised
 
 
 def iter_files(paths: list[Path]):
@@ -95,7 +113,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("paths", nargs="+", type=Path, help="log files or directories to scan")
     parser.add_argument("--env-file", type=Path, help="a .env file whose webhook URLs should also be searched for")
     arguments = parser.parse_args(argv)
-    configured = configured_urls(arguments.env_file, dict(os.environ))
+    configured, recognised = configured_urls(arguments.env_file, dict(os.environ))
     total = 0
     files = 0
     for path in iter_files(arguments.paths):
@@ -105,6 +123,12 @@ def main(argv: list[str] | None = None) -> int:
             total += 1
             print(f"{path}:{number}: {kind} webhook URL (id={print_id})")
     print(f"Scanned {files} file(s); {total} webhook URL occurrence(s) found.", file=sys.stderr)
+    print(
+        f"Checked for: Slack, Teams and Discord URL shapes, and {len(configured)} configured URL(s) from "
+        f"{recognised} recognised variable(s) (names ending in WEBHOOK_URL or WEBHOOK_URL_FILE). A webhook of another "
+        "kind, held in a variable with a different name, is not looked for; add it to your .env or pass it explicitly.",
+        file=sys.stderr,
+    )
     if total:
         print(
             "If these files left your control (log shipping, bug reports, CI artifacts, shared drives), regenerate the\n"
