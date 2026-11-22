@@ -29,7 +29,7 @@ This repository contains a sophisticated, multi-layered defense system against A
 
 ```
 ├── .github/              # GitHub Actions workflows and templates
-│   ├── workflows/        # CI/CD pipelines (tests, security audits, autofix)
+│   ├── workflows/        # CI/CD pipelines (tests, security audits)
 │   ├── ISSUE_TEMPLATE/   # Issue templates
 │   └── PULL_REQUEST_TEMPLATE.md
 ├── src/                  # Core Python microservices
@@ -207,20 +207,11 @@ The project has extensive CI/CD automation:
 
 1. **Testing**: `ci-tests.yml`, `tests.yml` - Run on every PR
 2. **Security Audits**: Multiple comprehensive audits (security, compliance, operations)
-3. **Autofix Workflows**: Automated fixes with guardrails
-   - `autofix.yml` - Generic autofix launcher
-   - `comprehensive-*-audit.yml` - Category-specific audits with autofix
+3. **Audit Workflows**: Read-only category audits
+   - `comprehensive-*-audit.yml` - Category-specific audits
    - `master-problem-detection.yml` - Orchestrates all categories
 4. **Deployment**: `deploy-staging.yml`, `deploy-prod.yml`
 5. **Code Quality**: `codacy.yml`, `pip-audit.yml`, `security-audit.yml`
-
-### Autofix Guardrails
-
-When autofixes run:
-- Pre/post metrics are compared (flake8, bandit, eslint, etc.)
-- Tests must pass
-- If any metric regresses, an issue is opened and automerge is disabled
-- PRs are labeled with `autofix` and the category
 
 ## Common Tasks and Patterns
 

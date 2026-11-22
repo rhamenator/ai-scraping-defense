@@ -11,11 +11,6 @@ on:
         type: boolean
         required: false
         default: true
-      autofix:
-        description: "Run autofix and open PR (true|false)"
-        type: boolean
-        required: false
-        default: true
   workflow_call:
     inputs:
       environment:
@@ -26,15 +21,9 @@ on:
         type: boolean
         required: false
         default: true
-      autofix:
-        type: boolean
-        required: false
-        default: true
 
 permissions:
   contents: read
-  pull-requests: write
-  issues: write
 
 jobs:
   comprehensive-operations-audit:
@@ -354,12 +343,3 @@ jobs:
         run: |
           echo "## 🔧 Operations Analysis Results" >> $GITHUB_STEP_SUMMARY
           cat reports/operations/OPERATIONS_SUMMARY.md >> $GITHUB_STEP_SUMMARY
-
-  autofix:
-    if: ${{ inputs.autofix }}
-    needs: comprehensive-operations-audit
-    uses: ./.github/workflows/autofix-and-guard.yml
-    with:
-      category: operations
-      pr_title: Automated operational fixes
-      automerge: true

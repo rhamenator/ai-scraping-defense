@@ -11,11 +11,6 @@ on:
         type: boolean
         required: false
         default: true
-      autofix:
-        description: "Run autofix and open PR (true|false)"
-        type: boolean
-        required: false
-        default: true
   workflow_call:
     inputs:
       quality_threshold:
@@ -26,15 +21,9 @@ on:
         type: boolean
         required: false
         default: true
-      autofix:
-        type: boolean
-        required: false
-        default: true
 
 permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+  contents: read
 
 jobs:
   comprehensive-code-quality-audit:
@@ -350,12 +339,3 @@ jobs:
         run: |
           echo "## 📊 Code Quality Analysis Results" >> $GITHUB_STEP_SUMMARY
           cat reports/code-quality/CODE_QUALITY_SUMMARY.md >> $GITHUB_STEP_SUMMARY
-
-  autofix:
-    if: ${{ inputs.autofix }}
-    needs: comprehensive-code-quality-audit
-    uses: ./.github/workflows/autofix-and-guard.yml
-    with:
-      category: code-quality
-      pr_title: Automated code-quality fixes
-      automerge: true
