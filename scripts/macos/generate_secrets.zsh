@@ -2,6 +2,10 @@
 #
 # Creates a complete Kubernetes secrets manifest for the entire application stack.
 
+# Every file this script creates holds secrets, so create them owner-only from the first write rather than
+# tightening permissions afterwards (#1912). Files that must be readable by a container user are widened explicitly.
+umask 077
+
 # --- Configuration ---
 GREEN='\033[0;32m'; YELLOW='\033[0;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -16,6 +20,7 @@ generate_password() {
 
 update_env=false
 export_path=""
+print_secrets=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -26,6 +31,10 @@ while [[ $# -gt 0 ]]; do
     --export-path)
       export_path="$2"
       shift 2
+      ;;
+    --print-secrets)
+      print_secrets=true
+      shift
       ;;
     *)
       shift
@@ -62,6 +71,9 @@ OPENAI_API_KEY="sk-$(generate_password 40)"; ANTHROPIC_API_KEY="sk-ant-$(generat
 HTPASSWD_FILE_CONTENT=$(htpasswd -nbBC 12 "$ADMIN_UI_USERNAME" "$NGINX_PASSWORD" | tr -d '\n')
 # Write htpasswd file for local Docker Compose usage
 echo "$HTPASSWD_FILE_CONTENT" > "$HTPASSWD_OUTPUT_FILE"
+# The nginx worker processes read this file as a different user inside the container, so it has to stay readable. It
+# holds only a bcrypt hash (cost 12), never the password.
+chmod 644 "$HTPASSWD_OUTPUT_FILE"
 
 # Write YAML to file
 cat > "$OUTPUT_FILE" << EOL
@@ -155,28 +167,34 @@ fi
 
 # Output credentials
 echo -e "\nSuccessfully created Kubernetes secrets file at: ${GREEN}${OUTPUT_FILE}${NC}"
-echo -e "${YELLOW}--- IMPORTANT: Save the following credentials in a secure place! ---${NC}"
-echo -e "${CYAN}NGINX / Admin UI Credentials:${NC}"
-echo "  Username: $ADMIN_UI_USERNAME"
-echo "  Password: $NGINX_PASSWORD"
-echo -e "${CYAN}Service Passwords & Keys:${NC}"
-echo "  PostgreSQL Password: $POSTGRES_PASSWORD"
-echo "  Redis Password:      $REDIS_PASSWORD"
-echo "  System Seed:         $SYSTEM_SEED"
-echo -e "${CYAN}LLM API Keys (placeholders, replace with real keys if needed):${NC}"
-echo "  OpenAI API Key:    $OPENAI_API_KEY"
-echo "  Anthropic API Key: $ANTHROPIC_API_KEY"
-echo "  Google API Key:    $GOOGLE_API_KEY"
-echo "  Cohere API Key:    $COHERE_API_KEY"
-echo "  Mistral API Key:   $MISTRAL_API_KEY"
-echo -e "${CYAN}IP Reputation API Key: ${NC}"
-echo "  $IP_REPUTATION_API_KEY"
-echo -e "${CYAN}Community Blocklist API Key: ${NC}"
-echo "  $COMMUNITY_BLOCKLIST_API_KEY"
-echo -e "${CYAN}External API Key: ${NC}"
-echo "  $EXTERNAL_API_KEY"
-echo -e "${NC}"
-echo -e "${YELLOW}--- End of credentials ---${NC}"
+if [ "$print_secrets" = true ]; then
+  echo -e "${YELLOW}--- IMPORTANT: Save the following credentials in a secure place! ---${NC}"
+  echo -e "${CYAN}NGINX / Admin UI Credentials:${NC}"
+  echo "  Username: $ADMIN_UI_USERNAME"
+  echo "  Password: $NGINX_PASSWORD"
+  echo -e "${CYAN}Service Passwords & Keys:${NC}"
+  echo "  PostgreSQL Password: $POSTGRES_PASSWORD"
+  echo "  Redis Password:      $REDIS_PASSWORD"
+  echo "  System Seed:         $SYSTEM_SEED"
+  echo -e "${CYAN}LLM API Keys (placeholders, replace with real keys if needed):${NC}"
+  echo "  OpenAI API Key:    $OPENAI_API_KEY"
+  echo "  Anthropic API Key: $ANTHROPIC_API_KEY"
+  echo "  Google API Key:    $GOOGLE_API_KEY"
+  echo "  Cohere API Key:    $COHERE_API_KEY"
+  echo "  Mistral API Key:   $MISTRAL_API_KEY"
+  echo -e "${CYAN}IP Reputation API Key: ${NC}"
+  echo "  $IP_REPUTATION_API_KEY"
+  echo -e "${CYAN}Community Blocklist API Key: ${NC}"
+  echo "  $COMMUNITY_BLOCKLIST_API_KEY"
+  echo -e "${CYAN}External API Key: ${NC}"
+  echo "  $EXTERNAL_API_KEY"
+  echo -e "${NC}"
+  echo -e "${YELLOW}--- End of credentials ---${NC}"
+else
+  # Secrets are never written to the terminal by default: scrollback, screen recordings and CI logs keep them (#1912).
+  echo -e "${YELLOW}Generated credentials were not printed. Use --export-path <file> to save them to an owner-only file,${NC}"
+  echo -e "${YELLOW}or re-run with --print-secrets to show them once on this terminal.${NC}"
+fi
 echo -e "${GREEN}Kubernetes secrets manifest file created at: ${OUTPUT_FILE}${NC}"
 echo -e "${YELLOW}You can now apply the secrets to your Kubernetes cluster using:${NC}"
 echo -e "  kubectl apply -f ${OUTPUT_FILE}${NC}"
