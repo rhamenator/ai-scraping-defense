@@ -13,9 +13,9 @@ import secrets
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
-from fastapi import Cookie, Depends, HTTPException, Request
+from fastapi import Cookie, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
@@ -33,7 +33,7 @@ from src.shared.observability import (
 from src.shared.redis_client import get_redis_connection
 
 from . import auth as auth_routes
-from . import blocklist, metrics, mfa, passkeys, webauthn
+from . import block_log, blocklist, metrics, mfa, passkeys, webauthn
 from .auth import require_admin, require_auth
 
 logger = logging.getLogger(__name__)
@@ -654,11 +654,56 @@ async def update_settings(
     )
 
 
+_RANGE_PATTERN = "^(" + "|".join(block_log.RANGES) + ")$"
+
+
 @app.get("/logs", response_class=HTMLResponse)
-async def view_logs(request: Request, user: str = Depends(require_auth)):
-    """Display recent block events."""
-    events = blocklist._load_recent_block_events_func(50)
-    return templates.TemplateResponse(request, "logs.html", {"events": events})
+async def view_logs(
+    request: Request,
+    q: str = Query("", max_length=block_log.MAX_QUERY_LENGTH),
+    range: str = Query(block_log.DEFAULT_RANGE, pattern=_RANGE_PATTERN),
+    page: int = Query(1, ge=1, le=block_log.MAX_PAGE),
+    page_size: int = Query(
+        block_log.DEFAULT_PAGE_SIZE, ge=1, le=block_log.MAX_PAGE_SIZE
+    ),
+    user: str = Depends(require_auth),
+):
+    """Display block events with search, a time range and paging."""
+    result = block_log.query_events(
+        blocklist.BLOCK_LOG_FILE, q, range, page, page_size
+    )
+    return templates.TemplateResponse(
+        request,
+        "logs.html",
+        {
+            "events": result.events,
+            "result": result,
+            "q": q,
+            "range": range,
+            "ranges": list(block_log.RANGES),
+            "export_limit": block_log.MAX_EXPORT_ROWS,
+            "scan_limit": block_log.MAX_SCAN_LINES,
+        },
+    )
+
+
+@app.get("/logs/export.csv")
+async def export_logs(
+    q: str = Query("", max_length=block_log.MAX_QUERY_LENGTH),
+    range: str = Query(block_log.DEFAULT_RANGE, pattern=_RANGE_PATTERN),
+    user: str = Depends(require_auth),
+):
+    """Download the current filter of the block log as CSV."""
+    body = block_log.export_csv(blocklist.BLOCK_LOG_FILE, q, range)
+    log_event(user, "export_block_log", {"range": range, "query": q})
+    return Response(
+        body,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="block-log-{range}.csv"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 def _security_page_context(request: Request, user: str) -> dict:
