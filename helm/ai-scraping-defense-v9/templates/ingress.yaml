@@ -22,7 +22,8 @@
 {{- end }}
 {{- $annotations := .Values.ingress.annotations | default dict }}
 {{- if and $tls (eq (.Values.ingress.className | default "") "nginx") }}
-{{- $annotations = merge (dict "nginx.ingress.kubernetes.io/ssl-redirect" "true" "nginx.ingress.kubernetes.io/force-ssl-redirect" "true") $annotations }}
+{{- /* merge gives its first argument precedence, so the operator's own annotations win over these defaults */ -}}
+{{- $annotations = merge (deepCopy $annotations) (dict "nginx.ingress.kubernetes.io/ssl-redirect" "true" "nginx.ingress.kubernetes.io/force-ssl-redirect" "true") }}
 {{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress

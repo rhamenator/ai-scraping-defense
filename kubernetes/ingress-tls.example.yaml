@@ -4,17 +4,21 @@
 # the certificate is requested and renewed for you; otherwise create the secret yourself:
 #   kubectl -n ai-defense create secret tls asd-tls --cert=fullchain.pem --key=privkey.pem
 # Then change the nginx-proxy Service to `type: ClusterIP` so the only public entry is this HTTPS ingress.
+#
+# Use whichever ingress controller you run: set ingressClassName to its class. The HTTP->HTTPS redirect is configured
+# differently by each controller; the commented annotations below are the ones for ingress-nginx (note that the
+# Kubernetes ingress-nginx project has been retired, so prefer a maintained controller or the Gateway API).
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: nginx-proxy
   namespace: ai-defense
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     # cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
-  ingressClassName: nginx
+  ingressClassName: my-ingress-class
   tls:
     - secretName: asd-tls
       hosts:
