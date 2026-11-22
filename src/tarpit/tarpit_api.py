@@ -142,29 +142,38 @@ except ImportError as e:
 
     HONEYPOT_LOGGING_AVAILABLE = False
 
+# Always use the wrapper in markov_generator: it picks the Rust extension when it is loaded and falls back to Python,
+# and it is the one place that knows the two backends' different signatures (the Rust function takes no RNG).
+# Importing the extension's function directly and calling it with an RNG raised TypeError whenever the extension was
+# installed (#1908).
+GENERATOR_IMPLEMENTATION = "unavailable"
 try:
-    from tarpit_rs import generate_dynamic_tarpit_page
+    from . import markov_generator as _markov_generator
+    from .markov_generator import generate_dynamic_tarpit_page
 
     GENERATOR_AVAILABLE = True
-    logger.debug("Rust Markov generator imported.")
+    GENERATOR_IMPLEMENTATION = (
+        "rust"
+        if _markov_generator.RUST_ENABLED
+        and not _markov_generator.ENABLE_TARPIT_LLM_GENERATOR
+        else "python"
+    )
+    logger.info("Tarpit page generator: %s implementation.", GENERATOR_IMPLEMENTATION)
 except ImportError as e:
     logger.warning(
-        f"Could not import tarpit_rs: {e}. Falling back to Python implementation."
+        f"Could not import markov_generator: {e}. Dynamic content generation disabled."
     )
-    try:
-        from .markov_generator import generate_dynamic_tarpit_page
 
-        GENERATOR_AVAILABLE = True
-        logger.debug("Python Markov generator imported as fallback.")
-    except ImportError as e2:
-        logger.warning(
-            f"Could not import markov_generator: {e2}. Dynamic content generation disabled."
-        )
+    def generate_dynamic_tarpit_page(rng=None) -> str:
+        return "<html><body>Tarpit Error</body></html>"
 
-        def generate_dynamic_tarpit_page(rng=None) -> str:
-            return "<html><body>Tarpit Error</body></html>"
+    GENERATOR_AVAILABLE = False
 
-        GENERATOR_AVAILABLE = False
+# Page generation does blocking database work, so it runs in a worker thread with a deadline that outlasts the
+# generator's own budget; a stuck generator then costs one worker, never the event loop.
+TARPIT_GENERATION_TIMEOUT_SECONDS = max(
+    0.5, float(os.getenv("TARPIT_GENERATION_TIMEOUT_SECONDS", 4.0))
+)
 
 try:
     from .labyrinth import generate_labyrinth_page
@@ -319,6 +328,7 @@ def health_check() -> dict[str, object]:
         "redis_hops_connected": redis_hops_connected,
         "redis_blocklist_connected": redis_blocklist_connected,
         "generator_available": GENERATOR_AVAILABLE,
+        "generator_implementation": GENERATOR_IMPLEMENTATION,
     }
 
 
@@ -621,7 +631,17 @@ async def tarpit_handler(request: Request, path: str = ""):
             rng = random.Random()  # nosec B311
             rng.seed(combined_seed)
             logger.debug(f"Seeded RNG for path '{requested_path}' with combined seed.")
-            content = generate_dynamic_tarpit_page(rng)
+            content = await asyncio.wait_for(
+                asyncio.to_thread(generate_dynamic_tarpit_page, rng),
+                timeout=TARPIT_GENERATION_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            logger.error(
+                "Dynamic page generation exceeded %.1fs for path '%s'; serving static content.",
+                TARPIT_GENERATION_TIMEOUT_SECONDS,
+                requested_path,
+            )
+            content = "<html><head><title>Error</title></head><body>Service temporarily unavailable.</body></html>"
         except Exception as e:
             logger.error(
                 f"Error generating dynamic page for path '{requested_path}': {e}"

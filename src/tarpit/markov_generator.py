@@ -6,6 +6,8 @@ import logging
 import os
 import random
 import string
+import threading
+import time
 
 import psycopg2
 from psycopg2 import pool
@@ -47,6 +49,16 @@ TARPIT_LLM_MAX_TOKENS = int(os.getenv("TARPIT_LLM_MAX_TOKENS", 400))
 MODEL_ADAPTER_RETRIES = int(os.getenv("MODEL_ADAPTER_RETRIES", 3))
 MODEL_ADAPTER_RETRY_DELAY = float(os.getenv("MODEL_ADAPTER_RETRY_DELAY", 1.0))
 
+# Bounds for the Markov fallback (#1908): a missing or empty model must end in static content, not a loop.
+MARKOV_GENERATION_TIMEOUT_SECONDS = max(
+    0.1, float(os.getenv("MARKOV_GENERATION_TIMEOUT_SECONDS", 2.0))
+)
+MARKOV_MAX_EMPTY_LOOKUPS = max(1, int(os.getenv("MARKOV_MAX_EMPTY_LOOKUPS", 3)))
+MARKOV_STATEMENT_TIMEOUT_MS = max(
+    100, int(os.getenv("MARKOV_STATEMENT_TIMEOUT_MS", 2000))
+)
+MARKOV_UNAVAILABLE_HTML = "<p>Could not generate content.</p>"
+
 LLM_ADAPTER = None
 if ENABLE_TARPIT_LLM_GENERATOR and TARPIT_LLM_MODEL_URI:
     try:
@@ -73,6 +85,7 @@ PG_USER = os.getenv("PG_USER", "markovuser")
 PG_PASSWORD_FILE = os.getenv("PG_PASSWORD_FILE", "/run/secrets/pg_password")
 
 _db_pool = None
+_db_pool_lock = threading.Lock()
 
 
 def _get_pg_password():
@@ -89,11 +102,18 @@ def _get_pg_password():
 
 
 def _get_db_pool():
-    """Creates or returns the global connection pool."""
+    """Creates or returns the global connection pool (safe to call from several threads)."""
     global _db_pool
     if _db_pool:
         return _db_pool
+    with _db_pool_lock:
+        if _db_pool:
+            return _db_pool
+        return _create_db_pool()
 
+
+def _create_db_pool():
+    global _db_pool
     logger.info(
         f"Initializing PostgreSQL connection pool: {PG_USER}@{PG_HOST}:{PG_PORT}/{PG_DBNAME}"
     )
@@ -103,7 +123,9 @@ def _get_db_pool():
         return None
 
     try:
-        _db_pool = pool.SimpleConnectionPool(
+        # Page generation runs in worker threads, so the pool must be thread-safe, and a slow query must not hold a
+        # worker indefinitely.
+        _db_pool = pool.ThreadedConnectionPool(
             1,
             5,
             host=PG_HOST,
@@ -112,6 +134,7 @@ def _get_db_pool():
             user=PG_USER,
             password=pg_password,
             connect_timeout=5,
+            options=f"-c statement_timeout={MARKOV_STATEMENT_TIMEOUT_MS}",
         )
         logger.info("PostgreSQL connection pool initialized.")
         return _db_pool
@@ -298,10 +321,24 @@ def generate_markov_text_from_db(
 
     word_count = 0
     max_words = sentences * rng.randint(15, 30)  # Approximate total words
+    # Every pass must make progress or spend budget: a wall-clock deadline, a lookup budget and a cap on consecutive
+    # empty lookups mean an empty or unreachable model ends in static content instead of an unbounded loop (#1908).
+    deadline = time.monotonic() + MARKOV_GENERATION_TIMEOUT_SECONDS
+    lookup_budget = max_words * 4
+    lookups = 0
+    empty_streak = 0
 
     current_paragraph = []
 
     while word_count < max_words:
+        if lookups >= lookup_budget or time.monotonic() >= deadline:
+            logger.warning(
+                "Markov generation stopped by its budget after %d lookups and %d words.",
+                lookups,
+                word_count,
+            )
+            break
+        lookups += 1
         next_word = get_next_word_from_db(word1_id, word2_id, rng=rng)
 
         if next_word is None or next_word == "":  # Reached end of a chain or error
@@ -313,13 +350,20 @@ def generate_markov_text_from_db(
             # Attempt to restart chain from a random point if needed
             # This is simplified - a better approach might pick a random common pair
             word1_id, word2_id = 1, 1
-            if (
-                next_word is None and word_count < max_words / 2
-            ):  # Only restart if stuck early
+            if next_word is None and word_count < max_words / 2:  # Only restart if stuck early
+                empty_streak += 1
+                if empty_streak >= MARKOV_MAX_EMPTY_LOOKUPS:
+                    logger.warning(
+                        "Markov model returned no transitions %d times in a row; "
+                        "serving static content.",
+                        empty_streak,
+                    )
+                    break
                 continue  # Try fetching again with reset state
             else:
                 break  # Stop if stuck late or explicitly got empty string
 
+        empty_streak = 0
         current_paragraph.append(html.escape(next_word))
         word_count += 1
 
@@ -338,7 +382,7 @@ def generate_markov_text_from_db(
         generated_content += "<p>" + " ".join(current_paragraph) + ".</p>\n"
 
     if not generated_content:
-        return "<p>Could not generate content.</p>"  # Fallback
+        return MARKOV_UNAVAILABLE_HTML  # Fallback
 
     return generated_content
 
