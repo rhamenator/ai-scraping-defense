@@ -43,10 +43,21 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" |
           docker login "$REGISTRY" -u "${{ github.actor }}" --password-stdin
       - name: Build & push images
+        env:
+          # Passed through the environment, never interpolated into the script (#1910).
+          INPUT_VERSION_TAG: ${{ github.event.inputs.version_tag }}
+          COMMIT_SHA: ${{ github.sha }}
+          IMAGE_OWNER_NAME: ${{ github.repository_owner }}
         run: |
-          set -eux
-          TAG="${{ github.event.inputs.version_tag || github.sha }}"
+          set -eu
+          TAG="${INPUT_VERSION_TAG:-$COMMIT_SHA}"
+          # A container tag: 1-128 of [A-Za-z0-9_.-], not starting with . or -.
+          if ! [[ "$TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+            echo "::error::version_tag is not a valid container tag"
+            exit 1
+          fi
           TAG=${TAG:0:12}
+          set -x
           declare -A svc_map=(
             [core]="."
             [proxy]="proxy"
@@ -57,7 +68,7 @@ jobs:
           for svc in "${!svc_map[@]}"; do
             dir="${svc_map[$svc]}"
             if [ -f "$dir/Dockerfile" ]; then
-              image="$REGISTRY/${{ github.repository_owner }}/$svc:$TAG"
+              image="$REGISTRY/${IMAGE_OWNER_NAME,,}/$svc:$TAG"
               docker build -t "$image" "$dir"
               docker push "$image"
               echo "$svc=$image" >> images.txt
