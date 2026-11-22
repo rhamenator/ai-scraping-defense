@@ -34,7 +34,7 @@ class PythonSetupTests(unittest.TestCase):
         target = self.tmp / "private.txt"
         interactive_setup.write_private_text(target, "SECRET=value\n")
         self.assertEqual(mode(target), 0o600)
-        self.assertEqual(target.read_text(), "SECRET=value\n")
+        self.assertEqual(target.read_text(encoding="utf-8"), "SECRET=value\n")
 
     def test_an_existing_world_readable_file_is_tightened(self):
         target = self.tmp / "existing.env"
@@ -42,7 +42,7 @@ class PythonSetupTests(unittest.TestCase):
         target.chmod(0o644)
         interactive_setup.write_private_text(target, "new")
         self.assertEqual(mode(target), 0o600)
-        self.assertEqual(target.read_text(), "new")
+        self.assertEqual(target.read_text(encoding="utf-8"), "new")
 
     def test_env_updates_and_progress_state_are_owner_only(self):
         env = self.tmp / ".env"
@@ -85,8 +85,9 @@ class LinuxScriptTests(unittest.TestCase):
     def run_script(self, *args):
         script = self.tmp / "scripts" / "linux" / "generate_secrets.sh"
         env = {**os.environ, "PATH": f"{self.tmp / 'bin'}:{os.environ['PATH']}"}
+        # A static command string; the script path and arguments are passed positionally, never interpolated.
         return subprocess.run(  # nosec B603 B607
-            ["bash", "-c", f'umask 022; bash "{script}" {" ".join(args)}'],
+            ["bash", "-c", 'umask 022; exec bash "$0" "$@"', str(script), *args],
             cwd=self.tmp, env=env, capture_output=True, text=True, timeout=120, check=False,
         )
 
@@ -101,7 +102,7 @@ class LinuxScriptTests(unittest.TestCase):
 
     def test_generated_values_are_not_printed(self):
         result = self.run_script("--update-env")
-        env_text = (self.tmp / ".env").read_text()
+        env_text = (self.tmp / ".env").read_text(encoding="utf-8")
         for key in ("POSTGRES_PASSWORD", "REDIS_PASSWORD", "AUTH_JWT_SECRET"):
             match = re.search(rf"^{key}=(\S+)$", env_text, re.M)
             self.assertIsNotNone(match, key)
@@ -111,12 +112,12 @@ class LinuxScriptTests(unittest.TestCase):
 class ScriptSourceGuards(unittest.TestCase):
     def test_both_scripts_set_a_restrictive_umask_before_writing_anything(self):
         for relative in ("scripts/linux/generate_secrets.sh", "scripts/macos/generate_secrets.zsh"):
-            text = (ROOT / relative).read_text()
+            text = (ROOT / relative).read_text(encoding="utf-8")
             self.assertIn("umask 077", text, relative)
             self.assertLess(text.index("umask 077"), text.index("mkdir -p"), relative)
 
     def test_the_macos_script_prints_credentials_only_on_request(self):
-        text = (ROOT / "scripts/macos/generate_secrets.zsh").read_text()
+        text = (ROOT / "scripts/macos/generate_secrets.zsh").read_text(encoding="utf-8")
         self.assertIn("--print-secrets", text)
         self.assertIn('if [ "$print_secrets" = true ]; then', text)
         guarded = text.split('if [ "$print_secrets" = true ]; then', 1)[1].split("\nelse\n", 1)[0]
@@ -128,7 +129,7 @@ class ScriptSourceGuards(unittest.TestCase):
             self.assertEqual(offenders, [], f"{secret} is echoed outside the --print-secrets branch")
 
     def test_the_python_setup_never_writes_secret_files_with_write_text(self):
-        source = (ROOT / "scripts" / "interactive_setup.py").read_text()
+        source = (ROOT / "scripts" / "interactive_setup.py").read_text(encoding="utf-8")
         self.assertNotIn("env_file.write_text(", source)
         self.assertNotIn("path.write_text(", source)
 
