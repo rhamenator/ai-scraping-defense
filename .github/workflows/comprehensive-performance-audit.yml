@@ -11,11 +11,6 @@ on:
         type: boolean
         required: false
         default: true
-      autofix:
-        description: "Run autofix and open PR (true|false)"
-        type: boolean
-        required: false
-        default: true
   workflow_call:
     inputs:
       benchmark_duration:
@@ -26,15 +21,9 @@ on:
         type: boolean
         required: false
         default: true
-      autofix:
-        type: boolean
-        required: false
-        default: true
 
 permissions:
   contents: read
-  pull-requests: write
-  issues: write
 
 jobs:
   comprehensive-performance-audit:
@@ -336,12 +325,3 @@ jobs:
         run: |
           echo "## ⚡ Performance Analysis Results" >> $GITHUB_STEP_SUMMARY
           cat reports/performance/PERFORMANCE_SUMMARY.md >> $GITHUB_STEP_SUMMARY
-
-  autofix:
-    if: ${{ inputs.autofix }}
-    needs: comprehensive-performance-audit
-    uses: ./.github/workflows/autofix-and-guard.yml
-    with:
-      category: performance
-      pr_title: Automated performance-related fixes
-      automerge: true

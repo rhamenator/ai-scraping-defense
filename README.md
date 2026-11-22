@@ -55,15 +55,12 @@ logs](docs/caddy_log_cli.md).
 - `rag/` – retrieval-augmented generation resources and training tools.
 - `docs/` – project documentation.
 
-## CI Automation: Audits + Autofix
+## CI Automation: Audits
 
-- Workflows provide category audits plus automated fixes with guardrails:
-  - `/.github/workflows/master-problem-detection.yml`: orchestrates all categories; input `autofix=true` opens PRs per category.
-  - `/.github/workflows/comprehensive-*-audit.yml`: run a single category with `autofix` (defaults to true).
-  - `/.github/workflows/autofix.yml`: generic autofix launcher without running audits.
-- Guardrails compare pre/post results (flake8, bandit, eslint, yamllint, shellcheck, hadolint, markdownlint, golangci-lint, tflint/tfsec) and run tests if present. If any metric regresses, the workflow opens an issue and does not enable automerge.
-- PRs are labeled with `autofix` and the category, and automerge is enabled only when guardrails are clean.
-- The legacy `security-autofix.yml` now delegates to the generic autofixer for compatibility.
+- Workflows provide category audits that report findings; they do not change code or open pull requests:
+  - `/.github/workflows/master-problem-detection.yml`: orchestrates all categories and builds a consolidated report.
+  - `/.github/workflows/comprehensive-*-audit.yml`: run a single category.
+- The former autofix workflows (automatic fix pull requests with automerge) were removed (#1911); they had run once, in January 2026, and failed, and they installed unpinned tools while holding a write token.
 - The `security-controls` workflow acts as the security baseline gate. See `docs/SECURITY_BASELINE_GATE.md`.
 
 ## Architecture Overview

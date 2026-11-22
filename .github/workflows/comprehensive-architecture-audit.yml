@@ -10,11 +10,6 @@ on:
         description: "Focus area (coupling|patterns|scalability|all)"
         required: false
         default: "all"
-      autofix:
-        description: "Run autofix and open PR (true|false)"
-        type: boolean
-        required: false
-        default: true
   workflow_call:
     inputs:
       analysis_depth:
@@ -25,15 +20,9 @@ on:
         type: string
         required: false
         default: all
-      autofix:
-        type: boolean
-        required: false
-        default: true
 
 permissions:
   contents: read
-  pull-requests: write
-  issues: write
 
 jobs:
   comprehensive-architecture-audit:
@@ -321,12 +310,3 @@ jobs:
         run: |
           echo "## 🏗️ Architecture Analysis Results" >> $GITHUB_STEP_SUMMARY
           cat reports/architecture/ARCHITECTURE_SUMMARY.md >> $GITHUB_STEP_SUMMARY
-
-  autofix:
-    if: ${{ inputs.autofix }}
-    needs: comprehensive-architecture-audit
-    uses: ./.github/workflows/autofix-and-guard.yml
-    with:
-      category: architecture
-      pr_title: Automated architecture fixes
-      automerge: true
