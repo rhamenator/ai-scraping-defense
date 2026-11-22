@@ -78,6 +78,8 @@ function M.check()
         ngx.log(ngx.WARN, "check_blocklist: Could not get remote_addr")
         return -- Allow request if IP cannot be determined
     end
+    -- An IPv4 client seen on a dual-stack listener is "::ffff:a.b.c.d"; blocks are stored as plain IPv4.
+    remote_addr = (string.gsub(remote_addr, "^::[fF][fF][fF][fF]:(%d+%.%d+%.%d+%.%d+)$", "%1"))
     local cfg = settings()
     local red = open(cfg)
     if not red then return end -- Fail open

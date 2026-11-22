@@ -6,6 +6,7 @@ import secrets
 import tempfile
 import time
 import unittest
+from test.fake_blocklist_redis import FakeBlocklistRedis
 from unittest.mock import MagicMock, patch
 
 import bcrypt
@@ -388,19 +389,17 @@ class TestAdminUIComprehensive(unittest.TestCase):
 
     @patch("src.admin_ui.blocklist.get_redis_connection")
     def test_get_blocklist_success(self, mock_get_redis):
-        """Test successfully retrieving the blocklist from Redis."""
-        mock_redis_instance = MagicMock()
-        mock_redis_instance.smembers.return_value = {"1.1.1.1", "2.2.2.2"}
-        mock_get_redis.return_value = mock_redis_instance
+        """The blocklist lists the addresses the edge actually blocks (its key, in the blocklist database)."""
+        fake = FakeBlocklistRedis()
+        fake.set("default:blocklist:ip:1.1.1.1", "{}")
+        fake.setex("default:blocklist:ip:2.2.2.2", 60, "{}")
+        mock_get_redis.return_value = fake
 
         response = self.client.get(
             "/blocklist", auth=self.auth, headers=self._totp_headers()
         )
         self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIn("1.1.1.1", data)
-        self.assertIn("2.2.2.2", data)
-        self.assertEqual(len(data), 2)
+        self.assertEqual(response.json(), ["1.1.1.1", "2.2.2.2"])
 
     @patch("src.admin_ui.blocklist.get_redis_connection", return_value=None)
     def test_get_blocklist_redis_unavailable(self, mock_get_redis):
@@ -412,41 +411,45 @@ class TestAdminUIComprehensive(unittest.TestCase):
         self.assertEqual(response.json(), {"error": "Redis service unavailable"})
 
     @patch("src.admin_ui.blocklist.get_redis_connection")
-    def test_get_blocklist_invalid_response(self, mock_get_redis):
-        """Test the /blocklist endpoint handles invalid Redis responses."""
-        mock_redis_instance = MagicMock()
-        mock_redis_instance.smembers.return_value = "oops"
-        mock_get_redis.return_value = mock_redis_instance
+    def test_get_blocklist_redis_error(self, mock_get_redis):
+        """A Redis error while listing is reported as a temporary failure."""
+        from redis.exceptions import RedisError
+
+        fake = FakeBlocklistRedis()
+        fake.fail_with = RedisError("boom")
+        mock_get_redis.return_value = fake
 
         response = self.client.get(
             "/blocklist", auth=self.auth, headers=self._totp_headers()
         )
         self.assertEqual(response.status_code, 503)
-        self.assertEqual(response.json(), {"error": "Redis returned invalid data"})
+        self.assertEqual(response.json(), {"error": "Service temporarily unavailable"})
 
     @patch("src.admin_ui.blocklist.get_redis_connection")
     def test_block_ip_success(self, mock_get_redis):
-        """Test manually blocking an IP address."""
-        mock_redis_instance = MagicMock()
-        mock_redis_instance.sadd.return_value = 1  # Simulate adding a new member
-        mock_get_redis.return_value = mock_redis_instance
+        """A manual block is stored under the key the edge reads, with no expiry, and read back."""
+        fake = FakeBlocklistRedis()
+        mock_get_redis.return_value = fake
 
         response = self.client.post(
             "/block",
-            json={"ip": "3.3.3.3"},
+            json={"ip": "3.3.3.3", "reason": "abusive"},
             auth=self.auth,
             headers=self._csrf_headers(),
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "success", "ip": "3.3.3.3"})
-        mock_redis_instance.sadd.assert_called_once_with("default:blocklist", "3.3.3.3")
+        self.assertEqual(fake.exists("default:blocklist:ip:3.3.3.3"), 1)
+        self.assertEqual(fake.ttl("default:blocklist:ip:3.3.3.3"), -1)
+        self.assertIsNone(fake.data.get("default:blocklist"), "no legacy set")
 
     @patch("src.admin_ui.blocklist.get_redis_connection")
     def test_unblock_ip_success(self, mock_get_redis):
-        """Test manually unblocking an IP address."""
-        mock_redis_instance = MagicMock()
-        mock_redis_instance.srem.return_value = 1  # Simulate removing a member
-        mock_get_redis.return_value = mock_redis_instance
+        """Unblocking removes the same key the block created, and any legacy copy."""
+        fake = FakeBlocklistRedis()
+        fake.set("default:blocklist:ip:1.1.1.1", "{}")
+        fake.sadd("default:blocklist", "1.1.1.1")
+        mock_get_redis.return_value = fake
 
         response = self.client.post(
             "/unblock",
@@ -456,7 +459,8 @@ class TestAdminUIComprehensive(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "success", "ip": "1.1.1.1"})
-        mock_redis_instance.srem.assert_called_once_with("default:blocklist", "1.1.1.1")
+        self.assertEqual(fake.exists("default:blocklist:ip:1.1.1.1"), 0)
+        self.assertEqual(fake.smembers("default:blocklist"), set())
 
     @patch("src.admin_ui.blocklist.get_redis_connection")
     def test_block_ip_requires_admin(self, mock_get_redis):
@@ -838,12 +842,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
             "bots_detected_high_score_total": 10.0,
             "humans_detected_low_score_total": 5.0,
         }
-        mock_redis = MagicMock()
-        mock_redis.smembers.return_value = {"4.4.4.4"}
-        mock_redis.scan.return_value = (
-            0,
-            ["blocklist:ip:4.4.4.4", "blocklist:ip:5.5.5.5"],
-        )
+        mock_redis = FakeBlocklistRedis()
+        mock_redis.set("default:blocklist:ip:4.4.4.4", "{}")  # permanent
+        mock_redis.setex("default:blocklist:ip:5.5.5.5", 300, "{}")  # temporary
         mock_get_redis.return_value = mock_redis
         mock_load.return_value = [
             {"ip": "4.4.4.4", "reason": "test", "timestamp": "2025-01-01T00:00:00Z"}
@@ -854,8 +855,8 @@ class TestAdminUIComprehensive(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["blocked_ip_count"], 1)
-        self.assertEqual(data["temporary_block_count"], 2)
+        self.assertEqual(data["blocked_ip_count"], 2)
+        self.assertEqual(data["temporary_block_count"], 1)
         self.assertEqual(data["total_bots_detected"], 10.0)
         self.assertEqual(data["total_humans_detected"], 5.0)
         self.assertEqual(len(data["recent_block_events"]), 1)
