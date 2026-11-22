@@ -7,6 +7,9 @@ management and WebAuthn support.
 """
 
 import datetime
+import hashlib
+import hmac
+import json
 import logging
 import os
 import secrets
@@ -44,6 +47,8 @@ BASE_DIR = os.path.dirname(__file__)
 
 # Editable runtime settings managed via the Admin UI
 RUNTIME_SETTINGS_KEY = tenant_key("admin_ui:settings")
+# Who last changed each setting and when, kept beside the settings so the lookup is exact and never windowed.
+RUNTIME_SETTINGS_META_KEY = tenant_key("admin_ui:settings_changes")
 ALLOWED_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 WEBAUTHN_ATTACHMENT_OPTIONS = {"none", "platform", "cross-platform"}
 
@@ -56,6 +61,9 @@ class EditableSetting:
     input_type: str
     default: str
     choices: tuple[str, ...] = ()
+    builtin: str | None = None  # the shipped default, independent of the environment
+    valid: str = ""  # what the server-side validation accepts, in plain words
+    risky: bool = False  # changing it can lock an admin out or weaken security
 
 
 @dataclass(frozen=True)
@@ -65,14 +73,26 @@ class SecretReferenceSetting:
     vault_env: str
 
 
+_BUILTIN_DEFAULTS = {
+    "LOG_LEVEL": "INFO",
+    "WEBAUTHN_AUTHENTICATOR_ATTACHMENT": "none",
+    "RATE_LIMIT_REQUESTS": "100",
+    "RATE_LIMIT_WINDOW": "60",
+    "MAX_BODY_SIZE": str(1 * 1024 * 1024),
+    "ENABLE_HTTPS": "false",
+    "ALLOWED_PLUGINS": "ua_blocker",
+}
+
 EDITABLE_SETTINGS: tuple[EditableSetting, ...] = (
     EditableSetting(
         key="LOG_LEVEL",
         label="Log Level",
         description="Controls admin UI logging verbosity.",
         input_type="select",
-        default=os.getenv("LOG_LEVEL", "INFO"),
+        default=os.getenv("LOG_LEVEL", _BUILTIN_DEFAULTS["LOG_LEVEL"]),
         choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
+        builtin=_BUILTIN_DEFAULTS["LOG_LEVEL"],
+        valid="One of DEBUG, INFO, WARNING, ERROR, CRITICAL.",
     ),
     EditableSetting(
         key="ESCALATION_ENDPOINT",
@@ -80,53 +100,73 @@ EDITABLE_SETTINGS: tuple[EditableSetting, ...] = (
         description="Absolute HTTP(S) URL for escalation requests.",
         input_type="text",
         default=CONFIG.ESCALATION_ENDPOINT,
+        valid="An absolute http:// or https:// URL.",
+        risky=True,
     ),
     EditableSetting(
         key="WEBAUTHN_AUTHENTICATOR_ATTACHMENT",
         label="WebAuthn Authenticator Preference",
         description="Preferred authenticator attachment for admin login.",
         input_type="select",
-        default=os.getenv("WEBAUTHN_AUTHENTICATOR_ATTACHMENT", "none"),
+        default=os.getenv(
+            "WEBAUTHN_AUTHENTICATOR_ATTACHMENT",
+            _BUILTIN_DEFAULTS["WEBAUTHN_AUTHENTICATOR_ATTACHMENT"],
+        ),
         choices=("none", "platform", "cross-platform"),
+        builtin=_BUILTIN_DEFAULTS["WEBAUTHN_AUTHENTICATOR_ATTACHMENT"],
+        valid="One of none, platform, cross-platform.",
     ),
     EditableSetting(
         key="RATE_LIMIT_REQUESTS",
         label="Rate Limit Requests",
         description="Maximum requests allowed per rate-limit window.",
         input_type="number",
-        default=os.getenv("RATE_LIMIT_REQUESTS", "100"),
+        default=os.getenv("RATE_LIMIT_REQUESTS", _BUILTIN_DEFAULTS["RATE_LIMIT_REQUESTS"]),
+        builtin=_BUILTIN_DEFAULTS["RATE_LIMIT_REQUESTS"],
+        valid="A whole number of at least 1.",
     ),
     EditableSetting(
         key="RATE_LIMIT_WINDOW",
         label="Rate Limit Window (seconds)",
         description="Rate-limit window size in seconds.",
         input_type="number",
-        default=os.getenv("RATE_LIMIT_WINDOW", "60"),
+        default=os.getenv("RATE_LIMIT_WINDOW", _BUILTIN_DEFAULTS["RATE_LIMIT_WINDOW"]),
+        builtin=_BUILTIN_DEFAULTS["RATE_LIMIT_WINDOW"],
+        valid="A whole number of seconds, at least 1.",
     ),
     EditableSetting(
         key="MAX_BODY_SIZE",
         label="Max Body Size (bytes)",
         description="Largest request body accepted by shared middleware.",
         input_type="number",
-        default=os.getenv("MAX_BODY_SIZE", str(1 * 1024 * 1024)),
+        default=os.getenv("MAX_BODY_SIZE", _BUILTIN_DEFAULTS["MAX_BODY_SIZE"]),
+        builtin=_BUILTIN_DEFAULTS["MAX_BODY_SIZE"],
+        valid="A whole number of bytes, at least 1 (1048576 is 1 MiB).",
     ),
     EditableSetting(
         key="ENABLE_HTTPS",
         label="HTTPS Redirect Enforcement",
         description="Redirect plain HTTP requests to HTTPS in shared middleware.",
         input_type="select",
-        default=os.getenv("ENABLE_HTTPS", "false"),
+        default=os.getenv("ENABLE_HTTPS", _BUILTIN_DEFAULTS["ENABLE_HTTPS"]),
         choices=("true", "false"),
+        builtin=_BUILTIN_DEFAULTS["ENABLE_HTTPS"],
+        valid="true or false. Turning it off stops redirecting plain HTTP to HTTPS.",
+        risky=True,
     ),
     EditableSetting(
         key="ALLOWED_PLUGINS",
         label="Allowed Plugins",
         description="Comma-separated plugin allowlist pushed to the escalation engine.",
         input_type="multiselect",
-        default=os.getenv("ALLOWED_PLUGINS", "ua_blocker"),
+        default=os.getenv("ALLOWED_PLUGINS", _BUILTIN_DEFAULTS["ALLOWED_PLUGINS"]),
+        builtin=_BUILTIN_DEFAULTS["ALLOWED_PLUGINS"],
+        valid="Any of the plugins listed here; none selected disables the allowlist.",
     ),
 )
 EDITABLE_SETTING_MAP = {setting.key: setting for setting in EDITABLE_SETTINGS}
+# What the environment supplied at start-up. Saving a setting later writes os.environ, so this is captured once.
+STARTUP_ENV = {setting.key: os.environ.get(setting.key) for setting in EDITABLE_SETTINGS}
 
 SECRET_REFERENCE_SETTINGS: tuple[SecretReferenceSetting, ...] = (
     SecretReferenceSetting(
@@ -256,11 +296,95 @@ def _serialize_secret_reference(
     }
 
 
+def _risky_changes(
+    changed: list[str], pending: dict[str, str], current: dict[str, str]
+) -> list[dict[str, str]]:
+    """Changes that need an explicit confirmation: HTTPS redirect turned off, or a new escalation URL."""
+    risky: list[dict[str, str]] = []
+    for key in changed:
+        setting = EDITABLE_SETTING_MAP[key]
+        if not setting.risky:
+            continue
+        if key == "ENABLE_HTTPS" and pending[key] != "false":
+            continue  # turning the redirect on is not a weakening
+        risky.append(
+            {
+                "key": key,
+                "label": setting.label,
+                "old": current[key],
+                "new": pending[key],
+                "why": (
+                    "Plain HTTP requests will no longer be redirected to HTTPS."
+                    if key == "ENABLE_HTTPS"
+                    else "Escalation requests will be sent to a different URL; a wrong or hostile URL "
+                    "receives request details and can stop escalations."
+                ),
+            }
+        )
+    return risky
+
+
+def _risk_confirmation_token(risky: list[dict[str, str]]) -> str:
+    """Binds a confirmation to the exact risky values shown, so editing them afterwards needs a new confirmation."""
+    material = "\n".join(f"{item['key']}={item['new']}" for item in risky)
+    return hashlib.sha256(material.encode()).hexdigest() if risky else ""
+
+
+def _record_setting_change(name: str, actor: str) -> None:
+    """Remember who changed a setting and when. Never lets a bookkeeping failure undo a saved change."""
+    try:
+        redis_conn = get_redis_connection()
+        if redis_conn:
+            stamp = datetime.datetime.now(datetime.timezone.utc).isoformat(
+                timespec="seconds"
+            )
+            redis_conn.hset(
+                RUNTIME_SETTINGS_META_KEY,
+                name,
+                json.dumps({"actor": actor, "at": stamp}),
+            )
+    except Exception as exc:
+        logger.warning("Could not record who changed %s: %s", name, exc)
+
+
+def _last_changes() -> dict[str, dict[str, str]]:
+    """Who last changed each setting and when, from the record kept beside the settings.
+
+    Both the Settings and the Plugins pages write it whenever a value actually changes. It starts empty on an
+    existing installation, so a setting shows no change until its first change after the upgrade.
+    """
+    try:
+        redis_conn = get_redis_connection()
+        raw = redis_conn.hgetall(RUNTIME_SETTINGS_META_KEY) if redis_conn else {}
+    except Exception as exc:  # the page must render even when this lookup fails
+        logger.warning("Could not read the settings change record: %s", exc)
+        return {}
+    last: dict[str, dict[str, str]] = {}
+    for key, value in (raw or {}).items():
+        name = key.decode() if isinstance(key, bytes) else key
+        if name not in EDITABLE_SETTING_MAP:
+            continue
+        try:
+            entry = json.loads(value.decode() if isinstance(value, bytes) else value)
+        except (ValueError, AttributeError):
+            continue
+        if isinstance(entry, dict):
+            last[name] = {
+                "actor": str(entry.get("actor") or "unknown"),
+                "at": str(entry.get("at") or ""),
+            }
+    return last
+
+
 def _serialize_editable_setting(
-    setting: EditableSetting, errors: dict[str, str], plugin_options: list[str]
+    setting: EditableSetting,
+    errors: dict[str, str],
+    plugin_options: list[str],
+    last_changes: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, object]:
     value = _get_runtime_setting(setting.key)
     selected_values = [entry for entry in value.split(",") if entry]
+    from_environment = STARTUP_ENV.get(setting.key) is not None
     return {
         "key": setting.key,
         "label": setting.label,
@@ -273,6 +397,14 @@ def _serialize_editable_setting(
         ),
         "selected_values": selected_values,
         "error": errors.get(setting.key, ""),
+        "startup_value": setting.default,
+        "startup_source": (
+            "environment variable" if from_environment else "built-in default"
+        ),
+        "builtin": setting.builtin,
+        "valid": setting.valid,
+        "risky": setting.risky,
+        "last_changed": (last_changes or {}).get(setting.key),
     }
 
 
@@ -281,6 +413,7 @@ def _get_settings_page_context(
 ) -> dict[str, object]:
     errors = errors or {}
     plugin_options = _discover_plugins()
+    last_changes = _last_changes()
     current_settings = {
         "Model URI": os.getenv("MODEL_URI", "Not Set"),
         "GDPR_ENABLED": os.getenv("GDPR_ENABLED", "true"),
@@ -290,7 +423,7 @@ def _get_settings_page_context(
     context: dict[str, object] = {
         "settings": current_settings,
         "editable_settings": [
-            _serialize_editable_setting(setting, errors, plugin_options)
+            _serialize_editable_setting(setting, errors, plugin_options, last_changes)
             for setting in EDITABLE_SETTINGS
         ],
         "secret_references": [
@@ -657,14 +790,49 @@ async def update_settings(
             status_code=400,
         )
 
+    current_values = {key: _get_runtime_setting(key) for key in pending_values}
+    changed = sorted(
+        key for key, value in pending_values.items() if value != current_values[key]
+    )
+    risky = _risky_changes(changed, pending_values, current_values)
+    token = _risk_confirmation_token(risky)
+    if risky and not hmac.compare_digest(str(form.get("confirm_risky") or ""), token):
+        page_context = _get_settings_page_context(updated=False)
+        page_context["editable_settings"] = [
+            {
+                **entry,
+                "value": pending_values.get(entry["key"], entry["value"]),
+                "selected_values": (
+                    pending_values.get(entry["key"], entry["value"]).split(",")
+                    if entry["key"] == "ALLOWED_PLUGINS"
+                    else entry["selected_values"]
+                ),
+            }
+            for entry in page_context["editable_settings"]  # type: ignore[index]
+        ]
+        page_context["risky_confirmation"] = {"changes": risky, "token": token}
+        return templates.TemplateResponse(
+            request,
+            "settings.html",
+            {
+                "csrf_token": csrf_token,
+                "gdpr_report": {},
+                "security_kpis": {},
+                "user": user,
+                **page_context,
+            },
+        )
+
     for key, value in pending_values.items():
         _set_runtime_setting(key, value)
         os.environ[key] = value
+    for key in changed:
+        _record_setting_change(key, user)
 
     log_event(
         user,
         "update_settings",
-        {"updated_settings": pending_values},
+        {"updated_settings": pending_values, "changed": changed},
     )
 
     page_context = _get_settings_page_context(updated=True)
@@ -819,8 +987,11 @@ async def update_plugins(request: Request, user: str = Depends(require_admin)):
     _validate_csrf(request.cookies.get("csrf_token"), form.get("csrf_token"))
     selected = form.getlist("plugins")
     allowed = ",".join(selected)
+    previous = _get_runtime_setting("ALLOWED_PLUGINS")
     _set_runtime_setting("ALLOWED_PLUGINS", allowed)
     os.environ["ALLOWED_PLUGINS"] = allowed
+    if allowed != previous:
+        _record_setting_change("ALLOWED_PLUGINS", user)
     try:
         import httpx
 
