@@ -43,6 +43,12 @@ spec:
             env:
             - name: CRS_DOWNLOAD_URL
               value: "https://github.com/coreruleset/coreruleset/archive/refs/heads/v3.3/main.tar.gz"
+            # Redirects are not followed, so the URL above must be the final download URL (for GitHub, the
+            # codeload.github.com tag archive). Pin the exact archive you reviewed:
+            # - name: CRS_SHA256
+            #   value: "<sha256 of the archive>"
+            # - name: RULES_REQUIRE_DIGEST
+            #   value: "true"
             volumeMounts:
             - name: tmp
               mountPath: /tmp

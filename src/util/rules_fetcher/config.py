@@ -12,3 +12,24 @@ WAF_RULES_PATH = os.getenv(
     "WAF_RULES_PATH", f"/etc/nginx/modsecurity/rules/{RULES_FILE_NAME}"
 )
 MODSEC_DIR = os.getenv("MODSECURITY_DIR", "/etc/nginx/modsecurity")
+
+
+def _int_env(name: str, default: int) -> int:
+    try:
+        value = int(os.getenv(name, "") or default)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+# Integrity and bounds for downloaded rules (#1907). A digest pins the exact bytes an operator reviewed; without one the
+# download is accepted but a warning is logged, unless RULES_REQUIRE_DIGEST is true, which refuses unpinned downloads.
+RULES_SHA256 = os.getenv("RULES_SHA256", "").strip().lower()
+CRS_SHA256 = os.getenv("CRS_SHA256", "").strip().lower()
+RULES_REQUIRE_DIGEST = os.getenv("RULES_REQUIRE_DIGEST", "false").lower() == "true"
+RULES_MAX_BYTES = _int_env("RULES_MAX_BYTES", 5 * 1024 * 1024)
+CRS_MAX_DOWNLOAD_BYTES = _int_env("CRS_MAX_DOWNLOAD_BYTES", 25 * 1024 * 1024)
+CRS_MAX_EXTRACTED_BYTES = _int_env("CRS_MAX_EXTRACTED_BYTES", 100 * 1024 * 1024)
+CRS_MAX_FILE_BYTES = _int_env("CRS_MAX_FILE_BYTES", 20 * 1024 * 1024)
+CRS_MAX_MEMBERS = _int_env("CRS_MAX_MEMBERS", 5000)
+CRS_MAX_EXPANSION_RATIO = _int_env("CRS_MAX_EXPANSION_RATIO", 100)

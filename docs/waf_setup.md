@@ -10,6 +10,16 @@ This project supports an optional ModSecurity-based Web Application Firewall (WA
 
 Alternatively, you can provide a `RULES_DOWNLOAD_URL` environment variable to fetch a remote rules file at startup. The URL must begin with `https://`. To restrict which hosts can be used, set `RULES_ALLOWED_DOMAINS` to a comma-separated list of permitted domains.
 
+### Downloaded rules are verified before they are used
+
+Downloaded rules (`RULES_DOWNLOAD_URL`) and the OWASP CRS archive (`CRS_DOWNLOAD_URL`) are treated as untrusted input:
+
+- **Pin what you reviewed.** Set `RULES_SHA256` (or `CRS_SHA256`) to the SHA-256 of the file or archive. A different download is refused and nothing is installed. Pinning means an update is a deliberate change of the pin; to follow a moving URL, leave the pin unset (a warning is logged) and accept that the content is whatever the host serves. `RULES_REQUIRE_DIGEST=true` refuses unpinned downloads. Digests are not signatures: they prove the bytes match what you pinned, not who produced them.
+- **No redirects, HTTPS only, public addresses only**, and the exact hosts in `RULES_ALLOWED_DOMAINS` when set. Use the final download URL; for the CRS that means a direct archive URL such as the `codeload.github.com` tag archive, not a `github.com/.../archive/...` link that redirects.
+- **Bounded.** Size limits apply to the download, each extracted file, the total, the number of members and the expansion ratio (see `sample.env`). Only `crs-setup.conf[.example]` and `*.conf`/`*.data`/`*.example` files under `rules/` are extracted.
+- **Validated before activation.** Downloaded custom rules must be ModSecurity text and may not use `Include`, `SecRuleScript`, `SecRemoteRules`, `@inspectFile`, `exec:` or directives that change where the engine writes. CRS files get the same check for those constructs.
+- **Staged and reversible.** The CRS is extracted next to the live rules and swapped in with a rename; the previous generation is kept as `rules.previous` (and `crs-setup.conf.previous`). If Nginx will not reload, the previous rules are restored. Custom rules are written to a temporary file, replaced atomically, kept as `<file>.previous` and restored if the reload fails. Invalid or unverifiable downloads never touch the live files.
+
 ## Enabling with Docker Compose
 
 1. Edit `.env` and set:
