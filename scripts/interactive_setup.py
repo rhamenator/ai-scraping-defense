@@ -179,7 +179,32 @@ def update_env_file(path: Path, values: dict[str, str]) -> None:
     for key, value in values.items():
         if key not in seen:
             lines.append(f"{key}={value}\n")
-    path.write_text("".join(lines))
+    write_private_text(path, "".join(lines))
+
+
+def write_private_text(path: Path, text: str) -> None:
+    """Write ``text`` so that only the owner can read it, from the first byte (#1912).
+
+    The file is created with mode 0600 instead of being created with the default umask and tightened afterwards, and an
+    existing file with wider permissions is tightened before anything is written. Windows ignores the mode bits.
+    """
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.fchmod(descriptor, 0o600)
+    except (AttributeError, OSError):  # not available on Windows
+        pass
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
+def create_private_file(path: Path) -> None:
+    """Create ``path`` empty with mode 0600 if it does not exist, and tighten it if it does."""
+    descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        os.fchmod(descriptor, 0o600)
+    except (AttributeError, OSError):  # not available on Windows
+        pass
+    os.close(descriptor)
 
 
 def is_secret_key(key: str) -> bool:
@@ -204,7 +229,7 @@ def load_setup_state(path: Path) -> dict[str, Any]:
 def save_setup_state(path: Path, completed_keys: set[str]) -> None:
     """Persist setup progress so users can resume later."""
     payload = {"completed_keys": sorted(completed_keys)}
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+    write_private_text(path, json.dumps(payload, indent=2, sort_keys=True))
 
 
 def clear_setup_state(path: Path) -> None:
@@ -264,6 +289,7 @@ def store_secrets(root: Path, env: dict[str, str]) -> None:
     secrets_dir = root / "secrets"
     secrets_dir.mkdir(exist_ok=True)
     db_path = secrets_dir / "local_secrets.db"
+    create_private_file(db_path)  # the database holds plaintext secrets, so it is never group or world readable
     conn = sqlite3.connect(db_path)
     with conn:
         conn.execute(
@@ -285,7 +311,7 @@ def main() -> None:
     state_file = root / SETUP_STATE_FILENAME
 
     if not env_file.exists() and sample_file.exists():
-        env_file.write_text(sample_file.read_text())
+        write_private_text(env_file, sample_file.read_text())
         print("Created .env from sample.env")
 
     env = parse_env(env_file if env_file.exists() else sample_file)
