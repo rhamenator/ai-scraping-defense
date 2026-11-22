@@ -60,3 +60,10 @@ h1, h2 {
     list-style: none;
     padding: 0;
 }
+.security-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 20px; }
+.security-facts dt { font-weight: bold; }
+.security-facts dd { margin: 0; }
+#new-codes { border: 2px solid #8a1c1c; padding: 12px; border-radius: 6px; margin-top: 12px; }
+#new-codes pre { font-size: 1.1em; letter-spacing: 1px; }
+#security-error { color: #8a1c1c; font-weight: bold; }
+#regenerate-codes, #sign-out, #dismiss-codes, #confirm-dialog button { padding: 6px 12px; margin-right: 6px; cursor: pointer; }

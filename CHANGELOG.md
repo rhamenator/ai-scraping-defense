@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+* Admin Security page (`/security`, admin only): shows the signed-in identity and sign-in method, whether a passkey is enrolled, whether TOTP is set up, and how many backup codes remain, with a confirmed Regenerate action and Sign out (#1952). New codes are shown once, uncached, and removed from the page when dismissed or when the page is left. `POST /mfa/backup-codes` now requires the CSRF token (`X-CSRF-Token` matching the `csrf_token` cookie) because regenerating invalidates every earlier code; API clients that call it with Basic credentials alone must send it.
+
 ### Security
 
 * Bind published ports to loopback by default (#1914): in `docker-compose.yaml` only `nginx_proxy` (80/443) publishes on every interface; the admin and cloud dashboards, Prometheus, Grafana, Traefik (and its API), the model servers, Postgres, Redis, Mailhog and the other development endpoints now bind to `${PUBLISH_ADDRESS:-127.0.0.1}`. Set `PUBLISH_ADDRESS` to a private interface address to reach them from another machine. Not yet done under #1914: a generated Grafana admin credential.

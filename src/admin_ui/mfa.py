@@ -106,3 +106,24 @@ def get_remaining_backup_codes_count(user: str) -> int:
         return sum(1 for status in used if not status)
     except RedisError:
         return 0
+
+
+def get_backup_codes_status(user: str) -> dict:
+    """Counts and age for the Security page; never includes the codes or their hashes."""
+    empty = {"remaining": 0, "total": 0, "created_at": None}
+    redis_conn = get_redis_connection()
+    if not redis_conn:
+        return empty
+    try:
+        data = _load_backup_payload(redis_conn, user)
+    except RedisError:
+        return empty
+    if not data:
+        return empty
+    used = data.get("used") or []
+    created = data.get("created_at")
+    return {
+        "remaining": sum(1 for status in used if not status),
+        "total": len(used),
+        "created_at": created if isinstance(created, (int, float)) else None,
+    }

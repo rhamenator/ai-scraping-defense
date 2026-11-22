@@ -1,3 +1,4 @@
+import hmac
 import os
 import secrets
 
@@ -462,15 +463,35 @@ async def passkey_login(data: PasskeyLoginRequest = Body(...)):
     return passkeys.begin_login(data.username)
 
 
+def require_csrf(request: Request) -> None:
+    """Require X-CSRF-Token to equal the csrf_token cookie on state-changing calls.
+
+    The admin API accepts Basic credentials, which browsers resend on cross-site requests.
+    """
+    cookie = request.cookies.get("csrf_token")
+    header = request.headers.get("X-CSRF-Token")
+    if not cookie or not header or not hmac.compare_digest(cookie, header):
+        raise HTTPException(status_code=403, detail="Invalid CSRF token")
+
+
 @router.post("/mfa/backup-codes")
-async def generate_backup_codes(user: str = Depends(require_admin)):
-    """Generate and store new backup codes for MFA."""
+async def generate_backup_codes(
+    request: Request, response: Response, user: str = Depends(require_admin)
+):
+    """Generate and store new backup codes for MFA.
+
+    Regenerating invalidates every earlier code, so the call needs the CSRF token. The new codes are
+    shown once and must never be cached.
+    """
+    require_csrf(request)
     codes = mfa.generate_backup_codes()
     if not mfa.store_backup_codes(user, codes):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Backup codes unavailable",
         )
+    response.headers["Cache-Control"] = "no-store"
+    log_event(user, "regenerate_backup_codes", {"count": len(codes)})
     return {"backup_codes": codes}
 
 
