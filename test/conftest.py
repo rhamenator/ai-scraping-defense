@@ -16,6 +16,9 @@ os.environ.setdefault("SYSTEM_SEED", "test_seed")
 os.environ.setdefault("RATE_LIMIT_REQUESTS", "1000000")
 # The CAPTCHA service keeps challenges in process memory under test instead of looking for Redis.
 os.environ.setdefault("CAPTCHA_STORE", "memory")
+# The built-in CAPTCHA tests that are not about the solve-time or client-proof checks answer immediately.
+os.environ.setdefault("CAPTCHA_MIN_SOLVE_SECONDS", "0")
+os.environ.setdefault("CAPTCHA_REQUIRE_PROOF", "false")
 
 # Use temp directory for logs and data in tests to avoid permission issues
 # Create a unique subdirectory to avoid conflicts with other test runs
