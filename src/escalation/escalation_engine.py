@@ -30,6 +30,7 @@ from src.shared.observability import (
 )
 from src.shared.operational_events import publish_operational_event
 from src.shared.request_identity import resolve_request_identity
+from src.shared.url_redaction import install_url_redaction, safe_endpoint_for_logs
 from src.shared.tls_attestation import (
     normalize_ja3,
     normalize_ja4,
@@ -62,6 +63,7 @@ from src.tarpit.ip_flagger import flag_suspicious_ip
 
 # --- Setup Logging ---
 logger = logging.getLogger(__name__)
+install_url_redaction(logger)
 
 try:
     from frequency_rs import get_realtime_frequency_features as rs_get_freq
@@ -1023,7 +1025,7 @@ async def forward_to_webhook(payload: Dict[str, Any], reason: str):
                 logger.info(f"Webhook forwarded successfully for IP {ip_log}")
     except httpx.RequestError as exc:
         logger.error(
-            f"Error forwarding to webhook {WEBHOOK_URL} for IP {payload.get('ip')}: {exc}"
+            f"Error forwarding to webhook {safe_endpoint_for_logs(WEBHOOK_URL)} for IP {payload.get('ip')}: {exc}"
         )
         increment_counter_metric(ESCALATION_WEBHOOK_ERRORS_REQUEST)
     except Exception as e:
@@ -1467,7 +1469,7 @@ if __name__ == "__main__":
         f"CAPTCHA Trigger Enabled: {ENABLE_CAPTCHA_TRIGGER} (Low: {CAPTCHA_SCORE_THRESHOLD_LOW}, High: {CAPTCHA_SCORE_THRESHOLD_HIGH})"
     )
     logger.info(
-        f"Webhook URL configured: {'Yes (' + str(WEBHOOK_URL) + ')' if WEBHOOK_URL else 'No'}"
+        f"Webhook URL configured: {'Yes (' + safe_endpoint_for_logs(str(WEBHOOK_URL)) + ')' if WEBHOOK_URL else 'No'}"
     )
     logger.info("---------------------------------")
     logger.info(f"Starting Escalation Engine on port {port}")

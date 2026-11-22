@@ -45,6 +45,7 @@ We may recognize your contribution publicly once the vulnerability is addressed,
 * Use environment-specific secrets (development, staging, production)
 * Rotate secrets regularly according to your security policy
 * Use secret files mounted as volumes rather than environment variables when possible
+* Treat webhook URLs (`ALERT_*_WEBHOOK_URL`, `WEBHOOK_URL`) as secrets: Slack, Teams and similar URLs carry their credential in the path. The services log only a webhook's origin and a short fingerprint, and scrub URLs from log messages and exception text, but rotate any webhook URL that may have been logged by an earlier release
 * Store secrets in encrypted backends with restricted permissions (file mode 600 or stricter)
 
 **DO NOT:**

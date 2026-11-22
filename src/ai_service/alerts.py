@@ -15,6 +15,7 @@ import redis.asyncio as redis
 
 from src.shared.config import CONFIG
 from src.shared.operational_events import publish_operational_event
+from src.shared.url_redaction import install_url_redaction, safe_endpoint_for_logs
 from src.shared.redis_client import load_redis_runtime_settings
 from src.shared.utils import LOG_DIR, log_error, log_event
 
@@ -30,6 +31,7 @@ if TYPE_CHECKING:  # pragma: no cover - type checking only
     from .main import WebhookEvent
 
 logger = logging.getLogger(__name__)
+install_url_redaction(logger)
 
 ALERT_LOG_FILE = os.path.join(LOG_DIR, "alert_events.log")
 
@@ -206,7 +208,7 @@ async def _send_generic_webhook_alert_legacy(event_data: "WebhookEvent") -> bool
         log_error(f"Failed to serialize generic webhook payload for IP {ip}", e)
     except httpx.RequestError as e:
         log_error(
-            f"Failed to send generic webhook alert to {ALERT_GENERIC_WEBHOOK_URL} for IP {ip}",
+            f"Failed to send generic webhook alert to {safe_endpoint_for_logs(ALERT_GENERIC_WEBHOOK_URL)} for IP {ip}",
             e,
         )
     except httpx.HTTPStatusError as e:
