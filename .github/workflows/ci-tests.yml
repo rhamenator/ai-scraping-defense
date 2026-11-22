@@ -50,6 +50,8 @@ jobs:
           pip install kubernetes
           pip install pytest pytest-cov
           pytest -q test/ --cov=src --cov-report=xml
+      - name: Guard bundled OpenResty features
+        run: python scripts/check_nginx_exposure.py
       - name: Upload coverage
         if: env.CODECOV_TOKEN != ''
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5

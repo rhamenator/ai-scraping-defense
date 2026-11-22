@@ -387,6 +387,26 @@ the `env` directives from `nginx/nginx.conf`, the Lua package path, and a
 `lua_shared_dict crawler_verification_cache 1m` in their HTTP context. Reload
 workers after changing these settings. No optional IP-range trust is enabled.
 
+### OpenResty protocol restrictions (temporary)
+
+The bundled OpenResty image uses an NGINX core older than the 1.30.7/1.31.9
+security fixes. Until OpenResty publishes an image with a fixed core, the
+bundled TLS listeners and example explicitly turn HTTP/2 off and allow only
+TLS 1.2. Clients that require TLS 1.3 cannot connect to these listeners during
+this period. The generated HTTPS listener used to enable TLS 1.3; the official
+NGINX advisories also describe a request-body issue over TLS 1.3, so disabling
+HTTP/2 alone does not cover the affected core.
+
+Do not enable HTTP/3/QUIC, the mail proxy, mirror or SSI subrequests, HTTP/2,
+or TLS 1.3 in custom OpenResty configs on this image. The CI guard
+`scripts/check_nginx_exposure.py` checks the bundled configs and generator.
+Operators using their own NGINX/OpenResty config must check it separately.
+When an OpenResty image with NGINX 1.30.7 or 1.31.9 or later is available,
+verify its actual core with `nginx -v`, pin the image, then review these
+temporary protocol restrictions. See the
+[NGINX security advisories](https://nginx.org/en/security_advisories.html)
+and [OpenResty downloads](https://openresty.org/en/download.html).
+
 ### Robots violations in the escalation engine
 
 The Python engine applies the same rule semantics to every client's supplied
