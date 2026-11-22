@@ -771,8 +771,25 @@ services:
     container_name: grafana
     ports:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      # Read from a generated file so the password is never admin/admin (#1914). Grafana applies it when it first creates
+      # its database; an existing grafana_data volume keeps its old password (see docs/monitoring_stack.md to reset it).
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password.txt
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    # Refuse to start without a real password: if the file were missing or empty Grafana would fall back to admin/admin
+    # (Docker also creates a directory when a bind-mount source is missing, which -f rejects).
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        if [ ! -f /run/secrets/grafana_admin_password.txt ] || [ ! -s /run/secrets/grafana_admin_password.txt ];
+        then echo "Grafana admin password file is missing or empty. Run the secrets generator
+        (scripts/linux/generate_secrets.sh, scripts/macos/generate_secrets.zsh or scripts/windows/Generate-Secrets.ps1)
+        so secrets/grafana_admin_password.txt exists." >&2; exit 1; fi; exec /run.sh
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./secrets/grafana_admin_password.txt:/run/secrets/grafana_admin_password.txt:ro
     networks:
       - defense_network
     depends_on:
