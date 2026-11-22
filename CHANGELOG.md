@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+* Regenerate `requirements.lock` for the merged dependency bumps: fastapi 0.165.0, mistralai 3.8.0 and xgboost 3.4.1 (matching the new `requirements.txt` ranges), python-multipart 0.0.34. `pip-audit` reports no known vulnerabilities for the lock.
 * Update the locked dependencies that `pip-audit` flagged on `main`: opentelemetry packages 1.45.1 to 1.45.2 (CVE-2026-126360, trace-context extraction) and soupsieve 2.9.2 to 4.1.3 (CVE-2026-126190 to -126193, selector ReDoS and deep recursion, used through beautifulsoup4 in the e2e tools). `pip-audit` now reports no known vulnerabilities for `requirements.lock`.
 
 ### Removed
