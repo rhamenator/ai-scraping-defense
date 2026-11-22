@@ -7,6 +7,7 @@ import os
 import secrets
 import unittest
 from importlib import reload
+from test.fake_blocklist_redis import FakeBlocklistRedis
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -37,6 +38,12 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         patch.stopall()
         ai_webhook.app.dependency_overrides.clear()
 
+    def _use_fake(self):
+        """Block and allow actions go through a stand-in that behaves like Redis (keys, TTLs, reads)."""
+        self.fake = FakeBlocklistRedis()
+        ai_webhook.app.dependency_overrides[ai_webhook.get_redis_blocklist] = lambda: self.fake
+        return self.fake
+
     def _post(self, payload, headers=None):
         body = json.dumps(payload).encode("utf-8")
         sig = hmac.new(self.secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
@@ -46,14 +53,14 @@ class TestAIWebhookComprehensive(unittest.TestCase):
         return self.client.post("/webhook", content=body, headers=hdrs)
 
     def test_webhook_receiver_block_ip_success(self):
-        """Test a successful 'block_ip' action."""
+        """A signed block lands on the key the edge reads, without expiry, and is read back."""
+        self._use_fake()
         payload = {
             "action": "block_ip",
             "ip": "10.0.0.1",
             "reason": "High bot score",
             "source": "escalation-engine",
         }
-        self.mock_redis_client.sadd.return_value = 1
         response = self._post(payload)
 
         self.assertEqual(response.status_code, 200)
@@ -61,46 +68,58 @@ class TestAIWebhookComprehensive(unittest.TestCase):
             response.json(),
             {"status": "success", "message": "IP 10.0.0.1 added to blocklist."},
         )
-        self.mock_redis_client.sadd.assert_called_once_with(
-            "default:blocklist", "10.0.0.1"
-        )
+        self.assertEqual(self.fake.exists("default:blocklist:ip:10.0.0.1"), 1)
+        self.assertEqual(self.fake.ttl("default:blocklist:ip:10.0.0.1"), -1)
+        self.assertIsNone(self.fake.data.get("default:blocklist"), "no legacy set")
 
     def test_webhook_receiver_allow_ip_success(self):
-        """Test a successful 'allow_ip' action."""
-        payload = {"action": "allow_ip", "ip": "20.0.0.2"}
-        self.mock_redis_client.srem.return_value = 1
-        response = self._post(payload)
+        """A signed allow removes the same key."""
+        self._use_fake()
+        self.fake.set("default:blocklist:ip:20.0.0.2", "{}")
+        response = self._post({"action": "allow_ip", "ip": "20.0.0.2"})
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json(),
             {"status": "success", "message": "IP 20.0.0.2 removed from blocklist."},
         )
-        self.mock_redis_client.srem.assert_called_once_with(
-            "default:blocklist", "20.0.0.2"
-        )
+        self.assertEqual(self.fake.exists("default:blocklist:ip:20.0.0.2"), 0)
 
     def test_equivalent_ipv6_addresses_use_one_blocklist_key(self):
+        self._use_fake()
         block = self._post({"action": "block_ip", "ip": "2001:0db8:0000:0000::1"})
-        allow = self._post({"action": "allow_ip", "ip": "2001:db8::1"})
-
         self.assertEqual(block.status_code, 200)
+        self.assertEqual(self.fake.exists("default:blocklist:ip:2001:db8::1"), 1)
+        allow = self._post({"action": "allow_ip", "ip": "2001:db8::1"})
         self.assertEqual(allow.status_code, 200)
-        self.mock_redis_client.sadd.assert_called_once_with(
-            "default:blocklist", "2001:db8::1"
-        )
-        self.mock_redis_client.srem.assert_called_once_with(
-            "default:blocklist", "2001:db8::1"
-        )
+        self.assertEqual(self.fake.exists("default:blocklist:ip:2001:db8::1"), 0)
+
+    def test_allow_ip_also_clears_an_old_block_left_in_the_default_database(self):
+        fake = self._use_fake()
+        default_db = FakeBlocklistRedis()
+        default_db.sadd("default:blocklist", "203.0.113.130")  # an old admin block that was never migrated
+        fake.set("default:blocklist:ip:203.0.113.130", "{}")
+        with patch.object(ai_webhook, "get_redis_connection", return_value=default_db):
+            response = self._post({"action": "allow_ip", "ip": "203.0.113.130"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(default_db.smembers("default:blocklist"), set())
+        self.assertEqual(fake.exists("default:blocklist:ip:203.0.113.130"), 0)
+
+    def test_a_mapped_ipv4_address_is_stored_as_plain_ipv4(self):
+        self._use_fake()
+        self._post({"action": "block_ip", "ip": "::ffff:203.0.113.7"})
+        self.assertEqual(self.fake.exists("default:blocklist:ip:203.0.113.7"), 1)
 
     def test_mapped_ipv4_cannot_bypass_trusted_proxy_protection(self):
+        self._use_fake()
         with patch.dict(
             os.environ, {"SECURITY_CDN_TRUSTED_PROXY_CIDRS": "173.245.48.0/20"}
         ):
             response = self._post({"action": "block_ip", "ip": "::ffff:173.245.48.10"})
 
         self.assertEqual(response.status_code, 400)
-        self.mock_redis_client.sadd.assert_not_called()
+        self.assertEqual(list(self.fake.scan_iter("*")), [])
 
     def test_webhook_receiver_flag_ip_success(self):
         """Test a successful 'flag_ip' action."""
@@ -240,8 +259,9 @@ class TestAIWebhookComprehensive(unittest.TestCase):
 
     @patch("src.ai_service.main.logger.error")
     def test_webhook_receiver_redis_command_fails(self, mock_logger_error):
-        """Test that a 500 error is returned if a Redis command fails."""
-        self.mock_redis_client.sadd.side_effect = Exception("Redis command failed")
+        """Test that a 500 error is returned if a Redis command fails unexpectedly."""
+        self._use_fake()
+        self.fake.fail_with = Exception("Redis command failed")
         payload = {"action": "block_ip", "ip": "1.2.3.4"}
         response = self._post(payload)
 
