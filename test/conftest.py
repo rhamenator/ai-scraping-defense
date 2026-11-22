@@ -8,6 +8,13 @@ import pytest
 # This must be done before importing any src modules that create directories at import time
 os.environ.setdefault("SYSTEM_SEED", "test_seed")
 
+# The shared apps (admin UI and others) are module-level singletons created at import time, and their request rate
+# limiter keeps one bucket per client for the whole test process. The suite sends far more than the default 100 requests
+# a minute from the same test client, so tests would fail with 429 depending on how fast the machine runs them. Make
+# the limit practically unlimited for the suite (the setting must be a positive integer); tests that exercise rate
+# limiting build their own app with an explicit RATE_LIMIT_REQUESTS.
+os.environ.setdefault("RATE_LIMIT_REQUESTS", "1000000")
+
 # Use temp directory for logs and data in tests to avoid permission issues
 # Create a unique subdirectory to avoid conflicts with other test runs
 temp_base = tempfile.gettempdir()
