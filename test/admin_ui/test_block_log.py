@@ -79,6 +79,12 @@ class BlockLogTests(unittest.TestCase):
         self.assertTrue(result.truncated)
         self.assertEqual(result.total, 0)
 
+    def test_every_reachable_page_number_is_accepted(self):
+        """With a page size of 1 the last page can exceed 10,000; the Older link must never lead to a rejected page."""
+        self.assertEqual(block_log.MAX_PAGE, block_log.MAX_SCAN_LINES)
+        result = self._q(page=3, page_size=1)
+        self.assertEqual((result.pages, result.page), (4, 3))
+
     def test_missing_log_file_is_an_empty_result(self):
         result = block_log.query_events("/nonexistent/block.log", now=NOW)
         self.assertEqual((result.total, result.events, result.pages), (0, [], 1))
@@ -152,7 +158,7 @@ class LogsRouteTests(unittest.TestCase):
         self.assertIn('href="/logs/export.csv?q=198.51.100.77&amp;range=all"', found.text)
 
     def test_query_parameters_are_validated_server_side(self):
-        for bad in ("page=0", "page=abc", "page_size=0", "page_size=201", "range=forever", "q=" + "x" * 101, "page=10001"):
+        for bad in ("page=0", "page=abc", "page_size=0", "page_size=201", "range=forever", "q=" + "x" * 101, "page=100001"):
             self.assertEqual(self._get("/logs?" + bad).status_code, 422, bad)
         # the export takes the filter only (it is not paged), so paging parameters are ignored there
         self.assertEqual(self._get("/logs/export.csv?page=0").status_code, 200)

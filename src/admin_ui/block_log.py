@@ -24,9 +24,10 @@ DEFAULT_RANGE = "all"
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 200
 MAX_QUERY_LENGTH = 100
-MAX_PAGE = 10_000
 # Only the newest lines are scanned so a very large log cannot exhaust memory or time.
 MAX_SCAN_LINES = 100_000
+# Matches cannot exceed the scanned lines, so with a page size of 1 there are at most this many pages.
+MAX_PAGE = MAX_SCAN_LINES
 MAX_EXPORT_ROWS = 10_000
 _FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 
@@ -64,17 +65,13 @@ def _parse_line(line: str) -> dict | None:
     }
 
 
-def _matching_events(
-    path: str, query: str, range_key: str, now: datetime.datetime
-) -> tuple[list[dict], bool]:
-    """All events in the scanned window that match, newest first, and whether the log was cut short."""
-    if not os.path.exists(path):
-        return [], False
-    cutoff = None
+def _cutoff(range_key: str, now: datetime.datetime) -> datetime.datetime | None:
     seconds = RANGES[range_key]
-    if seconds is not None:
-        cutoff = now - datetime.timedelta(seconds=seconds)
-    needle = query.strip().lower()
+    return None if seconds is None else now - datetime.timedelta(seconds=seconds)
+
+
+def _read_tail(path: str) -> tuple[list[str], bool]:
+    """The newest MAX_SCAN_LINES lines (oldest first) and whether older lines were left unread."""
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as handle:
             lines = deque(handle, maxlen=MAX_SCAN_LINES + 1)
@@ -84,17 +81,28 @@ def _matching_events(
     truncated = len(lines) > MAX_SCAN_LINES
     if truncated:
         lines.popleft()
-    matches: list[dict] = []
-    for line in reversed(lines):
-        event = _parse_line(line)
-        if event is None:
-            continue
-        if cutoff is not None and event["moment"] < cutoff:
-            continue
-        if needle and needle not in (event["ip"] or "").lower() and needle not in event["reason"].lower():
-            continue
-        matches.append(event)
-    return matches, truncated
+    return list(lines), truncated
+
+
+def _matches(event: dict, cutoff: datetime.datetime | None, needle: str) -> bool:
+    if cutoff is not None and event["moment"] < cutoff:
+        return False
+    if not needle:
+        return True
+    return needle in (event["ip"] or "").lower() or needle in event["reason"].lower()
+
+
+def _matching_events(
+    path: str, query: str, range_key: str, now: datetime.datetime
+) -> tuple[list[dict], bool]:
+    """All events in the scanned window that match, newest first, and whether the log was cut short."""
+    if not os.path.exists(path):
+        return [], False
+    cutoff = _cutoff(range_key, now)
+    needle = query.strip().lower()
+    lines, truncated = _read_tail(path)
+    events = (_parse_line(line) for line in reversed(lines))
+    return [e for e in events if e is not None and _matches(e, cutoff, needle)], truncated
 
 
 def query_events(
