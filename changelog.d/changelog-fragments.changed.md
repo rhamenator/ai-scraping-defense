@@ -1,0 +1,1 @@
+Changelog entries are now added as one small file per change in `changelog.d/` instead of by editing `CHANGELOG.md`, so pull requests stop conflicting over the same lines. `scripts/changelog_fragments.py check` validates the files and `assemble` folds them into `[Unreleased]` at release time; see `changelog.d/README.md`.
