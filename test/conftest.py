@@ -14,6 +14,8 @@ os.environ.setdefault("SYSTEM_SEED", "test_seed")
 # the limit practically unlimited for the suite (the setting must be a positive integer); tests that exercise rate
 # limiting build their own app with an explicit RATE_LIMIT_REQUESTS.
 os.environ.setdefault("RATE_LIMIT_REQUESTS", "1000000")
+# The CAPTCHA service keeps challenges in process memory under test instead of looking for Redis.
+os.environ.setdefault("CAPTCHA_STORE", "memory")
 
 # Use temp directory for logs and data in tests to avoid permission issues
 # Create a unique subdirectory to avoid conflicts with other test runs

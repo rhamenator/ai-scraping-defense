@@ -95,6 +95,29 @@ class TestTrainingPipelineComprehensive(unittest.TestCase):
                     code = training.lookup_country_code("8.8.8.8")
         self.assertEqual(code, "US")
 
+    def test_captcha_successes_do_not_relabel_unless_opted_in(self):
+        """CAPTCHA success is self-reported by an unauthenticated endpoint, so it must not override labels by default."""
+        training.disallowed_paths = {"/admin/"}
+        df = pd.DataFrame(
+            {
+                "ip": ["9.9.9.9"],
+                "user_agent": ["python-requests"],
+                "path": ["/admin/panel"],
+                "status": [403],
+                "referer": ["-"],
+                "req_freq_60s": [50],
+                "time_since_last_sec": [0.5],
+            }
+        )
+        with patch("rag.training._log_training_audit"), patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("TRAINING_CAPTCHA_OVERRIDES_LABELS", None)
+            labeled = training.assign_labels_and_scores(df.copy(), set(), {"9.9.9.9"})
+        self.assertEqual(labeled.label.iloc[0], "bot")
+        summary = labeled.attrs["feedback_override_summary"]
+        self.assertFalse(summary["captcha_overrides_applied"])
+        self.assertEqual(summary["human_override_count"], 0)
+        self.assertEqual(summary["captcha_success_ips_seen"], 1)
+
     def test_assign_labels_and_scores(self):
         """Test the comprehensive labeling logic based on multiple factors."""
         training.disallowed_paths = {"/admin/"}
@@ -113,7 +136,9 @@ class TestTrainingPipelineComprehensive(unittest.TestCase):
             }
         )
 
-        with patch("rag.training._log_training_audit") as mock_audit:
+        with patch("rag.training._log_training_audit") as mock_audit, patch.dict(
+            os.environ, {"TRAINING_CAPTCHA_OVERRIDES_LABELS": "true"}
+        ):
             labeled_df = training.assign_labels_and_scores(
                 df, honeypot_ips, captcha_ips
             )
