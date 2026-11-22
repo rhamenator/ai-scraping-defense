@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Admin Security page (`/security`, admin only): shows the signed-in identity and sign-in method, whether a passkey is enrolled, whether TOTP is set up, and how many backup codes remain, with a confirmed Regenerate action and Sign out (#1952). New codes are shown once, uncached, and removed from the page when dismissed or when the page is left. `POST /mfa/backup-codes` now requires the CSRF token (`X-CSRF-Token` matching the `csrf_token` cookie) because regenerating invalidates every earlier code; API clients that call it with Basic credentials alone must send it.
 * Admin Logs page: search block events by address or reason, filter by time range (last hour, 24 hours, 7 days, 30 days, all), page beyond the newest 50 and export the current filter as CSV with spreadsheet-formula neutralisation (#1951). Query parameters are validated server-side (page size at most 200, search at most 100 characters); only the newest 100,000 log lines are searched and the export holds at most 10,000 rows, both stated on the page.
+### Fixed
+
+* Fix the Settings page GDPR deletion form (#1958): its script read the `HttpOnly` CSRF cookie, so the token was always empty and every request was refused. The token is now rendered into the page and read from there.
 
 ### Security
 
