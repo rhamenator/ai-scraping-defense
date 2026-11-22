@@ -48,6 +48,29 @@ class RedactionHelperTests(unittest.TestCase):
             self.assertNotIn(CANARY, redact_urls(f"failed for url '{url}'."), url)
             self.assertNotIn(CANARY, safe_endpoint_for_logs(url), url)
 
+    def test_ipv6_hosts_and_brackets_inside_a_url_do_not_stop_the_match(self):
+        """The credential must go even when the URL has an IPv6 authority or parentheses in its query."""
+        for url in (
+            f"http://[2001:db8::1]:8443/hook/{CANARY}",
+            f"https://example.com/hook?x=(foo)&token={CANARY}",
+            f"https://example.com/a[1]/{CANARY}",
+            f"https://example.com/{{a}}/{CANARY}",
+        ):
+            for wrapper in ("{}", "failed for url '{}'", "(see {})", "[{}]", "{}."):
+                result = redact_urls(wrapper.format(url))
+                self.assertNotIn(CANARY, result, wrapper.format(url))
+                self.assertIn("(id=", result)
+        self.assertIn("[2001:db8::1]:8443", redact_urls(f"http://[2001:db8::1]:8443/hook/{CANARY}"))
+
+    def test_surrounding_brackets_and_punctuation_are_kept(self):
+        self.assertTrue(redact_urls(f"(see https://example.com/{CANARY})").endswith(")"))
+        self.assertTrue(redact_urls(f"(see https://example.com/{CANARY})").startswith("(see "))
+        self.assertTrue(redact_urls(f"[https://example.com/{CANARY}]").endswith("]"))
+        self.assertTrue(redact_urls(f"see https://example.com/{CANARY}, then").endswith(", then"))
+        # a bracket that belongs to the URL stays inside the match, a closing one that does not is kept outside
+        balanced = redact_urls("link https://example.com/wiki/Rust_(language) done")
+        self.assertTrue(balanced.endswith(" done"))
+
     def test_bare_origins_and_ordinary_text_are_left_alone(self):
         for text in (
             "connecting to http://redis:6379",

@@ -10,7 +10,11 @@ import logging
 import re
 from urllib.parse import urlsplit
 
-_URL_PATTERN = re.compile(r"https?://[^\s'\"<>)\]}]+", re.IGNORECASE)
+# Match as much as could belong to the URL (brackets and parentheses are valid inside one: IPv6 hosts, query values);
+# over-matching is safe because the whole match is replaced, so sentence punctuation is trimmed afterwards.
+_URL_PATTERN = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)
+_TRAILING_PUNCTUATION = ".,;:!?"
+_BRACKETS = {")": "(", "]": "[", "}": "{"}
 
 
 def _origin(parts) -> str:
@@ -41,6 +45,22 @@ def _carries_secret_material(parts) -> bool:
     )
 
 
+def _split_trailing(candidate: str) -> tuple[str, str]:
+    """Split sentence punctuation, and unbalanced closing brackets, off the end of a URL candidate."""
+    trailing = ""
+    while candidate:
+        last = candidate[-1]
+        if last in _TRAILING_PUNCTUATION:
+            pass
+        elif last in _BRACKETS and candidate.count(last) > candidate.count(_BRACKETS[last]):
+            pass
+        else:
+            break
+        trailing = last + trailing
+        candidate = candidate[:-1]
+    return candidate, trailing
+
+
 def redact_urls(text: str) -> str:
     """Replace every URL in ``text`` that has user info, a path, a query or a fragment with its safe form.
 
@@ -50,12 +70,7 @@ def redact_urls(text: str) -> str:
         return text
 
     def replace(match: re.Match) -> str:
-        url = match.group(0)
-        # Trailing punctuation belongs to the sentence, not the URL.
-        trailing = ""
-        while url and url[-1] in ".,;:!?":
-            trailing = url[-1] + trailing
-            url = url[:-1]
+        url, trailing = _split_trailing(match.group(0))
         try:
             parts = urlsplit(url)
             secret = _carries_secret_material(parts)
