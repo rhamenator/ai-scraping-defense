@@ -58,10 +58,28 @@
                         Fix the validation errors below before saving.
                     </div>
                     {% endif %}
+                    {% if risky_confirmation %}
+                    <div id="risky-confirmation" class="rounded border border-yellow-400 bg-yellow-50 p-3 text-sm text-yellow-900" role="alert">
+                        <p class="font-semibold">Nothing has been saved yet. Confirm these changes:</p>
+                        <ul class="mt-2 list-disc pl-5">
+                            {% for item in risky_confirmation.changes %}
+                            <li><strong>{{ item.label }}</strong>: <code>{{ item.old }}</code> &rarr; <code>{{ item.new }}</code>. {{ item.why }}</li>
+                            {% endfor %}
+                        </ul>
+                        <input type="hidden" name="confirm_risky" value="{{ risky_confirmation.token }}">
+                        <p class="mt-2">Press Save to apply them, or change the values below to start again.</p>
+                    </div>
+                    {% endif %}
                     {% for field in editable_settings %}
                     <div>
                         <label class="block text-sm font-medium text-gray-700" for="{{ field.key }}">{{ field.label }}</label>
                         <p class="mt-1 text-sm text-gray-500">{{ field.description }}</p>
+                        <p class="mt-1 text-xs text-gray-500" id="meta-{{ field.key }}">
+                            Valid: {{ field.valid }}
+                            Started as <code>{{ field.startup_value }}</code> ({{ field.startup_source }}){% if field.builtin is not none and field.builtin != field.startup_value %}; built-in default <code>{{ field.builtin }}</code>{% endif %}.
+                            {% if field.last_changed %}Last changed by <strong>{{ field.last_changed.actor }}</strong> at {{ field.last_changed.at }}.{% else %}No change recorded yet.{% endif %}
+                            {% if field.risky %}<span class="font-semibold text-yellow-800"> Changes to this setting ask for confirmation.</span>{% endif %}
+                        </p>
                         {% if field.input_type == 'select' %}
                         <select class="mt-1 p-2 border rounded w-full" name="{{ field.key }}" id="{{ field.key }}">
                             {% for choice in field.choices %}

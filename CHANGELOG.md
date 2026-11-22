@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+* Tarpit page generation can no longer hang or freeze the service (#1908). The Python Markov fallback retried forever when the transition table was empty or the database was unreachable; it now stops after a few empty lookups, a lookup budget or a deadline (`MARKOV_GENERATION_TIMEOUT_SECONDS`, default 2) and serves static content. Generation runs in a worker thread with its own timeout (`TARPIT_GENERATION_TIMEOUT_SECONDS`, default 4), so a slow generator no longer blocks health checks or other requests, and the database pool is now thread-safe with a statement timeout (`MARKOV_STATEMENT_TIMEOUT_MS`, default 2000). Fixes a defect found on the way: with the Rust `tarpit_rs` extension installed, the API called its function with an RNG argument it does not accept, so every request got an error page; the API now always goes through the backend-aware wrapper. `/health` reports `generator_implementation` (`rust` or `python`).
+
 ### Added
 
 * `scripts/find_logged_webhook_urls.py` finds webhook URLs that earlier releases may have written to logs (#1906), so you can decide whether any rotation is needed. It scans the files or directories you give it for Slack, Teams and Discord webhook URLs and for the webhook URLs configured in the environment or a `.env` file, and reports file, line, kind and a short fingerprint. It never prints a URL and changes nothing.
@@ -16,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Fix the Settings page GDPR deletion form (#1958): its script read the `HttpOnly` CSRF cookie, so the token was always empty and every request was refused. The token is now rendered into the page and read from there.
 * Admin dashboard: browse, search, block and unblock addresses from the Blocklist section (#1950). Every change names the exact address in a confirmation step and shows API errors to the admin. `POST /block` and `POST /unblock` now require the CSRF token (`X-CSRF-Token` matching the `csrf_token` cookie, which the dashboard page sets); API clients that call them with Basic credentials alone must send it. `POST /block` accepts an optional `reason` (at most 200 characters) that is written to the audit log.
+* Admin Settings page shows, for every editable setting, what is valid, the value it started with and whether that came from the environment or the built-in default, and who last changed it and when (#1953). Turning the HTTPS redirect off or changing the escalation URL now needs an explicit second confirmation, enforced by the server and bound to the exact values shown, so nothing is saved until it is given. Who and when are kept in a small record beside the runtime settings, written whenever the Settings or the Plugins page actually changes a value (so it never expires and covers the allowlist), and an existing installation shows "No change recorded yet" until a setting's first change after the upgrade. Saves also record the changed settings in the audit entry (`changed`).
 
 ### Security
 
