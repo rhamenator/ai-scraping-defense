@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import secrets
+import time
 
 from fastapi import Cookie, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -28,6 +29,13 @@ TOKEN_EXPIRY = int(os.getenv("CAPTCHA_TOKEN_EXPIRY_SECONDS", 300))
 BIND_IP = os.getenv("CAPTCHA_BIND_IP", "true").lower() == "true"
 # Challenges and solve attempts per client address per minute; 0 disables the limit.
 RATE_LIMIT_PER_MINUTE = int(os.getenv("CAPTCHA_RATE_LIMIT_PER_MINUTE", 30))
+# A correct answer that arrives faster than a person could read and type it is a bot signal. Like a missing or wrong
+# client proof, it never blocks anyone: the attempt fails and the visitor is asked again with a fresh challenge. Set to 0
+# to disable.
+MIN_SOLVE_SECONDS = float(os.getenv("CAPTCHA_MIN_SOLVE_SECONDS", 1.5))
+# The page sends a small proof computed from the challenge id and the answer. The project is open source, so anyone can copy
+# the function; it only filters clients that post the form without running the page. Set to false to disable.
+REQUIRE_PROOF = os.getenv("CAPTCHA_REQUIRE_PROOF", "true").lower() == "true"
 store = ChallengeStore()
 
 app = create_app()
@@ -109,15 +117,24 @@ button{{padding:6px 12px;margin-top:8px;}}
 <div id='result' role='status' aria-live='polite'></div>
 </div>
 <script>
+function proof(text) {{
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {{ h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }}
+  return h.toString(16).padStart(8, '0');
+}}
 document.getElementById('cform').addEventListener('submit', async (e)=>{{
   e.preventDefault();
   const data = new FormData(e.target);
+  data.set('proof', proof(data.get('token') + ':' + String(data.get('answer')).trim()));
   const res = await fetch('/solve', {{method: 'POST', body: data}});
   const js = await res.json();
   const result = document.getElementById('result');
   if (js.success) {{
     result.textContent = 'Passed! Token copied to clipboard';
     if (js.token){{navigator.clipboard.writeText(js.token);}}
+  }} else if (js.retry) {{
+    result.textContent = 'Please take a moment, then try again. Loading a new question...';
+    setTimeout(()=>location.reload(), 3000);
   }} else {{
     // A challenge can be answered once, so a miss needs a fresh question.
     result.textContent = 'Not quite. Loading a new question...';
@@ -134,6 +151,14 @@ def _challenge_html(a: int, b: int, token: str) -> str:
     from html import escape
 
     return _PAGE_TEMPLATE.format(a=a, b=b, escaped_token=escape(token))
+
+
+def _proof(token: str, answer: str) -> str:
+    """FNV-1a (32-bit) of ``token:answer`` as 8 hex digits; the page computes the same value in JavaScript."""
+    value = 0x811C9DC5
+    for char in f"{token}:{answer.strip()}":
+        value = ((value ^ ord(char)) * 0x01000193) & 0xFFFFFFFF
+    return f"{value:08x}"
 
 
 def _rate_limited(request: Request, action: str) -> bool:
@@ -153,13 +178,13 @@ async def challenge_page(request: Request, fp_id: str | None = Cookie(None)):
     token = secrets.token_urlsafe(24)
     store.put(
         token,
-        {"ans": a + b, "fp": fp_id or "", "ip": resolve_request_identity(request).client_ip},
+        {"ans": a + b, "fp": fp_id or "", "ip": resolve_request_identity(request).client_ip, "iat": time.time()},
         TOKEN_EXPIRY,
     )
     return HTMLResponse(_challenge_html(a, b, token))
 
 
-def _challenge_ok(record: dict | None, answer: str, ip: str, fp_id: str | None) -> bool:
+def _answered_correctly(record: dict | None, answer: str, ip: str, fp_id: str | None) -> bool:
     """Whether the (already consumed) challenge ``record`` is answered correctly by the client it was issued to."""
     if not record:
         return False
@@ -171,6 +196,13 @@ def _challenge_ok(record: dict | None, answer: str, ip: str, fp_id: str | None) 
         return hmac.compare_digest(str(int(answer)), str(record.get("ans")))
     except ValueError:
         return False
+
+
+def _looks_automated(record: dict, token: str, answer: str, proof: str) -> bool:
+    """A correct answer that came too fast, or without the page's proof: ask again, never block."""
+    if MIN_SOLVE_SECONDS > 0 and time.time() - float(record.get("iat", 0)) < MIN_SOLVE_SECONDS:
+        return True
+    return REQUIRE_PROOF and not hmac.compare_digest(proof.strip().lower().encode("utf-8"), _proof(token, answer).encode("utf-8"))
 
 
 def _log_success(ip: str, fingerprint: str, ua: str) -> None:
@@ -198,6 +230,7 @@ def _log_success(ip: str, fingerprint: str, ua: str) -> None:
 async def solve(
     answer: str = Form(...),
     token: str = Form(...),
+    proof: str = Form(""),
     request: Request = None,
     fp_id: str | None = Cookie(None),
 ):
@@ -206,8 +239,11 @@ async def solve(
     ip = resolve_request_identity(request).client_ip
     with trace_span("captcha.consume_challenge"):
         record = store.take(token)  # consumed whether or not the answer is right: one attempt per challenge
-    if not _challenge_ok(record, answer, ip, fp_id):
+    if not _answered_correctly(record, answer, ip, fp_id):
         return JSONResponse({"success": False})
+    if _looks_automated(record, token, answer, proof):
+        # The challenge is already consumed, so the visitor simply gets a new one; nothing is blocked or labelled.
+        return JSONResponse({"success": False, "retry": True})
     fingerprint = fp_id or record.get("fp") or ""
     with trace_span(
         "captcha.issue_token",
@@ -232,7 +268,7 @@ async def _verification_inputs(request: Request, token: str | None, ip: str | No
         form = await request.form()
     supplied_secret = form.get("secret")
     if supplied_secret is not None and not (
-        CAPTCHA_SECRET and hmac.compare_digest(str(supplied_secret), CAPTCHA_SECRET)
+        CAPTCHA_SECRET and hmac.compare_digest(str(supplied_secret).encode("utf-8"), CAPTCHA_SECRET.encode("utf-8"))
     ):
         return None, None
     return token or form.get("response"), ip or form.get("remoteip")
