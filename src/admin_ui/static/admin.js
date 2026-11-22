@@ -238,13 +238,7 @@ async function fetchBlocklist() {
     }
 }
 
-async function changeBlock(path, body) {
-    const response = await fetch(path, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
-        body: JSON.stringify(body)
-    });
+async function readChangeResponse(response) {
     let payload = {};
     try { payload = await response.json(); } catch (e) { /* non-JSON error body */ }
     if (!response.ok) {
@@ -253,11 +247,24 @@ async function changeBlock(path, body) {
     return payload;
 }
 
+function changeRequestInit(body) {
+    return {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+        body: JSON.stringify(body)
+    };
+}
+
+// Fixed URLs, one function each: the endpoints are never built from user input.
+const blockRequest = async body => readChangeResponse(await fetch('/block', changeRequestInit(body)));
+const unblockRequest = async body => readChangeResponse(await fetch('/unblock', changeRequestInit(body)));
+
 async function unblockAddress(ip) {
     showBlocklistError('');
     if (!await confirmAction('Unblock this address?', `${ip} will be able to reach the protected site again.`)) return;
     try {
-        await changeBlock('/unblock', { ip });
+        await unblockRequest({ ip });
         await fetchBlocklist();
         fetchBlockStats();
     } catch (err) {
@@ -276,7 +283,7 @@ async function blockAddress(event) {
     }
     if (!await confirmAction('Block this address?', `${ip} will be refused by the protected site. Reason: ${reason}`)) return;
     try {
-        await changeBlock('/block', { ip, reason });
+        await blockRequest({ ip, reason });
         blockForm.reset();
         await fetchBlocklist();
         fetchBlockStats();

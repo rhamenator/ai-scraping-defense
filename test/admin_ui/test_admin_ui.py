@@ -582,6 +582,10 @@ class TestAdminUIComprehensive(unittest.TestCase):
             Path(blocklist.__file__).resolve().parent / "static" / "admin.js"
         ).read_text()
         self.assertIn("'X-CSRF-Token': csrfToken()", script)
+        # The state-changing endpoints are fixed URLs, never built from a variable.
+        self.assertIn("fetch('/block', changeRequestInit(body))", script)
+        self.assertIn("fetch('/unblock', changeRequestInit(body))", script)
+        self.assertNotIn("fetch(path", script)
         # Both state changes go through the confirmation step and name the exact address.
         self.assertIn("confirmAction('Unblock this address?'", script)
         self.assertIn("confirmAction('Block this address?'", script)
