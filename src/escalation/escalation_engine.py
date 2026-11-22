@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 from src.shared import robots_policy
 from src.shared.attack_incident import record_and_alert_attack
 from src.shared.config import tenant_key
+from src.shared.header_policy import external_headers, internal_headers
 from src.shared.middleware import create_app
 from src.shared.model_adapters import MCPAdapter
 from src.shared.observability import (
@@ -308,7 +309,7 @@ async def _apply_containment_action(
 ) -> tuple[str, bool]:
     level = _determine_containment_level(score) or "alert"
     reason = _containment_reason(source, score, detail)
-    payload = metadata_req.model_dump(mode="json")
+    payload = export_metadata(metadata_req, mode="json")
     payload["containment_level"] = level
     payload["detection_source"] = source
     payload["score"] = round(score, 3)
@@ -729,10 +730,29 @@ class RequestMetadata(BaseModel):
     tls_fingerprint_verified: bool = False
     source: str = Field(min_length=1, max_length=64)
 
+    @field_validator("headers", mode="before")
+    @classmethod
+    def keep_only_headers_the_engine_uses(cls, value: object) -> object:
+        """Drop credentials, identity and anything else the engine never reads, whoever sent them (#1904)."""
+        if isinstance(value, dict):
+            return internal_headers(value)
+        return value
+
     @field_validator("tls_fingerprint_verified", mode="before")
     @classmethod
     def tls_verification_is_server_derived(cls, _value: object) -> bool:
         return False
+
+
+def export_metadata(metadata: "RequestMetadata", **dump_kwargs: Any) -> Dict[str, Any]:
+    """The request metadata as it may leave the engine: headers reduced to the external allowlist (#1904).
+
+    Used for the blocklist record, the webhook, the language model and the external classifier. The engine's own
+    in-memory copy keeps the CAPTCHA response it must verify; that never leaves the process.
+    """
+    exported = metadata.model_dump(**dump_kwargs)
+    exported["headers"] = external_headers(metadata.headers)
+    return exported
 
 
 # --- FastAPI App ---
@@ -911,7 +931,7 @@ async def classify_with_local_llm_api(metadata: RequestMetadata) -> Optional[boo
     logger.info(
         f"Attempting classification for IP {metadata.ip} using local LLM API ({LOCAL_LLM_MODEL})..."
     )
-    safe_metadata = metadata.model_dump()
+    safe_metadata = export_metadata(metadata)
     try:
         result = await asyncio.to_thread(local_llm_adapter.predict, safe_metadata)
     except Exception as e:
@@ -950,7 +970,7 @@ async def classify_with_external_api(metadata: RequestMetadata) -> Optional[bool
         return None
     increment_counter_metric(EXTERNAL_API_CHECKS_RUN)
     logger.info(f"Attempting classification for IP {metadata.ip} using External API...")
-    headers_to_send = metadata.headers if metadata.headers is not None else {}
+    headers_to_send = external_headers(metadata.headers)
     external_payload = {
         "ipAddress": metadata.ip,
         "userAgent": metadata.user_agent,

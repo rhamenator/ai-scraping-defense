@@ -275,6 +275,7 @@ Recent suspicious traffic generates an `AI_DEFENSE_ATTACK_INCIDENT` alert throug
 | `EXTERNAL_API_TIMEOUT` | `15.0` | Timeout in seconds for external API |
 | `ENABLE_LOCAL_LLM_CLASSIFICATION` | `true` | Use local LLM for scoring |
 | `ENABLE_EXTERNAL_API_CLASSIFICATION` | `true` | Use external API for scoring |
+| `EXTERNAL_API_HEADER_ALLOWLIST` | *(built-in list)* | Comma-separated request headers that may leave the escalation engine (external classifier, local model, blocklist records, webhooks). Replaces the default list; credential-like names are refused even if listed. See [What leaves the engine](#what-leaves-the-escalation-engine). |
 | `ENABLE_IP_REPUTATION` | `false` | Query IP reputation service |
 | `IP_REPUTATION_API_URL` | *(none)* | IP reputation endpoint |
 | `IP_REPUTATION_API_KEY_FILE` | `/run/secrets/ip_reputation_api_key` | IP reputation API key file |
@@ -423,3 +424,25 @@ legacy `ua_is_known_benign_crawler` feature stays zero for unverified input.
 Google/Bing identity verification and its cache live at the NGINX edge; callers
 cannot assert a verified identity in escalation metadata. The engine still
 applies legitimate agent-specific robots policy, which is separate from trust.
+
+## What leaves the escalation engine
+
+Request headers can carry credentials (API keys, session and CSRF tokens, CAPTCHA responses, proxy credentials,
+signatures, custom secret headers). The engine keeps them from spreading with two allowlists (`src/shared/header_policy.py`):
+
+- **Inside the system** the tarpit forwards, and the engine accepts, only the headers the engine itself reads: `accept`,
+  `accept-encoding`, `accept-language`, `sec-ch-ua`, `sec-ch-ua-mobile`, `sec-ch-ua-platform`, `sec-fetch-dest`,
+  `sec-fetch-mode`, `sec-fetch-site`, `dnt`, `upgrade-insecure-requests`, `x-original-method`, `method`, and
+  `x-captcha-token` (which the engine verifies itself), plus any non-credential header you add through
+  `EXTERNAL_API_HEADER_ALLOWLIST` (it has to get in before it can be sent out). Names are lowercased; values lose control
+  characters and are cut at 512 characters, except the CAPTCHA response, which is kept whole up to 8192 characters and
+  otherwise dropped rather than truncated. Everything else is dropped.
+- **Outside the engine** (the external classifier, the local language model, the blocklist record and the webhook body)
+  only the browser-identification headers go: the list above without `x-original-method`, `method` and
+  `x-captcha-token`. The CAPTCHA response never leaves the engine. `EXTERNAL_API_HEADER_ALLOWLIST` replaces this list,
+  but any name that looks like a credential (authorization, cookie, key, token, secret, password, session, csrf, xsrf,
+  captcha, signature, credential, bearer, jwt, `proxy-*`) is refused even if you list it.
+
+The other fields sent to the external classifier are the IP address, user agent, referer and request path. Those are not
+filtered by this policy; if your URLs can carry secrets in the query string, treat the external classifier as a place
+those could be seen.
