@@ -69,3 +69,9 @@ python -m pytest -q test
 ## Contact
 
 For major changes, architectural discussions, or potential collaborations, please open an Issue first or reach out via the contact methods listed in the repository (if available). For security concerns, follow the `SECURITY.md` policy.
+
+## Changelog entries
+
+Do not edit `CHANGELOG.md` in a pull request. Add one file, `changelog.d/<issue-or-pr>.<category>.md`
+(category: `security`, `added`, `changed`, `fixed`, `deprecated` or `removed`), containing the entry text. The release
+step combines the fragments into `CHANGELOG.md`. See `changelog.d/README.md`.
