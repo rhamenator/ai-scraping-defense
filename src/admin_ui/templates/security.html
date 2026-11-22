@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>Security - AI Scraping Defense</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+</head>
+<body>
+<div class="container">
+    <h1>Account security</h1>
+    <nav><a href="/">Dashboard</a> | <a href="/settings">Settings</a> | <a href="/logs">Logs</a></nav>
+
+    <h2>Signed in</h2>
+    <dl class="security-facts">
+        <dt>Identity</dt><dd id="sec-user">{{ user }}</dd>
+        <dt>Sign-in method</dt><dd id="sec-method">{{ method }}</dd>
+    </dl>
+
+    <h2>Second factors</h2>
+    <dl class="security-facts">
+        <dt>Passkey</dt>
+        <dd id="sec-passkey">{{ "Enrolled" if passkey_enrolled else "Not enrolled" }}</dd>
+        <dt>Authenticator app (TOTP)</dt>
+        <dd id="sec-totp">{{ "Set up for this deployment" if totp_enabled else "Not set up" }}</dd>
+        <dt>Backup codes</dt>
+        <dd id="sec-backup">
+            {% if backup.total %}
+            {{ backup.remaining }} of {{ backup.total }} remaining{% if backup.created_text %} (generated {{ backup.created_text }}){% endif %}
+            {% else %}
+            None generated
+            {% endif %}
+        </dd>
+    </dl>
+
+    <h2>Backup codes</h2>
+    <p>Regenerating creates a new set and <strong>immediately invalidates every earlier code</strong>.
+       The new codes are shown once, here, and are not stored in this page; copy them somewhere safe before you leave.</p>
+    <button type="button" id="regenerate-codes">Regenerate backup codes</button>
+    <p id="security-error" role="alert" hidden></p>
+    <section id="new-codes" hidden aria-live="polite">
+        <p><strong>Your new backup codes. They will not be shown again.</strong></p>
+        <pre id="new-codes-list"></pre>
+        <button type="button" id="dismiss-codes">I have saved them, hide the codes</button>
+    </section>
+
+    <h2>Sign out</h2>
+    {% if sso %}
+    <p id="sso-signout-note">You signed in through single sign-on. Signing out here would only end this application's own
+       session and your identity provider or proxy would sign you straight back in, so sign out through your provider.</p>
+    {% else %}
+    <button type="button" id="sign-out">Sign out</button>
+    {% endif %}
+
+    <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+        <form method="dialog">
+            <h2 id="confirm-title"></h2>
+            <p id="confirm-message"></p>
+            <button value="cancel">Cancel</button>
+            <button value="ok" id="confirm-ok">Confirm</button>
+        </form>
+    </dialog>
+</div>
+<script src="{{ url_for('static', filename='security.js') }}"></script>
+</body>
+</html>

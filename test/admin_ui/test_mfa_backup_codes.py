@@ -1,4 +1,5 @@
 import os
+import secrets
 import unittest
 from unittest.mock import patch
 
@@ -129,14 +130,17 @@ class TestAdminUIMfaBackupCodes(unittest.TestCase):
             with patch(
                 "src.admin_ui.mfa.get_redis_connection", return_value=mock_redis
             ):
+                token = secrets.token_urlsafe(16)
+                self.client.cookies.set("csrf_token", token)
                 response = self.client.post(
                     "/mfa/backup-codes",
                     auth=self.auth,
-                    headers=self._totp_headers(),
+                    headers={**self._totp_headers(), "X-CSRF-Token": token},
                 )
                 self.assertEqual(response.status_code, 200)
                 payload = response.json()
                 self.assertTrue(payload["backup_codes"])
+                self.assertEqual(response.headers["cache-control"], "no-store")
 
     def test_backup_code_is_single_use_and_updates_remaining_count(self):
         mock_redis = MockRedis()

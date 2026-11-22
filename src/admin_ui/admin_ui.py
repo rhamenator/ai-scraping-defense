@@ -6,6 +6,7 @@ submodules that handle authentication, metrics, blocklist
 management and WebAuthn support.
 """
 
+import datetime
 import logging
 import os
 import secrets
@@ -21,7 +22,7 @@ from jinja2 import pass_context
 from redis.exceptions import RedisError
 
 from src.shared.audit import log_event
-from src.shared.config import CONFIG, tenant_key
+from src.shared.config import CONFIG, get_secret, tenant_key
 from src.shared.middleware import create_app
 from src.shared.observability import (
     HealthCheckResult,
@@ -32,7 +33,7 @@ from src.shared.observability import (
 from src.shared.redis_client import get_redis_connection
 
 from . import auth as auth_routes
-from . import blocklist, metrics, webauthn
+from . import blocklist, metrics, mfa, passkeys, webauthn
 from .auth import require_admin, require_auth
 
 logger = logging.getLogger(__name__)
@@ -658,6 +659,73 @@ async def view_logs(request: Request, user: str = Depends(require_auth)):
     """Display recent block events."""
     events = blocklist._load_recent_block_events_func(50)
     return templates.TemplateResponse(request, "logs.html", {"events": events})
+
+
+def _security_page_context(request: Request, user: str) -> dict:
+    """Facts for the Security page: identity, sign-in method and which second factors are enrolled."""
+    provider = getattr(request.state, "admin_ui_auth_provider", "basic")
+    has_session = request.cookies.get(auth_routes.SESSION_COOKIE_NAME) is not None
+    if provider == "oidc":
+        method = "Single sign-on (OpenID Connect)"
+    elif provider == "saml":
+        method = "Single sign-on (SAML)"
+    elif has_session:
+        method = "Username and password (browser session)"
+    else:
+        method = "Username and password (HTTP Basic)"
+    try:
+        passkey_enrolled = passkeys._load_credential(user) is not None
+    except Exception:  # an unreadable credential store must not break the page
+        logger.warning("Could not read the passkey enrolment for the Security page")
+        passkey_enrolled = False
+    backup = mfa.get_backup_codes_status(user)
+    backup["created_text"] = (
+        datetime.datetime.fromtimestamp(
+            backup["created_at"], datetime.timezone.utc
+        ).strftime("%Y-%m-%d %H:%M UTC")
+        if backup["created_at"]
+        else None
+    )
+    return {
+        "user": user,
+        "method": method,
+        # Signing out of the Admin UI only ends the local session; a proxy or provider session stays signed in.
+        "sso": provider in {"oidc", "saml"},
+        "passkey_enrolled": passkey_enrolled,
+        "totp_enabled": bool(
+            os.getenv("ADMIN_UI_2FA_SECRET") or get_secret("ADMIN_UI_2FA_SECRET_FILE")
+        ),
+        "backup": backup,
+    }
+
+
+@app.get("/security", response_class=HTMLResponse)
+async def security_page(
+    request: Request,
+    csrf_token: str | None = Cookie(None),
+    user: str = Depends(require_admin),
+):
+    """Show the signed-in identity and which second factors are enrolled (#1952).
+
+    Backup codes themselves are never rendered here; they are shown once, in the response to the regenerate call.
+    """
+    csrf_token = _ensure_csrf_token(csrf_token)
+    response = templates.TemplateResponse(
+        request,
+        "security.html",
+        {**_security_page_context(request, user), "csrf_token": csrf_token},
+    )
+    response.set_cookie(
+        "csrf_token",
+        csrf_token,
+        httponly=True,
+        secure=True,
+        samesite="Strict",
+        path="/",
+        max_age=CSRF_COOKIE_TTL,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.get("/plugins", response_class=HTMLResponse)
