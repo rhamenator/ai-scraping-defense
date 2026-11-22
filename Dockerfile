@@ -2,7 +2,8 @@ ARG PYTHON_VERSION=3.14
 ARG RUST_VERSION=1.88
 
 # --- Builder Stage: Rust + Python 3 for building Rust libraries ---
-FROM rust:${RUST_VERSION}-bookworm AS builder
+# The digests pin the exact images; update them together with the ARG versions above.
+FROM rust:${RUST_VERSION}-bookworm@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0 AS builder
 
 # Install Python 3 and pip for PyO3 build scripts
 RUN apt-get update && apt-get install -y python3 python3-pip
@@ -21,7 +22,7 @@ RUN cd tarpit-rs && cargo build --release && \
 
 # --- Final Stage: Python app with built Rust shared libraries ---
 # FROM ubuntu:22.04
-FROM python:${PYTHON_VERSION}-slim
+FROM python:${PYTHON_VERSION}-slim@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f
 
 # Security metadata
 LABEL security.non-root="true" \

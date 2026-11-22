@@ -6,7 +6,7 @@
 
 services:
   mailhog:
-    image: mailhog/mailhog
+    image: mailhog/mailhog@sha256:8d76a3d4ffa32a3661311944007a415332c4bb855657f4f6c57996405c009bea
     container_name: mailhog
     ports:
       - "${ALERT_SMTP_PORT:-1025}:1025"
@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
 
   mock_external_api:
-    image: stoplight/prism:4
+    image: stoplight/prism:4@sha256:08dc16243047a3263beca814b544a5be81e9ec25ca5757cdc4170c84f7431355
     container_name: mock_external_api
     command: mock -h 0.0.0.0 /mocks/external_api.yaml
     volumes:
@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
 
   nginx_proxy:
-    image: openresty/openresty:1.29.2.1-alpine
+    image: openresty/openresty:1.29.2.1-alpine@sha256:711a9c269a6e4f4b5540fe6bdb4924bba14fc95ff16a77d6da76f89a78ad3e11
     container_name: nginx_proxy
     security_opt:
       - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
@@ -104,7 +104,7 @@ services:
     restart: unless-stopped
 
   apache_proxy:
-    image: httpd:2.4
+    image: httpd:2.4@sha256:32e9403360ab2f1047523e72f256527fb9aee68b342abf6ad03f0d629157f3d9
     container_name: apache_proxy
     ports:
       - "${APACHE_HTTP_PORT:-8080}:80"
@@ -540,7 +540,7 @@ services:
       retries: 3
 
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15-alpine@sha256:e18480a22d6e48f4d816a6696769b1ec09ac73a824c5649e49c7d8b684913f3d
     container_name: postgres_markov_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -565,7 +565,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
     container_name: redis_store
     # Load the password from the same file used by the other services
     command:
@@ -645,11 +645,27 @@ services:
     depends_on:
       - nginx_proxy
 
+  # Narrow, read-only view of the Docker API for Traefik. Everything except listing and inspecting containers (plus the
+  # defaults: events, ping, version) is refused, and the proxy sits on an internal network with no route out.
+  docker_socket_proxy:
+    image: tecnativa/docker-socket-proxy:v0.4.1@sha256:3400c429c5f9e1b21d62130fb93b16e2e772d4fb7695bd52fc2b743800b9fe9e
+    container_name: docker_socket_proxy
+    environment:
+      CONTAINERS: "1"
+      POST: "0"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - docker_api
+    restart: unless-stopped
+
   traefik:
-    image: traefik:v3.6.7
+    image: traefik:v3.6.7@sha256:a9890c898f379c1905ee5b28342f6b408dc863f08db2dab20e46c267d1ff463a
     container_name: traefik
     command:
       - --providers.docker=true
+      # Container discovery goes through the read-only socket proxy below, never the raw Docker socket.
+      - --providers.docker.endpoint=tcp://docker_socket_proxy:2375
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
       - --api.dashboard=true
@@ -657,10 +673,11 @@ services:
     ports:
       - "8005:80"
       - "8081:8080"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - defense_network
+      - docker_api
+    depends_on:
+      - docker_socket_proxy
     restart: unless-stopped
 
   llama3:
@@ -733,19 +750,27 @@ services:
       - prometheus
     restart: unless-stopped
 
+  # OPT-IN: not started by default. It needs full control of the Docker socket, so it only runs when you ask for it
+  # (`docker compose --profile auto-update up -d`) and only touches containers that carry the label
+  # `com.centurylinklabs.watchtower.enable=true`. Images in this file are pinned by digest, so review and bump the
+  # digests deliberately; enabling Watchtower on a pinned container means you accept unreviewed updates for it.
   watchtower:
     image: containrrr/watchtower:1.7.1@sha256:6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038
     container_name: watchtower
+    profiles: ["auto-update"]
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval ${WATCHTOWER_INTERVAL:-60} --cleanup
+    command: --interval ${WATCHTOWER_INTERVAL:-86400} --cleanup --label-enable
     networks:
       - defense_network
-    restart: always
+    restart: unless-stopped
 
 networks:
   defense_network:
     driver: bridge
+  docker_api:
+    driver: bridge
+    internal: true
 
 volumes:
   postgres_data:

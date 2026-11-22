@@ -652,6 +652,4 @@ GRAFANA_PORT=3000
 - **Prometheus UI:** [http://localhost:${PROMETHEUS_PORT:-9090}](http://localhost:9090) shows raw metrics and scrape targets.
 - **Grafana UI:** [http://localhost:${GRAFANA_PORT:-3000}](http://localhost:3000) (default login `admin` / `admin`). You can import a dashboard from Grafana's library or create your own to monitor request rates and response times.
 
-The stack also runs a `watchtower` container that checks for image updates every
-minute and restarts services automatically. Remove or comment out the
-`watchtower` section in `docker-compose.yaml` if you prefer manual updates.
+Automatic image updates are **off by default**. Images in `docker-compose.yaml` are pinned by digest, so updates are a reviewed change. If you want Watchtower, start it with `docker compose --profile auto-update up -d` and add the label `com.centurylinklabs.watchtower.enable=true` to each container it may update; it checks daily by default (`WATCHTOWER_INTERVAL`, in seconds). Watchtower needs full control of the Docker socket, so enable it only on hosts where you accept that. Traefik no longer mounts the Docker socket; it reads container labels through a read-only socket proxy.
