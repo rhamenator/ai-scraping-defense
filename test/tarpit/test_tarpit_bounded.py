@@ -98,6 +98,50 @@ class MarkovBoundsTests(unittest.TestCase):
         self.assertFalse(hasattr(mg.pool, "SimpleConnectionPool") and mg.pool.SimpleConnectionPool is threaded)
 
 
+class PoolOwnershipTests(unittest.TestCase):
+    """A database error replaces the global pool while other threads still hold connections (#1908 review)."""
+
+    def test_a_connection_goes_back_to_the_pool_that_issued_it(self):
+        old_pool, new_pool = MagicMock(), MagicMock()
+        connection = MagicMock()
+        old_pool.getconn.return_value = connection
+        with patch.object(mg, "_db_pool", old_pool):
+            conn, cursor = mg._get_db_connection()
+        self.assertIs(conn, connection)
+        with patch.object(mg, "_db_pool", new_pool):  # the global was replaced meanwhile
+            mg._release_db_connection(conn, cursor)
+        old_pool.putconn.assert_called_once_with(connection)
+        new_pool.putconn.assert_not_called()
+        self.assertNotIn(connection, mg._connection_owners)
+
+    def test_releasing_an_unknown_connection_does_nothing(self):
+        pool = MagicMock()
+        with patch.object(mg, "_db_pool", pool):
+            mg._release_db_connection(MagicMock(), None)
+        pool.putconn.assert_not_called()
+
+    def test_only_the_pool_that_failed_is_invalidated(self):
+        failed, current = MagicMock(), MagicMock()
+        with patch.object(mg, "_db_pool", current):
+            mg._invalidate_db_pool(failed)
+            self.assertIs(mg._db_pool, current)
+            mg._invalidate_db_pool(current)
+            self.assertIsNone(mg._db_pool)
+
+    def test_a_failing_query_invalidates_its_own_pool_not_a_newer_one(self):
+        failed_pool, newer_pool = MagicMock(), MagicMock()
+        connection = MagicMock()
+        failed_pool.getconn.return_value = connection
+        connection.cursor.return_value.execute.side_effect = psycopg2.OperationalError("timeout")
+        with patch.object(mg, "_db_pool", failed_pool):
+            conn, cursor = mg._get_db_connection()
+        with patch.object(mg, "_get_db_connection", return_value=(conn, cursor)), patch.object(
+            mg, "_db_pool", newer_pool
+        ):
+            self.assertIsNone(mg.get_next_word_from_db(1, 1, rng=random.Random(1)))  # nosec B311
+            self.assertIs(mg._db_pool, newer_pool)
+
+
 class HandlerResponsivenessTests(unittest.IsolatedAsyncioTestCase):
     """Run the real handler in one event loop, so a blocked loop would be visible."""
 

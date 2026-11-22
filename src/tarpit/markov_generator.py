@@ -86,6 +86,9 @@ PG_PASSWORD_FILE = os.getenv("PG_PASSWORD_FILE", "/run/secrets/pg_password")
 
 _db_pool = None
 _db_pool_lock = threading.Lock()
+# Which pool each checked-out connection came from. A database error replaces the global pool, so a connection must be
+# returned to the pool that issued it, never to whatever the global points at by then (#1908).
+_connection_owners: dict = {}
 
 
 def _get_pg_password():
@@ -155,6 +158,8 @@ def _get_db_connection():
         return None, None
     try:
         conn = db_pool.getconn()
+        with _db_pool_lock:
+            _connection_owners[conn] = db_pool
         return conn, conn.cursor()
     except Exception as e:
         logger.error(f"ERROR: Failed to obtain PostgreSQL connection: {e}")
@@ -168,11 +173,23 @@ def _release_db_connection(conn, cursor):
             cursor.close()
         except Exception as e:  # pragma: no cover - log unexpected errors
             logger.error(f"Error closing cursor: {e}")
-    if conn and _db_pool:
+    if conn:
+        with _db_pool_lock:
+            owner = _connection_owners.pop(conn, None)
+        if owner is None:
+            return
         try:
-            _db_pool.putconn(conn)
+            owner.putconn(conn)
         except Exception as e:  # pragma: no cover - log unexpected errors
             logger.error(f"Error releasing DB connection: {e}")
+
+
+def _invalidate_db_pool(failed_pool) -> None:
+    """Drop the global pool after an error, but only if it is still the pool that failed."""
+    global _db_pool
+    with _db_pool_lock:
+        if _db_pool is failed_pool:
+            _db_pool = None
 
 
 # --- Helper Functions ---
@@ -274,8 +291,7 @@ def get_next_word_from_db(
         logger.error(
             f"Database error fetching next word for ({word1_id}, {word2_id}): {e}"
         )
-        global _db_pool
-        _db_pool = None  # Force pool reinitialization on next call
+        _invalidate_db_pool(_connection_owners.get(conn))  # Force pool reinitialization on next call
         return None
     except Exception as e:
         logger.error(f"Unexpected error fetching next word: {e}")
