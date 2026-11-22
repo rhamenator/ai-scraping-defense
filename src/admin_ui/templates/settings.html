@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>System Settings - AI Scraping Defense</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='settings.css') }}">
@@ -238,10 +239,8 @@
             e.preventDefault();
             const formData = new FormData(e.target);
             const resultDiv = document.getElementById('deletionResult');
-            const csrfToken = document.cookie
-                .split('; ')
-                .find((row) => row.startsWith('csrf_token='))
-                ?.split('=')[1] || '';
+            // The csrf_token cookie is HttpOnly, so script cannot read it; the server renders the token into the page.
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
             try {
                 const response = await fetch('/gdpr/deletion-request', {
