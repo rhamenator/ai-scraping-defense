@@ -3,31 +3,58 @@
 import re
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[2]
-COMPOSE = (ROOT / "docker-compose.yaml").read_text()
+COMPOSE = yaml.safe_load((ROOT / "docker-compose.yaml").read_text())
+SERVICES = COMPOSE["services"]
 DOCKERFILE = (ROOT / "Dockerfile").read_text()
 NGINX_K8S = (ROOT / "kubernetes" / "nginx-deployment.yaml").read_text()
-SERVICES_BLOCK = COMPOSE[COMPOSE.index("\nservices:"):COMPOSE.index("\nnetworks:")]
+DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
 
 
-def _service(name: str) -> str:
-    match = re.search(rf"(?ms)^  {re.escape(name)}:\n(.*?)(?=^  [A-Za-z0-9_]+:\n|^\S)", COMPOSE)
-    assert match, f"service {name} not found"
+def _dockerfile_digest_default(name: str) -> str:
+    match = re.search(rf"(?m)^ARG {name}=(sha256:[0-9a-f]{{64}})$", DOCKERFILE)
+    assert match, f"{name} default digest not found in the Dockerfile"
     return match.group(1)
 
 
 def test_every_compose_image_is_pinned_by_digest():
-    images = re.findall(r"(?m)^\s+image: (\S+)\s*$", COMPOSE)
-    assert images, "expected image entries"
-    for image in images:
-        assert re.search(r"@sha256:[0-9a-f]{64}$", image), f"image is not pinned by digest: {image}"
+    images = {name: svc["image"] for name, svc in SERVICES.items() if "image" in svc}
+    assert images
+    for name, image in images.items():
+        assert DIGEST.search(image), f"{name}: image is not pinned by digest: {image}"
 
 
-def test_every_dockerfile_base_image_is_pinned_by_digest():
+def test_dockerfile_base_images_use_digest_arguments_with_defaults():
     bases = re.findall(r"(?m)^FROM (\S+)", DOCKERFILE)
-    assert bases
+    assert len(bases) >= 2
     for base in bases:
-        assert re.search(r"@sha256:[0-9a-f]{64}$", base), f"base image is not pinned by digest: {base}"
+        assert re.search(r"@\$\{(PYTHON|RUST)_DIGEST\}$", base), f"base image is not pinned by a digest argument: {base}"
+    _dockerfile_digest_default("PYTHON_DIGEST")
+    _dockerfile_digest_default("RUST_DIGEST")
+
+
+def test_a_version_override_that_disagrees_with_its_digest_fails_the_build():
+    assert 'rustc --version | grep -F "rustc ${RUST_VERSION}."' in DOCKERFILE
+    assert "does not match the pinned" in DOCKERFILE
+    assert "sys.version_info[:2]" in DOCKERFILE
+
+
+def test_compose_build_arguments_carry_the_dockerfile_digests():
+    python_digest = _dockerfile_digest_default("PYTHON_DIGEST")
+    rust_digest = _dockerfile_digest_default("RUST_DIGEST")
+    checked = 0
+    for name, svc in SERVICES.items():
+        args = (svc.get("build") or {}).get("args") if isinstance(svc.get("build"), dict) else None
+        if not args or "PYTHON_VERSION" not in args:
+            continue
+        checked += 1
+        assert python_digest in str(args.get("PYTHON_DIGEST")), name
+        if "RUST_VERSION" in args:
+            # Services that do not pass a Rust version use the Dockerfile defaults for both.
+            assert rust_digest in str(args.get("RUST_DIGEST")), name
+    assert checked >= 1
 
 
 def test_kubernetes_nginx_image_is_pinned_by_digest():
@@ -40,27 +67,28 @@ def test_kubernetes_nginx_image_is_pinned_by_digest():
 def test_only_the_socket_proxy_and_opt_in_watchtower_mount_the_docker_socket():
     mounting = {
         name
-        for name in re.findall(r"(?m)^  ([A-Za-z0-9_]+):\n", SERVICES_BLOCK)
-        if "docker.sock" in _service(name)
+        for name, svc in SERVICES.items()
+        if any("docker.sock" in str(volume) for volume in svc.get("volumes", []))
     }
     assert mounting == {"docker_socket_proxy", "watchtower"}
 
 
 def test_traefik_reads_containers_through_the_proxy_only():
-    traefik = _service("traefik")
-    assert "docker.sock" not in traefik
-    assert "--providers.docker.endpoint=tcp://docker_socket_proxy:2375" in traefik
+    traefik = SERVICES["traefik"]
+    assert not any("docker.sock" in str(volume) for volume in traefik.get("volumes", []))
+    assert "--providers.docker.endpoint=tcp://docker_socket_proxy:2375" in traefik["command"]
 
 
 def test_socket_proxy_is_read_only_and_isolated():
-    proxy = _service("docker_socket_proxy")
-    assert 'POST: "0"' in proxy
-    assert 'CONTAINERS: "1"' in proxy
-    assert not re.search(r"(?m)^\s+ports:", proxy)
-    assert re.search(r"(?ms)^  docker_api:\n(?:    .*\n)*?    internal: true", COMPOSE)
+    proxy = SERVICES["docker_socket_proxy"]
+    assert str(proxy["environment"]["POST"]) == "0"
+    assert str(proxy["environment"]["CONTAINERS"]) == "1"
+    assert "ports" not in proxy
+    assert proxy["networks"] == ["docker_api"]
+    assert COMPOSE["networks"]["docker_api"]["internal"] is True
 
 
 def test_watchtower_is_opt_in_and_limited_to_labelled_containers():
-    watchtower = _service("watchtower")
-    assert re.search(r'profiles:\s*\["auto-update"\]', watchtower)
-    assert "--label-enable" in watchtower
+    watchtower = SERVICES["watchtower"]
+    assert watchtower["profiles"] == ["auto-update"]
+    assert "--label-enable" in watchtower["command"]
