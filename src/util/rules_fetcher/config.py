@@ -33,3 +33,10 @@ CRS_MAX_EXTRACTED_BYTES = _int_env("CRS_MAX_EXTRACTED_BYTES", 100 * 1024 * 1024)
 CRS_MAX_FILE_BYTES = _int_env("CRS_MAX_FILE_BYTES", 20 * 1024 * 1024)
 CRS_MAX_MEMBERS = _int_env("CRS_MAX_MEMBERS", 5000)
 CRS_MAX_EXPANSION_RATIO = _int_env("CRS_MAX_EXPANSION_RATIO", 100)
+
+# How the running Nginx is told about new rules after the CRS is installed (#1907):
+#   local       run `nginx -s reload` in this container (default; right when this process runs beside Nginx)
+#   kubernetes  roll the Deployment named WAF_RESTART_DEPLOYMENT so its pods start with the new rules (CronJob use)
+#   none        install only; Nginx picks the rules up whenever it next restarts or reloads
+WAF_RELOAD_MODE = os.getenv("WAF_RELOAD_MODE", "local").strip().lower()
+WAF_RESTART_DEPLOYMENT = os.getenv("WAF_RESTART_DEPLOYMENT", "nginx-proxy")

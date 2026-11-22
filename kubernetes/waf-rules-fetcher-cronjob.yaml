@@ -6,8 +6,9 @@ metadata:
   namespace: ai-defense
 spec:
   # The stock OpenResty image is not ModSecurity-enabled. Keep this maintenance
-  # job suspended unless the deployment is switched to a WAF-capable image and
-  # a writable/shared rules volume is configured.
+  # job suspended until the Nginx deployment uses a ModSecurity-capable image
+  # and the shared rules volume is in place: follow
+  # kubernetes/optional-waf-crs/README.md, then set `suspend: false`.
   suspend: true
   # Runs daily at 3 AM.
   schedule: "0 3 * * *"
@@ -25,6 +26,8 @@ spec:
               type: RuntimeDefault
           containers:
           - name: owasp-crs-fetcher
+            # This image must include the Kubernetes client for WAF_RELOAD_MODE=kubernetes (see
+            # kubernetes/optional-waf-crs/README.md: the standard image does not).
             image: your-registry/ai-scraping-defense:latest
             imagePullPolicy: Always
             command: ["python", "-m", "src.util.rules_fetcher"]
@@ -41,18 +44,37 @@ spec:
               capabilities:
                 drop: ["ALL"]
             env:
+            # Final download URL (no redirects are followed) and the SHA-256 of that exact archive. To move to a new
+            # release, change both together (see kubernetes/optional-waf-crs/README.md for how to compute the digest).
             - name: CRS_DOWNLOAD_URL
-              value: "https://github.com/coreruleset/coreruleset/archive/refs/heads/v3.3/main.tar.gz"
-            # Redirects are not followed, so the URL above must be the final download URL (for GitHub, the
-            # codeload.github.com tag archive). Pin the exact archive you reviewed:
-            # - name: CRS_SHA256
-            #   value: "<sha256 of the archive>"
-            # - name: RULES_REQUIRE_DIGEST
-            #   value: "true"
+              value: "https://codeload.github.com/coreruleset/coreruleset/tar.gz/refs/tags/v4.30.0"
+            - name: CRS_SHA256
+              value: "a4bb3688ef6205b64471a9ccbf0d7b024eb8edf39b97c6f6c0006e7a948f8550"
+            - name: RULES_ALLOWED_DOMAINS
+              value: "codeload.github.com"
+            - name: RULES_REQUIRE_DIGEST
+              value: "true"
+            # The rules go onto the shared volume that the Nginx pods also mount (kubernetes/optional-waf-crs/).
+            - name: MODSECURITY_DIR
+              value: "/waf"
+            # This container has no Nginx to signal, so ask Kubernetes to roll the Nginx Deployment instead.
+            - name: WAF_RELOAD_MODE
+              value: "kubernetes"
+            - name: WAF_RESTART_DEPLOYMENT
+              value: "nginx-proxy"
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: waf-rules
+              mountPath: /waf
           volumes:
           - name: tmp
             emptyDir: {}
+          - name: waf-rules
+            persistentVolumeClaim:
+              claimName: waf-rules
           restartPolicy: OnFailure
