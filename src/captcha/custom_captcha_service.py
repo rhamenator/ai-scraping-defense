@@ -202,7 +202,7 @@ def _looks_automated(record: dict, token: str, answer: str, proof: str) -> bool:
     """A correct answer that came too fast, or without the page's proof: ask again, never block."""
     if MIN_SOLVE_SECONDS > 0 and time.time() - float(record.get("iat", 0)) < MIN_SOLVE_SECONDS:
         return True
-    return REQUIRE_PROOF and not hmac.compare_digest(proof.strip().lower(), _proof(token, answer))
+    return REQUIRE_PROOF and not hmac.compare_digest(proof.strip().lower().encode("utf-8"), _proof(token, answer).encode("utf-8"))
 
 
 def _log_success(ip: str, fingerprint: str, ua: str) -> None:
@@ -268,7 +268,7 @@ async def _verification_inputs(request: Request, token: str | None, ip: str | No
         form = await request.form()
     supplied_secret = form.get("secret")
     if supplied_secret is not None and not (
-        CAPTCHA_SECRET and hmac.compare_digest(str(supplied_secret), CAPTCHA_SECRET)
+        CAPTCHA_SECRET and hmac.compare_digest(str(supplied_secret).encode("utf-8"), CAPTCHA_SECRET.encode("utf-8"))
     ):
         return None, None
     return token or form.get("response"), ip or form.get("remoteip")
