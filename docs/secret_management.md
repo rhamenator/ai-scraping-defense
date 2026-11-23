@@ -485,11 +485,13 @@ For issues or questions:
 Persistent host secret files (`pg_password.txt`, `redis_password.txt`, `grafana_admin_password.txt`, `admin_ui_password_hash.txt`) can be sealed at rest using AES-256-GCM + Scrypt in `secrets/secrets.enc`:
 
 ```bash
-# Seal plaintext *.txt files and remove the plaintext copies from disk:
-python3 scripts/secrets_bundle.py seal --shred-plaintext
+# Seal plaintext *.txt files (to a separate backup location or before mounting tmpfs) and remove plaintext copies:
+python3 scripts/secrets_bundle.py seal --bundle /etc/asd/secrets.enc --shred-plaintext
 
-# Unseal at startup (via interactive passphrase, or --key-file / ASD_SECRETS_KEY_FILE from systemd-creds / TPM2):
-python3 scripts/secrets_bundle.py unseal --secrets-dir /mnt/tmpfs-secrets
+# Mount a RAM-only tmpfs at ./secrets before starting Compose so secrets_init reads unsealed files only from RAM:
+sudo mount -t tmpfs -o mode=0700,size=1m tmpfs ./secrets
+python3 scripts/secrets_bundle.py unseal --bundle /etc/asd/secrets.enc --secrets-dir ./secrets
+docker compose up -d
 ```
 
 - Ephemeral internal secrets (`AUTH_JWT_SECRET`, `SYSTEM_SEED`, `CAPTCHA_SECRET`, internal service keys) are generated in RAM (`tmpfs`) at startup by `secrets_init` when omitted from disk.

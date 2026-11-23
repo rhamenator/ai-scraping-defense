@@ -122,10 +122,10 @@ def main(argv: list[str] | None = None) -> int:
     passphrase = _read_passphrase(args.key_file)
     if args.cmd == "seal":
         names = seal_secrets(args.secrets_dir, args.bundle, passphrase, shred_plaintext=args.shred_plaintext)
-        print(f"Sealed {len(names)} secret(s) to {args.bundle}")
+        print(f"Sealed {len(names)} secret(s).")
         return 0
     names = unseal_secrets(args.bundle, args.secrets_dir, passphrase)
-    print(f"Unsealed {len(names)} secret(s) to {args.secrets_dir}")
+    print(f"Unsealed {len(names)} secret(s).")
     return 0
 
 
