@@ -91,14 +91,17 @@ class LinuxScriptTests(unittest.TestCase):
             cwd=self.tmp, env=env, capture_output=True, text=True, timeout=120, check=False,
         )
 
-    def test_every_secret_file_is_owner_only_except_the_two_that_containers_must_read(self):
+    def test_every_secret_file_is_owner_only_except_the_htpasswd_hash(self):
         result = self.run_script("--update-env")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(mode(self.tmp / "kubernetes" / "secrets.yaml"), 0o600)
         self.assertEqual(mode(self.tmp / ".env"), 0o600)
         # nginx workers read the htpasswd file as another user; it holds a bcrypt hash, not the password
         self.assertEqual(mode(self.tmp / "nginx" / ".htpasswd"), 0o644)
-        self.assertEqual(mode(self.tmp / "secrets" / "pg_password.txt"), 0o644)  # compose bind mount; see the issue
+        # The containers read staged copies (the secrets_init service), so the host files and directory stay private (#1912).
+        self.assertEqual(mode(self.tmp / "secrets"), 0o700)
+        self.assertEqual(mode(self.tmp / "secrets" / "pg_password.txt"), 0o600)
+        self.assertEqual(mode(self.tmp / "secrets" / "redis_password.txt"), 0o600)
 
     def test_a_random_grafana_admin_password_is_generated_for_the_compose_mount(self):
         result = self.run_script("--update-env")
@@ -107,7 +110,7 @@ class LinuxScriptTests(unittest.TestCase):
         password = path.read_text(encoding="utf-8")
         self.assertGreaterEqual(len(password), 16)
         self.assertNotEqual(password.lower(), "admin")
-        self.assertEqual(mode(path), 0o644)  # compose bind mount read by the Grafana user, like the other mounted secrets
+        self.assertEqual(mode(path), 0o600)  # staged for Grafana by secrets_init, like the other host secret files
         self.assertNotIn(password, result.stdout + result.stderr, "never printed")
         other = (self.tmp / "secrets" / "pg_password.txt").read_text(encoding="utf-8")
         self.assertNotEqual(password, other, "not shared with another credential")
@@ -144,6 +147,47 @@ class ScriptSourceGuards(unittest.TestCase):
         source = (ROOT / "scripts" / "interactive_setup.py").read_text(encoding="utf-8")
         self.assertNotIn("env_file.write_text(", source)
         self.assertNotIn("path.write_text(", source)
+
+
+
+class ComposeStagesSecrets(unittest.TestCase):
+    """The compose file must not bind-mount the private host directory into the runtime containers (#1912)."""
+
+    def setUp(self):
+        import yaml
+
+        self.compose = yaml.safe_load((ROOT / "docker-compose.yaml").read_text(encoding="utf-8"))
+
+    def test_no_runtime_service_mounts_the_host_secrets_directory(self):
+        for name, service in self.compose["services"].items():
+            for volume in service.get("volumes", []):
+                if name == "secrets_init":
+                    continue
+                self.assertFalse(str(volume).startswith("./secrets:"), f"{name} mounts ./secrets directly")
+
+    def test_every_service_that_reads_secrets_waits_for_the_staging_job(self):
+        readers = [n for n, s in self.compose["services"].items() if any(str(v).startswith("runtime_secrets:") for v in s.get("volumes", []))]
+        self.assertIn("postgres", readers)
+        self.assertIn("redis", readers)
+        for name in readers:
+            if name == "secrets_init":
+                continue
+            condition = self.compose["services"][name]["depends_on"]["secrets_init"]["condition"]
+            self.assertEqual(condition, "service_completed_successfully", name)
+
+    def test_the_staging_job_copies_only_txt_secret_files_never_the_private_database(self):
+        script = self.compose["services"]["secrets_init"]["command"][0]
+        self.assertIn("/staging/source/*.txt", script)
+        self.assertNotIn("cp -R", script)
+        self.assertNotIn("local_secrets", script)
+
+    def test_the_staging_job_is_minimal(self):
+        job = self.compose["services"]["secrets_init"]
+        self.assertEqual(job["network_mode"], "none")
+        self.assertEqual(job["cap_drop"], ["ALL"])
+        self.assertEqual(sorted(job["cap_add"]), ["CHOWN", "DAC_OVERRIDE", "FOWNER"])
+        self.assertTrue(job["read_only"])
+        self.assertIn("./secrets:/staging/source:ro", job["volumes"])
 
 
 if __name__ == "__main__":

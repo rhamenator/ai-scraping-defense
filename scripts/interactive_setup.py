@@ -287,7 +287,8 @@ def store_secrets(root: Path, env: dict[str, str]) -> None:
     if resp != "y":
         return
     secrets_dir = root / "secrets"
-    secrets_dir.mkdir(exist_ok=True)
+    secrets_dir.mkdir(mode=0o700, exist_ok=True)
+    os.chmod(secrets_dir, 0o700)  # nosec B103 nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions - owner-only 0700 is restrictive
     db_path = secrets_dir / "local_secrets.db"
     create_private_file(db_path)  # the database holds plaintext secrets, so it is never group or world readable
     conn = sqlite3.connect(db_path)

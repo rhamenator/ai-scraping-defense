@@ -66,7 +66,7 @@ services:
       - ./nginx/.htpasswd:/etc/nginx/secrets/.htpasswd:ro
       - ./waf:/etc/nginx/modsecurity:ro
       - ./docs_ui:/usr/share/nginx/html/docs_ui:ro
-      - ./secrets:/run/secrets:ro
+      - runtime_secrets:/run/secrets:ro
       - nginx_generated_conf:/etc/nginx/generated-conf
       # Restored Nginx cache volumes for stability and performance
       - nginx_client_body_temp:/var/run/openresty/nginx-client-body
@@ -96,6 +96,8 @@ services:
       - -c
       - /bin/sh /usr/local/bin/render_cdn_origin_lockdown.sh && exec /usr/local/openresty/bin/openresty -g 'daemon off;'
     depends_on:
+      secrets_init:
+        condition: service_completed_successfully
       escalation_engine:
         condition: service_healthy
       tarpit_api:
@@ -151,9 +153,12 @@ services:
       - ./src:/app/src
       - ./logs:/app/logs
       - ./scripts/linux/docker-entrypoint.sh:/app/docker-entrypoint.sh
-      - ./secrets:/run/secrets:ro
+      - runtime_secrets:/run/secrets:ro
     depends_on:
-      - escalation_engine
+      secrets_init:
+        condition: service_completed_successfully
+      escalation_engine:
+        condition: service_started
     networks:
       - defense_network
     restart: unless-stopped
@@ -203,8 +208,10 @@ services:
       - ./src:/app/src
       - ./models:/app/models
       - ./data:/app/data
-      - ./secrets:/run/secrets:ro
+      - runtime_secrets:/run/secrets:ro
     depends_on:
+      secrets_init:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -253,8 +260,10 @@ services:
     volumes:
       - ./src:/app/src
       - ./archives:/app/archives
-      - ./secrets:/run/secrets:ro
+      - runtime_secrets:/run/secrets:ro
     depends_on:
+      secrets_init:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -303,8 +312,10 @@ services:
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
-      - ./secrets:/run/secrets:ro
+      - runtime_secrets:/run/secrets:ro
     depends_on:
+      secrets_init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       postgres:
@@ -354,10 +365,13 @@ services:
       ]
     env_file:
       - .env
+    depends_on:
+      secrets_init:
+        condition: service_completed_successfully
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
-      - ./secrets:/run/secrets:ro
+      - runtime_secrets:/run/secrets:ro
     networks:
       - defense_network
     restart: unless-stopped
@@ -399,8 +413,10 @@ services:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:${CLOUD_DASHBOARD_PORT:-5006}:5006"
     volumes:
       - ./src:/app/src
-      - ./secrets:/run/secrets:ro
+      - runtime_secrets:/run/secrets:ro
     depends_on:
+      secrets_init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:
@@ -444,8 +460,10 @@ services:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:8010:8010"
     volumes:
       - ./src:/app/src:ro
-      - ./secrets:/run/secrets:ro
+      - runtime_secrets:/run/secrets:ro
     depends_on:
+      secrets_init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:
@@ -485,10 +503,13 @@ services:
       - .env
     ports:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:${CLOUD_PROXY_PORT:-8008}:8008"
+    depends_on:
+      secrets_init:
+        condition: service_completed_successfully
     volumes:
       - ./cloud-proxy:/app:ro
       - ./src:/app/src:ro
-      - ./secrets:/run/secrets:ro
+      - runtime_secrets:/run/secrets:ro
     networks:
       - defense_network
     restart: unless-stopped
@@ -532,10 +553,13 @@ services:
       - .env
     ports:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:${PROMPT_ROUTER_PORT:-8009}:8009"
+    depends_on:
+      secrets_init:
+        condition: service_completed_successfully
     volumes:
       - ./prompt-router:/app:ro
       - ./src:/app/src:ro
-      - ./secrets:/run/secrets:ro
+      - runtime_secrets:/run/secrets:ro
     networks:
       - defense_network
     restart: unless-stopped
@@ -558,13 +582,52 @@ services:
       timeout: 10s
       retries: 3
 
+  # Stages the secret files into a volume the runtime users can read (#1912). The host copies in ./secrets can then stay
+  # private (0600 files in a 0700 directory) instead of world-readable: this one-shot job runs as root, which can read them
+  # whatever their owner, and writes the container-readable copies where only Docker can reach them.
+  secrets_init:
+    image: redis:7-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
+    user: "0:0"
+    restart: "no"
+    network_mode: none
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_OVERRIDE
+      - CHOWN
+      - FOWNER
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./secrets:/staging/source:ro
+      - runtime_secrets:/staging/target
+    entrypoint: ["sh", "-c"]
+    # Only the plain *.txt secret files the services read are staged: anything else in ./secrets (for example the optional
+    # private local_secrets.db that interactive_setup.py can create) is deliberately left behind.
+    command:
+      - |
+        set -eu
+        umask 022
+        find /staging/target -mindepth 1 -delete
+        for f in /staging/source/*.txt; do
+          if [ -f "$$f" ]; then cp "$$f" /staging/target/; fi
+        done
+        chmod 755 /staging/target
+        for f in /staging/target/*; do
+          if [ -f "$$f" ]; then chmod 444 "$$f"; fi
+        done
+
   postgres:
     image: postgres:15-alpine@sha256:e18480a22d6e48f4d816a6696769b1ec09ac73a824c5649e49c7d8b684913f3d
     container_name: postgres_markov_db
+    depends_on:
+      secrets_init:
+        condition: service_completed_successfully
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init_markov.sql:/docker-entrypoint-initdb.d/init_markov.sql
-      - ./secrets:/run/secrets:ro
+      - runtime_secrets:/run/secrets:ro
     environment:
       # The official Postgres image expects the POSTGRES_* variables, but
       # our .env uses the newer PG_* naming. Map them here so both the
@@ -591,9 +654,12 @@ services:
       ["sh", "-c", "redis-server --requirepass $(cat ${REDIS_PASSWORD_FILE})"]
     ports:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
+    depends_on:
+      secrets_init:
+        condition: service_completed_successfully
     volumes:
       - redis_data:/data
-      - ./secrets:/run/secrets:ro
+      - runtime_secrets:/run/secrets:ro
     environment:
       - REDIS_PASSWORD_FILE=${REDIS_PASSWORD_FILE}
     networks:
@@ -619,8 +685,10 @@ services:
     env_file:
       - .env
     volumes:
-      - ./secrets:/run/secrets:ro
+      - runtime_secrets:/run/secrets:ro
     depends_on:
+      secrets_init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:
@@ -789,11 +857,14 @@ services:
         so secrets/grafana_admin_password.txt exists." >&2; exit 1; fi; exec /run.sh
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./secrets/grafana_admin_password.txt:/run/secrets/grafana_admin_password.txt:ro
+      - runtime_secrets:/run/secrets:ro
     networks:
       - defense_network
     depends_on:
-      - prometheus
+      secrets_init:
+        condition: service_completed_successfully
+      prometheus:
+        condition: service_started
     restart: unless-stopped
 
   # OPT-IN: not started by default. It needs full control of the Docker socket, so it only runs when you ask for it
@@ -819,6 +890,7 @@ networks:
     internal: true
 
 volumes:
+  runtime_secrets:
   postgres_data:
   redis_data:
   nginx_generated_conf:

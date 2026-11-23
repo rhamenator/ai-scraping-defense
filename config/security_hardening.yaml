@@ -26,9 +26,10 @@ compose:
     require_readonly_volume: true
 
   secret_volume_prefixes:
-    - "./secrets:/run/secrets"
+    - "runtime_secrets:/run/secrets"
   secret_volume_readonly: true
   documented_exceptions:
+    secrets_init: "One-shot job that stages ./secrets into the runtime_secrets volume (#1912). It must run as root to read private host files and must write the volume, so it has no read-only root-volume requirement; it drops all capabilities except the three it needs, has no network, and exits."
     mailhog: "Developer SMTP sink only; upstream image remains a documented dev-only exception."
     mock_external_api: "CI and local mock dependency; not shipped as part of the hardened production path."
     apache_proxy: "Alternate local proxy path pending dedicated hardened image/runtime profile."
