@@ -18,6 +18,16 @@ On Windows, run `scripts\\windows\\install.ps1` from an **Administrator PowerShe
 The Linux installer copies `sample.env`, generates secrets when needed, installs dependencies, launches Docker Compose through the selected reverse-proxy helper, and runs the Linux smoke test.
 If you encounter setup issues, see [Troubleshooting](troubleshooting.md) for common fixes.
 
+## **Running the Python Stack on Windows**
+
+> **Do not run the Python services bare-metal on Windows for production.**
+> Running the Python microservices directly on Windows bypasses `nginx_proxy` (OpenResty + Lua + ModSecurity WAF), per-service `tmpfs` secret isolation (`secrets_anchor`/`secrets_init`), `read_only` root filesystems, `cap_drop: ALL`, and `no-new-privileges`. Native Windows Python execution is intended only for running unit tests and local development helpers.
+
+For Windows deployments without IIS:
+* **Use Docker Desktop with the WSL2 backend (recommended: clone and run inside WSL2):** Running inside a WSL2 Linux filesystem preserves POSIX permissions (`0700` on `./secrets`, `0600` on `secrets/*.txt`, `.env`, and `secrets.enc.json`) and avoids Windows-to-WSL2 9P bind-mount overhead. If running from Windows PowerShell, use `scripts\\windows\\Generate-Secrets.ps1` (which applies NTFS ACLs) and `scripts\\windows\\quick_deploy.ps1`, or deploy to Kubernetes via `scripts\\windows\\deploy.ps1`.
+* **Account for Linux-host-only containers:** `fail2ban` and `suricata` use `network_mode: "host"`, which applies to the Docker Desktop Linux VM rather than the Windows host NIC. Rely on `nginx_proxy`, an upstream WAF, or Cloudflare Tunnel (`scripts\\windows\\start_cloudflare_tunnel.ps1`) on Windows.
+* **Encrypt the Windows host disk and keep loopback bindings:** Enable BitLocker on Windows hosts, and keep `PUBLISH_ADDRESS` at its `127.0.0.1` default so internal data stores and admin UIs are never exposed on public interfaces.
+
 ## **Project Structure**
 
 - `src/` – core Python microservices and shared modules.
