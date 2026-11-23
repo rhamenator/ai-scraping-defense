@@ -538,6 +538,7 @@ services:
       - ./src:/app/src:ro
       - runtime_secrets:/run/secrets:ro
     networks:
+      - edge_net
       - control_net
     restart: unless-stopped
     security_opt:
@@ -719,6 +720,7 @@ services:
       redis:
         condition: service_healthy
     networks:
+      - edge_net
       - data_net
     restart: unless-stopped
     security_opt:
@@ -858,6 +860,8 @@ services:
     ports:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
     networks:
+      - edge_net
+      - data_net
       - control_net
     restart: unless-stopped
 
