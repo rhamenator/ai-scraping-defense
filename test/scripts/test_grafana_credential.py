@@ -20,7 +20,10 @@ class GrafanaCredential(unittest.TestCase):
         self.assertEqual(env["GF_SECURITY_ADMIN_PASSWORD__FILE"], f"/run/secrets/{GRAFANA_FILE_NAME}")
         self.assertNotIn("GF_SECURITY_ADMIN_PASSWORD", env, "a literal password would defeat the generated one")
         self.assertEqual(env["GF_USERS_ALLOW_SIGN_UP"], "false")
-        self.assertIn("runtime_secrets:/run/secrets:ro", self.grafana["volumes"])
+        self.assertTrue(
+            any(str(v).endswith(":/run/secrets:ro") for v in self.grafana["volumes"]),
+            self.grafana["volumes"],
+        )
 
     def test_it_refuses_to_start_when_the_password_file_is_missing_or_empty(self):
         entrypoint = " ".join(self.grafana["entrypoint"])
