@@ -36,7 +36,7 @@ from src.shared.observability import (
 from src.shared.redis_client import get_redis_connection
 
 from . import auth as auth_routes
-from . import block_log, blocklist, metrics, mfa, passkeys, webauthn
+from . import block_log, blocklist, mcp_config, metrics, mfa, passkeys, webauthn
 from .auth import require_admin, require_auth
 
 logger = logging.getLogger(__name__)
@@ -1071,7 +1071,9 @@ def _security_page_context(request: Request, user: str) -> dict:
         "sso": provider in {"oidc", "saml"},
         "passkey_enrolled": passkey_enrolled,
         "totp_enabled": bool(
-            os.getenv("ADMIN_UI_2FA_SECRET") or get_secret("ADMIN_UI_2FA_SECRET_FILE")
+            os.getenv("ADMIN_UI_2FA_SECRET")
+            or get_secret("ADMIN_UI_2FA_SECRET_FILE")
+            or mfa.get_totp_secret(user)
         ),
         "backup": backup,
     }
@@ -1095,6 +1097,71 @@ async def security_page(
     )
     _set_csrf_cookie(response, request, csrf_token)
     response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@app.get("/mcp", response_class=HTMLResponse)
+async def mcp_page(request: Request, user: str = Depends(require_auth)):
+    """Display and manage MCP server configurations."""
+    csrf_token = _ensure_csrf_token(request.cookies.get("csrf_token"))
+    response = templates.TemplateResponse(
+        request,
+        "mcp.html",
+        {"mcp": mcp_config.get_mcp_state(), "csrf_token": csrf_token},
+    )
+    _set_csrf_cookie(response, request, csrf_token)
+    return response
+
+
+def _upsert_mcp_from_form(form) -> tuple[str, str]:
+    mcp_config.upsert_mcp_server(
+        name=str(form.get("server_name", "")),
+        transport=str(form.get("transport", "ws")),
+        url=str(form.get("url", "")),
+        timeout_raw=str(form.get("timeout", "30")),
+        auth_token=str(form.get("auth_token", "")),
+    )
+    return "MCP server saved.", ""
+
+
+def _apply_mcp_form_action(form, action: str) -> tuple[str, str]:
+    try:
+        if action == "toggle_global":
+            enabled = str(form.get("enable_mcp_model", "")).lower() == "true"
+            mcp_config.set_mcp_enabled(enabled)
+            return f"MCP model routing {'enabled' if enabled else 'disabled'}.", ""
+        if action == "upsert_server":
+            return _upsert_mcp_from_form(form)
+        if action == "remove_server":
+            mcp_config.remove_mcp_server(str(form.get("server_name", "")))
+            return "MCP server removed.", ""
+        return "", "Unknown MCP action."
+    except ValueError as exc:
+        return "", str(exc)
+
+
+@app.post("/mcp", response_class=HTMLResponse)
+async def update_mcp(request: Request, user: str = Depends(require_admin)):
+    """Update MCP server configuration."""
+    form = await request.form()
+    csrf_token = _ensure_csrf_token(request.cookies.get("csrf_token"))
+    _validate_csrf(request.cookies.get("csrf_token"), form.get("csrf_token"))
+    action = str(form.get("action") or "")
+    saved_message, error_message = _apply_mcp_form_action(form, action)
+    if saved_message:
+        log_event(user, "admin_ui_mcp_updated", {"action": action})
+    response = templates.TemplateResponse(
+        request,
+        "mcp.html",
+        {
+            "mcp": mcp_config.get_mcp_state(),
+            "csrf_token": csrf_token,
+            "saved_message": saved_message,
+            "error_message": error_message,
+        },
+        status_code=400 if error_message else 200,
+    )
+    _set_csrf_cookie(response, request, csrf_token)
     return response
 
 

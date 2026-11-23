@@ -166,8 +166,10 @@ def _require_mfa(
             headers={"WWW-Authenticate": "Basic"},
         )
 
-    totp_secret = os.getenv("ADMIN_UI_2FA_SECRET") or get_secret(
-        "ADMIN_UI_2FA_SECRET_FILE"
+    totp_secret = (
+        os.getenv("ADMIN_UI_2FA_SECRET")
+        or get_secret("ADMIN_UI_2FA_SECRET_FILE")
+        or mfa.get_totp_secret(username)
     )
     session_valid = session_user == username
     if totp_secret:
@@ -328,9 +330,7 @@ def _require_auth_core(
             pass
 
     username = os.getenv("ADMIN_UI_USERNAME", "admin")
-    raw_hash = get_secret("ADMIN_UI_PASSWORD_HASH_FILE") or os.environ.get(
-        "ADMIN_UI_PASSWORD_HASH"
-    )
+    raw_hash = _get_active_password_hash(redis_conn, username)
     if not raw_hash:  # pragma: no cover - defensive
         raise RuntimeError(
             "ADMIN_UI_PASSWORD_HASH (or ADMIN_UI_PASSWORD_HASH_FILE) must be set",
@@ -502,6 +502,124 @@ async def backup_codes_remaining(user: str = Depends(require_admin)):
     """Return the number of remaining backup codes."""
     remaining = mfa.get_remaining_backup_codes_count(user)
     return {"remaining": remaining}
+
+
+def _password_override_key(username: str) -> str:
+    return f"admin_ui:auth:password_hash:{username}"
+
+
+def _get_active_password_hash(redis_conn, username: str) -> str | None:
+    if redis_conn:
+        try:
+            raw = redis_conn.get(_password_override_key(username))
+            if raw:
+                return _decode_redis(raw)
+        except RedisError:
+            pass
+    return get_secret("ADMIN_UI_PASSWORD_HASH_FILE") or os.environ.get(
+        "ADMIN_UI_PASSWORD_HASH"
+    )
+
+
+class TotpVerifyPayload(BaseModel):
+    code: str
+
+
+class ChangePasswordPayload(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
+
+
+@router.post("/mfa/totp/setup")
+async def setup_totp(
+    request: Request,
+    user: str = Depends(require_auth),
+):
+    """Begin self-service TOTP enrollment and return QR matrix + secret."""
+    require_csrf(request)
+    try:
+        payload = mfa.begin_totp_enrollment(user)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+    log_event(user, "admin_ui_totp_setup_started", {})
+    return payload
+
+
+@router.post("/mfa/totp/verify")
+async def verify_totp_enrollment(
+    request: Request,
+    payload: TotpVerifyPayload,
+    user: str = Depends(require_auth),
+):
+    """Verify a 6-digit TOTP code to activate authenticator enrollment."""
+    require_csrf(request)
+    if not mfa.complete_totp_enrollment(user, payload.code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification code",
+        )
+    log_event(user, "admin_ui_totp_enrolled", {})
+    return {"status": "ok", "totp_enabled": True}
+
+
+def _validate_password_change_request(
+    request: Request, payload: ChangePasswordPayload
+) -> None:
+    if getattr(request.state, "admin_ui_auth_provider", "basic") in {"oidc", "saml"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password is managed by your single sign-on provider",
+        )
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password and confirmation do not match",
+        )
+    if len(payload.new_password) < 12:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be at least 12 characters",
+        )
+
+
+@router.post("/account/password")
+async def change_password(
+    request: Request,
+    payload: ChangePasswordPayload,
+    user: str = Depends(require_auth),
+):
+    """Allow an authenticated local admin to change their own password."""
+    require_csrf(request)
+    _validate_password_change_request(request, payload)
+    redis_conn = get_redis_connection()
+    if not redis_conn:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Redis unavailable, cannot update password",
+        )
+    active_hash = _get_active_password_hash(redis_conn, user)
+    if not active_hash or not bcrypt.checkpw(
+        payload.current_password.encode(), active_hash.encode()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect",
+        )
+    new_hash = bcrypt.hashpw(payload.new_password.encode(), bcrypt.gensalt()).decode()
+    try:
+        redis_conn.set(_password_override_key(user), new_hash)
+    except RedisError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to persist new password",
+        ) from exc
+    if "ADMIN_UI_PASSWORD_HASH" in os.environ:
+        os.environ["ADMIN_UI_PASSWORD_HASH"] = new_hash
+    log_event(user, "admin_ui_password_changed", {})
+    return {"status": "ok"}
 
 
 @router.post("/logout")

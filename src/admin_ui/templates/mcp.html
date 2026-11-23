@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>MCP Servers - AI Scraping Defense</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+</head>
+<body>
+<div class="container">
+    <h1>MCP Servers</h1>
+    {% set active_page = 'mcp' %}
+    {% include '_nav.html' %}
+    <p>Configure Model Context Protocol (MCP) servers used for external tool and model routing. Auth tokens are write-only and never displayed after saving.</p>
+
+    {% if saved_message %}
+    <div class="alert-banner" role="status">{{ saved_message }}</div>
+    {% endif %}
+    {% if error_message %}
+    <p id="mcp-error" role="alert" style="color: var(--accent); font-weight: 600;">{{ error_message }}</p>
+    {% endif %}
+
+    <h2>Global MCP Routing</h2>
+    <form method="post" action="/mcp">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="action" value="toggle_global">
+        <label class="metrics-toggle">
+            <input type="checkbox" name="enable_mcp_model" value="true" {% if mcp.enable_mcp_model %}checked{% endif %}>
+            <span>Enable MCP model routing (<code>ENABLE_MCP_MODEL</code>)</span>
+        </label>
+        <p><button type="submit">Save Global Setting</button></p>
+    </form>
+
+    <h2>Configured Servers</h2>
+    <table id="mcp-servers-table" class="metrics-sheet">
+        <thead>
+            <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Transport</th>
+                <th scope="col">URL / Target</th>
+                <th scope="col">Timeout</th>
+                <th scope="col">Auth Token</th>
+                <th scope="col">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for srv in mcp.servers %}
+            <tr>
+                <td class="metric-name-cell">{{ srv.name }}</td>
+                <td>{{ srv.transport }}</td>
+                <td class="metric-key-cell">{{ srv.url }}</td>
+                <td>{{ srv.timeout }}s</td>
+                <td>{% if srv.token_configured %}Configured{% else %}Not configured{% endif %}</td>
+                <td>
+                    <form method="post" action="/mcp" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="action" value="remove_server">
+                        <input type="hidden" name="server_name" value="{{ srv.name }}">
+                        <button type="submit">Remove</button>
+                    </form>
+                </td>
+            </tr>
+        {% else %}
+            <tr><td colspan="6">No MCP servers configured.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>Add or Update MCP Server</h2>
+    <form method="post" action="/mcp" autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="action" value="upsert_server">
+        <label for="mcp-name">Server name (e.g. PRIMARY)</label>
+        <input id="mcp-name" name="server_name" required maxlength="32" pattern="[A-Za-z0-9_]{1,32}" placeholder="PRIMARY">
+
+        <label for="mcp-transport">Transport</label>
+        <select id="mcp-transport" name="transport">
+            <option value="ws">WebSocket (ws)</option>
+            <option value="http">HTTP / SSE (http)</option>
+            <option value="stdio">Subprocess (stdio)</option>
+        </select>
+
+        <label for="mcp-url">URL or Command</label>
+        <input id="mcp-url" name="url" required placeholder="ws://localhost:8085/mcp">
+
+        <label for="mcp-timeout">Timeout (seconds)</label>
+        <input id="mcp-timeout" name="timeout" type="number" min="1" max="300" value="30">
+
+        <label for="mcp-token">Auth token (optional; leave blank to keep existing)</label>
+        <input id="mcp-token" name="auth_token" type="password" autocomplete="new-password" placeholder="Optional bearer token">
+
+        <button type="submit">Save MCP Server</button>
+    </form>
+</div>
+</body>
+</html>

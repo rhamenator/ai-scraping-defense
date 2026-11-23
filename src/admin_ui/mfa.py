@@ -127,3 +127,68 @@ def get_backup_codes_status(user: str) -> dict:
         "total": len(used),
         "created_at": created if isinstance(created, (int, float)) else None,
     }
+
+
+TOTP_PENDING_TTL = 600
+
+
+def _totp_key(user: str) -> str:
+    return tenant_key(f"admin_ui:mfa:totp:{user}")
+
+
+def _totp_pending_key(user: str) -> str:
+    return tenant_key(f"admin_ui:mfa:totp_pending:{user}")
+
+
+def get_totp_secret(user: str) -> str | None:
+    redis_conn = get_redis_connection()
+    if not redis_conn:
+        return None
+    try:
+        raw = redis_conn.get(_totp_key(user))
+        if not raw:
+            return None
+        return raw.decode() if isinstance(raw, bytes) else str(raw)
+    except RedisError:
+        return None
+
+
+def begin_totp_enrollment(user: str) -> dict[str, Any]:
+    import pyotp
+    import qrcode
+
+    secret = pyotp.random_base32()
+    uri = pyotp.TOTP(secret).provisioning_uri(name=user, issuer_name="AI Scraping Defense")
+    qr = qrcode.QRCode(border=2, box_size=1)
+    qr.add_data(uri)
+    qr.make(fit=True)
+    matrix = [[bool(cell) for cell in row] for row in qr.get_matrix()]
+
+    redis_conn = get_redis_connection()
+    if not redis_conn:
+        raise RuntimeError("Redis unavailable, cannot store pending TOTP enrollment")
+    redis_conn.set(_totp_pending_key(user), secret, ex=TOTP_PENDING_TTL)
+    return {"secret": secret, "otpauth_uri": uri, "qr_matrix": matrix}
+
+
+def complete_totp_enrollment(user: str, code: str) -> bool:
+    import pyotp
+
+    redis_conn = get_redis_connection()
+    if not redis_conn:
+        return False
+    try:
+        raw = redis_conn.get(_totp_pending_key(user))
+    except RedisError:
+        return False
+    if not raw:
+        return False
+    secret = raw.decode() if isinstance(raw, bytes) else str(raw)
+    if not pyotp.TOTP(secret).verify(code.strip(), valid_window=1):
+        return False
+    try:
+        redis_conn.set(_totp_key(user), secret)
+        redis_conn.delete(_totp_pending_key(user))
+    except RedisError:
+        return False
+    return True
