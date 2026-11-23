@@ -444,7 +444,15 @@ services:
     container_name: cloud_dashboard
     environment:
       - CLOUD_DASHBOARD_API_KEY_FILE=/run/secrets/cloud_dashboard_api_key.txt
-    command: ["python", "-m", "src.cloud_dashboard.cloud_dashboard_api"]
+    command:
+      [
+        "uvicorn",
+        "src.cloud_dashboard.cloud_dashboard_api:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "${CLOUD_DASHBOARD_PORT:-5006}",
+      ]
     env_file:
       - .env
     ports:
