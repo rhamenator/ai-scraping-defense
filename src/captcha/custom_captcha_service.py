@@ -8,10 +8,10 @@ import os
 import secrets
 import time
 
-from fastapi import Cookie, Form, HTTPException, Request
+from fastapi import Cookie, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from src.shared.config import get_secret
+from src.shared.config import get_runtime_setting, get_secret
 from src.shared.middleware import create_app
 from src.shared.observability import (
     HealthCheckResult,
@@ -20,9 +20,13 @@ from src.shared.observability import (
 )
 from src.shared.request_identity import resolve_request_identity
 
+from .access_requests import AccessRequestStore
 from .challenge_store import ChallengeStore
+from .questions import answers_match, generate_question, normalize_question_type
 
 CAPTCHA_SECRET = get_secret("CAPTCHA_SECRET_FILE") or os.getenv("CAPTCHA_SECRET")
+CAPTCHA_PROVIDER = os.getenv("CAPTCHA_PROVIDER", "builtin").strip().lower() or "builtin"
+_INITIAL_CAPTCHA_PROVIDER = CAPTCHA_PROVIDER
 CAPTCHA_SUCCESS_LOG = os.getenv("CAPTCHA_SUCCESS_LOG", "/app/logs/captcha_success.log")
 TOKEN_EXPIRY = int(os.getenv("CAPTCHA_TOKEN_EXPIRY_SECONDS", 300))
 # A challenge may be answered from the address it was issued to (set false for users whose address changes mid-flow).
@@ -36,13 +40,39 @@ MIN_SOLVE_SECONDS = float(os.getenv("CAPTCHA_MIN_SOLVE_SECONDS", 1.5))
 # The page sends a small proof computed from the challenge id and the answer. The project is open source, so anyone can copy
 # the function; it only filters clients that post the form without running the page. Set to false to disable.
 REQUIRE_PROOF = os.getenv("CAPTCHA_REQUIRE_PROOF", "true").lower() == "true"
+MANUAL_REQUESTS_ENABLED = os.getenv("CAPTCHA_MANUAL_REQUESTS_ENABLED", "false").lower() == "true"
+_INITIAL_MANUAL_REQUESTS_ENABLED = MANUAL_REQUESTS_ENABLED
 store = ChallengeStore()
+request_store = AccessRequestStore()
 
 app = create_app()
 
 
+def _active_provider() -> str:
+    if CAPTCHA_PROVIDER != _INITIAL_CAPTCHA_PROVIDER:
+        return CAPTCHA_PROVIDER
+    return get_runtime_setting("CAPTCHA_PROVIDER", CAPTCHA_PROVIDER).strip().lower() or "builtin"
+
+
+def _manual_requests_enabled() -> bool:
+    if MANUAL_REQUESTS_ENABLED != _INITIAL_MANUAL_REQUESTS_ENABLED:
+        return MANUAL_REQUESTS_ENABLED
+    return get_runtime_setting("CAPTCHA_MANUAL_REQUESTS_ENABLED", "true" if MANUAL_REQUESTS_ENABLED else "false").lower() == "true"
+
+
+def _ensure_builtin_enabled() -> None:
+    if _active_provider() != "builtin":
+        raise HTTPException(
+            status_code=404,
+            detail="Built-in CAPTCHA is disabled when an external provider is configured",
+        )
+
+
 @register_health_check(app, "custom_captcha", critical=True)
 async def _captcha_health() -> HealthCheckResult:
+    provider = _active_provider()
+    if provider != "builtin":
+        return HealthCheckResult.healthy({"provider": provider, "builtin_enabled": False})
     if not CAPTCHA_SECRET:
         return HealthCheckResult.unhealthy({"reason": "captcha secret missing"})
     if store.backend == "memory":
@@ -93,7 +123,7 @@ body {{
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
+  min-height: 100vh;
 }}
 .container {{
   background: #fff;
@@ -101,20 +131,32 @@ body {{
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 0 10px rgba(0,0,0,0.3);
+  max-width: 460px;
 }}
 button{{padding:6px 12px;margin-top:8px;}}
+.qtypes{{margin-bottom:12px;font-size:0.9rem;}}
+.qtypes a{{margin-right:8px;}}
+.request-box{{margin-top:18px;padding-top:12px;border-top:1px solid #ddd;}}
 </style>
 </head>
 <body>
 <div class='container'>
 <h2>Prove you're human</h2>
-<p>What is {a} + {b}?</p>
+<nav class='qtypes' aria-label='Question type'>
+  Question type:
+  <a href='/challenge?type=math'>Math</a>
+  <a href='/challenge?type=color'>Colour word</a>
+  <a href='/challenge?type=word'>Type a word</a>
+</nav>
+<p id='question-text'>{escaped_prompt}</p>
+<button type='button' id='read-aloud'>Read question aloud</button>
 <form id='cform'>
 <input name='answer' required autofocus>
 <input type='hidden' name='token' value='{escaped_token}'>
 <button type='submit'>Submit</button>
 </form>
 <div id='result' role='status' aria-live='polite'></div>
+{manual_request_html}
 </div>
 <script>
 function proof(text) {{
@@ -122,6 +164,12 @@ function proof(text) {{
   for (let i = 0; i < text.length; i++) {{ h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }}
   return h.toString(16).padStart(8, '0');
 }}
+document.getElementById('read-aloud').addEventListener('click', ()=>{{
+  if ('speechSynthesis' in window) {{
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(document.getElementById('question-text').textContent));
+  }}
+}});
 document.getElementById('cform').addEventListener('submit', async (e)=>{{
   e.preventDefault();
   const data = new FormData(e.target);
@@ -141,16 +189,47 @@ document.getElementById('cform').addEventListener('submit', async (e)=>{{
     setTimeout(()=>location.reload(), 1500);
   }}
 }});
+const reqForm = document.getElementById('reqform');
+if (reqForm) {{
+  reqForm.addEventListener('submit', async (e)=>{{
+    e.preventDefault();
+    const res = await fetch('/request-access', {{method: 'POST', body: new FormData(e.target)}});
+    const js = await res.json();
+    document.getElementById('req-result').textContent = js.message || 'Request updated.';
+  }});
+}}
 </script>
 <script src='/__fp.js' async></script>
 </body>
 </html>"""
 
 
-def _challenge_html(a: int, b: int, token: str) -> str:
+def _manual_request_section() -> str:
+    if not _manual_requests_enabled():
+        return ""
+    if request_store.is_paused():
+        return "<div class='request-box'><p>Access requests are currently paused.</p></div>"
+    return (
+        "<div class='request-box'>"
+        "<h3>Having trouble?</h3>"
+        "<p>Ask an admin to review temporary access (optional note, max 200 characters, no personal data).</p>"
+        "<form id='reqform'>"
+        "<textarea name='note' maxlength='200' rows='2' cols='40' placeholder='Optional plain-text note'></textarea><br>"
+        "<button type='submit'>Ask admin to let me in</button>"
+        "</form>"
+        "<div id='req-result' role='status' aria-live='polite'></div>"
+        "</div>"
+    )
+
+
+def _challenge_html(prompt_text: str, token: str) -> str:
     from html import escape
 
-    return _PAGE_TEMPLATE.format(a=a, b=b, escaped_token=escape(token))
+    return _PAGE_TEMPLATE.format(
+        escaped_prompt=escape(prompt_text),
+        escaped_token=escape(token),
+        manual_request_html=_manual_request_section(),
+    )
 
 
 def _proof(token: str, answer: str) -> str:
@@ -167,21 +246,31 @@ def _rate_limited(request: Request, action: str) -> bool:
 
 
 @app.get("/challenge", response_class=HTMLResponse)
-async def challenge_page(request: Request, fp_id: str | None = Cookie(None)):
+async def challenge_page(
+    request: Request,
+    question_type: str = Query("math", alias="type"),
+    fp_id: str | None = Cookie(None),
+):
+    _ensure_builtin_enabled()
     if not CAPTCHA_SECRET:
         raise HTTPException(status_code=500, detail="CAPTCHA not configured")
     if _rate_limited(request, "challenge"):
         raise HTTPException(status_code=429, detail="Too many challenges")
-    a = secrets.randbelow(8) + 1
-    b = secrets.randbelow(8) + 1
+    qtype, prompt_text, expected = generate_question(normalize_question_type(question_type))
     # The page carries only a random id; the answer and the client it was issued to stay on the server.
     token = secrets.token_urlsafe(24)
     store.put(
         token,
-        {"ans": a + b, "fp": fp_id or "", "ip": resolve_request_identity(request).client_ip, "iat": time.time()},
+        {
+            "ans": expected,
+            "type": qtype,
+            "fp": fp_id or "",
+            "ip": resolve_request_identity(request).client_ip,
+            "iat": time.time(),
+        },
         TOKEN_EXPIRY,
     )
-    return HTMLResponse(_challenge_html(a, b, token))
+    return HTMLResponse(_challenge_html(prompt_text, token))
 
 
 def _answered_correctly(record: dict | None, answer: str, ip: str, fp_id: str | None) -> bool:
@@ -192,10 +281,7 @@ def _answered_correctly(record: dict | None, answer: str, ip: str, fp_id: str | 
         return False
     if record.get("fp") and fp_id != record["fp"]:
         return False
-    try:
-        return hmac.compare_digest(str(int(answer)), str(record.get("ans")))
-    except ValueError:
-        return False
+    return answers_match(str(record.get("ans", "")), answer)
 
 
 def _looks_automated(record: dict, token: str, answer: str, proof: str) -> bool:
@@ -234,6 +320,7 @@ async def solve(
     request: Request = None,
     fp_id: str | None = Cookie(None),
 ):
+    _ensure_builtin_enabled()
     if _rate_limited(request, "solve"):
         return JSONResponse({"success": False}, status_code=429)
     ip = resolve_request_identity(request).client_ip
@@ -276,6 +363,7 @@ async def _verification_inputs(request: Request, token: str | None, ip: str | No
 
 @app.post("/verify")
 async def verify(request: Request, token: str | None = None, ip: str | None = None):
+    _ensure_builtin_enabled()
     token, ip = await _verification_inputs(request, token, ip)
     data = _unsign(token) if token else None
     if not data or not ip or data.get("ip") != ip:
@@ -286,6 +374,28 @@ async def verify(request: Request, token: str | None = None, ip: str | None = No
     ):
         return {"success": False}
     return {"success": True}
+
+
+_REQUEST_MESSAGES = {
+    "queued": ("Your request has been queued for admin review.", 200),
+    "already_pending": ("You already have a pending access request.", 429),
+    "cooldown": ("Please wait before submitting another access request.", 429),
+    "paused": ("Access requests are currently paused; nothing was queued.", 503),
+}
+
+
+@app.post("/request-access")
+async def request_access(request: Request, note: str = Form("")):
+    _ensure_builtin_enabled()
+    if not _manual_requests_enabled():
+        raise HTTPException(status_code=404, detail="Manual access requests are disabled")
+    ip = resolve_request_identity(request).client_ip
+    ok, reason, rec = request_store.submit(ip, note)
+    message, status_code = _REQUEST_MESSAGES[reason]
+    payload = {"success": ok, "status": reason, "message": message}
+    if rec:
+        payload["id"] = rec["id"]
+    return JSONResponse(payload, status_code=status_code)
 
 
 if __name__ == "__main__":  # pragma: no cover - manual execution

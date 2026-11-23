@@ -4,9 +4,21 @@ The project ships with a lightweight CAPTCHA implementation that can be used ins
 
 ## Endpoints
 
-- `GET /challenge` – renders the challenge page. It loads the fingerprint script from `/__fp.js` so the user's browser fingerprint can be stored in the `fp_id` cookie.
+- `GET /challenge` – renders the challenge page (accepts `?type=math|color|word`). It loads the fingerprint script from `/__fp.js` so the user's browser fingerprint can be stored in the `fp_id` cookie, and provides a browser `speechSynthesis` read-aloud button.
 - `POST /solve` – accepts the form submission and returns a JSON payload containing a signed token. Successful attempts are logged.
 - `POST /verify` – used by the Escalation Engine. It verifies a token for a given IP address and returns `{"success": true}` or `{"success": false}`.
+- `POST /request-access` – off by default (`CAPTCHA_MANUAL_REQUESTS_ENABLED=true` to enable). Lets visitors submit an optional 200-character plain-text note for admin review, subject to one pending request per IP, per-IP cooldown, and global queue/rate caps.
+
+## Provider Selection and Privacy
+
+- `CAPTCHA_PROVIDER` (`builtin`, `recaptcha`, or `turnstile`; default `builtin`) can be set in the environment or the Admin UI Settings page.
+- Keep `builtin` for deployments that must not send visitor data to third parties.
+- When `recaptcha` or `turnstile` is selected, the built-in CAPTCHA endpoints are disabled (`404`), and the Escalation Engine verifies tokens against Google reCAPTCHA or Cloudflare Turnstile (`siteverify`). Using an external provider sends visitor IP addresses and tokens to Google or Cloudflare under your own privacy policy.
+
+## Accessibility and Manual Access Requests
+
+- **Visitor-selectable question types.** Visitors can switch between `math`, `color` (pick the colour word), and `word` (type the shown word) on `/challenge`, or use the browser's `speechSynthesis` read-aloud button. All question types share the same one-attempt, rate-limit, minimum-solve-time, and client-proof rules.
+- **Off-by-default manual request path.** When `CAPTCHA_MANUAL_REQUESTS_ENABLED=true`, visitors can ask an admin for temporary IP access (`CAPTCHA_REQUEST_ALLOW_TTL_SECONDS`, default 24 hours). Anti-overwhelm controls: one pending request per IP, configurable per-IP cooldown (`CAPTCHA_REQUEST_COOLDOWN_SECONDS`, default 3600), global pending cap (`CAPTCHA_REQUEST_MAX_PENDING`, default 100), global rate cap (`CAPTCHA_REQUEST_GLOBAL_RATE_PER_MINUTE`, default 20), and automatic expiry (`CAPTCHA_REQUEST_RETENTION_DAYS`, default 7).
 
 ## Protections and limits
 

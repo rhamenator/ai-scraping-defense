@@ -413,6 +413,25 @@ class Config:
     CAPTCHA_VERIFICATION_URL: Optional[str] = field(
         default_factory=lambda: os.getenv("CAPTCHA_VERIFICATION_URL")
     )
+    CAPTCHA_PROVIDER: str = field(
+        default_factory=lambda: os.getenv("CAPTCHA_PROVIDER", "builtin").strip().lower()
+        or "builtin"
+    )
+    CAPTCHA_MANUAL_REQUESTS_ENABLED: bool = field(
+        default_factory=lambda: os.getenv(
+            "CAPTCHA_MANUAL_REQUESTS_ENABLED", "false"
+        ).lower()
+        == "true"
+    )
+    CLOUDFLARE_ENABLED: bool = field(
+        default_factory=lambda: os.getenv("CLOUDFLARE_ENABLED", "false").lower()
+        == "true"
+    )
+    CLOUDFLARE_UNDER_ATTACK_THRESHOLD: int = field(
+        default_factory=lambda: int(
+            os.getenv("CLOUDFLARE_UNDER_ATTACK_THRESHOLD", 100)
+        )
+    )
     CAPTCHA_SECRET: Optional[str] = field(
         default_factory=lambda: get_secret("CAPTCHA_SECRET_FILE")
         or os.getenv("CAPTCHA_SECRET")
@@ -552,6 +571,42 @@ class Config:
 
 
 # Instantiate configuration once
+_CAPTCHA_PROVIDER_URLS = {
+    "builtin": "http://captcha_service:8004/verify",  # DevSkim: ignore DS137138
+    "recaptcha": "https://www.google.com/recaptcha/api/siteverify",
+    "turnstile": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+}
+
+
+def get_runtime_setting(name: str, default: str) -> str:
+    """Read a setting from the Admin UI Redis hash when available, else the environment."""
+    if os.getenv("CAPTCHA_STORE", "").lower() != "memory":
+        try:
+            from src.shared.redis_client import get_redis_connection
+
+            conn = get_redis_connection()
+            if conn is not None:
+                raw = conn.hget(tenant_key("admin_ui:settings"), name)
+                if raw is not None:
+                    return raw.decode() if isinstance(raw, bytes) else str(raw)
+        except Exception as exc:
+            logging.getLogger(__name__).debug(
+                "Could not read runtime setting %s from Redis: %s", name, exc
+            )
+    return os.getenv(name, default)
+
+
+def resolve_captcha_verification_url(
+    provider: str | None = None, configured_url: str | None = None
+) -> str:
+    """Return the siteverify URL for the active CAPTCHA provider."""
+    explicit = (configured_url or "").strip()
+    if explicit:
+        return explicit
+    normalized = (provider or "builtin").strip().lower()
+    return _CAPTCHA_PROVIDER_URLS.get(normalized, _CAPTCHA_PROVIDER_URLS["recaptcha"])
+
+
 CONFIG = Config()
 _CONFIG_CACHE: Dict[str, Config] = {CONFIG.TENANT_ID: CONFIG}
 

@@ -41,7 +41,7 @@ class ChallengeSecrecy(Base):
         self.assertRegex(token, r"^[A-Za-z0-9_-]{32}$", "a 24-byte random id, URL-safe, nothing else")
         decoded = base64.urlsafe_b64decode(token)
         self.assertEqual(len(decoded), 24)
-        self.assertFalse(decoded.startswith(b"{"), "not a JSON payload carrying the answer")
+        self.assertNotIn(b'"ans"', decoded, "not a JSON payload carrying the answer")
 
     def test_the_page_does_not_carry_the_answer_or_a_signed_payload_anywhere(self):
         page = self.client.get("/challenge").text

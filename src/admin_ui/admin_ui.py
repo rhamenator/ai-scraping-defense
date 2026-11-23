@@ -51,6 +51,7 @@ RUNTIME_SETTINGS_KEY = tenant_key("admin_ui:settings")
 RUNTIME_SETTINGS_META_KEY = tenant_key("admin_ui:settings_changes")
 ALLOWED_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 WEBAUTHN_ATTACHMENT_OPTIONS = {"none", "platform", "cross-platform"}
+CAPTCHA_PROVIDER_OPTIONS = {"builtin", "recaptcha", "turnstile"}
 
 
 @dataclass(frozen=True)
@@ -81,6 +82,10 @@ _BUILTIN_DEFAULTS = {
     "MAX_BODY_SIZE": str(1 * 1024 * 1024),
     "ENABLE_HTTPS": "false",
     "ALLOWED_PLUGINS": "ua_blocker",
+    "CAPTCHA_PROVIDER": "builtin",
+    "CAPTCHA_MANUAL_REQUESTS_ENABLED": "false",
+    "CLOUDFLARE_ENABLED": "false",
+    "CLOUDFLARE_UNDER_ATTACK_THRESHOLD": "100",
 }
 
 EDITABLE_SETTINGS: tuple[EditableSetting, ...] = (
@@ -162,6 +167,54 @@ EDITABLE_SETTINGS: tuple[EditableSetting, ...] = (
         default=os.getenv("ALLOWED_PLUGINS", _BUILTIN_DEFAULTS["ALLOWED_PLUGINS"]),
         builtin=_BUILTIN_DEFAULTS["ALLOWED_PLUGINS"],
         valid="Any of the plugins listed here; none selected disables the allowlist.",
+    ),
+    EditableSetting(
+        key="CAPTCHA_PROVIDER",
+        label="CAPTCHA Provider",
+        description=(
+            "Selects built-in CAPTCHA (no third-party calls) or an external provider "
+            "(Google reCAPTCHA or Cloudflare Turnstile; external providers receive visitor IPs and tokens under your privacy notice)."
+        ),
+        input_type="select",
+        default=os.getenv("CAPTCHA_PROVIDER", _BUILTIN_DEFAULTS["CAPTCHA_PROVIDER"]),
+        choices=("builtin", "recaptcha", "turnstile"),
+        builtin=_BUILTIN_DEFAULTS["CAPTCHA_PROVIDER"],
+        valid="One of builtin, recaptcha, turnstile.",
+    ),
+    EditableSetting(
+        key="CAPTCHA_MANUAL_REQUESTS_ENABLED",
+        label="Allow Manual CAPTCHA Access Requests",
+        description="Off by default. Lets visitors ask an admin for temporary IP access when they cannot solve the built-in CAPTCHA.",
+        input_type="select",
+        default=os.getenv(
+            "CAPTCHA_MANUAL_REQUESTS_ENABLED",
+            _BUILTIN_DEFAULTS["CAPTCHA_MANUAL_REQUESTS_ENABLED"],
+        ),
+        choices=("false", "true"),
+        builtin=_BUILTIN_DEFAULTS["CAPTCHA_MANUAL_REQUESTS_ENABLED"],
+        valid="true or false.",
+    ),
+    EditableSetting(
+        key="CLOUDFLARE_ENABLED",
+        label="Site Uses Cloudflare",
+        description="Enables a dashboard prompt suggesting Cloudflare Under Attack mode during high block/queue volume (never calls Cloudflare's API).",
+        input_type="select",
+        default=os.getenv("CLOUDFLARE_ENABLED", _BUILTIN_DEFAULTS["CLOUDFLARE_ENABLED"]),
+        choices=("false", "true"),
+        builtin=_BUILTIN_DEFAULTS["CLOUDFLARE_ENABLED"],
+        valid="true or false.",
+    ),
+    EditableSetting(
+        key="CLOUDFLARE_UNDER_ATTACK_THRESHOLD",
+        label="Cloudflare Under Attack Suggestion Threshold",
+        description="Blocked + queued access-request count that triggers the Under Attack mode banner when Site Uses Cloudflare is true.",
+        input_type="number",
+        default=os.getenv(
+            "CLOUDFLARE_UNDER_ATTACK_THRESHOLD",
+            _BUILTIN_DEFAULTS["CLOUDFLARE_UNDER_ATTACK_THRESHOLD"],
+        ),
+        builtin=_BUILTIN_DEFAULTS["CLOUDFLARE_UNDER_ATTACK_THRESHOLD"],
+        valid="A whole number of at least 1.",
     ),
 )
 EDITABLE_SETTING_MAP = {setting.key: setting for setting in EDITABLE_SETTINGS}
@@ -647,6 +700,44 @@ app.include_router(webauthn.router)
 app.include_router(auth_routes.router)
 
 
+from src.captcha.access_requests import AccessRequestStore
+from src.shared import blocklist_store
+
+access_request_store = AccessRequestStore()
+
+
+def _safe_runtime_setting(name: str, default: str) -> str:
+    try:
+        return _get_runtime_setting(name)
+    except Exception:
+        return os.getenv(name, default)
+
+
+def _current_blocked_volume() -> int:
+    try:
+        return int(blocklist.get_block_stats().get("total_blocked", 0))
+    except Exception:
+        return 0
+
+
+def _captcha_dashboard_context() -> dict[str, object]:
+    pending = access_request_store.list_requests(include_closed=False)
+    digest = access_request_store.digest_summary()
+    manual_enabled = _safe_runtime_setting("CAPTCHA_MANUAL_REQUESTS_ENABLED", "false").lower() == "true"
+    cf_enabled = _safe_runtime_setting("CLOUDFLARE_ENABLED", "false").lower() == "true"
+    try:
+        threshold = max(1, int(_safe_runtime_setting("CLOUDFLARE_UNDER_ATTACK_THRESHOLD", "100")))
+    except ValueError:
+        threshold = 100
+    volume = _current_blocked_volume() + int(digest["pending_count"])
+    return {
+        "manual_requests_enabled": manual_enabled,
+        "pending_captcha_requests": pending,
+        "captcha_request_digest": digest,
+        "cloudflare_under_attack_suggested": cf_enabled and volume >= threshold,
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(
     request: Request,
@@ -659,10 +750,53 @@ async def index(
     """
     csrf_token = _ensure_csrf_token(csrf_token)
     response = templates.TemplateResponse(
-        request, "index.html", {"user": user, "csrf_token": csrf_token}
+        request,
+        "index.html",
+        {"user": user, "csrf_token": csrf_token, **_captcha_dashboard_context()},
     )
     _set_csrf_cookie(response, request, csrf_token)
     return response
+
+
+@app.get("/captcha-requests")
+async def list_captcha_requests(user: str = Depends(require_auth)):
+    return JSONResponse(content=_captcha_dashboard_context())
+
+
+@app.post("/captcha-requests/{request_id}/approve")
+async def approve_captcha_request(
+    request_id: str,
+    request: Request,
+    csrf_token: str | None = Cookie(None),
+    user: str = Depends(require_admin),
+):
+    form = await request.form()
+    _validate_csrf(csrf_token, form.get("csrf_token") or request.headers.get("X-CSRF-Token"))
+    record = access_request_store.approve(request_id, actor=user)
+    if not record:
+        raise HTTPException(status_code=404, detail="Access request not found")
+    try:
+        blocklist_store.unblock(record["ip"])
+    except Exception as exc:  # noqa: BLE001 - best-effort unblock when Redis is unavailable in tests
+        logger.warning("Could not unblock approved IP %s: %s", record["ip"], exc)
+    log_event(user, "captcha_request_approved", {"request_id": request_id, "ip": record["ip"]})
+    return JSONResponse(content={"status": "approved", "request": record})
+
+
+@app.post("/captcha-requests/{request_id}/deny")
+async def deny_captcha_request(
+    request_id: str,
+    request: Request,
+    csrf_token: str | None = Cookie(None),
+    user: str = Depends(require_admin),
+):
+    form = await request.form()
+    _validate_csrf(csrf_token, form.get("csrf_token") or request.headers.get("X-CSRF-Token"))
+    record = access_request_store.deny(request_id, actor=user)
+    if not record:
+        raise HTTPException(status_code=404, detail="Access request not found")
+    log_event(user, "captcha_request_denied", {"request_id": request_id, "ip": record["ip"]})
+    return JSONResponse(content={"status": "denied", "request": record})
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -706,6 +840,22 @@ async def settings_page(
     return response
 
 
+def _validate_single_setting(setting: EditableSetting, raw_value: str) -> str:
+    if setting.key == "LOG_LEVEL":
+        return _validate_select_setting(setting.label, raw_value.upper(), ALLOWED_LOG_LEVELS)
+    if setting.key == "ESCALATION_ENDPOINT":
+        return _validate_url_setting(setting.label, raw_value)
+    if setting.key == "WEBAUTHN_AUTHENTICATOR_ATTACHMENT":
+        return _validate_select_setting(setting.label, raw_value, WEBAUTHN_ATTACHMENT_OPTIONS)
+    if setting.key == "CAPTCHA_PROVIDER":
+        return _validate_select_setting(setting.label, raw_value.lower(), CAPTCHA_PROVIDER_OPTIONS)
+    if setting.key in {"RATE_LIMIT_REQUESTS", "RATE_LIMIT_WINDOW", "MAX_BODY_SIZE", "CLOUDFLARE_UNDER_ATTACK_THRESHOLD"}:
+        return _parse_positive_int_setting(setting.label, raw_value)
+    if setting.key in {"ENABLE_HTTPS", "CAPTCHA_MANUAL_REQUESTS_ENABLED", "CLOUDFLARE_ENABLED"}:
+        return _normalize_bool_setting(setting.label, raw_value)
+    return raw_value
+
+
 @app.post("/settings", response_class=HTMLResponse)
 async def update_settings(
     request: Request,
@@ -743,32 +893,7 @@ async def update_settings(
             raw_value = _get_runtime_setting(setting.key)
         raw_value = raw_value.strip()
         try:
-            if setting.key == "LOG_LEVEL":
-                pending_values[setting.key] = _validate_select_setting(
-                    setting.label, raw_value.upper(), ALLOWED_LOG_LEVELS
-                )
-            elif setting.key == "ESCALATION_ENDPOINT":
-                pending_values[setting.key] = _validate_url_setting(
-                    setting.label, raw_value
-                )
-            elif setting.key == "WEBAUTHN_AUTHENTICATOR_ATTACHMENT":
-                pending_values[setting.key] = _validate_select_setting(
-                    setting.label, raw_value, WEBAUTHN_ATTACHMENT_OPTIONS
-                )
-            elif setting.key in {
-                "RATE_LIMIT_REQUESTS",
-                "RATE_LIMIT_WINDOW",
-                "MAX_BODY_SIZE",
-            }:
-                pending_values[setting.key] = _parse_positive_int_setting(
-                    setting.label, raw_value
-                )
-            elif setting.key == "ENABLE_HTTPS":
-                pending_values[setting.key] = _normalize_bool_setting(
-                    setting.label, raw_value
-                )
-            else:
-                pending_values[setting.key] = raw_value
+            pending_values[setting.key] = _validate_single_setting(setting, raw_value)
         except ValueError as exc:
             errors[setting.key] = str(exc)
 

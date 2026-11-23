@@ -20,7 +20,8 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from src.shared import robots_policy
 from src.shared.attack_incident import record_and_alert_attack
-from src.shared.config import tenant_key
+from src.captcha.access_requests import AccessRequestStore
+from src.shared.config import CONFIG, get_runtime_setting, resolve_captcha_verification_url, tenant_key
 from src.shared.header_policy import external_headers, internal_headers
 from src.shared.middleware import create_app
 from src.shared.model_adapters import MCPAdapter
@@ -1077,8 +1078,13 @@ def build_webhook_payload(metadata: Dict[str, Any], reason: str) -> Dict[str, An
     }
 
 
+access_request_store = AccessRequestStore()
+
+
 async def trigger_captcha_challenge(metadata: RequestMetadata) -> bool:
     """Verify a reCAPTCHA token if provided and log the outcome."""
+    if access_request_store.is_temporarily_allowed(metadata.ip):
+        return True
     increment_counter_metric(CAPTCHA_CHALLENGES_TRIGGERED)
     token = None
     if metadata.headers:
@@ -1094,7 +1100,10 @@ async def trigger_captcha_challenge(metadata: RequestMetadata) -> bool:
         "response": token,
         "remoteip": metadata.ip,
     }
-    url = CAPTCHA_VERIFICATION_URL or "https://www.google.com/recaptcha/api/siteverify"
+    url = resolve_captcha_verification_url(
+        get_runtime_setting("CAPTCHA_PROVIDER", CONFIG.CAPTCHA_PROVIDER),
+        CAPTCHA_VERIFICATION_URL,
+    )
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, data=verify_payload, timeout=10.0)
@@ -1152,6 +1161,12 @@ async def handle_escalation(
     except ValueError:
         logger.warning(f"Invalid IP provided to escalation endpoint: {ip_under_test}")
         raise HTTPException(status_code=400, detail="Invalid IP address")
+    if access_request_store.is_temporarily_allowed(ip_under_test):
+        return {
+            "status": "temporary_access_allowed",
+            "ip": ip_under_test,
+            "action": "temporary_allow_bypass",
+        }
     normalized_ja3 = normalize_ja3(metadata_req.tls_ja3)
     normalized_ja4 = normalize_ja4(metadata_req.tls_ja4)
     normalized_source = normalize_source(metadata_req.tls_fingerprint_source)
