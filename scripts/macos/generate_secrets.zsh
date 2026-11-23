@@ -222,10 +222,16 @@ if [ "$update_env" = true ]; then
 
   # Write secret files for Docker Compose
   SECRETS_DIR="$ROOT_DIR/secrets"
-  mkdir -p "$SECRETS_DIR"
-  echo -n "$POSTGRES_PASSWORD" > "$SECRETS_DIR/pg_password.txt"
-  echo -n "$REDIS_PASSWORD" > "$SECRETS_DIR/redis_password.txt"
-  chmod 600 "$SECRETS_DIR/pg_password.txt" "$SECRETS_DIR/redis_password.txt"
+  # Private from the first byte (directory 0700, files 0600); the secrets_init service in docker-compose.yaml stages
+  # container-readable copies (#1912).
+  (
+    umask 077
+    mkdir -p "$SECRETS_DIR"
+    chmod 700 "$SECRETS_DIR"
+    printf '%s' "$POSTGRES_PASSWORD" > "$SECRETS_DIR/pg_password.txt"
+    printf '%s' "$REDIS_PASSWORD" > "$SECRETS_DIR/redis_password.txt"
+    chmod 600 "$SECRETS_DIR/pg_password.txt" "$SECRETS_DIR/redis_password.txt"
+  )
   echo -e "${CYAN}Secret files written to ${SECRETS_DIR}${NC}"
 fi
 

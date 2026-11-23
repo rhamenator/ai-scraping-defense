@@ -41,7 +41,7 @@ DEFAULT_HARDENING_BASELINE: Dict[str, Any] = {
             "tmpfs_prefixes": ["/tmp"],  # nosec B108 - tmpfs mount requirement
             "require_readonly_volume": True,
         },
-        "secret_volume_prefixes": ["./secrets:/run/secrets"],
+        "secret_volume_prefixes": ["runtime_secrets:/run/secrets"],
         "secret_volume_readonly": True,
         "documented_exceptions": {},
     },
@@ -183,7 +183,7 @@ def ensure_compose_security() -> None:
     )
     require_readonly_volume = service_requirements.get("require_readonly_volume", True)
     secret_prefixes = compose_baseline.get(
-        "secret_volume_prefixes", ["./secrets:/run/secrets"]
+        "secret_volume_prefixes", ["runtime_secrets:/run/secrets"]
     )
     require_secret_ro = compose_baseline.get("secret_volume_readonly", True)
 
