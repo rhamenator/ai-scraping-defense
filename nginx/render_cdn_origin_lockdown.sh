@@ -114,6 +114,9 @@ server {
     listen 443 ssl;
     http2 off;
     server_name _;
+    if (\$host !~* "^[a-z0-9.-]+(:[0-9]+)?\$") {
+        return 400;
+    }
     ssl_certificate $CERT_PATH;
     ssl_certificate_key $KEY_PATH;
     ssl_protocols TLSv1.2;
