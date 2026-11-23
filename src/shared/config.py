@@ -224,9 +224,8 @@ class Config:
         default_factory=lambda: float(os.getenv("TAR_PIT_MAX_STREAM_SECONDS", 60.0))
     )
     SYSTEM_SEED: str = field(
-        default_factory=lambda: os.getenv(
-            "SYSTEM_SEED", "default_system_seed_value_change_me"
-        )
+        default_factory=lambda: get_secret("SYSTEM_SEED_FILE")
+        or os.getenv("SYSTEM_SEED", "default_system_seed_value_change_me")
     )
     TAR_PIT_MAX_HOPS: int = field(
         default_factory=lambda: int(os.getenv("TAR_PIT_MAX_HOPS", 250))
@@ -433,8 +432,8 @@ class Config:
         )
     )
     CAPTCHA_SECRET: Optional[str] = field(
-        default_factory=lambda: get_secret("CAPTCHA_SECRET_FILE")
-        or os.getenv("CAPTCHA_SECRET")
+        default_factory=lambda: os.getenv("CAPTCHA_SECRET")
+        or get_secret("CAPTCHA_SECRET_FILE")
     )
     CAPTCHA_SUCCESS_LOG: str = field(
         default_factory=lambda: os.getenv(

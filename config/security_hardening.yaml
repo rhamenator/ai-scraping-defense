@@ -14,6 +14,7 @@ compose:
     - prompt_router
     - blocklist_sync
     - docker_socket_proxy
+    - secrets_anchor
 
   service_requirements:
     security_opt:
