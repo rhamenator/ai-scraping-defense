@@ -24,7 +24,7 @@ from .access_requests import AccessRequestStore
 from .challenge_store import ChallengeStore
 from .questions import answers_match, generate_question, normalize_question_type
 
-CAPTCHA_SECRET = get_secret("CAPTCHA_SECRET_FILE") or os.getenv("CAPTCHA_SECRET")
+CAPTCHA_SECRET = os.getenv("CAPTCHA_SECRET") or get_secret("CAPTCHA_SECRET_FILE")
 CAPTCHA_PROVIDER = os.getenv("CAPTCHA_PROVIDER", "builtin").strip().lower() or "builtin"
 _INITIAL_CAPTCHA_PROVIDER = CAPTCHA_PROVIDER
 CAPTCHA_SUCCESS_LOG = os.getenv("CAPTCHA_SUCCESS_LOG", "/app/logs/captcha_success.log")

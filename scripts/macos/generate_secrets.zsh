@@ -205,26 +205,14 @@ if [ "$update_env" = true ]; then
   if [ ! -f "$ENV_FILE" ] && [ -f "$ROOT_DIR/sample.env" ]; then
     cp "$ROOT_DIR/sample.env" "$ENV_FILE"
   fi
-  echo -e "${CYAN}Updating ${ENV_FILE} with generated values...${NC}"
-  update_var POSTGRES_PASSWORD "$POSTGRES_PASSWORD" "$ENV_FILE"
-  update_var REDIS_PASSWORD "$REDIS_PASSWORD" "$ENV_FILE"
+  echo -e "${CYAN}Updating ${ENV_FILE} with non-secret configuration...${NC}"
+  chmod 600 "$ENV_FILE"
   update_var ADMIN_UI_USERNAME "$ADMIN_UI_USERNAME" "$ENV_FILE"
-  update_var ADMIN_UI_PASSWORD_HASH "$ADMIN_UI_PASSWORD_HASH" "$ENV_FILE"
-  update_var SYSTEM_SEED "$SYSTEM_SEED" "$ENV_FILE"
-  update_var NGINX_PASSWORD "$NGINX_PASSWORD" "$ENV_FILE"
-  update_var OPENAI_API_KEY "$OPENAI_API_KEY" "$ENV_FILE"
-  update_var ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY" "$ENV_FILE"
-  update_var GOOGLE_API_KEY "$GOOGLE_API_KEY" "$ENV_FILE"
-  update_var COHERE_API_KEY "$COHERE_API_KEY" "$ENV_FILE"
-  update_var MISTRAL_API_KEY "$MISTRAL_API_KEY" "$ENV_FILE"
-  update_var EXTERNAL_API_KEY "$EXTERNAL_API_KEY" "$ENV_FILE"
-  update_var IP_REPUTATION_API_KEY "$IP_REPUTATION_API_KEY" "$ENV_FILE"
-  update_var COMMUNITY_BLOCKLIST_API_KEY "$COMMUNITY_BLOCKLIST_API_KEY" "$ENV_FILE"
 
-  # Write secret files for Docker Compose
+  # Write persistent secret files for Docker Compose
   SECRETS_DIR="$ROOT_DIR/secrets"
   # Private from the first byte (directory 0700, files 0600); the secrets_init service in docker-compose.yaml stages
-  # container-readable copies (#1912).
+  # per-service container-readable copies into tmpfs (#1912).
   (
     umask 077
     mkdir -p "$SECRETS_DIR"
@@ -232,7 +220,8 @@ if [ "$update_env" = true ]; then
     printf '%s' "$POSTGRES_PASSWORD" > "$SECRETS_DIR/pg_password.txt"
     printf '%s' "$REDIS_PASSWORD" > "$SECRETS_DIR/redis_password.txt"
     printf '%s' "$GRAFANA_ADMIN_PASSWORD" > "$SECRETS_DIR/grafana_admin_password.txt"
-    chmod 600 "$SECRETS_DIR/pg_password.txt" "$SECRETS_DIR/redis_password.txt" "$SECRETS_DIR/grafana_admin_password.txt"
+    printf '%s' "$ADMIN_UI_PASSWORD_HASH" > "$SECRETS_DIR/admin_ui_password_hash.txt"
+    chmod 600 "$SECRETS_DIR/pg_password.txt" "$SECRETS_DIR/redis_password.txt" "$SECRETS_DIR/grafana_admin_password.txt" "$SECRETS_DIR/admin_ui_password_hash.txt"
   )
   echo -e "${CYAN}Secret files written to ${SECRETS_DIR}${NC}"
 fi

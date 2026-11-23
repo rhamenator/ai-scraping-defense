@@ -1,0 +1,2 @@
+- Replaced the shared `runtime_secrets` volume with per-service RAM-backed (`tmpfs`) secret volumes staged by `secrets_init` (`0400`, per-UID `chown`), and generated ephemeral internal secrets (`AUTH_JWT_SECRET`, `SYSTEM_SEED`, `CAPTCHA_SECRET`, `ESCALATION_API_KEY`, `RECOMMENDER_API_KEY`, `CLOUD_DASHBOARD_API_KEY`) in RAM when not supplied on disk.
+- Added `SYSTEM_SEED_FILE` and `ADMIN_UI_PASSWORD_HASH_FILE` support so containers read secrets from `/run/secrets/*.txt` rather than sharing all secrets via `.env`.
