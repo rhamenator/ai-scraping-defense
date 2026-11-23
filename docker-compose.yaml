@@ -594,12 +594,43 @@ services:
   # Stages the secret files into a volume the runtime users can read (#1912). The host copies in ./secrets can then stay
   # private (0600 files in a 0700 directory) instead of world-readable: this one-shot job runs as root, which can read them
   # whatever their owner, and writes the container-readable copies where only Docker can reach them.
+  secrets_anchor:
+    image: redis:7-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
+    user: "65532:65532"
+    restart: unless-stopped
+    network_mode: none
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    entrypoint: ["sh", "-c"]
+    command: ["trap 'exit 0' TERM INT; while :; do sleep 3600; done"]
+    volumes:
+      - secrets_nginx:/staging/anchor/nginx_proxy:ro
+      - secrets_ai_service:/staging/anchor/ai_service:ro
+      - secrets_escalation:/staging/anchor/escalation_engine:ro
+      - secrets_tarpit:/staging/anchor/tarpit_api:ro
+      - secrets_admin_ui:/staging/anchor/admin_ui:ro
+      - secrets_captcha:/staging/anchor/captcha_service:ro
+      - secrets_cloud_dashboard:/staging/anchor/cloud_dashboard:ro
+      - secrets_recommender:/staging/anchor/config_recommender:ro
+      - secrets_postgres:/staging/anchor/postgres:ro
+      - secrets_redis:/staging/anchor/redis:ro
+      - secrets_blocklist_sync:/staging/anchor/blocklist_sync:ro
+      - secrets_grafana:/staging/anchor/grafana:ro
+
   secrets_init:
     image: redis:7-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
     user: "0:0"
     restart: "no"
     network_mode: none
     read_only: true
+    depends_on:
+      secrets_anchor:
+        condition: service_started
     cap_drop:
       - ALL
     cap_add:

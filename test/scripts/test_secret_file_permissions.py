@@ -52,10 +52,10 @@ class PythonSetupTests(unittest.TestCase):
         self.assertEqual(mode(env), 0o600)
         self.assertEqual(mode(state), 0o600)
 
-    def test_the_secrets_database_is_owner_only_before_any_secret_is_stored(self):
-        with patch("builtins.input", return_value="y"):
-            interactive_setup.store_secrets(self.tmp, {"POSTGRES_PASSWORD": secrets.token_hex(8)})
-        self.assertEqual(mode(self.tmp / "secrets" / "local_secrets.db"), 0o600)
+    def test_interactive_setup_never_creates_a_plaintext_secrets_database(self):
+        self.assertFalse(hasattr(interactive_setup, "store_secrets"))
+        source = (ROOT / "scripts" / "interactive_setup.py").read_text(encoding="utf-8")
+        self.assertNotIn("local_secrets.db", source)
 
     def test_create_private_file_tightens_an_existing_database(self):
         target = self.tmp / "db"
