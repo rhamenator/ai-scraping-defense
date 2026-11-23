@@ -1,3 +1,21 @@
-body {
-    font-family: 'Inter', sans-serif;
+@import url("index.css");
+
+header {
+    margin-bottom: 24px;
+}
+
+main > div {
+    background: var(--panel-strong);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+.font-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.overflow-x-auto {
+    overflow-x: auto;
 }

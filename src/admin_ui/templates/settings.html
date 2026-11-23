@@ -13,20 +13,16 @@
         <header class="mb-8">
             <h1 class="text-3xl font-bold text-gray-900">AI Scraping Defense</h1>
             <p class="text-gray-600">System Configuration</p>
-            <nav class="mt-4">
-                <a href="/" class="text-blue-600 hover:underline mr-4">Dashboard</a>
-                <a href="/settings" class="text-blue-800 font-semibold mr-4">Settings</a>
-                <a href="/logs" class="text-blue-600 hover:underline mr-4">Logs</a>
-                <a href="/plugins" class="text-blue-600 hover:underline">Plugins</a>
-            </nav>
+            {% set active_page = 'settings' %}
+            {% include '_nav.html' %}
         </header>
 
         <main>
             <div class="bg-white p-6 rounded-lg shadow-md">
-                <h2 class="text-2xl font-semibold mb-4">Current System Settings</h2>
+                <h2 class="text-2xl font-semibold mb-4">Current System Settings <span class="badge-readonly">Read-Only (Env / Restart Required)</span></h2>
                 <p class="text-gray-600 mb-6">
-                    This page displays the current non-sensitive configuration loaded from the environment.
-                    For security, sensitive values like API keys and passwords are not shown here.
+                    This table displays the active non-sensitive environment configuration (read-only).
+                    Settings that can be changed live without editing <code>.env</code> are in the editable form below.
                 </p>
 
                 <div class="overflow-x-auto">
@@ -109,7 +105,7 @@
                 <div class="mt-8">
                     <h3 class="text-xl font-semibold mb-3">Secret References</h3>
                     <p class="text-gray-600 mb-4">
-                        Secret values are never rendered here. Only file paths or Vault references are shown.
+                        Secret values and internal filesystem paths are never shown here; only configuration status is displayed.
                     </p>
                     <div class="overflow-x-auto">
                         <table class="min-w-full bg-white border">
@@ -117,7 +113,7 @@
                                 <tr>
                                     <th class="py-2 px-4 border-b text-left">Secret</th>
                                     <th class="py-2 px-4 border-b text-left">Source</th>
-                                    <th class="py-2 px-4 border-b text-left">Reference</th>
+                                    <th class="py-2 px-4 border-b text-left">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -125,7 +121,7 @@
                                 <tr class="hover:bg-gray-50">
                                     <td class="py-2 px-4 border-b text-sm text-gray-700">{{ secret.label }}</td>
                                     <td class="py-2 px-4 border-b text-sm text-gray-700">{{ secret.source }}</td>
-                                    <td class="py-2 px-4 border-b font-mono text-sm {% if secret.configured %}text-blue-800{% else %}text-gray-500{% endif %}">{{ secret.reference }}</td>
+                                    <td class="py-2 px-4 border-b font-mono text-sm {% if secret.configured %}text-blue-800{% else %}text-gray-500{% endif %}">{% if secret.configured %}Configured{% else %}Not configured{% endif %}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -174,10 +170,10 @@
 
             <!-- GDPR Compliance Section -->
             <div class="bg-white p-6 rounded-lg shadow-md mt-8">
-                <h2 class="text-2xl font-semibold mb-4">GDPR Compliance</h2>
+                <h2 class="text-2xl font-semibold mb-4">GDPR Compliance (Defense Telemetry Scope)</h2>
                 <p class="text-gray-600 mb-6">
-                    This system implements comprehensive GDPR compliance features including consent management,
-                    right to be forgotten, data minimization, and automated compliance reporting.
+                    Applies only to ASD's local defense telemetry (IP addresses, blocklist entries, and audit/consent records).
+                    End-user accounts on your protected websites are managed by those websites directly.
                 </p>
 
                 {% if gdpr_report %}

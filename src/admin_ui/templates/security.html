@@ -10,7 +10,8 @@
 <body>
 <div class="container">
     <h1>Account security</h1>
-    <nav><a href="/">Dashboard</a> | <a href="/settings">Settings</a> | <a href="/logs">Logs</a></nav>
+    {% set active_page = 'security' %}
+    {% include '_nav.html' %}
 
     <h2>Signed in</h2>
     <dl class="security-facts">
@@ -45,12 +46,10 @@
         <button type="button" id="dismiss-codes">I have saved them, hide the codes</button>
     </section>
 
-    <h2>Sign out</h2>
     {% if sso %}
+    <h2>Sign out</h2>
     <p id="sso-signout-note">You signed in through single sign-on. Signing out here would only end this application's own
        session and your identity provider or proxy would sign you straight back in, so sign out through your provider.</p>
-    {% else %}
-    <button type="button" id="sign-out">Sign out</button>
     {% endif %}
 
     <dialog id="confirm-dialog" aria-labelledby="confirm-title">

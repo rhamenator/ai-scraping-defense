@@ -10,25 +10,13 @@
 <body>
     <div class="container">
         <h1>Admin Dashboard</h1>
-        <nav>
-            <a href="/settings">Settings</a> |
-            <a href="/logs">Logs</a> |
-            <a href="/plugins">Plugins</a> |
-            <a href="/security">Security</a>
-        </nav>
-        <p>Real-time metrics for the AI Scraping Defense system.</p>
+        {% set active_page = 'dashboard' %}
+        {% include '_nav.html' %}
         {% if cloudflare_under_attack_suggested %}
         <div id="cloudflare-under-attack-banner" role="alert" class="alert-banner">
             <strong>High traffic volume detected:</strong> Consider enabling Cloudflare <em>Under Attack</em> mode in your Cloudflare dashboard.
         </div>
         {% endif %}
-        <div id="metrics-container">
-            <div id="error-message"></div>
-            <div id="metrics-display" class="metrics-grid">
-                <p>Loading metrics...</p>
-            </div>
-            <div id="last-updated">Last updated: Never</div>
-        </div>
 
         <section id="blocklist-container" aria-labelledby="blocklist-heading">
             <h2 id="blocklist-heading">Blocklist</h2>
@@ -86,6 +74,15 @@
             {% else %}
             <p>No pending manual access requests.</p>
             {% endif %}
+        </section>
+
+        <section id="metrics-container" aria-labelledby="metrics-heading">
+            <h2 id="metrics-heading">Real-Time Metrics</h2>
+            <div id="error-message"></div>
+            <div id="metrics-display" class="metrics-grid">
+                <p>Loading metrics...</p>
+            </div>
+            <div id="last-updated">Last updated: Never</div>
         </section>
 
         <dialog id="confirm-dialog" aria-labelledby="confirm-title">

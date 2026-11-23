@@ -2,21 +2,42 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>Plugin Management - AI Scraping Defense</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
 </head>
 <body>
 <div class="container">
     <h1>Plugin Management</h1>
+    {% set active_page = 'plugins' %}
+    {% include '_nav.html' %}
+    <p>Select which discovered defense plugins are active on this system. Check or uncheck plugins below and click <strong>Save</strong> to apply your selection.</p>
     <form method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <label for="plugins">Enabled Plugins</label>
-        <select id="plugins" name="plugins" multiple size="5">
-        {% for p in available %}
-            <option value="{{ p }}" {% if p in enabled %}selected{% endif %}>{{ p }}</option>
-        {% endfor %}
-        </select>
-        <button type="submit">Save</button>
+        <table id="plugins-table" class="metrics-sheet">
+            <thead>
+                <tr>
+                    <th scope="col">Plugin</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Enabled</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for p in available %}
+                <tr>
+                    <td class="metric-name-cell">{{ p }}</td>
+                    <td>{% if p in enabled %}Enabled{% else %}Disabled{% endif %}</td>
+                    <td class="metric-value-cell">
+                        <input type="checkbox" name="plugins" value="{{ p }}" {% if p in enabled %}checked{% endif %} aria-label="Enable {{ p }}">
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="3">No plugins discovered.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <p><button type="submit">Save</button></p>
     </form>
 </div>
 </body>

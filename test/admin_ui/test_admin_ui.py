@@ -191,7 +191,9 @@ class TestAdminUIComprehensive(unittest.TestCase):
                 )
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"/run/secrets/redis_password.txt", response.content)
+        self.assertIn(b"Configured", response.content)
+        self.assertNotIn(b"/run/secrets/redis_password.txt", response.content)
+        self.assertNotIn(b"super-secret-value", response.content)
         self.assertIn(b"Secret References", response.content)
         self.assertNotIn(b"super-secret-value", response.content)
 

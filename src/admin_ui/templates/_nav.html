@@ -1,0 +1,11 @@
+<nav aria-label="Main navigation">
+    <a href="/"{% if active_page == 'dashboard' %} class="active" aria-current="page"{% endif %}>Dashboard</a>
+    <a href="/settings"{% if active_page == 'settings' %} class="active" aria-current="page"{% endif %}>Settings</a>
+    <a href="/logs"{% if active_page == 'logs' %} class="active" aria-current="page"{% endif %}>Logs</a>
+    <a href="/plugins"{% if active_page == 'plugins' %} class="active" aria-current="page"{% endif %}>Plugins</a>
+    <a href="/security"{% if active_page == 'security' %} class="active" aria-current="page"{% endif %}>Security</a>
+    {% if not sso %}
+    <button type="button" id="sign-out" class="nav-signout">Sign out</button>
+    {% endif %}
+</nav>
+<script src="{{ url_for('static', filename='nav.js') }}"></script>
