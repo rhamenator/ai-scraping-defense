@@ -1225,7 +1225,10 @@ def _apply_setup_wizard_form(form, user: str) -> tuple[str, str]:
     if str(form.get("mark_complete", "")).lower() == "true":
         setup_wizard.mark_setup_complete(user, completed=True)
     log_event(user, "admin_ui_setup_updated", {})
-    return "Setup configuration saved.", ""
+    return (
+        "Setup configuration saved. Restart nginx / escalation_engine if REAL_BACKEND_HOST or MODEL_URI changed.",
+        "",
+    )
 
 
 @app.get("/setup", response_class=HTMLResponse)

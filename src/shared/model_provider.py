@@ -43,6 +43,23 @@ ADAPTER_MAP = {
 }
 
 
+def _resolve_model_uri(model_uri: Optional[str]) -> Optional[str]:
+    if model_uri is not None:
+        return model_uri
+    try:
+        from src.shared.config import tenant_key
+        from src.shared.redis_client import get_redis_connection
+
+        redis_conn = get_redis_connection()
+        if redis_conn:
+            override_uri = redis_conn.hget(tenant_key("admin_ui:settings"), "MODEL_URI")
+            if override_uri:
+                return override_uri.decode() if isinstance(override_uri, bytes) else str(override_uri)
+    except Exception as exc:
+        logging.debug("Unable to read MODEL_URI runtime override from Redis: %s", exc)
+    return os.getenv("MODEL_URI")
+
+
 def get_model_adapter(
     model_uri: Optional[str] = None,
     config: Optional[dict] = None,
@@ -59,8 +76,7 @@ def get_model_adapter(
     - ollama://llama3
     - https://my-custom-api.com/predict
     """
-    if model_uri is None:
-        model_uri = os.getenv("MODEL_URI")
+    model_uri = _resolve_model_uri(model_uri)
     if not model_uri:
         logging.error(
             "CRITICAL: MODEL_URI environment variable is not set. Cannot load model."

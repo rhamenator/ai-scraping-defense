@@ -232,15 +232,11 @@ def create_setup_handler(state: dict[str, Any]):
 
 def run_setup_web_server(
     root: Path,
+    config: dict[str, Any],
     *,
     host: str = "127.0.0.1",
     port: int = 8765,
     open_browser: bool = True,
-    parse_env_fn: Callable[[Path], dict[str, str]],
-    apply_updates_fn: Callable[[dict[str, str]], None],
-    key_settings: list[str],
-    optional_features: dict[str, dict[str, Any]],
-    is_secret_fn: Callable[[str], bool],
 ) -> None:
     """Launch the temporary pre-boot setup Web UI until saved or interrupted."""
     if not _is_loopback(host):
@@ -253,11 +249,11 @@ def run_setup_web_server(
         "bootstrap_token": secrets.token_urlsafe(24),
         "session_token": secrets.token_urlsafe(24),
         "csrf_token": secrets.token_urlsafe(24),
-        "parse_env": parse_env_fn,
-        "apply_updates": apply_updates_fn,
-        "key_settings": key_settings,
-        "optional_features": optional_features,
-        "is_secret": is_secret_fn,
+        "parse_env": config["parse_env_fn"],
+        "apply_updates": config["apply_updates_fn"],
+        "key_settings": config["key_settings"],
+        "optional_features": config["optional_features"],
+        "is_secret": config["is_secret_fn"],
         "shutdown_on_save": True,
     }
     server = ThreadingHTTPServer((host, port), create_setup_handler(state))
@@ -269,8 +265,8 @@ def run_setup_web_server(
     if open_browser and _is_loopback(host):
         try:
             webbrowser.open(url)
-        except Exception:
-            pass
+        except OSError as exc:
+            print(f"Could not open browser automatically: {exc}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

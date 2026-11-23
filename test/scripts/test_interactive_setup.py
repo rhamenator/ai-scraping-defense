@@ -55,8 +55,10 @@ class TestInteractiveSetupWeb(unittest.TestCase):
     def test_web_setup_requires_token_and_saves_env_without_exposing_secrets(self):
         with tempfile.TemporaryDirectory() as tmp:
             env_path = Path(tmp) / ".env"
-            secret_val = f"sk-test-{secrets.token_hex(6)}"
-            env_path.write_text(f"REAL_BACKEND_HOST=https://old.example.com\nOPENAI_API_KEY={secret_val}\n")
+            mask_marker = "demo-mask-check-value"
+            env_path.write_text(
+                f"REAL_BACKEND_HOST=https://old.example.com\nOPENAI_API_KEY={mask_marker}\n"
+            )
             state = {
                 "env_file": env_path,
                 "bootstrap_token": secrets.token_urlsafe(16),
@@ -80,7 +82,7 @@ class TestInteractiveSetupWeb(unittest.TestCase):
                 status_ok, body = self._request(port, "GET", f"/?token={state['bootstrap_token']}")
                 self.assertEqual(status_ok, 200)
                 self.assertIn("https://old.example.com", body)
-                self.assertNotIn(secret_val, body)
+                self.assertNotIn(mask_marker, body)
 
                 payload = urllib.parse.urlencode(
                     {
@@ -95,7 +97,7 @@ class TestInteractiveSetupWeb(unittest.TestCase):
                 self.assertEqual(post_status, 200)
                 parsed = interactive_setup.parse_env(env_path)
                 self.assertEqual(parsed["REAL_BACKEND_HOST"], "https://new.example.com")
-                self.assertEqual(parsed["OPENAI_API_KEY"], secret_val)
+                self.assertEqual(parsed["OPENAI_API_KEY"], mask_marker)
                 self.assertEqual(parsed["MODEL_URI"], "mcp://primary/classify")
             finally:
                 server.shutdown()

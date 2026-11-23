@@ -331,20 +331,32 @@ def main(argv: list[str] | None = None) -> None:
         print("Created .env from sample.env")
 
     if args.web:
-        from scripts.interactive_setup_web import run_setup_web_server
+        try:
+            from scripts.interactive_setup_web import run_setup_web_server
+        except ModuleNotFoundError:
+            from interactive_setup_web import run_setup_web_server
 
         run_setup_web_server(
             root,
+            {
+                "parse_env_fn": parse_env,
+                "apply_updates_fn": lambda updates: _apply_web_updates(root, env_file, state_file, updates),
+                "key_settings": KEY_SETTINGS,
+                "optional_features": OPTIONAL_FEATURES,
+                "is_secret_fn": is_secret_key,
+            },
             host=args.host,
             port=args.port,
             open_browser=not args.no_browser,
-            parse_env_fn=parse_env,
-            apply_updates_fn=lambda updates: _apply_web_updates(root, env_file, state_file, updates),
-            key_settings=KEY_SETTINGS,
-            optional_features=OPTIONAL_FEATURES,
-            is_secret_fn=is_secret_key,
         )
         return
+
+    _run_cli_setup(root, env_file, sample_file, state_file, is_windows)
+
+
+def _run_cli_setup(
+    root: Path, env_file: Path, sample_file: Path, state_file: Path, is_windows: bool
+) -> None:
 
     env = parse_env(env_file if env_file.exists() else sample_file)
     state = load_setup_state(state_file)
