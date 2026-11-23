@@ -162,7 +162,6 @@ class AdminUiMcpAndMfaTests(unittest.TestCase):
                         "transport": "stdio",
                         "url": "python -m my_mcp_server --port 9000",
                         "timeout": "20",
-                        "auth_token": "",
                     },
                 ).status_code,
                 200,
