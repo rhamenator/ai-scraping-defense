@@ -83,12 +83,19 @@ class AdminUiSetupWizardTests(unittest.TestCase):
         mcp_config._FALLBACK_STATE["enable_mcp_model"] = None
         mcp_config._FALLBACK_STATE["servers"] = {}
 
+    def _headers(self):
+        return {
+            "Authorization": "Basic "
+            + b64encode(f"setup_wizard_admin:{self.password}".encode()).decode(),
+            "X-2FA-Code": pyotp.TOTP(self.totp_secret).now(),
+        }
+
     def test_setup_requires_auth_and_completes_wizard(self):
         self.assertEqual(self.client.get("/setup").status_code, 401)
         with patch.dict(
             os.environ,
             {
-                "ADMIN_UI_USERNAME": "admin",
+                "ADMIN_UI_USERNAME": "setup_wizard_admin",
                 "ADMIN_UI_PASSWORD_HASH": self.pw_hash,
                 "ADMIN_UI_2FA_SECRET": self.totp_secret,
             },
@@ -96,19 +103,21 @@ class AdminUiSetupWizardTests(unittest.TestCase):
         ), patch("src.admin_ui.setup_wizard.get_redis_connection", return_value=self.fake_redis), patch(
             "src.admin_ui.mcp_config.get_redis_connection", return_value=self.fake_redis
         ), patch("src.admin_ui.auth.get_redis_connection", return_value=self.fake_redis), patch(
+            "src.admin_ui.mfa.get_redis_connection", return_value=self.fake_redis
+        ), patch(
             "src.admin_ui.admin_ui.get_redis_connection", return_value=self.fake_redis
         ):
-            dash_before = self.client.get("/", headers=self.auth_header)
+            dash_before = self.client.get("/", headers=self._headers())
             self.assertEqual(dash_before.status_code, 200)
             self.assertIn(b"setup-wizard-banner", dash_before.content)
 
-            wizard_get = self.client.get("/setup", headers=self.auth_header)
+            wizard_get = self.client.get("/setup", headers=self._headers())
             self.assertEqual(wizard_get.status_code, 200)
             csrf = wizard_get.cookies.get("csrf_token")
 
             wizard_post = self.client.post(
                 "/setup",
-                headers=self.auth_header,
+                headers=self._headers(),
                 cookies={"csrf_token": csrf},
                 data={
                     "csrf_token": csrf,
@@ -124,7 +133,7 @@ class AdminUiSetupWizardTests(unittest.TestCase):
             self.assertIn(b"Setup configuration saved.", wizard_post.content)
             self.assertTrue(setup_wizard.is_setup_complete())
 
-            dash_after = self.client.get("/", headers=self.auth_header)
+            dash_after = self.client.get("/", headers=self._headers())
             self.assertEqual(dash_after.status_code, 200)
             self.assertNotIn(b"setup-wizard-banner", dash_after.content)
 
