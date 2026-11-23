@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>Setup Wizard - AI Scraping Defense</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+</head>
+<body>
+<div class="container">
+    <h1>First-Run Setup Wizard</h1>
+    {% set active_page = 'setup' %}
+    {% include '_nav.html' %}
+
+    <p>Configure your protected site, detection model, and security posture from an authenticated Admin UI session.</p>
+
+    {% if saved_message %}<div class="alert-banner" role="status">{{ saved_message }}</div>{% endif %}
+    {% if error_message %}<div class="alert-banner" role="alert">{{ error_message }}</div>{% endif %}
+
+    <section aria-labelledby="setup-sec-heading">
+        <h2 id="setup-sec-heading">Step 1: Admin Security &amp; 2FA</h2>
+        <p>
+            Signed in as <strong>{{ user }}</strong>.
+            TOTP authenticator: <strong>{% if totp_configured %}Configured{% else %}Not enrolled{% endif %}</strong>.
+        </p>
+        <p><a href="/security">Manage password, TOTP QR enrollment, and Passkeys &rarr;</a></p>
+    </section>
+
+    <form method="post" action="/setup" autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+        <h2>Step 2: Core Protection &amp; Model</h2>
+        <label for="wiz-backend">Protected Backend URL (<code>REAL_BACKEND_HOST</code>)</label>
+        <input id="wiz-backend" name="real_backend_host" value="{{ wizard.real_backend_host }}" placeholder="https://origin.example.com">
+
+        <label for="wiz-model">Detection Model URI (<code>MODEL_URI</code>)</label>
+        <input id="wiz-model" name="model_uri" value="{{ wizard.model_uri }}" placeholder="sklearn:///app/models/bot_detection_rf_model.joblib">
+
+        <label for="wiz-captcha">CAPTCHA Provider</label>
+        <select id="wiz-captcha" name="captcha_provider">
+            {% for opt in ('builtin', 'recaptcha', 'turnstile') %}
+            <option value="{{ opt }}"{% if wizard.captcha_provider == opt %} selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="wiz-cf">Site Uses Cloudflare</label>
+        <select id="wiz-cf" name="cloudflare_enabled">
+            <option value="false"{% if wizard.cloudflare_enabled != 'true' %} selected{% endif %}>false</option>
+            <option value="true"{% if wizard.cloudflare_enabled == 'true' %} selected{% endif %}>true</option>
+        </select>
+
+        <h2>Step 3: Optional MCP Model Routing</h2>
+        <label class="metrics-toggle">
+            <input type="checkbox" name="enable_mcp_model" value="true"{% if wizard.enable_mcp_model %} checked{% endif %}>
+            <span>Enable MCP model routing (<code>ENABLE_MCP_MODEL</code>)</span>
+        </label>
+        <p><a href="/mcp">Configure additional MCP servers &rarr;</a></p>
+
+        <h2>Step 4: Finish Onboarding</h2>
+        <label class="metrics-toggle">
+            <input type="checkbox" name="mark_complete" value="true" checked>
+            <span>Mark first-run setup as complete</span>
+        </label>
+
+        <p><button type="submit">Save &amp; Complete Setup</button></p>
+    </form>
+</div>
+</body>
+</html>

@@ -36,7 +36,7 @@ from src.shared.observability import (
 from src.shared.redis_client import get_redis_connection
 
 from . import auth as auth_routes
-from . import block_log, blocklist, mcp_config, metrics, mfa, passkeys, webauthn
+from . import block_log, blocklist, mcp_config, metrics, mfa, passkeys, setup_wizard, webauthn
 from .auth import require_admin, require_auth
 
 logger = logging.getLogger(__name__)
@@ -752,7 +752,12 @@ async def index(
     response = templates.TemplateResponse(
         request,
         "index.html",
-        {"user": user, "csrf_token": csrf_token, **_captcha_dashboard_context()},
+        {
+            "user": user,
+            "csrf_token": csrf_token,
+            "setup_complete": setup_wizard.is_setup_complete(),
+            **_captcha_dashboard_context(),
+        },
     )
     _set_csrf_cookie(response, request, csrf_token)
     return response
@@ -1155,6 +1160,102 @@ async def update_mcp(request: Request, user: str = Depends(require_admin)):
         "mcp.html",
         {
             "mcp": mcp_config.get_mcp_state(),
+            "csrf_token": csrf_token,
+            "saved_message": saved_message,
+            "error_message": error_message,
+        },
+        status_code=400 if error_message else 200,
+    )
+    _set_csrf_cookie(response, request, csrf_token)
+    return response
+
+
+def _get_wizard_setting(name: str) -> str:
+    if name in EDITABLE_SETTING_MAP:
+        return _get_runtime_setting(name)
+    redis_conn = get_redis_connection()
+    if redis_conn:
+        val = redis_conn.hget(RUNTIME_SETTINGS_KEY, name)
+        if val is not None:
+            return val.decode() if isinstance(val, bytes) else str(val)
+    return os.getenv(name, "")
+
+
+def _setup_wizard_context(user: str) -> dict[str, object]:
+    totp_configured = bool(
+        mfa.get_totp_secret(user)
+        or os.getenv("ADMIN_UI_2FA_SECRET")
+        or get_secret("ADMIN_UI_2FA_SECRET_FILE")
+    )
+    return {
+        "user": user,
+        "totp_configured": totp_configured,
+        "wizard": {
+            "real_backend_host": _get_wizard_setting("REAL_BACKEND_HOST"),
+            "model_uri": _get_wizard_setting("MODEL_URI"),
+            "captcha_provider": _get_wizard_setting("CAPTCHA_PROVIDER") or "builtin",
+            "cloudflare_enabled": _get_wizard_setting("CLOUDFLARE_ENABLED") or "false",
+            "enable_mcp_model": mcp_config.get_mcp_state()["enable_mcp_model"],
+        },
+    }
+
+
+def _apply_setup_wizard_form(form, user: str) -> tuple[str, str]:
+    backend = str(form.get("real_backend_host", "")).strip()
+    model_uri = str(form.get("model_uri", "")).strip()
+    captcha = str(form.get("captcha_provider", "builtin")).strip().lower()
+    cf_enabled = str(form.get("cloudflare_enabled", "false")).strip().lower()
+    try:
+        if backend:
+            _validate_url_setting("Protected Backend URL", backend)
+            _set_runtime_setting("REAL_BACKEND_HOST", backend)
+            os.environ["REAL_BACKEND_HOST"] = backend
+        if model_uri:
+            _set_runtime_setting("MODEL_URI", model_uri)
+            os.environ["MODEL_URI"] = model_uri
+        captcha = _validate_select_setting("CAPTCHA Provider", captcha, CAPTCHA_PROVIDER_OPTIONS)
+        cf_enabled = _normalize_bool_setting("Site Uses Cloudflare", cf_enabled)
+    except ValueError as exc:
+        return "", str(exc)
+    _set_runtime_setting("CAPTCHA_PROVIDER", captcha)
+    _set_runtime_setting("CLOUDFLARE_ENABLED", cf_enabled)
+    os.environ["CAPTCHA_PROVIDER"] = captcha
+    os.environ["CLOUDFLARE_ENABLED"] = cf_enabled
+    mcp_config.set_mcp_enabled(str(form.get("enable_mcp_model", "")).lower() == "true")
+    if str(form.get("mark_complete", "")).lower() == "true":
+        setup_wizard.mark_setup_complete(user, completed=True)
+    log_event(user, "admin_ui_setup_updated", {})
+    return (
+        "Setup configuration saved. Restart nginx / escalation_engine if REAL_BACKEND_HOST or MODEL_URI changed.",
+        "",
+    )
+
+
+@app.get("/setup", response_class=HTMLResponse)
+async def setup_page(request: Request, user: str = Depends(require_admin)):
+    """Render the authenticated first-run setup wizard."""
+    csrf_token = _ensure_csrf_token(request.cookies.get("csrf_token"))
+    response = templates.TemplateResponse(
+        request,
+        "setup.html",
+        {**_setup_wizard_context(user), "csrf_token": csrf_token},
+    )
+    _set_csrf_cookie(response, request, csrf_token)
+    return response
+
+
+@app.post("/setup", response_class=HTMLResponse)
+async def submit_setup(request: Request, user: str = Depends(require_admin)):
+    """Persist authenticated first-run setup wizard selections."""
+    form = await request.form()
+    csrf_token = _ensure_csrf_token(request.cookies.get("csrf_token"))
+    _validate_csrf(request.cookies.get("csrf_token"), form.get("csrf_token"))
+    saved_message, error_message = _apply_setup_wizard_form(form, user)
+    response = templates.TemplateResponse(
+        request,
+        "setup.html",
+        {
+            **_setup_wizard_context(user),
             "csrf_token": csrf_token,
             "saved_message": saved_message,
             "error_message": error_message,
