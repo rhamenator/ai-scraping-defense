@@ -163,6 +163,8 @@ services:
     depends_on:
       secrets_init:
         condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
       escalation_engine:
         condition: service_started
     networks:
@@ -442,7 +444,7 @@ services:
     container_name: cloud_dashboard
     environment:
       - CLOUD_DASHBOARD_API_KEY_FILE=/run/secrets/cloud_dashboard_api_key.txt
-    command: ["python", "src/cloud_dashboard/cloud_dashboard_api.py"]
+    command: ["python", "-m", "src.cloud_dashboard.cloud_dashboard_api"]
     env_file:
       - .env
     ports:
@@ -453,6 +455,8 @@ services:
     depends_on:
       secrets_init:
         condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
@@ -494,7 +498,7 @@ services:
     container_name: config_recommender
     environment:
       - RECOMMENDER_API_KEY_FILE=/run/secrets/recommender_api_key.txt
-    command: ["python", "src/config_recommender/recommender_api.py"]
+    command: ["python", "-m", "src.config_recommender.recommender_api"]
     env_file:
       - .env
     ports:
@@ -716,12 +720,12 @@ services:
         stage postgres 70 70 pg_password.txt
         stage redis 0 0 redis_password.txt
         stage grafana 472 0 grafana_admin_password.txt
-        stage ai_service 1000 1000 redis_password.txt escalation_api_key.txt
+        stage ai_service 1000 1000 pg_password.txt redis_password.txt escalation_api_key.txt
         stage escalation_engine 1000 1000 pg_password.txt redis_password.txt escalation_api_key.txt auth_jwt_secret.txt captcha_secret.txt external_api_key.txt ip_reputation_api_key.txt community_blocklist_api_key.txt smtp_password.txt
         stage tarpit_api 1000 1000 pg_password.txt redis_password.txt system_seed.txt
         stage admin_ui 1000 1000 pg_password.txt redis_password.txt auth_jwt_secret.txt admin_ui_password_hash.txt escalation_api_key.txt
         stage captcha_service 1000 1000 captcha_secret.txt redis_password.txt
-        stage cloud_dashboard 1000 1000 redis_password.txt cloud_dashboard_api_key.txt
+        stage cloud_dashboard 1000 1000 pg_password.txt redis_password.txt cloud_dashboard_api_key.txt
         stage config_recommender 1000 1000 redis_password.txt recommender_api_key.txt
         stage blocklist_sync 1000 1000 redis_password.txt
         rm -rf /tmp/eph
