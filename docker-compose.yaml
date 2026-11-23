@@ -66,7 +66,7 @@ services:
       - ./nginx/.htpasswd:/etc/nginx/secrets/.htpasswd:ro
       - ./waf:/etc/nginx/modsecurity:ro
       - ./docs_ui:/usr/share/nginx/html/docs_ui:ro
-      - runtime_secrets:/run/secrets:ro
+      - secrets_nginx:/run/secrets:ro
       - nginx_generated_conf:/etc/nginx/generated-conf
       # Restored Nginx cache volumes for stability and performance
       - nginx_client_body_temp:/var/run/openresty/nginx-client-body
@@ -138,6 +138,8 @@ services:
         PYTHON_DIGEST: ${PYTHON_DIGEST:-sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f}
         RUST_DIGEST: ${RUST_DIGEST:-sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0}
     container_name: ai_service
+    environment:
+      - ESCALATION_API_KEY_FILE=/run/secrets/escalation_api_key.txt
     command:
       [
         "uvicorn",
@@ -153,7 +155,7 @@ services:
       - ./src:/app/src
       - ./logs:/app/logs
       - ./scripts/linux/docker-entrypoint.sh:/app/docker-entrypoint.sh
-      - runtime_secrets:/run/secrets:ro
+      - secrets_ai_service:/run/secrets:ro
     depends_on:
       secrets_init:
         condition: service_completed_successfully
@@ -193,6 +195,9 @@ services:
         PYTHON_DIGEST: ${PYTHON_DIGEST:-sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f}
         RUST_DIGEST: ${RUST_DIGEST:-sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0}
     container_name: escalation_engine
+    environment:
+      - ESCALATION_API_KEY_FILE=/run/secrets/escalation_api_key.txt
+      - CAPTCHA_SECRET_FILE=/run/secrets/captcha_secret.txt
     command:
       [
         "uvicorn",
@@ -208,7 +213,7 @@ services:
       - ./src:/app/src
       - ./models:/app/models
       - ./data:/app/data
-      - runtime_secrets:/run/secrets:ro
+      - secrets_escalation:/run/secrets:ro
     depends_on:
       secrets_init:
         condition: service_completed_successfully
@@ -246,6 +251,8 @@ services:
         PYTHON_DIGEST: ${PYTHON_DIGEST:-sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f}
         RUST_DIGEST: ${RUST_DIGEST:-sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0}
     container_name: tarpit_api
+    environment:
+      - SYSTEM_SEED_FILE=/run/secrets/system_seed.txt
     command:
       [
         "uvicorn",
@@ -260,7 +267,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./archives:/app/archives
-      - runtime_secrets:/run/secrets:ro
+      - secrets_tarpit:/run/secrets:ro
     depends_on:
       secrets_init:
         condition: service_completed_successfully
@@ -307,12 +314,15 @@ services:
       - .env
     environment:
       - FLASK_RUN_HOST=0.0.0.0
+      - AUTH_JWT_SECRET_FILE=/run/secrets/auth_jwt_secret.txt
+      - ADMIN_UI_PASSWORD_HASH_FILE=/run/secrets/admin_ui_password_hash.txt
+      - ESCALATION_API_KEY_FILE=/run/secrets/escalation_api_key.txt
     ports:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:${ADMIN_UI_PORT:-5002}:5002"
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
-      - runtime_secrets:/run/secrets:ro
+      - secrets_admin_ui:/run/secrets:ro
     depends_on:
       secrets_init:
         condition: service_completed_successfully
@@ -354,6 +364,8 @@ services:
         PYTHON_DIGEST: ${PYTHON_DIGEST:-sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f}
         RUST_DIGEST: ${RUST_DIGEST:-sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0}
     container_name: captcha_service
+    environment:
+      - CAPTCHA_SECRET_FILE=/run/secrets/captcha_secret.txt
     command:
       [
         "uvicorn",
@@ -371,7 +383,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
-      - runtime_secrets:/run/secrets:ro
+      - secrets_captcha:/run/secrets:ro
     networks:
       - defense_network
     restart: unless-stopped
@@ -406,6 +418,8 @@ services:
         PYTHON_DIGEST: ${PYTHON_DIGEST:-sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f}
         RUST_DIGEST: ${RUST_DIGEST:-sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0}
     container_name: cloud_dashboard
+    environment:
+      - CLOUD_DASHBOARD_API_KEY_FILE=/run/secrets/cloud_dashboard_api_key.txt
     command: ["python", "src/cloud_dashboard/cloud_dashboard_api.py"]
     env_file:
       - .env
@@ -413,7 +427,7 @@ services:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:${CLOUD_DASHBOARD_PORT:-5006}:5006"
     volumes:
       - ./src:/app/src
-      - runtime_secrets:/run/secrets:ro
+      - secrets_cloud_dashboard:/run/secrets:ro
     depends_on:
       secrets_init:
         condition: service_completed_successfully
@@ -453,6 +467,8 @@ services:
         PYTHON_DIGEST: ${PYTHON_DIGEST:-sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f}
         RUST_DIGEST: ${RUST_DIGEST:-sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0}
     container_name: config_recommender
+    environment:
+      - RECOMMENDER_API_KEY_FILE=/run/secrets/recommender_api_key.txt
     command: ["python", "src/config_recommender/recommender_api.py"]
     env_file:
       - .env
@@ -460,7 +476,7 @@ services:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:8010:8010"
     volumes:
       - ./src:/app/src:ro
-      - runtime_secrets:/run/secrets:ro
+      - secrets_recommender:/run/secrets:ro
     depends_on:
       secrets_init:
         condition: service_completed_successfully
@@ -503,13 +519,9 @@ services:
       - .env
     ports:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:${CLOUD_PROXY_PORT:-8008}:8008"
-    depends_on:
-      secrets_init:
-        condition: service_completed_successfully
     volumes:
       - ./cloud-proxy:/app:ro
       - ./src:/app/src:ro
-      - runtime_secrets:/run/secrets:ro
     networks:
       - defense_network
     restart: unless-stopped
@@ -553,13 +565,9 @@ services:
       - .env
     ports:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:${PROMPT_ROUTER_PORT:-8009}:8009"
-    depends_on:
-      secrets_init:
-        condition: service_completed_successfully
     volumes:
       - ./prompt-router:/app:ro
       - ./src:/app/src:ro
-      - runtime_secrets:/run/secrets:ro
     networks:
       - defense_network
     restart: unless-stopped
@@ -599,24 +607,64 @@ services:
       - FOWNER
     security_opt:
       - no-new-privileges:true
+    tmpfs:
+      - /tmp:mode=0700,size=1m
     volumes:
       - ./secrets:/staging/source:ro
-      - runtime_secrets:/staging/target
+      - secrets_nginx:/staging/target/nginx_proxy
+      - secrets_ai_service:/staging/target/ai_service
+      - secrets_escalation:/staging/target/escalation_engine
+      - secrets_tarpit:/staging/target/tarpit_api
+      - secrets_admin_ui:/staging/target/admin_ui
+      - secrets_captcha:/staging/target/captcha_service
+      - secrets_cloud_dashboard:/staging/target/cloud_dashboard
+      - secrets_recommender:/staging/target/config_recommender
+      - secrets_postgres:/staging/target/postgres
+      - secrets_redis:/staging/target/redis
+      - secrets_blocklist_sync:/staging/target/blocklist_sync
+      - secrets_grafana:/staging/target/grafana
     entrypoint: ["sh", "-c"]
-    # Only the plain *.txt secret files the services read are staged: anything else in ./secrets (for example the optional
-    # private local_secrets.db that interactive_setup.py can create) is deliberately left behind.
+    # Only the plain *.txt secret files each service needs are staged into per-service tmpfs volumes (mode 0400, per-UID chown);
+    # ephemeral internal secrets are generated in RAM (/tmp) if absent on disk. Anything else in ./secrets is ignored.
     command:
       - |
         set -eu
-        umask 022
-        find /staging/target -mindepth 1 -delete
+        umask 077
+        mkdir -p /tmp/eph
         for f in /staging/source/*.txt; do
-          if [ -f "$$f" ]; then cp "$$f" /staging/target/; fi
+          if [ -f "$$f" ]; then cp "$$f" /tmp/eph/; fi
         done
-        chmod 755 /staging/target
-        for f in /staging/target/*; do
-          if [ -f "$$f" ]; then chmod 444 "$$f"; fi
+        for name in auth_jwt_secret system_seed captcha_secret escalation_api_key recommender_api_key cloud_dashboard_api_key; do
+          if [ ! -s "/tmp/eph/$${name}.txt" ]; then
+            head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "/tmp/eph/$${name}.txt"
+          fi
         done
+        stage() {
+          svc="$$1"; uid="$$2"; gid="$$3"; shift 3
+          dir="/staging/target/$$svc"
+          find "$$dir" -mindepth 1 -delete
+          chmod 755 "$$dir"
+          for fname in "$$@"; do
+            if [ -f "/tmp/eph/$$fname" ]; then
+              cp "/tmp/eph/$$fname" "$$dir/$$fname"
+              chown "$$uid:$$gid" "$$dir/$$fname"
+              chmod 400 "$$dir/$$fname"
+            fi
+          done
+        }
+        stage nginx_proxy 65534 65534 redis_password.txt
+        stage postgres 70 70 pg_password.txt
+        stage redis 0 0 redis_password.txt
+        stage grafana 472 0 grafana_admin_password.txt
+        stage ai_service 1000 1000 redis_password.txt escalation_api_key.txt
+        stage escalation_engine 1000 1000 pg_password.txt redis_password.txt escalation_api_key.txt captcha_secret.txt external_api_key.txt ip_reputation_api_key.txt community_blocklist_api_key.txt smtp_password.txt
+        stage tarpit_api 1000 1000 pg_password.txt redis_password.txt system_seed.txt
+        stage admin_ui 1000 1000 pg_password.txt redis_password.txt auth_jwt_secret.txt admin_ui_password_hash.txt escalation_api_key.txt
+        stage captcha_service 1000 1000 captcha_secret.txt redis_password.txt
+        stage cloud_dashboard 1000 1000 redis_password.txt cloud_dashboard_api_key.txt
+        stage config_recommender 1000 1000 redis_password.txt recommender_api_key.txt
+        stage blocklist_sync 1000 1000 redis_password.txt
+        rm -rf /tmp/eph
 
   postgres:
     image: postgres:15-alpine@sha256:e18480a22d6e48f4d816a6696769b1ec09ac73a824c5649e49c7d8b684913f3d
@@ -627,7 +675,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init_markov.sql:/docker-entrypoint-initdb.d/init_markov.sql
-      - runtime_secrets:/run/secrets:ro
+      - secrets_postgres:/run/secrets:ro
     environment:
       # The official Postgres image expects the POSTGRES_* variables, but
       # our .env uses the newer PG_* naming. Map them here so both the
@@ -659,7 +707,7 @@ services:
         condition: service_completed_successfully
     volumes:
       - redis_data:/data
-      - runtime_secrets:/run/secrets:ro
+      - secrets_redis:/run/secrets:ro
     environment:
       - REDIS_PASSWORD_FILE=${REDIS_PASSWORD_FILE}
     networks:
@@ -685,7 +733,7 @@ services:
     env_file:
       - .env
     volumes:
-      - runtime_secrets:/run/secrets:ro
+      - secrets_blocklist_sync:/run/secrets:ro
     depends_on:
       secrets_init:
         condition: service_completed_successfully
@@ -857,7 +905,7 @@ services:
         so secrets/grafana_admin_password.txt exists." >&2; exit 1; fi; exec /run.sh
     volumes:
       - grafana_data:/var/lib/grafana
-      - runtime_secrets:/run/secrets:ro
+      - secrets_grafana:/run/secrets:ro
     networks:
       - defense_network
     depends_on:
@@ -890,7 +938,78 @@ networks:
     internal: true
 
 volumes:
-  runtime_secrets:
+  secrets_nginx:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "mode=0755,size=1m"
+  secrets_ai_service:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "mode=0755,size=1m"
+  secrets_escalation:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "mode=0755,size=1m"
+  secrets_tarpit:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "mode=0755,size=1m"
+  secrets_admin_ui:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "mode=0755,size=1m"
+  secrets_captcha:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "mode=0755,size=1m"
+  secrets_cloud_dashboard:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "mode=0755,size=1m"
+  secrets_recommender:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "mode=0755,size=1m"
+  secrets_postgres:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "mode=0755,size=1m"
+  secrets_redis:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "mode=0755,size=1m"
+  secrets_blocklist_sync:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "mode=0755,size=1m"
+  secrets_grafana:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "mode=0755,size=1m"
   postgres_data:
   redis_data:
   nginx_generated_conf:

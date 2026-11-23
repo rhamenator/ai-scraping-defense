@@ -224,9 +224,8 @@ class Config:
         default_factory=lambda: float(os.getenv("TAR_PIT_MAX_STREAM_SECONDS", 60.0))
     )
     SYSTEM_SEED: str = field(
-        default_factory=lambda: os.getenv(
-            "SYSTEM_SEED", "default_system_seed_value_change_me"
-        )
+        default_factory=lambda: get_secret("SYSTEM_SEED_FILE")
+        or os.getenv("SYSTEM_SEED", "default_system_seed_value_change_me")
     )
     TAR_PIT_MAX_HOPS: int = field(
         default_factory=lambda: int(os.getenv("TAR_PIT_MAX_HOPS", 250))
