@@ -35,12 +35,28 @@ class ProviderSelectionTests(unittest.TestCase):
         )
 
     def test_builtin_endpoints_disabled_when_external_provider_configured(self):
-        with patch.multiple(svc, CAPTCHA_PROVIDER="turnstile", CAPTCHA_SECRET="s"):
+        dummy_secret = secrets.token_urlsafe(12)
+        dummy_token = secrets.token_urlsafe(8)
+        with patch.multiple(svc, CAPTCHA_PROVIDER="turnstile", CAPTCHA_SECRET=dummy_secret):
             client = TestClient(svc.app)
             self.assertEqual(client.get("/challenge").status_code, 404)
-            self.assertEqual(client.post("/solve", data={"answer": "1", "token": "t"}).status_code, 404)
-            self.assertEqual(client.post("/verify", params={"token": "t", "ip": "1.2.3.4"}).status_code, 404)
+            self.assertEqual(client.post("/solve", data={"answer": "1", "token": dummy_token}).status_code, 404)
+            self.assertEqual(client.post("/verify", params={"token": dummy_token, "ip": "1.2.3.4"}).status_code, 404)
             self.assertEqual(client.post("/request-access", data={"note": "help"}).status_code, 404)
+
+    def test_runtime_setting_propagation_disables_builtin_and_toggles_requests(self):
+        with patch("src.captcha.custom_captcha_service.get_runtime_setting") as mock_setting:
+            mock_setting.side_effect = lambda k, d: "turnstile" if k == "CAPTCHA_PROVIDER" else d
+            client = TestClient(svc.app)
+            self.assertEqual(client.get("/challenge").status_code, 404)
+
+        with patch("src.captcha.custom_captcha_service.get_runtime_setting") as mock_setting:
+            mock_setting.side_effect = lambda k, d: "true" if k == "CAPTCHA_MANUAL_REQUESTS_ENABLED" else d
+            req_store = AccessRequestStore("memory")
+            with patch.object(svc, "request_store", req_store):
+                client = TestClient(svc.app)
+                res = client.post("/request-access", data={"note": "propagated"})
+                self.assertEqual(res.status_code, 200)
 
 
 class AccessibleQuestionTypesTests(unittest.TestCase):
@@ -178,6 +194,26 @@ class ManualAccessRequestTests(unittest.TestCase):
             client = TestClient(admin_ui.app)
             html = client.get("/").text
             self.assertIn("cloudflare-under-attack-banner", html)
+
+    def test_approve_unblocks_ip_via_blocklist_store(self):
+        req_store = AccessRequestStore("memory")
+        _, _, rec = req_store.submit("198.51.100.77", "blocked by mistake")
+        admin_ui.app.dependency_overrides[admin_ui.require_admin] = lambda: "admin"
+        self.addCleanup(admin_ui.app.dependency_overrides.clear)
+        csrf = secrets.token_urlsafe(12)
+        with (
+            patch.object(admin_ui, "access_request_store", req_store),
+            patch("src.admin_ui.admin_ui.blocklist_store.unblock", return_value=True) as mock_unblock,
+        ):
+            client = TestClient(admin_ui.app)
+            client.cookies.set("csrf_token", csrf)
+            res = client.post(
+                f"/captcha-requests/{rec['id']}/approve",
+                data={"csrf_token": csrf},
+            )
+            self.assertEqual(res.status_code, 200)
+            mock_unblock.assert_called_once_with("198.51.100.77")
+            self.assertTrue(req_store.is_temporarily_allowed("198.51.100.77"))
 
 
 if __name__ == "__main__":

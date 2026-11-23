@@ -11,7 +11,7 @@ import time
 from fastapi import Cookie, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from src.shared.config import get_secret
+from src.shared.config import get_runtime_setting, get_secret
 from src.shared.middleware import create_app
 from src.shared.observability import (
     HealthCheckResult,
@@ -26,6 +26,7 @@ from .questions import answers_match, generate_question, normalize_question_type
 
 CAPTCHA_SECRET = get_secret("CAPTCHA_SECRET_FILE") or os.getenv("CAPTCHA_SECRET")
 CAPTCHA_PROVIDER = os.getenv("CAPTCHA_PROVIDER", "builtin").strip().lower() or "builtin"
+_INITIAL_CAPTCHA_PROVIDER = CAPTCHA_PROVIDER
 CAPTCHA_SUCCESS_LOG = os.getenv("CAPTCHA_SUCCESS_LOG", "/app/logs/captcha_success.log")
 TOKEN_EXPIRY = int(os.getenv("CAPTCHA_TOKEN_EXPIRY_SECONDS", 300))
 # A challenge may be answered from the address it was issued to (set false for users whose address changes mid-flow).
@@ -40,14 +41,27 @@ MIN_SOLVE_SECONDS = float(os.getenv("CAPTCHA_MIN_SOLVE_SECONDS", 1.5))
 # the function; it only filters clients that post the form without running the page. Set to false to disable.
 REQUIRE_PROOF = os.getenv("CAPTCHA_REQUIRE_PROOF", "true").lower() == "true"
 MANUAL_REQUESTS_ENABLED = os.getenv("CAPTCHA_MANUAL_REQUESTS_ENABLED", "false").lower() == "true"
+_INITIAL_MANUAL_REQUESTS_ENABLED = MANUAL_REQUESTS_ENABLED
 store = ChallengeStore()
 request_store = AccessRequestStore()
 
 app = create_app()
 
 
+def _active_provider() -> str:
+    if CAPTCHA_PROVIDER != _INITIAL_CAPTCHA_PROVIDER:
+        return CAPTCHA_PROVIDER
+    return get_runtime_setting("CAPTCHA_PROVIDER", CAPTCHA_PROVIDER).strip().lower() or "builtin"
+
+
+def _manual_requests_enabled() -> bool:
+    if MANUAL_REQUESTS_ENABLED != _INITIAL_MANUAL_REQUESTS_ENABLED:
+        return MANUAL_REQUESTS_ENABLED
+    return get_runtime_setting("CAPTCHA_MANUAL_REQUESTS_ENABLED", "true" if MANUAL_REQUESTS_ENABLED else "false").lower() == "true"
+
+
 def _ensure_builtin_enabled() -> None:
-    if CAPTCHA_PROVIDER != "builtin":
+    if _active_provider() != "builtin":
         raise HTTPException(
             status_code=404,
             detail="Built-in CAPTCHA is disabled when an external provider is configured",
@@ -56,8 +70,9 @@ def _ensure_builtin_enabled() -> None:
 
 @register_health_check(app, "custom_captcha", critical=True)
 async def _captcha_health() -> HealthCheckResult:
-    if CAPTCHA_PROVIDER != "builtin":
-        return HealthCheckResult.healthy({"provider": CAPTCHA_PROVIDER, "builtin_enabled": False})
+    provider = _active_provider()
+    if provider != "builtin":
+        return HealthCheckResult.healthy({"provider": provider, "builtin_enabled": False})
     if not CAPTCHA_SECRET:
         return HealthCheckResult.unhealthy({"reason": "captcha secret missing"})
     if store.backend == "memory":
@@ -190,7 +205,7 @@ if (reqForm) {{
 
 
 def _manual_request_section() -> str:
-    if not MANUAL_REQUESTS_ENABLED:
+    if not _manual_requests_enabled():
         return ""
     if request_store.is_paused():
         return "<div class='request-box'><p>Access requests are currently paused.</p></div>"
@@ -368,7 +383,7 @@ _REQUEST_MESSAGES = {
 @app.post("/request-access")
 async def request_access(request: Request, note: str = Form("")):
     _ensure_builtin_enabled()
-    if not MANUAL_REQUESTS_ENABLED:
+    if not _manual_requests_enabled():
         raise HTTPException(status_code=404, detail="Manual access requests are disabled")
     ip = resolve_request_identity(request).client_ip
     ok, reason, rec = request_store.submit(ip, note)

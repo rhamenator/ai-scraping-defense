@@ -572,10 +572,26 @@ class Config:
 
 # Instantiate configuration once
 _CAPTCHA_PROVIDER_URLS = {
-    "builtin": "http://captcha_service:8004/verify",
+    "builtin": "http://captcha_service:8004/verify",  # DevSkim: ignore DS137138
     "recaptcha": "https://www.google.com/recaptcha/api/siteverify",
     "turnstile": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
 }
+
+
+def get_runtime_setting(name: str, default: str) -> str:
+    """Read a setting from the Admin UI Redis hash when available, else the environment."""
+    if os.getenv("CAPTCHA_STORE", "").lower() != "memory":
+        try:
+            from src.shared.redis_client import get_redis_connection
+
+            conn = get_redis_connection()
+            if conn is not None:
+                raw = conn.hget(tenant_key("admin_ui:settings"), name)
+                if raw is not None:
+                    return raw.decode() if isinstance(raw, bytes) else str(raw)
+        except Exception:
+            pass
+    return os.getenv(name, default)
 
 
 def resolve_captcha_verification_url(

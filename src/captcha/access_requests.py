@@ -21,6 +21,54 @@ logger = logging.getLogger(__name__)
 
 MAX_NOTE_LENGTH = 200
 
+_SUBMIT_LUA = """
+local pending_key = KEYS[1]
+local cd_key = KEYS[2]
+local items_key = KEYS[3]
+local rate_key = KEYS[4]
+
+local req_id = ARGV[1]
+local payload = ARGV[2]
+local retention_s = tonumber(ARGV[3])
+local cooldown_s = tonumber(ARGV[4])
+local max_pending = tonumber(ARGV[5])
+local global_rate = tonumber(ARGV[6])
+
+if redis.call('EXISTS', pending_key) == 1 then
+    return 'already_pending'
+end
+if redis.call('EXISTS', cd_key) == 1 then
+    return 'cooldown'
+end
+if max_pending <= 0 then
+    return 'paused'
+end
+local pending_count = 0
+for _, v in ipairs(redis.call('HVALS', items_key)) do
+    if string.find(v, '"status":"pending"', 1, true) then
+        pending_count = pending_count + 1
+    end
+end
+if pending_count >= max_pending then
+    return 'paused'
+end
+if global_rate > 0 then
+    local hits = redis.call('INCR', rate_key)
+    if hits == 1 then
+        redis.call('EXPIRE', rate_key, 60)
+    end
+    if hits > global_rate then
+        return 'paused'
+    end
+end
+redis.call('HSET', items_key, req_id, payload)
+redis.call('SET', pending_key, req_id, 'EX', retention_s)
+if cooldown_s > 0 then
+    redis.call('SET', cd_key, '1', 'EX', cooldown_s)
+end
+return 'queued'
+"""
+
 
 def sanitize_note(note: str | None, max_length: int = MAX_NOTE_LENGTH) -> str:
     """Strip control characters and collapse whitespace, capped at ``max_length`` chars."""
@@ -99,9 +147,15 @@ class AccessRequestStore:
         retention_s = max(1, _env_int("CAPTCHA_REQUEST_RETENTION_DAYS", 7)) * 86400
         clean_note = sanitize_note(note)
 
+        limits = {
+            "cooldown_s": cooldown_s,
+            "max_pending": max_pending,
+            "global_rate": global_rate,
+            "retention_s": retention_s,
+        }
         redis = self._client()
         if redis is not None:
-            return self._submit_redis(redis, ip, clean_note, now, cooldown_s, max_pending, global_rate, retention_s)
+            return self._submit_redis(redis, ip, clean_note, now, limits)
         return self._submit_memory(ip, clean_note, now, cooldown_s, max_pending, global_rate, retention_s)
 
     def _memory_rejection(self, ip: str, now: float, max_pending: int, global_rate: int) -> Optional[str]:
@@ -142,32 +196,27 @@ class AccessRequestStore:
         return True
 
     def _submit_redis(
-        self, redis: Any, ip: str, note: str, now: float, cooldown_s: int, max_pending: int, global_rate: int, retention_s: int
+        self, redis: Any, ip: str, note: str, now: float, limits: dict[str, int]
     ) -> tuple[bool, str, Optional[dict]]:
-        if redis.exists(self._key("pending", ip)):
-            return False, "already_pending", None
-        if redis.exists(self._key("cd", ip)):
-            return False, "cooldown", None
-        if max_pending <= 0 or len(self._redis_pending_records(redis, now)) >= max_pending:
-            return False, "paused", None
-        if global_rate > 0:
-            rkey = self._key("rate")
-            pipe = redis.pipeline(transaction=True)
-            pipe.incr(rkey)
-            pipe.expire(rkey, 60, nx=True)
-            if int(pipe.execute()[0]) > global_rate:
-                return False, "paused", None
-        record = _build_record(ip, note, now, retention_s)
-        pipe = redis.pipeline(transaction=True)
-        pipe.hset(self._key("items"), record["id"], json.dumps(record, separators=(",", ":")))
-        pipe.set(self._key("pending", ip), record["id"], ex=retention_s)
-        if cooldown_s > 0:
-            pipe.set(self._key("cd", ip), "1", ex=cooldown_s)
-        pipe.execute()
+        self._list_redis(redis, now)  # prune expired items before checking queue capacity
+        record = _build_record(ip, note, now, limits["retention_s"])
+        payload = json.dumps(record, separators=(",", ":"))
+        script = redis.register_script(_SUBMIT_LUA)
+        status = script(
+            keys=[self._key("pending", ip), self._key("cd", ip), self._key("items"), self._key("rate")],
+            args=[
+                record["id"],
+                payload,
+                limits["retention_s"],
+                limits["cooldown_s"],
+                limits["max_pending"],
+                limits["global_rate"],
+            ],
+        )
+        status_str = status.decode() if isinstance(status, bytes) else str(status)
+        if status_str != "queued":
+            return False, status_str, None
         return True, "queued", dict(record)
-
-    def _redis_pending_records(self, redis: Any, now: float) -> list[dict]:
-        return [r for r in self._list_redis(redis, now) if r.get("status") == "pending"]
 
     def _list_redis(self, redis: Any, now: float) -> list[dict]:
         raw_map = redis.hgetall(self._key("items")) or {}

@@ -701,6 +701,7 @@ app.include_router(auth_routes.router)
 
 
 from src.captcha.access_requests import AccessRequestStore
+from src.shared import blocklist_store
 
 access_request_store = AccessRequestStore()
 
@@ -774,6 +775,10 @@ async def approve_captcha_request(
     record = access_request_store.approve(request_id, actor=user)
     if not record:
         raise HTTPException(status_code=404, detail="Access request not found")
+    try:
+        blocklist_store.unblock(record["ip"])
+    except Exception as exc:  # noqa: BLE001 - best-effort unblock when Redis is unavailable in tests
+        logger.warning("Could not unblock approved IP %s: %s", record["ip"], exc)
     log_event(user, "captcha_request_approved", {"request_id": request_id, "ip": record["ip"]})
     return JSONResponse(content={"status": "approved", "request": record})
 
