@@ -603,14 +603,20 @@ services:
       - ./secrets:/staging/source:ro
       - runtime_secrets:/staging/target
     entrypoint: ["sh", "-c"]
+    # Only the plain *.txt secret files the services read are staged: anything else in ./secrets (for example the optional
+    # private local_secrets.db that interactive_setup.py can create) is deliberately left behind.
     command:
-      - >
-        set -eu;
-        umask 022;
-        find /staging/target -mindepth 1 -delete;
-        cp -R /staging/source/. /staging/target/;
-        find /staging/target -type d -exec chmod 755 {} +;
-        find /staging/target -type f -exec chmod 444 {} +
+      - |
+        set -eu
+        umask 022
+        find /staging/target -mindepth 1 -delete
+        for f in /staging/source/*.txt; do
+          if [ -f "$$f" ]; then cp "$$f" /staging/target/; fi
+        done
+        chmod 755 /staging/target
+        for f in /staging/target/*; do
+          if [ -f "$$f" ]; then chmod 444 "$$f"; fi
+        done
 
   postgres:
     image: postgres:15-alpine@sha256:e18480a22d6e48f4d816a6696769b1ec09ac73a824c5649e49c7d8b684913f3d

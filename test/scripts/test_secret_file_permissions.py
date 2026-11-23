@@ -163,6 +163,12 @@ class ComposeStagesSecrets(unittest.TestCase):
             condition = self.compose["services"][name]["depends_on"]["secrets_init"]["condition"]
             self.assertEqual(condition, "service_completed_successfully", name)
 
+    def test_the_staging_job_copies_only_txt_secret_files_never_the_private_database(self):
+        script = self.compose["services"]["secrets_init"]["command"][0]
+        self.assertIn("/staging/source/*.txt", script)
+        self.assertNotIn("cp -R", script)
+        self.assertNotIn("local_secrets", script)
+
     def test_the_staging_job_is_minimal(self):
         job = self.compose["services"]["secrets_init"]
         self.assertEqual(job["network_mode"], "none")
