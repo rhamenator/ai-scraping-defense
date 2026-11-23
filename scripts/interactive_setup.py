@@ -354,25 +354,78 @@ def main(argv: list[str] | None = None) -> None:
     _run_cli_setup(root, env_file, sample_file, state_file, is_windows)
 
 
+def _load_resumable_keys(state_file: Path) -> set[str]:
+    state = load_setup_state(state_file)
+    completed_keys = set(state.get("completed_keys", []))
+    if not completed_keys:
+        return completed_keys
+    if prompt_yes_no("Found unfinished setup progress. Resume where you left off?", default=True):
+        print("Resuming setup using saved progress.")
+        return completed_keys
+    completed_keys.clear()
+    clear_setup_state(state_file)
+    print("Starting setup from the beginning.")
+    return completed_keys
+
+
+def _prompt_optional_feature(
+    feature: str,
+    info: dict[str, Any],
+    env: dict[str, str],
+    completed_keys: set[str],
+    record_value,
+) -> None:
+    if feature in completed_keys:
+        enabled = env.get(feature, "false").lower() == "true"
+    else:
+        default_enabled = env.get(feature, "false").lower() == "true"
+        enabled = prompt_yes_no(info["prompt"], default=default_enabled)
+        record_value(feature, "true" if enabled else "false")
+    if not enabled:
+        return
+    for extra in info.get("extras", []):
+        key = extra["key"]
+        if key not in completed_keys:
+            default = env.get(key, extra.get("default", ""))
+            value = prompt_value(
+                key,
+                f"  {extra.get('label', key)}",
+                default,
+                required=bool(extra.get("required", False)),
+            )
+            record_value(key, value)
+    if feature == "ENABLE_GLOBAL_CDN":
+        if env.get("CLOUD_CDN_PROVIDER", "").strip().lower() != "cloudflare":
+            print("Only Cloudflare is currently supported for ENABLE_GLOBAL_CDN. Setting CLOUD_CDN_PROVIDER=cloudflare.")
+            record_value("CLOUD_CDN_PROVIDER", "cloudflare")
+        record_value("REQUIRE_CLOUDFLARE_ACCOUNT", "true")
+    elif feature == "ENABLE_MCP_MODEL":
+        record_value("MODEL_URI", "mcp://primary/classify")
+
+
+def _run_platform_script(root: Path, is_windows: bool, win_name: str, linux_name: str) -> None:
+    if is_windows:
+        script_path = root / "scripts" / "windows" / win_name
+        subprocess.run(["powershell", "-File", str(script_path)], cwd=str(root), check=True)  # nosec B603
+        return
+    script_path = root / "scripts" / "linux" / linux_name
+    subprocess.run(["bash", str(script_path)], cwd=str(root), check=True)  # nosec B603
+
+
+def _prompt_post_setup_actions(root: Path, is_windows: bool) -> None:
+    resp = input("Launch the local Docker Compose stack now? [y/N]: ").strip().lower()  # nosec B322
+    if resp == "y":
+        _run_platform_script(root, is_windows, "quickstart_dev.ps1", "quickstart_dev.sh")
+    resp = input("Deploy to Kubernetes using quick_deploy.sh now? [y/N]: ").strip().lower()  # nosec B322
+    if resp == "y":
+        _run_platform_script(root, is_windows, "quick_deploy.ps1", "quick_deploy.sh")
+
+
 def _run_cli_setup(
     root: Path, env_file: Path, sample_file: Path, state_file: Path, is_windows: bool
 ) -> None:
-
     env = parse_env(env_file if env_file.exists() else sample_file)
-    state = load_setup_state(state_file)
-    completed_keys = set(state.get("completed_keys", []))
-
-    if completed_keys:
-        resume = prompt_yes_no(
-            "Found unfinished setup progress. Resume where you left off?",
-            default=True,
-        )
-        if not resume:
-            completed_keys.clear()
-            clear_setup_state(state_file)
-            print("Starting setup from the beginning.")
-        else:
-            print("Resuming setup using saved progress.")
+    completed_keys = _load_resumable_keys(state_file)
 
     def record_value(key: str, value: str) -> None:
         env[key] = value
@@ -383,116 +436,23 @@ def _run_cli_setup(
     try:
         print("Configure key settings (type 'pause' to save and exit):")
         for key in KEY_SETTINGS:
-            if key in completed_keys:
-                continue
-            default = env.get(key, "")
-            value = prompt_value(key, key, default, required=False)
-            record_value(key, value)
-
+            if key not in completed_keys:
+                record_value(key, prompt_value(key, key, env.get(key, ""), required=False))
         print("\nConfigure optional features:")
         for feature, info in OPTIONAL_FEATURES.items():
-            if feature in completed_keys:
-                enabled = env.get(feature, "false").lower() == "true"
-            else:
-                default_enabled = env.get(feature, "false").lower() == "true"
-                enabled = prompt_yes_no(info["prompt"], default=default_enabled)
-                record_value(feature, "true" if enabled else "false")
-
-            if not enabled:
-                continue
-
-            for extra in info.get("extras", []):
-                key = extra["key"]
-                if key in completed_keys:
-                    continue
-                default = env.get(key, extra.get("default", ""))
-                value = prompt_value(
-                    key,
-                    f"  {extra.get('label', key)}",
-                    default,
-                    required=bool(extra.get("required", False)),
-                )
-                record_value(key, value)
-
-            if feature == "ENABLE_GLOBAL_CDN":
-                provider = env.get("CLOUD_CDN_PROVIDER", "").strip().lower()
-                if provider != "cloudflare":
-                    print(
-                        "Only Cloudflare is currently supported for ENABLE_GLOBAL_CDN. "
-                        "Setting CLOUD_CDN_PROVIDER=cloudflare."
-                    )
-                    record_value("CLOUD_CDN_PROVIDER", "cloudflare")
-                record_value("REQUIRE_CLOUDFLARE_ACCOUNT", "true")
-            elif feature == "ENABLE_MCP_MODEL":
-                record_value("MODEL_URI", "mcp://primary/classify")
-
+            _prompt_optional_feature(feature, info, env, completed_keys, record_value)
         if "REQUIRE_CLOUDFLARE_ACCOUNT" not in env:
             record_value("REQUIRE_CLOUDFLARE_ACCOUNT", "false")
-
         clear_setup_state(state_file)
-    except SetupPaused as exc:
+    except (SetupPaused, KeyboardInterrupt) as exc:
         save_setup_state(state_file, completed_keys)
-        print(f"{exc}.")
-        print(
-            f"Setup paused and progress saved in {state_file.name}. Re-run this script to continue."
-        )
-        return
-    except KeyboardInterrupt:
-        save_setup_state(state_file, completed_keys)
-        print(
-            f"\nSetup interrupted. Progress saved in {state_file.name}. Re-run this script to continue."
-        )
+        print(f"\n{exc or 'Setup interrupted'}. Progress saved in {state_file.name}. Re-run this script to continue.")
         return
 
     print("Generating secrets...")
     run_secrets_generator(root, env)
     print("Setup complete. Updated .env and generated secrets.")
-
-    resp = (
-        input(  # nosec B322 - interactive prompt
-            "Launch the local Docker Compose stack now? [y/N]: "
-        )
-        .strip()
-        .lower()
-    )
-    if resp == "y":
-        if is_windows:
-            quickstart_script = root / "scripts" / "windows" / "quickstart_dev.ps1"
-            # Controlled script call (repo-local path, fixed argv).
-            subprocess.run(  # nosec B603
-                ["powershell", "-File", str(quickstart_script)],
-                cwd=str(root),
-                check=True,
-            )
-        else:
-            quickstart_script = root / "scripts" / "linux" / "quickstart_dev.sh"
-            # Controlled script call (repo-local path, fixed argv).
-            subprocess.run(  # nosec B603
-                ["bash", str(quickstart_script)], cwd=str(root), check=True
-            )
-
-    resp = (
-        input(  # nosec B322 - interactive prompt
-            "Deploy to Kubernetes using quick_deploy.sh now? [y/N]: "
-        )
-        .strip()
-        .lower()
-    )
-    if resp == "y":
-        if is_windows:
-            deploy_script = root / "scripts" / "windows" / "quick_deploy.ps1"
-            # Controlled script call (repo-local path, fixed argv).
-            subprocess.run(  # nosec B603
-                ["powershell", "-File", str(deploy_script)],
-                cwd=str(root),
-                check=True,
-            )
-        else:
-            deploy_script = root / "scripts" / "linux" / "quick_deploy.sh"
-            # Controlled script call (repo-local path, fixed argv).
-            subprocess.run(  # nosec B603
-                ["bash", str(deploy_script)], cwd=str(root), check=True
-            )
+    _prompt_post_setup_actions(root, is_windows)
 
 
 if __name__ == "__main__":  # pragma: no cover - manual usage

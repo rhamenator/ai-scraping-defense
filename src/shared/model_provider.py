@@ -47,14 +47,18 @@ def _resolve_model_uri(model_uri: Optional[str]) -> Optional[str]:
     if model_uri is not None:
         return model_uri
     try:
-        from src.shared.config import tenant_key
-        from src.shared.redis_client import get_redis_connection
+        import redis
 
-        redis_conn = get_redis_connection()
-        if redis_conn:
-            override_uri = redis_conn.hget(tenant_key("admin_ui:settings"), "MODEL_URI")
-            if override_uri:
-                return override_uri.decode() if isinstance(override_uri, bytes) else str(override_uri)
+        from src.shared.config import tenant_key
+        from src.shared.redis_client import _get_pool, load_redis_runtime_settings
+
+        host, port, db_num, password = load_redis_runtime_settings()
+        pool = _get_pool(host, port, password, db_num)
+        override_uri = redis.Redis(connection_pool=pool).hget(
+            tenant_key("admin_ui:settings"), "MODEL_URI"
+        )
+        if override_uri:
+            return override_uri.decode() if isinstance(override_uri, bytes) else str(override_uri)
     except Exception as exc:
         logging.debug("Unable to read MODEL_URI runtime override from Redis: %s", exc)
     return os.getenv("MODEL_URI")
