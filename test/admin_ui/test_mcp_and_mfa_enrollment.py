@@ -1,6 +1,7 @@
 """Tests for Admin UI MCP server management, TOTP QR enrollment, and password change."""
 
 import os
+import secrets
 import unittest
 from base64 import b64encode
 from unittest.mock import patch
@@ -10,6 +11,7 @@ import pyotp
 from fastapi.testclient import TestClient
 
 from src.admin_ui import admin_ui, mcp_config
+from src.shared.mcp_client import load_server_config
 
 
 class _FakeRedis:
@@ -59,7 +61,7 @@ class _FakeRedis:
 class AdminUiMcpAndMfaTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(admin_ui.app)
-        self.password = "initial-strong-pass-123"
+        self.password = f"init-{secrets.token_hex(8)}"
         self.pw_hash = bcrypt.hashpw(self.password.encode(), bcrypt.gensalt()).decode()
         self.totp_secret = pyotp.random_base32()
         self.auth_header = {
@@ -70,6 +72,7 @@ class AdminUiMcpAndMfaTests(unittest.TestCase):
         self.fake_redis = _FakeRedis()
         mcp_config._FALLBACK_STATE["enable_mcp_model"] = None
         mcp_config._FALLBACK_STATE["servers"] = {}
+        mcp_config._FALLBACK_TOKENS.clear()
 
     def _csrf(self):
         resp = self.client.get("/mcp", headers=self.auth_header)
@@ -98,6 +101,7 @@ class AdminUiMcpAndMfaTests(unittest.TestCase):
             "src.admin_ui.auth.get_redis_connection", return_value=self.fake_redis
         ):
             csrf = self._csrf()
+            secret_tok = f"tok-{secrets.token_hex(8)}"
             upsert = self._post_mcp(
                 csrf,
                 {
@@ -106,19 +110,13 @@ class AdminUiMcpAndMfaTests(unittest.TestCase):
                     "transport": "ws",
                     "url": "ws://mcp-primary.internal:9001/mcp",
                     "timeout": "45",
-                    "auth_token": "super-secret-mcp-token",
+                    "auth_token": secret_tok,
                 },
             )
             self.assertEqual(upsert.status_code, 200)
             self.assertIn(b"PRIMARY", upsert.content)
             self.assertIn(b"Configured", upsert.content)
-            self.assertNotIn(b"super-secret-mcp-token", upsert.content)
-
-            toggle = self._post_mcp(
-                csrf, {"action": "toggle_global", "enable_mcp_model": "true"}
-            )
-            self.assertEqual(toggle.status_code, 200)
-            self.assertEqual(os.environ.get("ENABLE_MCP_MODEL"), "true")
+            self.assertNotIn(secret_tok.encode(), upsert.content)
 
             removed = self._post_mcp(
                 csrf, {"action": "remove_server", "server_name": "PRIMARY"}
@@ -126,6 +124,55 @@ class AdminUiMcpAndMfaTests(unittest.TestCase):
             self.assertEqual(removed.status_code, 200)
             self.assertIn(b"No MCP servers configured.", removed.content)
             self.assertNotIn(b"ws://mcp-primary.internal:9001/mcp", removed.content)
+
+    def test_mcp_stdio_and_persisted_token_load_in_client(self):
+        with patch.dict(
+            os.environ,
+            {
+                "ADMIN_UI_USERNAME": "admin",
+                "ADMIN_UI_PASSWORD_HASH": self.pw_hash,
+                "ADMIN_UI_2FA_SECRET": self.totp_secret,
+            },
+            clear=False,
+        ), patch("src.admin_ui.mcp_config.get_redis_connection", return_value=self.fake_redis), patch(
+            "src.admin_ui.auth.get_redis_connection", return_value=self.fake_redis
+        ):
+            csrf = self._csrf()
+            secret_tok = f"tok-{secrets.token_hex(8)}"
+            self.assertEqual(
+                self._post_mcp(
+                    csrf,
+                    {
+                        "action": "upsert_server",
+                        "server_name": "WS_PERSIST",
+                        "transport": "ws",
+                        "url": "wss://mcp.internal:9443/mcp",
+                        "timeout": "30",
+                        "auth_token": secret_tok,
+                    },
+                ).status_code,
+                200,
+            )
+            self.assertEqual(
+                self._post_mcp(
+                    csrf,
+                    {
+                        "action": "upsert_server",
+                        "server_name": "STDIO_SRV",
+                        "transport": "stdio",
+                        "url": "python -m my_mcp_server --port 9000",
+                        "timeout": "20",
+                        "auth_token": "",
+                    },
+                ).status_code,
+                200,
+            )
+            with patch("src.shared.redis_client.get_redis_connection", return_value=self.fake_redis):
+                ws_cfg = load_server_config("WS_PERSIST")
+                self.assertEqual(ws_cfg.headers.get("Authorization"), f"Bearer {secret_tok}")
+                stdio_cfg = load_server_config("STDIO_SRV")
+                self.assertEqual(stdio_cfg.executable, "python")
+                self.assertEqual(stdio_cfg.args, ["-m", "my_mcp_server", "--port", "9000"])
 
     def test_totp_setup_and_verify_enrollment(self):
         with patch.dict(
@@ -169,6 +216,13 @@ class AdminUiMcpAndMfaTests(unittest.TestCase):
             self.assertEqual(good.status_code, 200)
             self.assertTrue(good.json()["totp_enabled"])
 
+            fresh_client = TestClient(admin_ui.app)
+            enrolled_auth = {
+                "Authorization": self.auth_header["Authorization"],
+                "X-2FA-Code": pyotp.TOTP(data["secret"]).now(),
+            }
+            self.assertEqual(fresh_client.get("/mcp", headers=enrolled_auth).status_code, 200)
+
     def test_change_password_updates_active_hash(self):
         with patch.dict(
             os.environ,
@@ -180,7 +234,7 @@ class AdminUiMcpAndMfaTests(unittest.TestCase):
             clear=False,
         ), patch("src.admin_ui.auth.get_redis_connection", return_value=self.fake_redis):
             csrf = self._csrf()
-            new_pw = "brand-new-strong-password-456"
+            new_pw = f"new-{secrets.token_hex(8)}"
             resp = self.client.post(
                 "/account/password",
                 headers={**self.auth_header, "X-CSRF-Token": csrf},

@@ -51,7 +51,7 @@
                 <td>{{ srv.transport }}</td>
                 <td class="metric-key-cell">{{ srv.url }}</td>
                 <td>{{ srv.timeout }}s</td>
-                <td>{% if srv.token_configured %}Configured{% else %}Not configured{% endif %}</td>
+                <td>{% if srv.has_auth %}Configured{% else %}Not configured{% endif %}</td>
                 <td>
                     <form method="post" action="/mcp" style="display:inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

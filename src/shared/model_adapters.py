@@ -447,6 +447,9 @@ class MCPAdapter(BaseModelAdapter):
             return
 
         self.tool_name = tool_name
+        self._server_label = server_label
+        self._base_overrides = dict(overrides)
+        self._config_version, _ = self._get_runtime_state()
         self.client = MCPClient(server_config)
         argument_key_value = config_map.get(
             "argument_key", query.get("argument_key", "input")
@@ -465,7 +468,36 @@ class MCPAdapter(BaseModelAdapter):
         self.forward_full_payload = bool(config_map.get("forward_full_payload", False))
         self.model = self.client
 
+    @staticmethod
+    def _get_runtime_state() -> tuple[int, Optional[bool]]:
+        from src.shared.mcp_client import get_mcp_runtime_version_and_enabled
+
+        return get_mcp_runtime_version_and_enabled()
+
+    def _refresh_client_if_needed(self) -> Optional[str]:
+        version, enabled = self._get_runtime_state()
+        if enabled is False:
+            return "MCP model routing is disabled"
+        server_label = getattr(self, "_server_label", None)
+        if not server_label or version == getattr(self, "_config_version", version):
+            return None
+        try:
+            server_config = load_server_config(
+                server_label,
+                overrides=getattr(self, "_base_overrides", {}),
+                adapter_config=self.config or {},
+            )
+            self.client = MCPClient(server_config)
+            self._config_version = version
+            return None
+        except MCPClientError as exc:
+            self.client = None
+            return str(exc)
+
     def predict(self, data: Any, **kwargs) -> Dict[str, Any]:
+        refresh_err = self._refresh_client_if_needed()
+        if refresh_err:
+            return {"error": refresh_err}
         if not self.client or not self.tool_name:
             return {"error": "MCP client not initialized"}
 

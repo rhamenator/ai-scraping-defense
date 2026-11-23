@@ -167,9 +167,9 @@ def _require_mfa(
         )
 
     totp_secret = (
-        os.getenv("ADMIN_UI_2FA_SECRET")
+        mfa.get_totp_secret(username)
+        or os.getenv("ADMIN_UI_2FA_SECRET")
         or get_secret("ADMIN_UI_2FA_SECRET_FILE")
-        or mfa.get_totp_secret(username)
     )
     session_valid = session_user == username
     if totp_secret:
