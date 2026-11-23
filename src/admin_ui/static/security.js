@@ -41,7 +41,20 @@ function hideCodes() {
     codesSection.hidden = true;
 }
 
+function resolveEndpoint(path) {
+    switch (path) {
+        case '/mfa/backup-codes': return '/mfa/backup-codes';
+        case '/mfa/totp/setup': return '/mfa/totp/setup';
+        case '/mfa/totp/verify': return '/mfa/totp/verify';
+        case '/webauthn/register/begin': return '/webauthn/register/begin';
+        case '/webauthn/register/complete': return '/webauthn/register/complete';
+        case '/account/password': return '/account/password';
+        default: throw new Error('Unsupported endpoint.');
+    }
+}
+
 async function post(path, body) {
+    const endpoint = resolveEndpoint(path);
     const headers = { 'X-CSRF-Token': csrfToken() };
     const init = {
         method: 'POST',
@@ -53,7 +66,7 @@ async function post(path, body) {
         headers['Content-Type'] = 'application/json';
         init.body = JSON.stringify(body);
     }
-    const response = await fetch(path, init);
+    const response = await fetch(endpoint, init);
     let payload = {};
     try { payload = await response.json(); } catch (_e) { /* non-JSON error body */ }
     if (!response.ok) {
