@@ -30,14 +30,16 @@ class SecretsBundleTests(unittest.TestCase):
         self.assertEqual(sealed, ["pg_password.txt", "redis_password.txt"])
         self.assertFalse((self.secrets_dir / "pg_password.txt").exists())
         self.assertFalse((self.secrets_dir / "redis_password.txt").exists())
-        self.assertEqual(stat.S_IMODE(os.stat(self.bundle).st_mode), 0o600)
+        if os.name != "nt":
+            self.assertEqual(stat.S_IMODE(os.stat(self.bundle).st_mode), 0o600)
 
         out_dir = self.tmp / "tmpfs_target"
         unsealed = secrets_bundle.unseal_secrets(self.bundle, out_dir, passphrase)
         self.assertEqual(unsealed, ["pg_password.txt", "redis_password.txt"])
         self.assertEqual((out_dir / "pg_password.txt").read_text(encoding="utf-8"), "pg-secret-val")
-        self.assertEqual(stat.S_IMODE(os.stat(out_dir).st_mode), 0o700)
-        self.assertEqual(stat.S_IMODE(os.stat(out_dir / "pg_password.txt").st_mode), 0o600)
+        if os.name != "nt":
+            self.assertEqual(stat.S_IMODE(os.stat(out_dir).st_mode), 0o700)
+            self.assertEqual(stat.S_IMODE(os.stat(out_dir / "pg_password.txt").st_mode), 0o600)
 
     def test_wrong_passphrase_or_tampered_bundle_fails(self):
         passphrase = secrets.token_urlsafe(16)
