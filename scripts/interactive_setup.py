@@ -11,6 +11,7 @@ return later if required credentials are not available.
 
 from __future__ import annotations
 
+import argparse
 import getpass
 import json
 import os
@@ -274,7 +275,51 @@ def prompt_value(
         return value
 
 
-def main() -> None:
+def run_secrets_generator(root: Path, env: dict[str, str]) -> None:
+    """Run the platform-appropriate secrets generator script."""
+    is_windows = platform.system() == "Windows"
+    generator_env = {**os.environ, **env}
+    if is_windows:
+        secrets_script = root / "scripts" / "windows" / "Generate-Secrets.ps1"
+        # Controlled script call (repo-local path, fixed argv).
+        subprocess.run(  # nosec B603
+            ["powershell", "-File", str(secrets_script), "-UpdateEnv"],
+            cwd=str(root),
+            check=True,
+            env=generator_env,
+        )
+        return
+    secrets_script = root / "scripts" / "linux" / "generate_secrets.sh"
+    # Controlled script call (repo-local path, fixed argv).
+    subprocess.run(  # nosec B603
+        ["bash", str(secrets_script), "--update-env"],
+        cwd=str(root),
+        check=True,
+        env=generator_env,
+    )
+
+
+def _apply_web_updates(root: Path, env_file: Path, state_file: Path, updates: dict[str, str]) -> None:
+    update_env_file(env_file, updates)
+    clear_setup_state(state_file)
+    run_secrets_generator(root, parse_env(env_file))
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Interactive setup for AI Scraping Defense.")
+    parser.add_argument(
+        "--web",
+        action="store_true",
+        help="Launch a temporary localhost-only pre-boot setup Web UI instead of CLI prompts.",
+    )
+    parser.add_argument("--host", default="127.0.0.1", help="Bind host for --web (default: 127.0.0.1).")
+    parser.add_argument("--port", type=int, default=8765, help="Bind port for --web (default: 8765).")
+    parser.add_argument("--no-browser", action="store_true", help="Do not auto-open browser in --web mode.")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = _parse_args(argv)
     root = Path(__file__).resolve().parent.parent
     is_windows = platform.system() == "Windows"
     env_file = root / ".env"
@@ -284,6 +329,22 @@ def main() -> None:
     if not env_file.exists() and sample_file.exists():
         write_private_text(env_file, sample_file.read_text())
         print("Created .env from sample.env")
+
+    if args.web:
+        from scripts.interactive_setup_web import run_setup_web_server
+
+        run_setup_web_server(
+            root,
+            host=args.host,
+            port=args.port,
+            open_browser=not args.no_browser,
+            parse_env_fn=parse_env,
+            apply_updates_fn=lambda updates: _apply_web_updates(root, env_file, state_file, updates),
+            key_settings=KEY_SETTINGS,
+            optional_features=OPTIONAL_FEATURES,
+            is_secret_fn=is_secret_key,
+        )
+        return
 
     env = parse_env(env_file if env_file.exists() else sample_file)
     state = load_setup_state(state_file)
@@ -372,25 +433,7 @@ def main() -> None:
         return
 
     print("Generating secrets...")
-    generator_env = {**os.environ, **env}
-    if is_windows:
-        secrets_script = root / "scripts" / "windows" / "Generate-Secrets.ps1"
-        # Controlled script call (repo-local path, fixed argv).
-        subprocess.run(  # nosec B603
-            ["powershell", "-File", str(secrets_script), "-UpdateEnv"],
-            cwd=str(root),
-            check=True,
-            env=generator_env,
-        )
-    else:
-        secrets_script = root / "scripts" / "linux" / "generate_secrets.sh"
-        # Controlled script call (repo-local path, fixed argv).
-        subprocess.run(  # nosec B603
-                ["bash", str(secrets_script), "--update-env"],
-                cwd=str(root),
-                check=True,
-                env=generator_env,
-        )
+    run_secrets_generator(root, env)
     print("Setup complete. Updated .env and generated secrets.")
 
     resp = (

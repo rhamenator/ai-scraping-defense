@@ -12,6 +12,12 @@
         <h1>Admin Dashboard</h1>
         {% set active_page = 'dashboard' %}
         {% include '_nav.html' %}
+        {% if not setup_complete %}
+        <div id="setup-wizard-banner" role="status" class="alert-banner">
+            <strong>First-run setup is incomplete:</strong>
+            <a href="/setup">Open the Setup Wizard</a> to finish configuring your backend, model, and 2FA.
+        </div>
+        {% endif %}
         {% if cloudflare_under_attack_suggested %}
         <div id="cloudflare-under-attack-banner" role="alert" class="alert-banner">
             <strong>High traffic volume detected:</strong> Consider enabling Cloudflare <em>Under Attack</em> mode in your Cloudflare dashboard.
