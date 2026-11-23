@@ -328,12 +328,14 @@ def _require_auth_core(
             pass
 
     username = os.getenv("ADMIN_UI_USERNAME", "admin")
-    try:
-        password_hash = os.environ["ADMIN_UI_PASSWORD_HASH"].encode()
-    except KeyError as exc:  # pragma: no cover - defensive
+    raw_hash = get_secret("ADMIN_UI_PASSWORD_HASH_FILE") or os.environ.get(
+        "ADMIN_UI_PASSWORD_HASH"
+    )
+    if not raw_hash:  # pragma: no cover - defensive
         raise RuntimeError(
-            "ADMIN_UI_PASSWORD_HASH environment variable must be set",
-        ) from exc
+            "ADMIN_UI_PASSWORD_HASH (or ADMIN_UI_PASSWORD_HASH_FILE) must be set",
+        )
+    password_hash = raw_hash.encode()
     headers = {"WWW-Authenticate": "Basic"}
     valid = secrets.compare_digest(credentials.username, username) and bcrypt.checkpw(
         credentials.password.encode(), password_hash

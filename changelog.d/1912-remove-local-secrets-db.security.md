@@ -1,0 +1,1 @@
+- Removed the unused plaintext `secrets/local_secrets.db` SQLite export from `scripts/interactive_setup.py` so generated and operator-entered secrets are not duplicated in an unencrypted database (closes #1912).
