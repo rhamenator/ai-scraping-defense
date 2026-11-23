@@ -3,6 +3,7 @@
     <a href="/settings"{% if active_page == 'settings' %} class="active" aria-current="page"{% endif %}>Settings</a>
     <a href="/logs"{% if active_page == 'logs' %} class="active" aria-current="page"{% endif %}>Logs</a>
     <a href="/plugins"{% if active_page == 'plugins' %} class="active" aria-current="page"{% endif %}>Plugins</a>
+    <a href="/mcp"{% if active_page == 'mcp' %} class="active" aria-current="page"{% endif %}>MCP Servers</a>
     <a href="/security"{% if active_page == 'security' %} class="active" aria-current="page"{% endif %}>Security</a>
     {% if not sso %}
     <button type="button" id="sign-out" class="nav-signout">Sign out</button>

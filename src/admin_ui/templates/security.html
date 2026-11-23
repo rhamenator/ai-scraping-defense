@@ -35,18 +35,48 @@
         </dd>
     </dl>
 
+    <p id="security-error" role="alert" hidden></p>
+    <p id="security-status" role="status" style="color: var(--ok); font-weight: 600;" hidden></p>
+
+    <h2>Authenticator App (Microsoft / Google Authenticator)</h2>
+    <p>Generate a QR code to link an authenticator app, then enter a 6-digit code to activate it.</p>
+    <button type="button" id="setup-totp">Generate Authenticator QR Code</button>
+    <section id="totp-enroll-box" hidden style="margin-top: 14px;">
+        <div id="totp-qr-host" style="margin: 10px 0;"></div>
+        <p>Manual key: <code id="totp-secret-text"></code></p>
+        <form id="totp-verify-form" autocomplete="off">
+            <label for="totp-verify-code">6-digit verification code</label>
+            <input id="totp-verify-code" name="code" required maxlength="10" inputmode="numeric" pattern="[0-9]{6}" placeholder="123456">
+            <button type="submit">Verify &amp; Enable Authenticator</button>
+        </form>
+    </section>
+
+    <h2>Passkey</h2>
+    <p>Enroll a hardware security key or platform passkey (Windows Hello, Touch ID, Face ID) for this account.</p>
+    <button type="button" id="enroll-passkey">Enroll Passkey</button>
+
     <h2>Backup codes</h2>
     <p>Regenerating creates a new set and <strong>immediately invalidates every earlier code</strong>.
        The new codes are shown once, here, and are not stored in this page; copy them somewhere safe before you leave.</p>
     <button type="button" id="regenerate-codes">Regenerate backup codes</button>
-    <p id="security-error" role="alert" hidden></p>
     <section id="new-codes" hidden aria-live="polite">
         <p><strong>Your new backup codes. They will not be shown again.</strong></p>
         <pre id="new-codes-list"></pre>
         <button type="button" id="dismiss-codes">I have saved them, hide the codes</button>
     </section>
 
-    {% if sso %}
+    {% if not sso %}
+    <h2>Change password</h2>
+    <form id="change-password-form" autocomplete="off">
+        <label for="current-password">Current password</label>
+        <input id="current-password" name="current_password" type="password" required autocomplete="current-password">
+        <label for="new-password">New password (minimum 12 characters)</label>
+        <input id="new-password" name="new_password" type="password" required minlength="12" autocomplete="new-password">
+        <label for="confirm-password">Confirm new password</label>
+        <input id="confirm-password" name="confirm_password" type="password" required minlength="12" autocomplete="new-password">
+        <button type="submit">Change Password</button>
+    </form>
+    {% else %}
     <h2>Sign out</h2>
     <p id="sso-signout-note">You signed in through single sign-on. Signing out here would only end this application's own
        session and your identity provider or proxy would sign you straight back in, so sign out through your provider.</p>

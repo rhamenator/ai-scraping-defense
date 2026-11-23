@@ -85,6 +85,51 @@ def _json_to_mapping(raw: Any, description: str) -> Dict[str, str]:
     return {}
 
 
+def _read_runtime_mcp_doc(redis_key_suffix: str) -> dict[str, Any]:
+    try:
+        from src.shared.config import tenant_key
+        from src.shared.redis_client import get_redis_connection
+
+        redis_conn = get_redis_connection()
+        if not redis_conn:
+            return {}
+        raw = redis_conn.get(tenant_key(redis_key_suffix))
+        if not raw:
+            return {}
+        data = json.loads(raw.decode() if isinstance(raw, bytes) else raw)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def get_mcp_runtime_version_and_enabled() -> tuple[int, Optional[bool]]:
+    """Return (config_version, enabled_override) from Redis or ENABLE_MCP_MODEL."""
+    doc = _read_runtime_mcp_doc("admin_ui:mcp:config")
+    version = int(doc.get("version") or 0)
+    raw_enabled = doc.get("enable_mcp_model")
+    if raw_enabled is None:
+        raw_enabled = os.getenv("ENABLE_MCP_MODEL")
+    if raw_enabled is None:
+        return version, None
+    return version, str(raw_enabled).strip().lower() == "true"
+
+
+def _load_runtime_server_override(label: str) -> dict[str, Any]:
+    doc = _read_runtime_mcp_doc("admin_ui:mcp:config")
+    servers = doc.get("servers") or {}
+    norm = label.strip().upper().replace("-", "_")
+    entry = servers.get(norm)
+    if not isinstance(entry, dict):
+        return {}
+    if entry.get("removed"):
+        raise MCPClientError(f"MCP server '{label}' has been removed")
+    result = dict(entry)
+    tokens = _read_runtime_mcp_doc("admin_ui:mcp:tokens")
+    if tokens.get(norm):
+        result["auth_token"] = tokens[norm]
+    return result
+
+
 def load_server_config(
     label: str,
     overrides: Optional[Dict[str, Any]] = None,
@@ -94,6 +139,7 @@ def load_server_config(
 
     overrides = overrides or {}
     adapter_config = adapter_config or {}
+    runtime_cfg = _load_runtime_server_override(label)
     prefix = f"MCP_SERVER_{label.upper()}_"
 
     def _first_non_empty(*values: Any) -> Optional[Any]:
@@ -108,6 +154,7 @@ def load_server_config(
     raw_transport = _first_non_empty(
         overrides.get("transport"),
         adapter_config.get("transport"),
+        runtime_cfg.get("transport"),
         os.getenv(f"{prefix}TRANSPORT"),
         os.getenv("MCP_DEFAULT_TRANSPORT"),
         "ws",
@@ -117,6 +164,7 @@ def load_server_config(
     timeout_value = _first_non_empty(
         overrides.get("timeout"),
         adapter_config.get("timeout"),
+        runtime_cfg.get("timeout"),
         os.getenv(f"{prefix}TIMEOUT"),
         os.getenv("MCP_DEFAULT_TIMEOUT"),
     )
@@ -128,6 +176,7 @@ def load_server_config(
     endpoint = _first_non_empty(
         overrides.get("endpoint") or overrides.get("url"),
         adapter_config.get("endpoint") or adapter_config.get("url"),
+        runtime_cfg.get("endpoint") or runtime_cfg.get("url"),
         os.getenv(f"{prefix}URL"),
         os.getenv(f"{prefix}ENDPOINT"),
     )
@@ -135,12 +184,14 @@ def load_server_config(
     executable = _first_non_empty(
         overrides.get("executable"),
         adapter_config.get("executable"),
+        runtime_cfg.get("executable"),
         os.getenv(f"{prefix}EXECUTABLE"),
     )
 
     args_value = _first_non_empty(
         overrides.get("args"),
         adapter_config.get("args"),
+        runtime_cfg.get("args"),
         os.getenv(f"{prefix}ARGS"),
     )
     if isinstance(args_value, str):
@@ -171,6 +222,7 @@ def load_server_config(
     auth_token = _first_non_empty(
         overrides.get("auth_token"),
         adapter_config.get("auth_token"),
+        runtime_cfg.get("auth_token"),
         os.getenv(f"{prefix}AUTH_TOKEN"),
     )
     if auth_token and "Authorization" not in headers_mapping:
