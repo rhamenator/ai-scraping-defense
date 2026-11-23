@@ -102,6 +102,7 @@ def test_nginx_enforces_https_and_headers():
     config = Path("nginx/nginx.conf").read_text()
     assert "Strict-Transport-Security" in config
     assert "add_header X-Frame-Options" in config
+    assert 'if ($host !~* "^[a-z0-9.-]+(:[0-9]+)?$")' in config
     assert "return 301 https://$host$request_uri;" in config
     assert "include /etc/nginx/conf.d/*.perf.conf;" in config
     assert "include /etc/nginx/generated-conf/*.conf;" in config
@@ -112,6 +113,17 @@ def test_nginx_enforces_https_and_headers():
     assert "fastcgi_temp_path /var/cache/nginx/fastcgi_temp;" in config
     assert "uwsgi_temp_path /var/cache/nginx/uwsgi_temp;" in config
     assert "scgi_temp_path /var/cache/nginx/scgi_temp;" in config
+
+
+def test_compose_segments_internal_data_and_control_networks():
+    compose = _load_compose()
+    nets = compose["networks"]
+    assert nets["data_net"]["internal"] is True
+    assert nets["control_net"]["internal"] is True
+    assert compose["services"]["postgres"]["networks"] == ["data_net"]
+    assert compose["services"]["redis"]["networks"] == ["data_net"]
+    assert "control_net" not in compose["services"]["nginx_proxy"]["networks"]
+    assert compose["services"]["nginx_proxy"]["pids_limit"] == 256
 
 
 def test_nginx_compose_service_renders_cdn_origin_lockdown():

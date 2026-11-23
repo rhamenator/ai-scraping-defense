@@ -1,0 +1,2 @@
+- Segmented `docker-compose.yaml` into `edge_net`, internal-only `data_net` (Postgres, Redis, and data-plane services with zero internet egress), and internal-only `control_net`, and added `pids_limit: 256` and `mem_limit: 512m` resource caps on core edge/app services.
+- Hardened `nginx/nginx.conf` against `Host`-header open redirects (`if ($host !~* "^[a-z0-9.-]+(:[0-9]+)?$") { return 400; }`) and enabled `TLSv1.3` alongside `TLSv1.2` (keeping `http2 off;` as a mitigation for `CVE-2026-123007`) in `nginx/nginx.default.conf` and `nginx/render_cdn_origin_lockdown.sh`.
