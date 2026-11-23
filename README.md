@@ -651,6 +651,8 @@ GRAFANA_PORT=3000
 ```
 
 - **Prometheus UI:** [http://localhost:${PROMETHEUS_PORT:-9090}](http://localhost:9090) shows raw metrics and scrape targets.
-- **Grafana UI:** [http://localhost:${GRAFANA_PORT:-3000}](http://localhost:3000) (default login `admin` / `admin`). You can import a dashboard from Grafana's library or create your own to monitor request rates and response times.
+- **Grafana UI:** [http://localhost:${GRAFANA_PORT:-3000}](http://localhost:3000) (user `admin`, password in `secrets/grafana_admin_password.txt`, created by the secrets generator; there is no default password and Grafana will not start without one). You can import a dashboard from Grafana's library or create your own to monitor request rates and response times.
+
+Grafana applies that password when it first creates its database. If you already ran Grafana, its volume keeps the old password (possibly `admin`); set the new one with `docker compose exec grafana grafana cli admin reset-admin-password "$(cat secrets/grafana_admin_password.txt)"`.
 
 Automatic image updates are **off by default**. Images in `docker-compose.yaml` are pinned by digest, so updates are a reviewed change. If you want Watchtower, start it with `docker compose --profile auto-update up -d` and add the label `com.centurylinklabs.watchtower.enable=true` to each container it may update; it checks daily by default (`WATCHTOWER_INTERVAL`, in seconds). Watchtower needs full control of the Docker socket, so enable it only on hosts where you accept that. Traefik no longer mounts the Docker socket; it reads container labels through a read-only socket proxy.

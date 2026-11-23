@@ -102,6 +102,7 @@ Write-Host "Generating secrets for Kubernetes..." -ForegroundColor Cyan
 # Generate all values
 $postgresPassword = New-RandomPassword
 $redisPassword = New-RandomPassword
+$grafanaAdminPassword = New-RandomPassword
 if (-not [string]::IsNullOrEmpty($env:ADMIN_UI_USERNAME)) {
     $adminUiUsername = $env:ADMIN_UI_USERNAME
 } elseif (-not [string]::IsNullOrEmpty($env:USERNAME)) {
@@ -307,6 +308,7 @@ if ($UpdateEnv) {
     }
     Set-Content -Path (Join-Path $secretsDir 'pg_password.txt') -Value $postgresPassword -Encoding ASCII
     Set-Content -Path (Join-Path $secretsDir 'redis_password.txt') -Value $redisPassword -Encoding ASCII
+    Set-Content -Path (Join-Path $secretsDir 'grafana_admin_password.txt') -Value $grafanaAdminPassword -Encoding ASCII
 }
 
 # Do not print any secrets or secret values to stdout.
