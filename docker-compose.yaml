@@ -15,7 +15,7 @@ services:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:${ALERT_SMTP_PORT:-1025}:1025"
       - "${PUBLISH_ADDRESS:-127.0.0.1}:${ALERT_SMTP_WEB_PORT:-8025}:8025"
     networks:
-      - defense_network
+      - control_net
     restart: unless-stopped
 
   mock_external_api:
@@ -27,7 +27,7 @@ services:
     ports:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:4010:4010"
     networks:
-      - defense_network
+      - control_net
     restart: unless-stopped
 
   nginx_proxy:
@@ -105,7 +105,10 @@ services:
       admin_ui:
         condition: service_healthy
     networks:
-      - defense_network
+      - edge_net
+      - data_net
+    pids_limit: 256
+    mem_limit: 512m
     restart: unless-stopped
 
   apache_proxy:
@@ -125,7 +128,8 @@ services:
       ai_service:
         condition: service_healthy
     networks:
-      - defense_network
+      - edge_net
+      - data_net
     restart: unless-stopped
 
   ai_service:
@@ -160,7 +164,10 @@ services:
       escalation_engine:
         condition: service_started
     networks:
-      - defense_network
+      - edge_net
+      - data_net
+    pids_limit: 256
+    mem_limit: 512m
     restart: unless-stopped
     security_opt:
       - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
@@ -217,7 +224,11 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - defense_network
+      - edge_net
+      - data_net
+      - control_net
+    pids_limit: 256
+    mem_limit: 512m
     restart: unless-stopped
     security_opt:
       - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
@@ -269,7 +280,10 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - defense_network
+      - edge_net
+      - data_net
+    pids_limit: 256
+    mem_limit: 512m
     restart: unless-stopped
     security_opt:
       - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
@@ -321,7 +335,11 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - defense_network
+      - edge_net
+      - data_net
+      - control_net
+    pids_limit: 256
+    mem_limit: 512m
     restart: unless-stopped
     security_opt:
       - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
@@ -373,7 +391,10 @@ services:
       - ./logs:/app/logs
       - runtime_secrets:/run/secrets:ro
     networks:
-      - defense_network
+      - edge_net
+      - data_net
+    pids_limit: 256
+    mem_limit: 512m
     restart: unless-stopped
     security_opt:
       - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
@@ -420,7 +441,10 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - defense_network
+      - data_net
+      - control_net
+    pids_limit: 256
+    mem_limit: 512m
     restart: unless-stopped
     security_opt:
       - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
@@ -467,7 +491,10 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - defense_network
+      - data_net
+      - control_net
+    pids_limit: 256
+    mem_limit: 512m
     restart: unless-stopped
     security_opt:
       - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
@@ -511,7 +538,7 @@ services:
       - ./src:/app/src:ro
       - runtime_secrets:/run/secrets:ro
     networks:
-      - defense_network
+      - control_net
     restart: unless-stopped
     security_opt:
       - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
@@ -561,7 +588,7 @@ services:
       - ./src:/app/src:ro
       - runtime_secrets:/run/secrets:ro
     networks:
-      - defense_network
+      - control_net
     restart: unless-stopped
     security_opt:
       - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
@@ -638,7 +665,7 @@ services:
     ports:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:${PG_PORT:-5432}:5432"
     networks:
-      - defense_network
+      - data_net
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
@@ -663,7 +690,7 @@ services:
     environment:
       - REDIS_PASSWORD_FILE=${REDIS_PASSWORD_FILE}
     networks:
-      - defense_network
+      - data_net
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -a $(cat ${REDIS_PASSWORD_FILE}) ping"]
@@ -692,7 +719,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - defense_network
+      - data_net
     restart: unless-stopped
     security_opt:
       - no-new-privileges:${NO_NEW_PRIVILEGES:-true}
@@ -771,7 +798,7 @@ services:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:8005:80"
       - "${PUBLISH_ADDRESS:-127.0.0.1}:8081:8080"
     networks:
-      - defense_network
+      - control_net
       - docker_api
     depends_on:
       - docker_socket_proxy
@@ -797,7 +824,7 @@ services:
       timeout: 10s
       retries: 5
     networks:
-      - defense_network
+      - control_net
     restart: unless-stopped
 
   mixtral:
@@ -820,7 +847,7 @@ services:
       timeout: 10s
       retries: 5
     networks:
-      - defense_network
+      - control_net
     restart: unless-stopped
 
   prometheus:
@@ -831,7 +858,7 @@ services:
     ports:
       - "${PUBLISH_ADDRESS:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
     networks:
-      - defense_network
+      - control_net
     restart: unless-stopped
 
   grafana:
@@ -859,7 +886,7 @@ services:
       - grafana_data:/var/lib/grafana
       - runtime_secrets:/run/secrets:ro
     networks:
-      - defense_network
+      - control_net
     depends_on:
       secrets_init:
         condition: service_completed_successfully
@@ -879,12 +906,18 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --interval ${WATCHTOWER_INTERVAL:-86400} --cleanup --label-enable
     networks:
-      - defense_network
+      - control_net
     restart: unless-stopped
 
 networks:
-  defense_network:
+  edge_net:
     driver: bridge
+  data_net:
+    driver: bridge
+    internal: true
+  control_net:
+    driver: bridge
+    internal: true
   docker_api:
     driver: bridge
     internal: true

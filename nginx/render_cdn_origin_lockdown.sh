@@ -116,7 +116,7 @@ server {
     server_name _;
     ssl_certificate $CERT_PATH;
     ssl_certificate_key $KEY_PATH;
-    ssl_protocols TLSv1.2;
+    ssl_protocols TLSv1.2 TLSv1.3;
     root /usr/share/nginx/html/docs_ui;
     index welcome.html;
     location = /healthz { access_log off; return 200 "ok\\n"; }
