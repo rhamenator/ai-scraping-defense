@@ -413,6 +413,25 @@ class Config:
     CAPTCHA_VERIFICATION_URL: Optional[str] = field(
         default_factory=lambda: os.getenv("CAPTCHA_VERIFICATION_URL")
     )
+    CAPTCHA_PROVIDER: str = field(
+        default_factory=lambda: os.getenv("CAPTCHA_PROVIDER", "builtin").strip().lower()
+        or "builtin"
+    )
+    CAPTCHA_MANUAL_REQUESTS_ENABLED: bool = field(
+        default_factory=lambda: os.getenv(
+            "CAPTCHA_MANUAL_REQUESTS_ENABLED", "false"
+        ).lower()
+        == "true"
+    )
+    CLOUDFLARE_ENABLED: bool = field(
+        default_factory=lambda: os.getenv("CLOUDFLARE_ENABLED", "false").lower()
+        == "true"
+    )
+    CLOUDFLARE_UNDER_ATTACK_THRESHOLD: int = field(
+        default_factory=lambda: int(
+            os.getenv("CLOUDFLARE_UNDER_ATTACK_THRESHOLD", 100)
+        )
+    )
     CAPTCHA_SECRET: Optional[str] = field(
         default_factory=lambda: get_secret("CAPTCHA_SECRET_FILE")
         or os.getenv("CAPTCHA_SECRET")
@@ -552,6 +571,24 @@ class Config:
 
 
 # Instantiate configuration once
+_CAPTCHA_PROVIDER_URLS = {
+    "builtin": "http://captcha_service:8004/verify",
+    "recaptcha": "https://www.google.com/recaptcha/api/siteverify",
+    "turnstile": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+}
+
+
+def resolve_captcha_verification_url(
+    provider: str | None = None, configured_url: str | None = None
+) -> str:
+    """Return the siteverify URL for the active CAPTCHA provider."""
+    explicit = (configured_url or "").strip()
+    if explicit:
+        return explicit
+    normalized = (provider or "builtin").strip().lower()
+    return _CAPTCHA_PROVIDER_URLS.get(normalized, _CAPTCHA_PROVIDER_URLS["recaptcha"])
+
+
 CONFIG = Config()
 _CONFIG_CACHE: Dict[str, Config] = {CONFIG.TENANT_ID: CONFIG}
 

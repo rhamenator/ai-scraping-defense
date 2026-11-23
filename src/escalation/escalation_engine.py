@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from src.shared import robots_policy
 from src.shared.attack_incident import record_and_alert_attack
-from src.shared.config import tenant_key
+from src.shared.config import CONFIG, resolve_captcha_verification_url, tenant_key
 from src.shared.header_policy import external_headers, internal_headers
 from src.shared.middleware import create_app
 from src.shared.model_adapters import MCPAdapter
@@ -1094,7 +1094,10 @@ async def trigger_captcha_challenge(metadata: RequestMetadata) -> bool:
         "response": token,
         "remoteip": metadata.ip,
     }
-    url = CAPTCHA_VERIFICATION_URL or "https://www.google.com/recaptcha/api/siteverify"
+    url = resolve_captcha_verification_url(
+        os.getenv("CAPTCHA_PROVIDER", CONFIG.CAPTCHA_PROVIDER),
+        CAPTCHA_VERIFICATION_URL,
+    )
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, data=verify_payload, timeout=10.0)

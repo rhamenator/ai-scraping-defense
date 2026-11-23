@@ -17,6 +17,11 @@
             <a href="/security">Security</a>
         </nav>
         <p>Real-time metrics for the AI Scraping Defense system.</p>
+        {% if cloudflare_under_attack_suggested %}
+        <div id="cloudflare-under-attack-banner" role="alert" class="alert-banner">
+            <strong>High traffic volume detected:</strong> Consider enabling Cloudflare <em>Under Attack</em> mode in your Cloudflare dashboard.
+        </div>
+        {% endif %}
         <div id="metrics-container">
             <div id="error-message"></div>
             <div id="metrics-display" class="metrics-grid">
@@ -50,6 +55,37 @@
                 <button type="submit">Block address</button>
             </form>
             <p id="blocklist-error" role="alert" hidden></p>
+        </section>
+
+        <section id="captcha-requests-container" aria-labelledby="captcha-requests-heading">
+            <h2 id="captcha-requests-heading">Manual Access Requests ({{ captcha_request_digest.pending_count if captcha_request_digest else 0 }} pending)</h2>
+            {% if pending_captcha_requests %}
+            <table id="captcha-requests-table">
+                <thead>
+                    <tr><th scope="col">IP</th><th scope="col">Note</th><th scope="col">Actions</th></tr>
+                </thead>
+                <tbody>
+                {% for req in pending_captcha_requests %}
+                    <tr>
+                        <td>{{ req.ip }}</td>
+                        <td>{{ req.note }}</td>
+                        <td>
+                            <form method="post" action="/captcha-requests/{{ req.id }}/approve" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button type="submit">Approve (24h)</button>
+                            </form>
+                            <form method="post" action="/captcha-requests/{{ req.id }}/deny" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button type="submit">Deny</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No pending manual access requests.</p>
+            {% endif %}
         </section>
 
         <dialog id="confirm-dialog" aria-labelledby="confirm-title">
