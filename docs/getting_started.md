@@ -61,8 +61,6 @@ python [scripts/interactive_setup.py](../scripts/interactive_setup.py)
 Copy-Item sample.env .env
 python [scripts/interactive_setup.py](../scripts/interactive_setup.py)
 ```
-When run, the helper can store your secrets in a SQLite database at `secrets/local_secrets.db`. Delete this file or answer **n** to disable or clear the stored values.
-
 
 Now, open the .env file in your code editor. For now, you can leave the default values as they are. This is where you would add your real API keys for services like OpenAI or Mistral when you're ready to use them. The sample file defaults `NGINX_HTTP_PORT` and `NGINX_HTTPS_PORT` to `8088` and `8443` so the stack can coexist with a host Apache or nginx service during Ubuntu testing. For **production** or takeover deployments, update those values to `80` and `443` so the proxy listens on the standard web ports.
 

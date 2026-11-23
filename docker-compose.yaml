@@ -603,8 +603,7 @@ services:
       - ./secrets:/staging/source:ro
       - runtime_secrets:/staging/target
     entrypoint: ["sh", "-c"]
-    # Only the plain *.txt secret files the services read are staged: anything else in ./secrets (for example the optional
-    # private local_secrets.db that interactive_setup.py can create) is deliberately left behind.
+    # Only the plain *.txt secret files the services read are staged; anything else in ./secrets is deliberately left behind.
     command:
       - |
         set -eu
