@@ -432,8 +432,8 @@ class Config:
         )
     )
     CAPTCHA_SECRET: Optional[str] = field(
-        default_factory=lambda: get_secret("CAPTCHA_SECRET_FILE")
-        or os.getenv("CAPTCHA_SECRET")
+        default_factory=lambda: os.getenv("CAPTCHA_SECRET")
+        or get_secret("CAPTCHA_SECRET_FILE")
     )
     CAPTCHA_SUCCESS_LOG: str = field(
         default_factory=lambda: os.getenv(

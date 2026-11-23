@@ -198,6 +198,7 @@ services:
     environment:
       - ESCALATION_API_KEY_FILE=/run/secrets/escalation_api_key.txt
       - CAPTCHA_SECRET_FILE=/run/secrets/captcha_secret.txt
+      - AUTH_JWT_SECRET_FILE=/run/secrets/auth_jwt_secret.txt
     command:
       [
         "uvicorn",
@@ -657,7 +658,7 @@ services:
         stage redis 0 0 redis_password.txt
         stage grafana 472 0 grafana_admin_password.txt
         stage ai_service 1000 1000 redis_password.txt escalation_api_key.txt
-        stage escalation_engine 1000 1000 pg_password.txt redis_password.txt escalation_api_key.txt captcha_secret.txt external_api_key.txt ip_reputation_api_key.txt community_blocklist_api_key.txt smtp_password.txt
+        stage escalation_engine 1000 1000 pg_password.txt redis_password.txt escalation_api_key.txt auth_jwt_secret.txt captcha_secret.txt external_api_key.txt ip_reputation_api_key.txt community_blocklist_api_key.txt smtp_password.txt
         stage tarpit_api 1000 1000 pg_password.txt redis_password.txt system_seed.txt
         stage admin_ui 1000 1000 pg_password.txt redis_password.txt auth_jwt_secret.txt admin_ui_password_hash.txt escalation_api_key.txt
         stage captcha_service 1000 1000 captcha_secret.txt redis_password.txt
