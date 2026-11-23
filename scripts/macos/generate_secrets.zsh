@@ -59,6 +59,7 @@ echo -e "${CYAN}Generating secrets for Kubernetes...${NC}"
 # Generate all values
 POSTGRES_USER="postgres"; POSTGRES_DB="markov_db"; POSTGRES_PASSWORD=$(generate_password)
 REDIS_PASSWORD=$(generate_password)
+GRAFANA_ADMIN_PASSWORD=$(generate_password)
 ADMIN_UI_USERNAME=${SUDO_USER:-$USER}; if [ -z "$ADMIN_UI_USERNAME" ]; then ADMIN_UI_USERNAME="defense-admin"; fi
 ADMIN_UI_PASSWORD=$(generate_password)
 ADMIN_UI_PASSWORD_HASH=$(htpasswd -nbBC 12 "$ADMIN_UI_USERNAME" "$ADMIN_UI_PASSWORD" | cut -d: -f2 | tr -d '\n')
@@ -225,7 +226,8 @@ if [ "$update_env" = true ]; then
   mkdir -p "$SECRETS_DIR"
   echo -n "$POSTGRES_PASSWORD" > "$SECRETS_DIR/pg_password.txt"
   echo -n "$REDIS_PASSWORD" > "$SECRETS_DIR/redis_password.txt"
-  chmod 600 "$SECRETS_DIR/pg_password.txt" "$SECRETS_DIR/redis_password.txt"
+  echo -n "$GRAFANA_ADMIN_PASSWORD" > "$SECRETS_DIR/grafana_admin_password.txt"
+  chmod 600 "$SECRETS_DIR/pg_password.txt" "$SECRETS_DIR/redis_password.txt" "$SECRETS_DIR/grafana_admin_password.txt"
   echo -e "${CYAN}Secret files written to ${SECRETS_DIR}${NC}"
 fi
 

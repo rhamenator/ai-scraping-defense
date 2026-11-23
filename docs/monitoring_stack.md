@@ -31,7 +31,7 @@ GRAFANA_PORT=3000
 ```
 
 - **Prometheus UI:** [http://localhost:${PROMETHEUS_PORT:-9090}](http://localhost:9090)
-- **Grafana UI:** [http://localhost:${GRAFANA_PORT:-3000}](http://localhost:3000) (default login `admin`/`admin`)
+- **Grafana UI:** [http://localhost:${GRAFANA_PORT:-3000}](http://localhost:3000) (user `admin`, password in `secrets/grafana_admin_password.txt`, created by the secrets generator; there is no default password and Grafana will not start without one). If you already ran Grafana, its volume keeps the old password (possibly `admin`); set the new one with `docker compose exec grafana grafana cli admin reset-admin-password "$(cat secrets/grafana_admin_password.txt)"`.
 
 ## Performance Analytics Dashboards
 

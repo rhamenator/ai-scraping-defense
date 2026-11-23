@@ -100,6 +100,18 @@ class LinuxScriptTests(unittest.TestCase):
         self.assertEqual(mode(self.tmp / "nginx" / ".htpasswd"), 0o644)
         self.assertEqual(mode(self.tmp / "secrets" / "pg_password.txt"), 0o644)  # compose bind mount; see the issue
 
+    def test_a_random_grafana_admin_password_is_generated_for_the_compose_mount(self):
+        result = self.run_script("--update-env")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        path = self.tmp / "secrets" / "grafana_admin_password.txt"
+        password = path.read_text(encoding="utf-8")
+        self.assertGreaterEqual(len(password), 16)
+        self.assertNotEqual(password.lower(), "admin")
+        self.assertEqual(mode(path), 0o644)  # compose bind mount read by the Grafana user, like the other mounted secrets
+        self.assertNotIn(password, result.stdout + result.stderr, "never printed")
+        other = (self.tmp / "secrets" / "pg_password.txt").read_text(encoding="utf-8")
+        self.assertNotEqual(password, other, "not shared with another credential")
+
     def test_generated_values_are_not_printed(self):
         result = self.run_script("--update-env")
         env_text = (self.tmp / ".env").read_text(encoding="utf-8")

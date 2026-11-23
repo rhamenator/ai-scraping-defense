@@ -80,6 +80,7 @@ echo -e "${CYAN}Generating secrets for Kubernetes...${NC}"
 # Generate all values
 POSTGRES_USER="postgres"; POSTGRES_DB="markov_db"; POSTGRES_PASSWORD=$(generate_password)
 REDIS_PASSWORD=$(generate_password)
+GRAFANA_ADMIN_PASSWORD=$(generate_password)
 ADMIN_UI_USERNAME=${ADMIN_UI_USERNAME:-${SUDO_USER:-$USER}}
 if [ -z "$ADMIN_UI_USERNAME" ]; then
   ADMIN_UI_USERNAME="admin-$(generate_username)"
@@ -267,11 +268,12 @@ if [ "$update_env" = true ]; then
   chmod 755 "$SECRETS_DIR"
 
   # Compose-mounted secret files must remain readable by the runtime user.
-  touch "$SECRETS_DIR/pg_password.txt" "$SECRETS_DIR/redis_password.txt"
-  chmod 644 "$SECRETS_DIR/pg_password.txt" "$SECRETS_DIR/redis_password.txt"
+  touch "$SECRETS_DIR/pg_password.txt" "$SECRETS_DIR/redis_password.txt" "$SECRETS_DIR/grafana_admin_password.txt"
+  chmod 644 "$SECRETS_DIR/pg_password.txt" "$SECRETS_DIR/redis_password.txt" "$SECRETS_DIR/grafana_admin_password.txt"
 
   echo -n "$POSTGRES_PASSWORD" > "$SECRETS_DIR/pg_password.txt"
   echo -n "$REDIS_PASSWORD" > "$SECRETS_DIR/redis_password.txt"
+  echo -n "$GRAFANA_ADMIN_PASSWORD" > "$SECRETS_DIR/grafana_admin_password.txt"
   echo -e "${CYAN}✓ Secret files written to ${SECRETS_DIR} (mode 644 for Docker Compose reads)${NC}"
 fi
 
