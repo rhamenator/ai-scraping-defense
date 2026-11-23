@@ -27,6 +27,9 @@ class LeastPrivilegeTests(unittest.TestCase):
         text = out.read_text(encoding="utf-8")
         self.assertIn("user nginx_proxy on", text)
         self.assertIn("-@write -@admin -@dangerous", text)
+        self.assertIn("+hvals +incr +incrby", text)
+        self.assertIn("+script|load", text)
+        self.assertIn("~admin_ui:* ~*:admin_ui:*", text)
         for ph in PLACEHOLDERS:
             self.assertNotIn(ph, text)
 

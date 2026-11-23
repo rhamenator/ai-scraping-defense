@@ -2,7 +2,7 @@
 # Render with scripts/render_redis_acl.py using per-service passwords in secrets/ (never commit rendered users.acl).
 user default on >__DEFAULT_PASSWORD__ ~* &* +@all
 user nginx_proxy on >__NGINX_PASSWORD__ ~*:blocklist:* +get +exists +mget +select +ping +auth -@write -@admin -@dangerous
-user captcha_service on >__CAPTCHA_PASSWORD__ ~*:captcha:* +get +set +del +hget +hset +hdel +hgetall +incr +expire +exists +eval +evalsha +multi +exec +select +ping +auth -@admin -@dangerous
+user captcha_service on >__CAPTCHA_PASSWORD__ ~*:captcha:* +get +set +del +hget +hset +hdel +hgetall +hvals +incr +incrby +expire +exists +eval +evalsha +script|load +multi +exec +select +ping +auth -@admin -@dangerous
 user tarpit_api on >__TARPIT_PASSWORD__ ~*:blocklist:* ~*:tarpit:* +@read +@write +select +ping +auth -@admin -@dangerous
 user escalation_engine on >__ESCALATION_PASSWORD__ ~*:blocklist:* ~*:captcha:* ~*:escalation:* +@read +@write +select +ping +auth -@admin -@dangerous
-user admin_ui on >__ADMIN_UI_PASSWORD__ ~*:admin_ui:* ~*:blocklist:* ~*:captcha:* +@read +@write +select +ping +auth -@admin -@dangerous
+user admin_ui on >__ADMIN_UI_PASSWORD__ ~admin_ui:* ~*:admin_ui:* ~*:blocklist:* ~*:captcha:* +@read +@write +select +ping +auth -@admin -@dangerous
