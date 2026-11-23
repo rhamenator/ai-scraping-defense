@@ -22,7 +22,8 @@ class LeastPrivilegeTests(unittest.TestCase):
         pwds = render_acl(ROOT / "redis" / "users.acl.template", out)
         self.assertEqual(len(pwds), len(PLACEHOLDERS))
         self.assertEqual(len(set(pwds.values())), len(PLACEHOLDERS))
-        self.assertEqual(stat.S_IMODE(os.stat(out).st_mode), 0o600)
+        if os.name != "nt":
+            self.assertEqual(stat.S_IMODE(os.stat(out).st_mode), 0o600)
         text = out.read_text(encoding="utf-8")
         self.assertIn("user nginx_proxy on", text)
         self.assertIn("-@write -@admin -@dangerous", text)
