@@ -127,14 +127,22 @@ def _blocklist_connection():
     return conn
 
 
-def _bot_human_totals() -> tuple[float, float]:
+def _bot_human_totals() -> tuple[int, int]:
     try:
         metrics_dict = metrics._get_metrics_dict_func()
     except Exception as exc:
         logger.error("Failed to load metrics", exc_info=exc)
         metrics_dict = {}
-    bots = sum(float(v) for k, v in metrics_dict.items() if k.startswith("bots_detected"))
-    humans = sum(float(v) for k, v in metrics_dict.items() if k.startswith("humans_detected"))
+    bots = sum(
+        int(round(float(v)))
+        for k, v in metrics_dict.items()
+        if k.startswith("bots_detected") and not k.split("{", 1)[0].endswith("_created")
+    )
+    humans = sum(
+        int(round(float(v)))
+        for k, v in metrics_dict.items()
+        if k.startswith("humans_detected") and not k.split("{", 1)[0].endswith("_created")
+    )
     return bots, humans
 
 

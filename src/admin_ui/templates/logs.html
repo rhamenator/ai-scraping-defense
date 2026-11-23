@@ -9,7 +9,8 @@
 <body>
 <div class="container">
     <h1>Block Events</h1>
-    <nav><a href="/">Dashboard</a></nav>
+    {% set active_page = 'logs' %}
+    {% include '_nav.html' %}
     <form method="get" action="/logs" id="log-filter" class="log-filter">
         <label for="log-q">Search address or reason</label>
         <input id="log-q" name="q" type="search" value="{{ q }}" maxlength="100" autocomplete="off">
