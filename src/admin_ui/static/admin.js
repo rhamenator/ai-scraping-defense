@@ -54,11 +54,11 @@ const CATEGORY_RULES = [
 function parseMetricKey(rawKey) {
     const braceIdx = rawKey.indexOf('{');
     if (braceIdx === -1) {
-        return { baseName: rawKey, labels: '', labelMap: {} };
+        return { baseName: rawKey, labels: '', labelMap: new Map() };
     }
     const baseName = rawKey.slice(0, braceIdx);
     const rawLabels = rawKey.slice(braceIdx + 1, rawKey.endsWith('}') ? -1 : undefined);
-    const labelMap = {};
+    const labelMap = new Map();
     const parts = [];
     for (const entry of rawLabels.split(',')) {
         const trimmed = entry.trim();
@@ -70,7 +70,7 @@ function parseMetricKey(rawKey) {
         }
         const k = trimmed.slice(0, eqIdx).trim();
         const v = trimmed.slice(eqIdx + 1).trim().replace(/^"|"$/g, '');
-        labelMap[k] = v;
+        labelMap.set(k, v);
         parts.push(`${k}=${v}`);
     }
     return { baseName, labels: parts.join(', '), labelMap };
@@ -523,14 +523,14 @@ function renderMetricsTree(entries) {
     return treeRoot;
 }
 
-function recordHistogramSample(histMap, metrics, rawKey, parsed) {
+function recordHistogramSample(histMap, metricKeys, rawValue, parsed) {
     const { baseName, labelMap } = parsed;
     if (!/_(bucket|count|sum)$/.test(baseName)) return false;
     const rootName = baseName.replace(/_(bucket|count|sum)$/, '');
-    const hasBuckets = baseName.endsWith('_bucket') || Object.keys(metrics).some(k => k.startsWith(`${rootName}_bucket{`));
+    const hasBuckets = baseName.endsWith('_bucket') || metricKeys.some(k => k.startsWith(`${rootName}_bucket{`));
     if (!hasBuckets) return false;
 
-    const nonLeLabels = Object.entries(labelMap)
+    const nonLeLabels = [...labelMap.entries()]
         .filter(([k]) => k !== 'le')
         .map(([k, v]) => `${k}=${v}`)
         .join(', ');
@@ -547,15 +547,17 @@ function recordHistogramSample(histMap, metrics, rawKey, parsed) {
         });
     }
     const entry = histMap.get(histKey);
-    if (baseName.endsWith('_bucket')) entry.buckets.push({ le: labelMap.le || '+Inf', value: metrics[rawKey] });
-    else if (baseName.endsWith('_count')) entry.count = metrics[rawKey];
-    else entry.sum = metrics[rawKey];
+    if (baseName.endsWith('_bucket')) entry.buckets.push({ le: labelMap.get('le') || '+Inf', value: rawValue });
+    else if (baseName.endsWith('_count')) entry.count = rawValue;
+    else entry.sum = rawValue;
     return true;
 }
 
 function collectMetricsAndHistograms(metrics) {
     const entries = [];
     const histMap = new Map();
+    const metricEntries = new Map(Object.entries(metrics));
+    const metricKeys = [...metricEntries.keys()];
     if (metrics.service_uptime_seconds !== undefined && matchesFilter('System', 'Service Uptime', '')) {
         entries.push({
             category: 'System',
@@ -566,11 +568,12 @@ function collectMetricsAndHistograms(metrics) {
             formattedValue: formatUptime(metrics.service_uptime_seconds),
         });
     }
-    const keys = Object.keys(metrics).filter(k => !k.includes('uptime_seconds') && !k.includes('last_updated_utc')).sort();
+    const keys = metricKeys.filter(k => !k.includes('uptime_seconds') && !k.includes('last_updated_utc')).sort();
     for (const rawKey of keys) {
+        const rawValue = metricEntries.get(rawKey);
         const parsed = parseMetricKey(rawKey);
         if (parsed.baseName.endsWith('_created')) continue;
-        if (recordHistogramSample(histMap, metrics, rawKey, parsed)) continue;
+        if (recordHistogramSample(histMap, metricKeys, rawValue, parsed)) continue;
         const category = categorizeMetric(parsed.baseName);
         const title = formatMetricKey(parsed.baseName);
         if (!matchesFilter(category, title, parsed.labels)) continue;
@@ -579,8 +582,8 @@ function collectMetricsAndHistograms(metrics) {
             baseName: parsed.baseName,
             title,
             labels: parsed.labels,
-            rawValue: metrics[rawKey],
-            formattedValue: formatMetricValue(parsed.baseName, metrics[rawKey]),
+            rawValue,
+            formattedValue: formatMetricValue(parsed.baseName, rawValue),
         });
     }
     const histograms = [...histMap.values()].filter(h => matchesFilter(h.category, h.title, h.labels));
