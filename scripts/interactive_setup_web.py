@@ -158,7 +158,7 @@ class SetupWebHandler(BaseHTTPRequestHandler):
 
     setup_state: dict[str, Any] = {}
 
-    def log_message(self, format: str, *args: Any) -> None:
+    def log_message(self, fmt: str, *args: Any) -> None:
         return
 
     def _is_authorized(self) -> bool:

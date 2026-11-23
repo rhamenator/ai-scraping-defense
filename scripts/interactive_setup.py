@@ -368,6 +368,16 @@ def _load_resumable_keys(state_file: Path) -> set[str]:
     return completed_keys
 
 
+def _apply_cli_feature_rules(feature: str, env: dict[str, str], record_value) -> None:
+    if feature == "ENABLE_GLOBAL_CDN":
+        if env.get("CLOUD_CDN_PROVIDER", "").strip().lower() != "cloudflare":
+            print("Only Cloudflare is currently supported for ENABLE_GLOBAL_CDN. Setting CLOUD_CDN_PROVIDER=cloudflare.")
+            record_value("CLOUD_CDN_PROVIDER", "cloudflare")
+        record_value("REQUIRE_CLOUDFLARE_ACCOUNT", "true")
+    elif feature == "ENABLE_MCP_MODEL":
+        record_value("MODEL_URI", "mcp://primary/classify")
+
+
 def _prompt_optional_feature(
     feature: str,
     info: dict[str, Any],
@@ -394,22 +404,16 @@ def _prompt_optional_feature(
                 required=bool(extra.get("required", False)),
             )
             record_value(key, value)
-    if feature == "ENABLE_GLOBAL_CDN":
-        if env.get("CLOUD_CDN_PROVIDER", "").strip().lower() != "cloudflare":
-            print("Only Cloudflare is currently supported for ENABLE_GLOBAL_CDN. Setting CLOUD_CDN_PROVIDER=cloudflare.")
-            record_value("CLOUD_CDN_PROVIDER", "cloudflare")
-        record_value("REQUIRE_CLOUDFLARE_ACCOUNT", "true")
-    elif feature == "ENABLE_MCP_MODEL":
-        record_value("MODEL_URI", "mcp://primary/classify")
+    _apply_cli_feature_rules(feature, env, record_value)
 
 
 def _run_platform_script(root: Path, is_windows: bool, win_name: str, linux_name: str) -> None:
     if is_windows:
         script_path = root / "scripts" / "windows" / win_name
-        subprocess.run(["powershell", "-File", str(script_path)], cwd=str(root), check=True)  # nosec B603
+        subprocess.run(["powershell", "-File", str(script_path)], cwd=str(root), check=True)  # nosec B603 B607
         return
     script_path = root / "scripts" / "linux" / linux_name
-    subprocess.run(["bash", str(script_path)], cwd=str(root), check=True)  # nosec B603
+    subprocess.run(["bash", str(script_path)], cwd=str(root), check=True)  # nosec B603 B607
 
 
 def _prompt_post_setup_actions(root: Path, is_windows: bool) -> None:
