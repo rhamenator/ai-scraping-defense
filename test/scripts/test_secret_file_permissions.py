@@ -52,10 +52,10 @@ class PythonSetupTests(unittest.TestCase):
         self.assertEqual(mode(env), 0o600)
         self.assertEqual(mode(state), 0o600)
 
-    def test_the_secrets_database_is_owner_only_before_any_secret_is_stored(self):
-        with patch("builtins.input", return_value="y"):
-            interactive_setup.store_secrets(self.tmp, {"POSTGRES_PASSWORD": secrets.token_hex(8)})
-        self.assertEqual(mode(self.tmp / "secrets" / "local_secrets.db"), 0o600)
+    def test_interactive_setup_never_creates_a_plaintext_secrets_database(self):
+        self.assertFalse(hasattr(interactive_setup, "store_secrets"))
+        source = (ROOT / "scripts" / "interactive_setup.py").read_text(encoding="utf-8")
+        self.assertNotIn("local_secrets.db", source)
 
     def test_create_private_file_tightens_an_existing_database(self):
         target = self.tmp / "db"
@@ -118,10 +118,14 @@ class LinuxScriptTests(unittest.TestCase):
     def test_generated_values_are_not_printed(self):
         result = self.run_script("--update-env")
         env_text = (self.tmp / ".env").read_text(encoding="utf-8")
-        for key in ("POSTGRES_PASSWORD", "REDIS_PASSWORD", "AUTH_JWT_SECRET"):
-            match = re.search(rf"^{key}=(\S+)$", env_text, re.M)
-            self.assertIsNotNone(match, key)
-            self.assertNotIn(match.group(1).strip("'\""), result.stdout + result.stderr, key)
+        self.assertIsNone(
+            re.search(r"^(POSTGRES_PASSWORD|REDIS_PASSWORD|AUTH_JWT_SECRET)=\S+", env_text, re.M),
+            "generated secrets must not be written into .env",
+        )
+        for fname in ("pg_password.txt", "redis_password.txt", "grafana_admin_password.txt", "admin_ui_password_hash.txt"):
+            secret_val = (self.tmp / "secrets" / fname).read_text(encoding="utf-8").strip()
+            self.assertTrue(secret_val, fname)
+            self.assertNotIn(secret_val, result.stdout + result.stderr, fname)
 
 
 class ScriptSourceGuards(unittest.TestCase):
@@ -166,18 +170,37 @@ class ComposeStagesSecrets(unittest.TestCase):
                 self.assertFalse(str(volume).startswith("./secrets:"), f"{name} mounts ./secrets directly")
 
     def test_every_service_that_reads_secrets_waits_for_the_staging_job(self):
-        readers = [n for n, s in self.compose["services"].items() if any(str(v).startswith("runtime_secrets:") for v in s.get("volumes", []))]
+        readers = [
+            n
+            for n, s in self.compose["services"].items()
+            if any(str(v).startswith("secrets_") and ":/run/secrets" in str(v) for v in s.get("volumes", []))
+        ]
         self.assertIn("postgres", readers)
         self.assertIn("redis", readers)
+        self.assertIn("grafana", readers)
         for name in readers:
             if name == "secrets_init":
                 continue
             condition = self.compose["services"][name]["depends_on"]["secrets_init"]["condition"]
             self.assertEqual(condition, "service_completed_successfully", name)
 
+    def test_each_runtime_service_has_an_isolated_tmpfs_secret_volume(self):
+        mounted = []
+        for name, service in self.compose["services"].items():
+            if name == "secrets_init":
+                continue
+            for volume in service.get("volumes", []):
+                if str(volume).endswith(":/run/secrets:ro"):
+                    vol_name = str(volume).split(":", 1)[0]
+                    mounted.append((name, vol_name))
+                    vol_cfg = self.compose["volumes"][vol_name]
+                    self.assertEqual(vol_cfg["driver_opts"]["type"], "tmpfs", vol_name)
+        self.assertEqual(len(mounted), len({vol for _, vol in mounted}), "each service gets its own tmpfs volume")
+
     def test_the_staging_job_copies_only_txt_secret_files_never_the_private_database(self):
         script = self.compose["services"]["secrets_init"]["command"][0]
         self.assertIn("/staging/source/*.txt", script)
+        self.assertIn("chmod 400", script)
         self.assertNotIn("cp -R", script)
         self.assertNotIn("local_secrets", script)
 
