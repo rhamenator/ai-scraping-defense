@@ -2,8 +2,8 @@
 """Interactive setup script for AI Scraping Defense.
 
 This helper prompts for key configuration values, writes them to
-`.env`, optionally stores secrets in an SQLite database, and then runs
-`scripts/linux/generate_secrets.sh --update-env` to populate generated values.
+`.env`, and then runs `scripts/linux/generate_secrets.sh --update-env`
+to populate generated values.
 
 It also supports pause/resume using a local state file, so users can
 return later if required credentials are not available.
@@ -15,7 +15,6 @@ import getpass
 import json
 import os
 import platform
-import sqlite3
 import subprocess  # nosec B404 - required for controlled script calls
 from pathlib import Path
 from typing import Any
@@ -275,35 +274,6 @@ def prompt_value(
         return value
 
 
-def store_secrets(root: Path, env: dict[str, str]) -> None:
-    """Store secrets in an SQLite database under secrets/ if user agrees."""
-    resp = (
-        input(  # nosec B322 - interactive prompt
-            "Store secrets in local SQLite database? [y/N]: "
-        )
-        .strip()
-        .lower()
-    )
-    if resp != "y":
-        return
-    secrets_dir = root / "secrets"
-    secrets_dir.mkdir(mode=0o700, exist_ok=True)
-    os.chmod(secrets_dir, 0o700)  # nosec B103 nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions - owner-only 0700 is restrictive
-    db_path = secrets_dir / "local_secrets.db"
-    create_private_file(db_path)  # the database holds plaintext secrets, so it is never group or world readable
-    conn = sqlite3.connect(db_path)
-    with conn:
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS secrets (key TEXT PRIMARY KEY, value TEXT)"
-        )
-        for key, value in env.items():
-            if any(s in key for s in ("PASSWORD", "API_KEY", "SECRET", "TOKEN")):
-                conn.execute(
-                    "REPLACE INTO secrets (key, value) VALUES (?, ?)", (key, value)
-                )
-    print("Secrets have been stored in the local database.")
-
-
 def main() -> None:
     root = Path(__file__).resolve().parent.parent
     is_windows = platform.system() == "Windows"
@@ -400,8 +370,6 @@ def main() -> None:
             f"\nSetup interrupted. Progress saved in {state_file.name}. Re-run this script to continue."
         )
         return
-
-    store_secrets(root, env)
 
     print("Generating secrets...")
     generator_env = {**os.environ, **env}
