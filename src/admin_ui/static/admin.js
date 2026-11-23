@@ -44,6 +44,13 @@ let metricsControlsInitialized = false;
 let metricsResultsHost = null;
 let metricsCountEl = null;
 
+const CATEGORY_RULES = [
+    ['Security & Auth', ['login', 'auth', 'security', 'operational']],
+    ['Defense & Blocklist', ['tarpit', 'captcha', 'blocklist', 'community', 'reputation']],
+    ['Detection & ML', ['heuristic', 'frequency', 'rf_model', 'llm', 'anomaly']],
+    ['Traffic & Cache', ['http_', 'request', 'cache_', 'performance_']],
+];
+
 function parseMetricKey(rawKey) {
     const braceIdx = rawKey.indexOf('{');
     if (braceIdx === -1) {
@@ -70,17 +77,10 @@ function parseMetricKey(rawKey) {
 }
 
 function categorizeMetric(baseName) {
-    if (baseName.includes('login') || baseName.includes('auth') || baseName.includes('security') || baseName.includes('operational')) {
-        return 'Security & Auth';
-    }
-    if (baseName.includes('tarpit') || baseName.includes('captcha') || baseName.includes('blocklist') || baseName.includes('community') || baseName.includes('reputation')) {
-        return 'Defense & Blocklist';
-    }
-    if (baseName.includes('heuristic') || baseName.includes('frequency') || baseName.includes('rf_model') || baseName.includes('llm') || baseName.includes('anomaly')) {
-        return 'Detection & ML';
-    }
-    if (baseName.includes('http_') || baseName.includes('request') || baseName.includes('cache_') || baseName.includes('performance_')) {
-        return 'Traffic & Cache';
+    for (const [category, tokens] of CATEGORY_RULES) {
+        if (tokens.some(token => baseName.includes(token))) {
+            return category;
+        }
     }
     return 'System';
 }
@@ -95,34 +95,41 @@ function formatMetricKey(key) {
         .replace(/\bRf\b/g, 'RF');
 }
 
+function formatUptime(value) {
+    const totalSeconds = Math.floor(value);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const parts = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0 || days > 0) parts.push(`${hours}h`);
+    if (minutes > 0 || hours > 0 || days > 0) parts.push(`${minutes}m`);
+    parts.push(`${seconds}s`);
+    return parts.join(' ');
+}
+
+function formatBytes(value) {
+    if (value >= 1048576) return `${(value / 1048576).toFixed(2)} MB`;
+    if (value >= 1024) return `${(value / 1024).toFixed(1)} KB`;
+    return `${Math.round(value).toLocaleString()} B`;
+}
+
+function formatNumber(value) {
+    return Number.isInteger(value)
+        ? value.toLocaleString()
+        : value.toLocaleString(undefined, { maximumFractionDigits: 3 });
+}
+
 function formatMetricValue(key, value) {
-    if (key.includes('uptime_seconds')) {
-        const totalSeconds = Math.floor(value);
-        const days = Math.floor(totalSeconds / (3600 * 24));
-        const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        let uptimeString = '';
-        if (days > 0) uptimeString += `${days}d `;
-        if (hours > 0 || days > 0) uptimeString += `${hours}h `;
-        if (minutes > 0 || hours > 0 || days > 0) uptimeString += `${minutes}m `;
-        uptimeString += `${seconds}s`;
-        return uptimeString || '0s';
-    }
+    if (key.includes('uptime_seconds')) return formatUptime(value);
     if (key.includes('last_updated_utc')) {
-        try {
-            return new Date(value).toLocaleString();
-        } catch (e) { return value; }
+        try { return new Date(value).toLocaleString(); } catch (_e) { return value; }
     }
-    if (key.includes('duration_seconds_sum') && typeof value === 'number') {
-        return `${(value * 1000).toFixed(2)} ms`;
-    }
-    if (typeof value === 'number') {
-        return Number.isInteger(value)
-            ? value.toLocaleString()
-            : value.toLocaleString(undefined, { maximumFractionDigits: 3 });
-    }
-    return value;
+    if (typeof value !== 'number') return value;
+    if (key.includes('duration_seconds_sum')) return `${(value * 1000).toFixed(2)} ms`;
+    if (key.endsWith('_bytes')) return formatBytes(value);
+    return formatNumber(value);
 }
 
 function clearElement(element) {
@@ -131,63 +138,42 @@ function clearElement(element) {
     }
 }
 
-function createMetricRow(category, title, labels, value) {
-    const row = document.createElement('tr');
-
-    const catCell = document.createElement('td');
-    catCell.className = 'metric-cat-cell';
-    catCell.textContent = category;
-    row.appendChild(catCell);
-
-    const labelCell = document.createElement('td');
-    labelCell.className = 'metric-name-cell';
-    labelCell.textContent = title;
-    row.appendChild(labelCell);
-
-    const scopeCell = document.createElement('td');
-    scopeCell.className = 'metric-key-cell';
-    scopeCell.textContent = labels || '—';
-    row.appendChild(scopeCell);
-
-    const valueCell = document.createElement('td');
-    valueCell.className = 'metric-value-cell';
-    valueCell.textContent = String(value);
-    row.appendChild(valueCell);
-
-    return row;
+function detectHistogramUnit(rootName) {
+    if (rootName.includes('seconds') || rootName.includes('duration') || rootName.includes('latency')) {
+        return 'seconds';
+    }
+    if (rootName.endsWith('_bytes') || rootName.includes('_bytes_')) {
+        return 'bytes';
+    }
+    return 'count';
 }
 
-function formatBucketBoundary(le) {
+function formatBucketBoundary(le, unit = 'seconds') {
     if (le === '+Inf') return '+Inf';
     const num = Number(le);
     if (Number.isNaN(num)) return le;
-    return num < 1 ? `≤ ${Math.round(num * 1000)} ms` : `≤ ${num} s`;
+    if (unit === 'seconds') {
+        return num < 1 ? `≤ ${Math.round(num * 1000)} ms` : `≤ ${num} s`;
+    }
+    if (unit === 'bytes') {
+        return `≤ ${formatBytes(num)}`;
+    }
+    return `≤ ${formatNumber(num)}`;
 }
 
-function ensureMetricsChrome() {
-    if (metricsControlsInitialized && metricsResultsHost && metricsDisplay.contains(metricsResultsHost)) {
-        return;
+function formatHistogramStats(hist) {
+    const avg = hist.count > 0 ? hist.sum / hist.count : 0;
+    const countText = `count: ${hist.count.toLocaleString()}`;
+    if (hist.unit === 'seconds') {
+        return `${countText} · avg: ${(avg * 1000).toFixed(2)} ms · total: ${(hist.sum * 1000).toFixed(2)} ms`;
     }
-    clearElement(metricsDisplay);
+    if (hist.unit === 'bytes') {
+        return `${countText} · avg: ${formatBytes(avg)} · total: ${formatBytes(hist.sum)}`;
+    }
+    return `${countText} · avg: ${formatNumber(avg)} · total: ${formatNumber(hist.sum)}`;
+}
 
-    const toolbar = document.createElement('div');
-    toolbar.className = 'metrics-toolbar';
-
-    const filterGroup = document.createElement('div');
-    filterGroup.className = 'metrics-filters';
-
-    const searchInput = document.createElement('input');
-    searchInput.type = 'search';
-    searchInput.id = 'metrics-filter-input';
-    searchInput.placeholder = 'Filter metrics or labels...';
-    searchInput.value = metricsFilterText;
-    searchInput.addEventListener('input', () => {
-        metricsFilterText = searchInput.value.trim().toLowerCase();
-        if (lastMetricsSnapshot) {
-            renderMetricsContent(lastMetricsSnapshot);
-        }
-    });
-
+function buildCategorySelect() {
     const catSelect = document.createElement('select');
     catSelect.id = 'metrics-category-filter';
     for (const [val, label] of [
@@ -206,13 +192,34 @@ function ensureMetricsChrome() {
     catSelect.value = metricsFilterCategory;
     catSelect.addEventListener('change', () => {
         metricsFilterCategory = catSelect.value;
-        if (lastMetricsSnapshot) {
-            renderMetricsContent(lastMetricsSnapshot);
-        }
+        if (lastMetricsSnapshot) renderMetricsContent(lastMetricsSnapshot);
+    });
+    return catSelect;
+}
+
+function ensureMetricsChrome() {
+    if (metricsControlsInitialized && metricsResultsHost && metricsDisplay.contains(metricsResultsHost)) {
+        return;
+    }
+    clearElement(metricsDisplay);
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'metrics-toolbar';
+    const filterGroup = document.createElement('div');
+    filterGroup.className = 'metrics-filters';
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'search';
+    searchInput.id = 'metrics-filter-input';
+    searchInput.placeholder = 'Filter metrics or labels...';
+    searchInput.value = metricsFilterText;
+    searchInput.addEventListener('input', () => {
+        metricsFilterText = searchInput.value.trim().toLowerCase();
+        if (lastMetricsSnapshot) renderMetricsContent(lastMetricsSnapshot);
     });
 
     filterGroup.appendChild(searchInput);
-    filterGroup.appendChild(catSelect);
+    filterGroup.appendChild(buildCategorySelect());
     toolbar.appendChild(filterGroup);
 
     metricsCountEl = document.createElement('span');
@@ -221,7 +228,6 @@ function ensureMetricsChrome() {
 
     metricsResultsHost = document.createElement('div');
     metricsResultsHost.id = 'metrics-results-host';
-
     metricsDisplay.appendChild(toolbar);
     metricsDisplay.appendChild(metricsResultsHost);
     metricsControlsInitialized = true;
@@ -231,11 +237,8 @@ function matchesFilter(category, title, labels) {
     if (metricsFilterCategory !== 'all' && category !== metricsFilterCategory) {
         return false;
     }
-    if (!metricsFilterText) {
-        return true;
-    }
-    const haystack = `${category} ${title} ${labels}`.toLowerCase();
-    return haystack.includes(metricsFilterText);
+    if (!metricsFilterText) return true;
+    return `${category} ${title} ${labels}`.toLowerCase().includes(metricsFilterText);
 }
 
 function makeStatefulDetails(nodeKey, className, defaultOpen = false) {
@@ -256,92 +259,112 @@ function makeStatefulDetails(nodeKey, className, defaultOpen = false) {
     return details;
 }
 
+function svgEl(tag, attrs, text) {
+    const svgNs = 'http:' + '//www.w3.org/2000/svg';
+    const el = document.createElementNS(svgNs, tag);
+    for (const [k, v] of Object.entries(attrs)) {
+        el.setAttribute(k, String(v));
+    }
+    if (text !== undefined) el.textContent = text;
+    return el;
+}
+
+function appendSvgBar(svg, bucket, idx, geom) {
+    const barH = bucket.count === 0 ? 2 : Math.max(4, (bucket.count / geom.maxBucket) * geom.plotH);
+    const x = geom.padLeft + idx * geom.step + (geom.step - geom.barW) / 2;
+    const y = geom.padTop + geom.plotH - barH;
+    const rect = svgEl('rect', {
+        x: x.toFixed(1),
+        y: y.toFixed(1),
+        width: geom.barW.toFixed(1),
+        height: barH.toFixed(1),
+        rx: 4,
+        fill: bucket.count > 0 ? '#8d2a1e' : 'rgba(29,34,24,0.12)',
+    });
+    const boundary = formatBucketBoundary(bucket.le, geom.unit);
+    rect.appendChild(svgEl('title', {}, `${boundary}: ${bucket.count} (cumulative ${bucket.cumulative})`));
+    svg.appendChild(rect);
+    if (bucket.count > 0) {
+        svg.appendChild(svgEl('text', {
+            x: (x + geom.barW / 2).toFixed(1),
+            y: (y - 4).toFixed(1),
+            'text-anchor': 'middle',
+            class: 'hist-svg-val',
+        }, String(bucket.count)));
+    }
+    svg.appendChild(svgEl('text', {
+        x: (x + geom.barW / 2).toFixed(1),
+        y: geom.padTop + geom.plotH + 14,
+        'text-anchor': 'middle',
+        class: 'hist-svg-lbl',
+    }, boundary.replace('≤ ', '')));
+}
+
 function buildHistogramChartSvg(hist) {
-    const svgNs = 'http://www.w3.org/2000/svg';
-    const buckets = hist.buckets;
-    // Convert Prometheus cumulative buckets into per-bucket differential counts for a true distribution chart
-    const diffBuckets = buckets.map((b, idx) => {
-        const prev = idx === 0 ? 0 : buckets[idx - 1].value;
+    const diffBuckets = hist.buckets.map((b, idx) => {
+        const prev = idx === 0 ? 0 : hist.buckets[idx - 1].value;
         return { le: b.le, count: Math.max(0, b.value - prev), cumulative: b.value };
     });
-    const maxBucket = Math.max(...diffBuckets.map(b => b.count), 1);
-
     const width = Math.max(360, diffBuckets.length * 46);
-    const height = 148;
-    const padLeft = 28;
-    const padRight = 10;
-    const padTop = 18;
-    const padBottom = 34;
-    const plotW = width - padLeft - padRight;
-    const plotH = height - padTop - padBottom;
-    const step = plotW / Math.max(diffBuckets.length, 1);
-    const barW = Math.max(12, Math.min(28, step * 0.62));
+    const geom = {
+        padLeft: 28,
+        padTop: 18,
+        plotH: 96,
+        step: (width - 38) / Math.max(diffBuckets.length, 1),
+        maxBucket: Math.max(...diffBuckets.map(b => b.count), 1),
+        unit: hist.unit,
+    };
+    geom.barW = Math.max(12, Math.min(28, geom.step * 0.62));
 
-    const svg = document.createElementNS(svgNs, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-    svg.setAttribute('class', 'hist-svg');
-    svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', `${hist.title} distribution`);
-
-    // Baseline axis
-    const axis = document.createElementNS(svgNs, 'line');
-    axis.setAttribute('x1', String(padLeft));
-    axis.setAttribute('y1', String(padTop + plotH));
-    axis.setAttribute('x2', String(width - padRight));
-    axis.setAttribute('y2', String(padTop + plotH));
-    axis.setAttribute('stroke', 'rgba(29,34,24,0.22)');
-    axis.setAttribute('stroke-width', '1');
-    svg.appendChild(axis);
-
-    diffBuckets.forEach((b, i) => {
-        const barH = b.count === 0 ? 2 : Math.max(4, (b.count / maxBucket) * plotH);
-        const x = padLeft + i * step + (step - barW) / 2;
-        const y = padTop + plotH - barH;
-
-        const rect = document.createElementNS(svgNs, 'rect');
-        rect.setAttribute('x', x.toFixed(1));
-        rect.setAttribute('y', y.toFixed(1));
-        rect.setAttribute('width', barW.toFixed(1));
-        rect.setAttribute('height', barH.toFixed(1));
-        rect.setAttribute('rx', '4');
-        rect.setAttribute('fill', b.count > 0 ? '#8d2a1e' : 'rgba(29,34,24,0.12)');
-        const titleEl = document.createElementNS(svgNs, 'title');
-        titleEl.textContent = `${formatBucketBoundary(b.le)}: ${b.count} requests (cumulative ${b.cumulative})`;
-        rect.appendChild(titleEl);
-        svg.appendChild(rect);
-
-        if (b.count > 0) {
-            const valText = document.createElementNS(svgNs, 'text');
-            valText.setAttribute('x', (x + barW / 2).toFixed(1));
-            valText.setAttribute('y', (y - 4).toFixed(1));
-            valText.setAttribute('text-anchor', 'middle');
-            valText.setAttribute('class', 'hist-svg-val');
-            valText.textContent = String(b.count);
-            svg.appendChild(valText);
-        }
-
-        const lblText = document.createElementNS(svgNs, 'text');
-        lblText.setAttribute('x', (x + barW / 2).toFixed(1));
-        lblText.setAttribute('y', String(padTop + plotH + 14));
-        lblText.setAttribute('text-anchor', 'middle');
-        lblText.setAttribute('class', 'hist-svg-lbl');
-        lblText.textContent = formatBucketBoundary(b.le).replace('≤ ', '');
-        svg.appendChild(lblText);
+    const svg = svgEl('svg', {
+        viewBox: `0 0 ${width} 148`,
+        class: 'hist-svg',
+        role: 'img',
+        'aria-label': `${hist.title} distribution`,
     });
-
+    svg.appendChild(svgEl('line', {
+        x1: geom.padLeft,
+        y1: geom.padTop + geom.plotH,
+        x2: width - 10,
+        y2: geom.padTop + geom.plotH,
+        stroke: 'rgba(29,34,24,0.22)',
+        'stroke-width': 1,
+    }));
+    diffBuckets.forEach((b, i) => appendSvgBar(svg, b, i, geom));
     return svg;
 }
 
-function renderHistogramSection(histograms) {
-    if (histograms.length === 0) {
-        return null;
+function buildHistogramBucketTable(hist) {
+    const table = document.createElement('table');
+    table.className = 'bucket-table';
+    const tbody = document.createElement('tbody');
+    const maxCount = Math.max(hist.count, 1);
+
+    for (const bucket of hist.buckets) {
+        const tr = document.createElement('tr');
+        const leTd = document.createElement('td');
+        leTd.className = 'bucket-le';
+        leTd.textContent = formatBucketBoundary(bucket.le, hist.unit);
+
+        const barTd = document.createElement('td');
+        barTd.className = 'bucket-bar-cell';
+        const bar = document.createElement('div');
+        bar.className = 'bucket-bar';
+        bar.style.width = `${Math.round((bucket.value / maxCount) * 100)}%`;
+        barTd.appendChild(bar);
+
+        const valTd = document.createElement('td');
+        valTd.className = 'metric-value-cell';
+        valTd.textContent = bucket.value.toLocaleString();
+
+        tr.append(leTd, barTd, valTd);
+        tbody.appendChild(tr);
     }
-    const wrapper = document.createElement('div');
-    wrapper.className = 'histogram-tree';
+    table.appendChild(tbody);
+    return table;
+}
 
-    const headerBar = document.createElement('div');
-    headerBar.className = 'histogram-header-bar';
-
+function buildViewSwitcher() {
     const switcher = document.createElement('div');
     switcher.className = 'view-switch';
     switcher.setAttribute('role', 'group');
@@ -353,311 +376,237 @@ function renderHistogramSection(histograms) {
         btn.textContent = label;
         btn.addEventListener('click', () => {
             histogramViewMode = mode;
-            if (lastMetricsSnapshot) {
-                renderMetricsContent(lastMetricsSnapshot);
-            }
+            if (lastMetricsSnapshot) renderMetricsContent(lastMetricsSnapshot);
         });
         switcher.appendChild(btn);
     }
-    headerBar.appendChild(switcher);
+    return switcher;
+}
+
+function buildHistogramNode(hist) {
+    const details = makeStatefulDetails(`hist:${hist.title}:${hist.labels}`, 'histogram-node', histogramViewMode === 'chart');
+    const summary = document.createElement('summary');
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'hist-title';
+    titleSpan.textContent = hist.title;
+
+    const scopeSpan = document.createElement('span');
+    scopeSpan.className = 'hist-scope';
+    scopeSpan.textContent = hist.labels || 'all';
+
+    const statsSpan = document.createElement('span');
+    statsSpan.className = 'hist-stats';
+    statsSpan.textContent = formatHistogramStats(hist);
+
+    summary.append(titleSpan, scopeSpan, statsSpan);
+    details.appendChild(summary);
+
+    if (histogramViewMode === 'chart') {
+        const chartWrap = document.createElement('div');
+        chartWrap.className = 'hist-chart-wrap';
+        chartWrap.appendChild(buildHistogramChartSvg(hist));
+        details.appendChild(chartWrap);
+    } else {
+        details.appendChild(buildHistogramBucketTable(hist));
+    }
+    return details;
+}
+
+function renderHistogramSection(histograms) {
+    if (histograms.length === 0) return null;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'histogram-tree';
+
+    const headerBar = document.createElement('div');
+    headerBar.className = 'histogram-header-bar';
+    headerBar.appendChild(buildViewSwitcher());
     wrapper.appendChild(headerBar);
 
     for (const hist of histograms) {
-        const nodeKey = `hist:${hist.title}:${hist.labels}`;
-        const details = makeStatefulDetails(nodeKey, 'histogram-node', histogramViewMode === 'chart');
+        wrapper.appendChild(buildHistogramNode(hist));
+    }
+    return wrapper;
+}
 
-        const summary = document.createElement('summary');
-        const titleSpan = document.createElement('span');
-        titleSpan.className = 'hist-title';
-        titleSpan.textContent = hist.title;
+function buildLeafRow(item, includeName) {
+    const tr = document.createElement('tr');
+    if (includeName) {
+        const nameTd = document.createElement('td');
+        nameTd.className = 'metric-name-cell';
+        nameTd.textContent = item.title;
+        tr.appendChild(nameTd);
+    }
+    const scopeTd = document.createElement('td');
+    scopeTd.className = 'metric-key-cell';
+    scopeTd.textContent = item.labels || '—';
+    const valTd = document.createElement('td');
+    valTd.className = 'metric-value-cell';
+    valTd.textContent = String(item.formattedValue);
+    tr.append(scopeTd, valTd);
+    return tr;
+}
 
-        const scopeSpan = document.createElement('span');
-        scopeSpan.className = 'hist-scope';
-        scopeSpan.textContent = hist.labels || 'all';
+function buildSeriesNode(category, title, series) {
+    const subDetails = makeStatefulDetails(`series:${category}:${title}`, 'metric-series-node', Boolean(metricsFilterText));
+    const subSummary = document.createElement('summary');
+    const subTitle = document.createElement('span');
+    subTitle.className = 'metric-name-cell';
+    subTitle.textContent = title;
 
-        const statsSpan = document.createElement('span');
-        statsSpan.className = 'hist-stats';
-        const avgMs = hist.count > 0 ? ((hist.sum / hist.count) * 1000).toFixed(2) : '0.00';
-        const totalMs = (hist.sum * 1000).toFixed(2);
-        statsSpan.textContent = `count: ${hist.count.toLocaleString()} · avg: ${avgMs} ms · total: ${totalMs} ms`;
+    const subMeta = document.createElement('span');
+    subMeta.className = 'hist-stats';
+    const allNumeric = series.every(s => typeof s.rawValue === 'number');
+    if (allNumeric) {
+        const total = series.reduce((acc, s) => acc + s.rawValue, 0);
+        subMeta.textContent = `${series.length} scopes · total: ${formatMetricValue(series[0].baseName, total)}`;
+    } else {
+        subMeta.textContent = `${series.length} scopes`;
+    }
+    subSummary.append(subTitle, subMeta);
+    subDetails.appendChild(subSummary);
 
-        summary.appendChild(titleSpan);
-        summary.appendChild(scopeSpan);
-        summary.appendChild(statsSpan);
-        details.appendChild(summary);
+    const subTable = document.createElement('table');
+    subTable.className = 'metrics-sheet tree-leaf-table';
+    const subBody = document.createElement('tbody');
+    series.forEach(s => subBody.appendChild(buildLeafRow(s, false)));
+    subTable.appendChild(subBody);
+    subDetails.appendChild(subTable);
+    return subDetails;
+}
 
-        if (histogramViewMode === 'chart') {
-            const chartWrap = document.createElement('div');
-            chartWrap.className = 'hist-chart-wrap';
-            chartWrap.appendChild(buildHistogramChartSvg(hist));
-            details.appendChild(chartWrap);
-        } else {
-            const bucketTable = document.createElement('table');
-            bucketTable.className = 'bucket-table';
-            const tbody = document.createElement('tbody');
-            const maxCount = Math.max(hist.count, 1);
+function buildCategoryGroup(category, items) {
+    const catDetails = makeStatefulDetails(`cat:${category}`, 'metric-tree-group', Boolean(metricsFilterText));
+    const catSummary = document.createElement('summary');
+    const catTitle = document.createElement('span');
+    catTitle.className = 'tree-cat-title';
+    catTitle.textContent = category;
+    const catMeta = document.createElement('span');
+    catMeta.className = 'tree-cat-meta';
+    catMeta.textContent = `${items.length} series`;
+    catSummary.append(catTitle, catMeta);
+    catDetails.appendChild(catSummary);
 
-            for (const bucket of hist.buckets) {
-                const tr = document.createElement('tr');
-                const leTd = document.createElement('td');
-                leTd.className = 'bucket-le';
-                leTd.textContent = formatBucketBoundary(bucket.le);
-
-                const barTd = document.createElement('td');
-                barTd.className = 'bucket-bar-cell';
-                const bar = document.createElement('div');
-                bar.className = 'bucket-bar';
-                bar.style.width = `${Math.round((bucket.value / maxCount) * 100)}%`;
-                barTd.appendChild(bar);
-
-                const valTd = document.createElement('td');
-                valTd.className = 'metric-value-cell';
-                valTd.textContent = bucket.value.toLocaleString();
-
-                tr.appendChild(leTd);
-                tr.appendChild(barTd);
-                tr.appendChild(valTd);
-                tbody.appendChild(tr);
-            }
-            bucketTable.appendChild(tbody);
-            details.appendChild(bucketTable);
-        }
-        wrapper.appendChild(details);
+    const byTitle = new Map();
+    for (const item of items) {
+        if (!byTitle.has(item.title)) byTitle.set(item.title, []);
+        byTitle.get(item.title).push(item);
     }
 
-    return wrapper;
+    const tbody = document.createElement('tbody');
+    for (const [title, series] of byTitle.entries()) {
+        if (series.length === 1) {
+            tbody.appendChild(buildLeafRow(series[0], true));
+        } else {
+            catDetails.appendChild(buildSeriesNode(category, title, series));
+        }
+    }
+    if (tbody.hasChildNodes()) {
+        const table = document.createElement('table');
+        table.className = 'metrics-sheet tree-leaf-table';
+        table.appendChild(tbody);
+        catDetails.appendChild(table);
+    }
+    return catDetails;
 }
 
 function renderMetricsTree(entries) {
     const treeRoot = document.createElement('div');
     treeRoot.className = 'metrics-tree';
-
     const byCategory = new Map();
     for (const item of entries) {
-        if (!byCategory.has(item.category)) {
-            byCategory.set(item.category, []);
-        }
+        if (!byCategory.has(item.category)) byCategory.set(item.category, []);
         byCategory.get(item.category).push(item);
     }
-
     for (const [category, items] of byCategory.entries()) {
-        const catDetails = makeStatefulDetails(`cat:${category}`, 'metric-tree-group', Boolean(metricsFilterText));
-        const catSummary = document.createElement('summary');
-
-        const catTitle = document.createElement('span');
-        catTitle.className = 'tree-cat-title';
-        catTitle.textContent = category;
-
-        const catMeta = document.createElement('span');
-        catMeta.className = 'tree-cat-meta';
-        catMeta.textContent = `${items.length} series`;
-
-        catSummary.appendChild(catTitle);
-        catSummary.appendChild(catMeta);
-        catDetails.appendChild(catSummary);
-
-        // Group identical metric titles with multiple label scopes into nested nodes
-        const byTitle = new Map();
-        for (const item of items) {
-            if (!byTitle.has(item.title)) {
-                byTitle.set(item.title, []);
-            }
-            byTitle.get(item.title).push(item);
-        }
-
-        const table = document.createElement('table');
-        table.className = 'metrics-sheet tree-leaf-table';
-        const tbody = document.createElement('tbody');
-        let hasSingleRows = false;
-
-        for (const [title, series] of byTitle.entries()) {
-            if (series.length === 1) {
-                hasSingleRows = true;
-                const s = series[0];
-                const tr = document.createElement('tr');
-                const nameTd = document.createElement('td');
-                nameTd.className = 'metric-name-cell';
-                nameTd.textContent = s.title;
-                const scopeTd = document.createElement('td');
-                scopeTd.className = 'metric-key-cell';
-                scopeTd.textContent = s.labels || '—';
-                const valTd = document.createElement('td');
-                valTd.className = 'metric-value-cell';
-                valTd.textContent = String(s.formattedValue);
-                tr.appendChild(nameTd);
-                tr.appendChild(scopeTd);
-                tr.appendChild(valTd);
-                tbody.appendChild(tr);
-            } else {
-                const subDetails = makeStatefulDetails(
-                    `series:${category}:${title}`,
-                    'metric-series-node',
-                    Boolean(metricsFilterText)
-                );
-                const subSummary = document.createElement('summary');
-                const subTitle = document.createElement('span');
-                subTitle.className = 'metric-name-cell';
-                subTitle.textContent = title;
-
-                const subMeta = document.createElement('span');
-                subMeta.className = 'hist-stats';
-                const numericSum = series.every(s => typeof s.rawValue === 'number')
-                    ? series.reduce((acc, s) => acc + s.rawValue, 0)
-                    : null;
-                subMeta.textContent = numericSum !== null
-                    ? `${series.length} scopes · total: ${formatMetricValue(series[0].baseName, numericSum)}`
-                    : `${series.length} scopes`;
-
-                subSummary.appendChild(subTitle);
-                subSummary.appendChild(subMeta);
-                subDetails.appendChild(subSummary);
-
-                const subTable = document.createElement('table');
-                subTable.className = 'metrics-sheet tree-leaf-table';
-                const subBody = document.createElement('tbody');
-                for (const s of series) {
-                    const tr = document.createElement('tr');
-                    const scopeTd = document.createElement('td');
-                    scopeTd.className = 'metric-key-cell';
-                    scopeTd.textContent = s.labels || '—';
-                    const valTd = document.createElement('td');
-                    valTd.className = 'metric-value-cell';
-                    valTd.textContent = String(s.formattedValue);
-                    tr.appendChild(scopeTd);
-                    tr.appendChild(valTd);
-                    subBody.appendChild(tr);
-                }
-                subTable.appendChild(subBody);
-                subDetails.appendChild(subTable);
-                catDetails.appendChild(subDetails);
-            }
-        }
-
-        if (hasSingleRows) {
-            table.appendChild(tbody);
-            catDetails.appendChild(table);
-        }
-        treeRoot.appendChild(catDetails);
+        treeRoot.appendChild(buildCategoryGroup(category, items));
     }
-
     return treeRoot;
+}
+
+function recordHistogramSample(histMap, metrics, rawKey, parsed) {
+    const { baseName, labelMap } = parsed;
+    if (!/_(bucket|count|sum)$/.test(baseName)) return false;
+    const rootName = baseName.replace(/_(bucket|count|sum)$/, '');
+    const hasBuckets = baseName.endsWith('_bucket') || Object.keys(metrics).some(k => k.startsWith(`${rootName}_bucket{`));
+    if (!hasBuckets) return false;
+
+    const nonLeLabels = Object.entries(labelMap)
+        .filter(([k]) => k !== 'le')
+        .map(([k, v]) => `${k}=${v}`)
+        .join(', ');
+    const histKey = `${rootName}|${nonLeLabels}`;
+    if (!histMap.has(histKey)) {
+        histMap.set(histKey, {
+            category: categorizeMetric(rootName),
+            unit: detectHistogramUnit(rootName),
+            title: formatMetricKey(rootName),
+            labels: nonLeLabels,
+            count: 0,
+            sum: 0,
+            buckets: [],
+        });
+    }
+    const entry = histMap.get(histKey);
+    if (baseName.endsWith('_bucket')) entry.buckets.push({ le: labelMap.le || '+Inf', value: metrics[rawKey] });
+    else if (baseName.endsWith('_count')) entry.count = metrics[rawKey];
+    else entry.sum = metrics[rawKey];
+    return true;
+}
+
+function collectMetricsAndHistograms(metrics) {
+    const entries = [];
+    const histMap = new Map();
+    if (metrics.service_uptime_seconds !== undefined && matchesFilter('System', 'Service Uptime', '')) {
+        entries.push({
+            category: 'System',
+            baseName: 'service_uptime_seconds',
+            title: 'Service Uptime',
+            labels: '',
+            rawValue: metrics.service_uptime_seconds,
+            formattedValue: formatUptime(metrics.service_uptime_seconds),
+        });
+    }
+    const keys = Object.keys(metrics).filter(k => !k.includes('uptime_seconds') && !k.includes('last_updated_utc')).sort();
+    for (const rawKey of keys) {
+        const parsed = parseMetricKey(rawKey);
+        if (parsed.baseName.endsWith('_created')) continue;
+        if (recordHistogramSample(histMap, metrics, rawKey, parsed)) continue;
+        const category = categorizeMetric(parsed.baseName);
+        const title = formatMetricKey(parsed.baseName);
+        if (!matchesFilter(category, title, parsed.labels)) continue;
+        entries.push({
+            category,
+            baseName: parsed.baseName,
+            title,
+            labels: parsed.labels,
+            rawValue: metrics[rawKey],
+            formattedValue: formatMetricValue(parsed.baseName, metrics[rawKey]),
+        });
+    }
+    const histograms = [...histMap.values()].filter(h => matchesFilter(h.category, h.title, h.labels));
+    histograms.forEach(h => h.buckets.sort((a, b) => (a.le === '+Inf' ? 1 : b.le === '+Inf' ? -1 : Number(a.le) - Number(b.le))));
+    return { entries, histograms };
 }
 
 function renderMetricsContent(metrics) {
     clearElement(metricsResultsHost);
-
-    const entries = [];
-    const histMap = new Map();
-
-    if (metrics.service_uptime_seconds !== undefined) {
-        const uptimeValue = formatMetricValue('service_uptime_seconds', metrics.service_uptime_seconds);
-        if (matchesFilter('System', 'Service Uptime', '')) {
-            entries.push({
-                category: 'System',
-                baseName: 'service_uptime_seconds',
-                title: 'Service Uptime',
-                labels: '',
-                rawValue: metrics.service_uptime_seconds,
-                formattedValue: uptimeValue,
-            });
-        }
-    }
-
-    const sortedKeys = Object.keys(metrics)
-        .filter(key => !key.includes('uptime_seconds') && !key.includes('last_updated_utc'))
-        .sort();
-
-    for (const rawKey of sortedKeys) {
-        const { baseName, labels, labelMap } = parseMetricKey(rawKey);
-        if (baseName.endsWith('_created')) {
-            continue;
-        }
-
-        if (baseName.endsWith('_bucket') || baseName.endsWith('_count') || baseName.endsWith('_sum')) {
-            const rootName = baseName.replace(/_(bucket|count|sum)$/, '');
-            const isHistogramSeries = baseName.endsWith('_bucket') ||
-                Object.keys(metrics).some(k => k.startsWith(`${rootName}_bucket{`));
-            if (isHistogramSeries) {
-                const nonLeLabels = Object.entries(labelMap)
-                    .filter(([k]) => k !== 'le')
-                    .map(([k, v]) => `${k}=${v}`)
-                    .join(', ');
-                const histKey = `${rootName}|${nonLeLabels}`;
-                if (!histMap.has(histKey)) {
-                    histMap.set(histKey, {
-                        category: categorizeMetric(rootName),
-                        title: formatMetricKey(rootName),
-                        labels: nonLeLabels,
-                        count: 0,
-                        sum: 0,
-                        buckets: [],
-                    });
-                }
-                const entry = histMap.get(histKey);
-                if (baseName.endsWith('_bucket')) {
-                    entry.buckets.push({ le: labelMap.le || '+Inf', value: metrics[rawKey] });
-                } else if (baseName.endsWith('_count')) {
-                    entry.count = metrics[rawKey];
-                } else if (baseName.endsWith('_sum')) {
-                    entry.sum = metrics[rawKey];
-                }
-                continue;
-            }
-        }
-
-        const category = categorizeMetric(baseName);
-        const title = formatMetricKey(baseName);
-        if (!matchesFilter(category, title, labels)) {
-            continue;
-        }
-        entries.push({
-            category,
-            baseName,
-            title,
-            labels,
-            rawValue: metrics[rawKey],
-            formattedValue: formatMetricValue(baseName, metrics[rawKey]),
-        });
-    }
-
-    const filteredHistograms = [];
-    for (const hist of histMap.values()) {
-        if (!matchesFilter(hist.category, hist.title, hist.labels)) {
-            continue;
-        }
-        hist.buckets.sort((a, b) => {
-            if (a.le === '+Inf') return 1;
-            if (b.le === '+Inf') return -1;
-            return Number(a.le) - Number(b.le);
-        });
-        filteredHistograms.push(hist);
-    }
-
+    const { entries, histograms } = collectMetricsAndHistograms(metrics);
     if (metricsCountEl) {
-        metricsCountEl.textContent = `${entries.length} metrics · ${filteredHistograms.length} histograms`;
+        metricsCountEl.textContent = `${entries.length} metrics · ${histograms.length} histograms`;
     }
-
-    if (entries.length === 0 && filteredHistograms.length === 0) {
+    if (entries.length === 0 && histograms.length === 0) {
         const empty = document.createElement('p');
         empty.textContent = 'No metrics match the current filter.';
         metricsResultsHost.appendChild(empty);
         return;
     }
-
-    if (entries.length > 0) {
-        metricsResultsHost.appendChild(renderMetricsTree(entries));
-    }
-
-    const histSection = renderHistogramSection(filteredHistograms);
-    if (histSection) {
-        metricsResultsHost.appendChild(histSection);
-    }
+    if (entries.length > 0) metricsResultsHost.appendChild(renderMetricsTree(entries));
+    const histSection = renderHistogramSection(histograms);
+    if (histSection) metricsResultsHost.appendChild(histSection);
 }
 
 function updateMetricsDisplay(metrics) {
-    if (!metricsDisplay) {
-        return;
-    }
+    if (!metricsDisplay) return;
     lastMetricsSnapshot = metrics;
     ensureMetricsChrome();
     renderMetricsContent(metrics);
