@@ -1,0 +1,3 @@
+- Added `redis/users.acl.template` and `scripts/render_redis_acl.py` for per-service least-privilege Redis ACLs (disabling `@admin`/`@dangerous` commands and scoping key prefixes per service).
+- Added a non-superuser `asd_runtime` PostgreSQL role in `db/init_markov.sql`.
+- Added short-lived, caller- and audience-bound internal service tokens in `src/shared/service_tokens.py`.

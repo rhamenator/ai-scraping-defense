@@ -29,6 +29,20 @@ CREATE INDEX IF NOT EXISTS idx_markov_sequences_prev ON markov_sequences (p1, p2
 -- Optional: Index for frequency-based lookups if needed
 CREATE INDEX IF NOT EXISTS idx_markov_sequences_freq ON markov_sequences (p1, p2, freq DESC);
 
+-- Least-privilege runtime role (non-superuser) for application services.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'asd_runtime') THEN
+        CREATE ROLE asd_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+    END IF;
+END
+$$;
+GRANT USAGE ON SCHEMA public TO asd_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO asd_runtime;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO asd_runtime;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO asd_runtime;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO asd_runtime;
+
 -- Example of how the training script would insert/update:
 -- INSERT INTO markov_sequences (p1, p2, next_id, freq)
 -- VALUES (%s, %s, %s, 1)
