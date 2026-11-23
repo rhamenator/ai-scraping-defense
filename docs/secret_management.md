@@ -479,3 +479,18 @@ For issues or questions:
 2. Review Prometheus metrics
 3. Consult this documentation
 4. Open an issue on GitHub
+
+## Encrypted Secrets Bundle (`secrets/secrets.enc`)
+
+Persistent host secret files (`pg_password.txt`, `redis_password.txt`, `grafana_admin_password.txt`, `admin_ui_password_hash.txt`) can be sealed at rest using AES-256-GCM + Scrypt in `secrets/secrets.enc`:
+
+```bash
+# Seal plaintext *.txt files and remove the plaintext copies from disk:
+python3 scripts/secrets_bundle.py seal --shred-plaintext
+
+# Unseal at startup (via interactive passphrase, or --key-file / ASD_SECRETS_KEY_FILE from systemd-creds / TPM2):
+python3 scripts/secrets_bundle.py unseal --secrets-dir /mnt/tmpfs-secrets
+```
+
+- Ephemeral internal secrets (`AUTH_JWT_SECRET`, `SYSTEM_SEED`, `CAPTCHA_SECRET`, internal service keys) are generated in RAM (`tmpfs`) at startup by `secrets_init` when omitted from disk.
+- For hardware-backed unattended boot on Linux, store the bundle key in `systemd-creds` / TPM 2.0 and pass its path via `ASD_SECRETS_KEY_FILE`.

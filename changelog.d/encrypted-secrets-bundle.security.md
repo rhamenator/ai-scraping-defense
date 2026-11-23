@@ -1,0 +1,1 @@
+- Added `scripts/secrets_bundle.py` (`seal` / `unseal` using AES-256-GCM + Scrypt) and `docs/secret_management.md` so persistent host secrets can be stored encrypted at rest in `secrets/secrets.enc` and unsealed only into `tmpfs` at startup.
