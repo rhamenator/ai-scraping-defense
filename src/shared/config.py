@@ -589,8 +589,10 @@ def get_runtime_setting(name: str, default: str) -> str:
                 raw = conn.hget(tenant_key("admin_ui:settings"), name)
                 if raw is not None:
                     return raw.decode() if isinstance(raw, bytes) else str(raw)
-        except Exception:
-            pass
+        except Exception as exc:
+            logging.getLogger(__name__).debug(
+                "Could not read runtime setting %s from Redis: %s", name, exc
+            )
     return os.getenv(name, default)
 
 

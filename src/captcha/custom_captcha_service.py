@@ -8,7 +8,7 @@ import os
 import secrets
 import time
 
-from fastapi import Cookie, Form, HTTPException, Request
+from fastapi import Cookie, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from src.shared.config import get_runtime_setting, get_secret
@@ -246,13 +246,17 @@ def _rate_limited(request: Request, action: str) -> bool:
 
 
 @app.get("/challenge", response_class=HTMLResponse)
-async def challenge_page(request: Request, type: str = "math", fp_id: str | None = Cookie(None)):
+async def challenge_page(
+    request: Request,
+    question_type: str = Query("math", alias="type"),
+    fp_id: str | None = Cookie(None),
+):
     _ensure_builtin_enabled()
     if not CAPTCHA_SECRET:
         raise HTTPException(status_code=500, detail="CAPTCHA not configured")
     if _rate_limited(request, "challenge"):
         raise HTTPException(status_code=429, detail="Too many challenges")
-    qtype, prompt_text, expected = generate_question(normalize_question_type(type))
+    qtype, prompt_text, expected = generate_question(normalize_question_type(question_type))
     # The page carries only a random id; the answer and the client it was issued to stay on the server.
     token = secrets.token_urlsafe(24)
     store.put(
