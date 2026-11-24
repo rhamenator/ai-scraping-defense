@@ -164,6 +164,7 @@ class AdminUiSetupWizardTests(unittest.TestCase):
                 "REAL_BACKEND_HOST": "https://original.example.com",
                 "MODEL_URI": "sklearn:///original.joblib",
                 "ENABLE_HTTPS": "false",
+                "ADMIN_UI_ALLOW_INSECURE_HTTP": "true",
             },
             clear=False,
         ), patch("src.admin_ui.setup_wizard.get_redis_connection", return_value=self.fake_redis), patch(

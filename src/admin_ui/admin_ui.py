@@ -669,7 +669,7 @@ async def csp_header(request: Request, call_next):
             session_id,
             max_age=session_ttl,
             httponly=True,
-            secure=_request_is_https(request),
+            secure=auth_routes._session_cookie_secure(request),
             samesite=auth_routes.SESSION_COOKIE_SAMESITE,
             path=auth_routes.SESSION_COOKIE_PATH,
         )

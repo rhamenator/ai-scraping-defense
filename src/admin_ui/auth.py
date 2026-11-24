@@ -388,6 +388,23 @@ def require_auth(
     )
 
 
+def _is_https_request(request: Request | None) -> bool:
+    if os.getenv("ENABLE_HTTPS", "false").strip().lower() == "true":
+        return True
+    if request is None:
+        return False
+    return (
+        request.url.scheme == "https"
+        or request.headers.get("x-forwarded-proto", "").lower() == "https"
+    )
+
+
+def _session_cookie_secure(request: Request | None) -> bool:
+    if os.getenv("ADMIN_UI_ALLOW_INSECURE_HTTP", "false").strip().lower() == "true":
+        return _is_https_request(request)
+    return True
+
+
 def _set_session_cookie(
     response: Response | None,
     request: Request | None,
@@ -403,22 +420,12 @@ def _set_session_cookie(
         request.state.admin_ui_session_cookie = session_id
         request.state.admin_ui_session_ttl = SESSION_TTL
     if response is not None:
-        is_https = (
-            os.getenv("ENABLE_HTTPS", "false").strip().lower() == "true"
-            or (
-                request is not None
-                and (
-                    request.url.scheme == "https"
-                    or request.headers.get("x-forwarded-proto", "").lower() == "https"
-                )
-            )
-        )
         response.set_cookie(
             SESSION_COOKIE_NAME,
             session_id,
             max_age=SESSION_TTL,
             httponly=True,
-            secure=is_https,
+            secure=_session_cookie_secure(request),
             samesite=SESSION_COOKIE_SAMESITE,
             path=SESSION_COOKIE_PATH,
         )
@@ -643,15 +650,10 @@ async def logout(
     session_id = request.cookies.get(SESSION_COOKIE_NAME)
     _clear_session(redis_conn, session_id)
     # Browsers only delete cookies when the attributes match (path/samesite/secure).
-    is_https = (
-        os.getenv("ENABLE_HTTPS", "false").strip().lower() == "true"
-        or request.url.scheme == "https"
-        or request.headers.get("x-forwarded-proto", "").lower() == "https"
-    )
     response.delete_cookie(
         SESSION_COOKIE_NAME,
         path=SESSION_COOKIE_PATH,
-        secure=is_https,
+        secure=_session_cookie_secure(request),
         httponly=True,
         samesite=SESSION_COOKIE_SAMESITE,
     )
