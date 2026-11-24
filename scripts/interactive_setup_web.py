@@ -144,7 +144,10 @@ def collect_form_updates(
     """Extract validated .env updates from submitted pre-boot form fields."""
     updates: dict[str, str] = {}
     for key in key_settings:
-        raw = (form.get(f"cfg_{key}") or [""])[0].strip()
+        field = f"cfg_{key}"
+        if field not in form:
+            continue
+        raw = (form.get(field) or [""])[0].strip()
         if not (is_secret_fn(key) and not raw):
             updates[key] = raw
     for feature, info in optional_features.items():

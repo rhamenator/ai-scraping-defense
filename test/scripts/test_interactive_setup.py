@@ -57,7 +57,7 @@ class TestInteractiveSetupWeb(unittest.TestCase):
             env_path = Path(tmp) / ".env"
             mask_marker = "demo-mask-check-value"
             env_path.write_text(
-                f"REAL_BACKEND_HOST=https://old.example.com\nOPENAI_API_KEY={mask_marker}\n"
+                f"REAL_BACKEND_HOST=https://old.example.com\nNGINX_HTTP_PORT=8080\nOPENAI_API_KEY={mask_marker}\n"
             )
             state = {
                 "env_file": env_path,
@@ -78,7 +78,6 @@ class TestInteractiveSetupWeb(unittest.TestCase):
             try:
                 status_no_tok, _ = self._request(port, "GET", "/")
                 self.assertEqual(status_no_tok, 403)
-
                 status_ok, body = self._request(port, "GET", f"/?token={state['bootstrap_token']}")
                 self.assertEqual(status_ok, 200)
                 self.assertIn("https://old.example.com", body)
@@ -97,6 +96,7 @@ class TestInteractiveSetupWeb(unittest.TestCase):
                 self.assertEqual(post_status, 200)
                 parsed = interactive_setup.parse_env(env_path)
                 self.assertEqual(parsed["REAL_BACKEND_HOST"], "https://new.example.com")
+                self.assertEqual(parsed["NGINX_HTTP_PORT"], "8080")
                 self.assertEqual(parsed["OPENAI_API_KEY"], mask_marker)
                 self.assertEqual(parsed["MODEL_URI"], "mcp://primary/classify")
             finally:
