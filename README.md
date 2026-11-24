@@ -9,6 +9,14 @@
 
 This project provides a multi-layered, microservice-based defense system against sophisticated AI-powered web scrapers and malicious bots.
 
+## What's New Since v0.0.16
+
+- **Pre-Boot & Admin Setup Wizard (`#2000`, `#2001`, `#2002`):** Added a pre-boot `--web` setup UI and an authenticated `/setup` wizard with atomic validation, preserved partial settings, and HTTPS-matched session cookie `Secure` flags.
+- **Admin UI, MFA & MCP Management (`#1998`, `#1999`, `#2004`):** Aligned the Admin UI with IIS warm-paper styling, added an MCP Servers management page and self-service MFA/password enrollment, and returned `503 Service Unavailable` when Redis is unreachable.
+- **Secret Isolation & Least-Privilege Storage (`#1976`–`#1985`):** Added per-service `0400` tmpfs secret staging, an AES-256-GCM encrypted secrets bundle (`secrets_bundle.py`), least-privilege Redis ACLs, a dedicated Postgres runtime role, per-caller service tokens, Compose network segmentation, and container resource limits.
+- **CAPTCHA & Blocklist Hardening (`#1972`, `#1975`, `#1978`, `#1980`, `#2003`):** Hardened the built-in CAPTCHA with server-side one-time challenges and rate limits, unified the blocklist contract across services, and rejected loopback/unspecified IPs from the manual blocklist.
+- **Edge Proxy & Slow-Request Hardening:** Mounted `config/robots.txt` into `nginx_proxy` for Lua `robots.txt` enforcement and tightened `client_header_timeout`, `client_body_timeout`, and `send_timeout` (`10s`) with `reset_timedout_connection on`.
+
 ## Key Features
 
 - **Layered Defense:** Uses a combination of Nginx, Lua, and a suite of Python microservices for defense in depth.
