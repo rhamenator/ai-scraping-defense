@@ -207,7 +207,7 @@ class AdminUiSetupWizardTests(unittest.TestCase):
             "src.admin_ui.mcp_config.get_redis_connection", return_value=self.fake_redis
         ):
             csrf = self.client.get("/setup", headers=self._headers()).cookies.get("csrf_token")
-            for addr in ("127.0.0.1", "::1", "0.0.0.0"):
+            for addr in ("127.0.0.1", "::1", "::"):
                 resp = self.client.post(
                     "/block",
                     headers={**self._headers(), "X-CSRF-Token": csrf},
