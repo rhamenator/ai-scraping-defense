@@ -137,6 +137,23 @@ class AdminUiSetupWizardTests(unittest.TestCase):
             self.assertEqual(dash_after.status_code, 200)
             self.assertNotIn(b"setup-wizard-banner", dash_after.content)
 
+    def test_webauthn_register_begin_returns_503_when_unconfigured(self):
+        with patch.dict(
+            os.environ,
+            {
+                "ADMIN_UI_USERNAME": "setup_wizard_admin",
+                "ADMIN_UI_PASSWORD_HASH": self.pw_hash,
+                "ADMIN_UI_2FA_SECRET": self.totp_secret,
+                "WEBAUTHN_RP_ID": "",
+            },
+            clear=False,
+        ), patch("src.admin_ui.auth.get_redis_connection", return_value=self.fake_redis), patch(
+            "src.admin_ui.mfa.get_redis_connection", return_value=self.fake_redis
+        ):
+            unconfigured = self.client.post("/webauthn/register/begin", headers=self._headers())
+            self.assertEqual(unconfigured.status_code, 503)
+            self.assertIn("WEBAUTHN_RP_ID", unconfigured.json()["detail"])
+
 
 if __name__ == "__main__":
     unittest.main()

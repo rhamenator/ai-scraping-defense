@@ -153,8 +153,12 @@ def _validate_username(username: str, *, detail: str) -> None:
 async def webauthn_register_begin(user: str = Depends(require_auth)):
     """Begin WebAuthn registration and return options."""
     _validate_username(user, detail="Invalid or missing username")
+    try:
+        rp_id = _get_rp_id()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     options = generate_registration_options(
-        rp_id=_get_rp_id(),
+        rp_id=rp_id,
         rp_name="AI Scraping Defense",
         user_id=user.encode(),
         user_name=user,
