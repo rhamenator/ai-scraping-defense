@@ -61,6 +61,7 @@ services:
       - ./nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
       - ./nginx/render_cdn_origin_lockdown.sh:/usr/local/bin/render_cdn_origin_lockdown.sh:ro
       - ./nginx/lua:/etc/nginx/lua:ro
+      - ./config/robots.txt:/etc/nginx/robots.txt:ro
       - ./nginx/certs:/etc/nginx/certs:ro
       - ./nginx/sites-enabled:/etc/nginx/sites-enabled:ro
       - ./nginx/.htpasswd:/etc/nginx/secrets/.htpasswd:ro
