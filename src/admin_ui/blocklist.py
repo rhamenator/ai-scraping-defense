@@ -199,9 +199,15 @@ def _block_request(json_data) -> tuple[str | None, str, JSONResponse | None]:
     if not ip:
         return None, "", JSONResponse({"error": "Invalid request, missing ip"}, status_code=400)
     try:
-        normalized_ip = str(ipaddress.ip_address(ip))
+        parsed_ip = ipaddress.ip_address(ip)
     except ValueError:
         return None, "", JSONResponse({"error": "Invalid ip"}, status_code=400)
+    if parsed_ip.is_loopback or parsed_ip.is_unspecified:
+        return None, "", JSONResponse(
+            {"error": "Refusing to block a loopback or unspecified address"},
+            status_code=400,
+        )
+    normalized_ip = str(parsed_ip)
     if is_trusted_infrastructure_ip(normalized_ip):
         return None, "", JSONResponse(
             {"error": "Refusing to block a configured proxy or CDN address"},

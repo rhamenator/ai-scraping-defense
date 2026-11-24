@@ -192,6 +192,30 @@ class AdminUiSetupWizardTests(unittest.TestCase):
             self.assertEqual(os.environ.get("REAL_BACKEND_HOST"), "https://original.example.com")
             self.assertEqual(os.environ.get("MODEL_URI"), "sklearn:///original.joblib")
 
+    def test_manual_block_rejects_loopback_and_unspecified(self):
+        with patch.dict(
+            os.environ,
+            {
+                "ADMIN_UI_USERNAME": "setup_wizard_admin",
+                "ADMIN_UI_PASSWORD_HASH": self.pw_hash,
+                "ADMIN_UI_2FA_SECRET": self.totp_secret,
+            },
+            clear=False,
+        ), patch("src.admin_ui.auth.get_redis_connection", return_value=self.fake_redis), patch(
+            "src.admin_ui.mfa.get_redis_connection", return_value=self.fake_redis
+        ), patch("src.admin_ui.admin_ui.get_redis_connection", return_value=self.fake_redis), patch(
+            "src.admin_ui.mcp_config.get_redis_connection", return_value=self.fake_redis
+        ):
+            csrf = self.client.get("/setup", headers=self._headers()).cookies.get("csrf_token")
+            for addr in ("127.0.0.1", "::1", "0.0.0.0"):
+                resp = self.client.post(
+                    "/block",
+                    headers={**self._headers(), "X-CSRF-Token": csrf},
+                    cookies={"csrf_token": csrf},
+                    json={"ip": addr, "reason": "test"},
+                )
+                self.assertEqual(resp.status_code, 400, f"addr={addr}")
+
 
 if __name__ == "__main__":
     unittest.main()
