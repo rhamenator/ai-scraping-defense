@@ -669,7 +669,7 @@ async def csp_header(request: Request, call_next):
             session_id,
             max_age=session_ttl,
             httponly=True,
-            secure=True,
+            secure=_request_is_https(request),
             samesite=auth_routes.SESSION_COOKIE_SAMESITE,
             path=auth_routes.SESSION_COOKIE_PATH,
         )
@@ -1208,15 +1208,16 @@ def _apply_setup_wizard_form(form, user: str) -> tuple[str, str]:
     try:
         if backend:
             _validate_url_setting("Protected Backend URL", backend)
-            _set_runtime_setting("REAL_BACKEND_HOST", backend)
-            os.environ["REAL_BACKEND_HOST"] = backend
-        if model_uri:
-            _set_runtime_setting("MODEL_URI", model_uri)
-            os.environ["MODEL_URI"] = model_uri
         captcha = _validate_select_setting("CAPTCHA Provider", captcha, CAPTCHA_PROVIDER_OPTIONS)
         cf_enabled = _normalize_bool_setting("Site Uses Cloudflare", cf_enabled)
     except ValueError as exc:
         return "", str(exc)
+    if backend:
+        _set_runtime_setting("REAL_BACKEND_HOST", backend)
+        os.environ["REAL_BACKEND_HOST"] = backend
+    if model_uri:
+        _set_runtime_setting("MODEL_URI", model_uri)
+        os.environ["MODEL_URI"] = model_uri
     _set_runtime_setting("CAPTCHA_PROVIDER", captcha)
     _set_runtime_setting("CLOUDFLARE_ENABLED", cf_enabled)
     os.environ["CAPTCHA_PROVIDER"] = captcha
