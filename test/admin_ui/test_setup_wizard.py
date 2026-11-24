@@ -154,6 +154,44 @@ class AdminUiSetupWizardTests(unittest.TestCase):
             self.assertEqual(unconfigured.status_code, 503)
             self.assertIn("WEBAUTHN_RP_ID", unconfigured.json()["detail"])
 
+    def test_setup_invalid_captcha_is_atomic_and_http_cookie_omits_secure(self):
+        with patch.dict(
+            os.environ,
+            {
+                "ADMIN_UI_USERNAME": "setup_wizard_admin",
+                "ADMIN_UI_PASSWORD_HASH": self.pw_hash,
+                "ADMIN_UI_2FA_SECRET": self.totp_secret,
+                "REAL_BACKEND_HOST": "https://original.example.com",
+                "MODEL_URI": "sklearn:///original.joblib",
+                "ENABLE_HTTPS": "false",
+                "ADMIN_UI_ALLOW_INSECURE_HTTP": "true",
+            },
+            clear=False,
+        ), patch("src.admin_ui.setup_wizard.get_redis_connection", return_value=self.fake_redis), patch(
+            "src.admin_ui.mcp_config.get_redis_connection", return_value=self.fake_redis
+        ), patch("src.admin_ui.auth.get_redis_connection", return_value=self.fake_redis), patch(
+            "src.admin_ui.mfa.get_redis_connection", return_value=self.fake_redis
+        ), patch("src.admin_ui.admin_ui.get_redis_connection", return_value=self.fake_redis):
+            wizard_get = self.client.get("/setup", headers=self._headers())
+            self.assertEqual(wizard_get.status_code, 200)
+            set_cookie = wizard_get.headers.get("set-cookie", "")
+            self.assertNotIn("; secure", set_cookie.lower())
+            csrf = wizard_get.cookies.get("csrf_token")
+            bad = self.client.post(
+                "/setup",
+                headers=self._headers(),
+                cookies={"csrf_token": csrf},
+                data={
+                    "csrf_token": csrf,
+                    "real_backend_host": "https://changed.example.com",
+                    "model_uri": "mcp://changed/model",
+                    "captcha_provider": "invalid-provider",
+                },
+            )
+            self.assertEqual(bad.status_code, 400)
+            self.assertEqual(os.environ.get("REAL_BACKEND_HOST"), "https://original.example.com")
+            self.assertEqual(os.environ.get("MODEL_URI"), "sklearn:///original.joblib")
+
 
 if __name__ == "__main__":
     unittest.main()

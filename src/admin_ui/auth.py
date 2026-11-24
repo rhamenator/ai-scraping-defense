@@ -388,6 +388,23 @@ def require_auth(
     )
 
 
+def _is_https_request(request: Request | None) -> bool:
+    if os.getenv("ENABLE_HTTPS", "false").strip().lower() == "true":
+        return True
+    if request is None:
+        return False
+    return (
+        request.url.scheme == "https"
+        or request.headers.get("x-forwarded-proto", "").lower() == "https"
+    )
+
+
+def _session_cookie_secure(request: Request | None) -> bool:
+    if os.getenv("ADMIN_UI_ALLOW_INSECURE_HTTP", "false").strip().lower() == "true":
+        return _is_https_request(request)
+    return True
+
+
 def _set_session_cookie(
     response: Response | None,
     request: Request | None,
@@ -408,7 +425,7 @@ def _set_session_cookie(
             session_id,
             max_age=SESSION_TTL,
             httponly=True,
-            secure=True,
+            secure=_session_cookie_secure(request),
             samesite=SESSION_COOKIE_SAMESITE,
             path=SESSION_COOKIE_PATH,
         )
@@ -636,7 +653,7 @@ async def logout(
     response.delete_cookie(
         SESSION_COOKIE_NAME,
         path=SESSION_COOKIE_PATH,
-        secure=True,
+        secure=_session_cookie_secure(request),
         httponly=True,
         samesite=SESSION_COOKIE_SAMESITE,
     )
