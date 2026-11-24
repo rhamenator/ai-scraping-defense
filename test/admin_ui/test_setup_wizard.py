@@ -216,6 +216,22 @@ class AdminUiSetupWizardTests(unittest.TestCase):
                 )
                 self.assertEqual(resp.status_code, 400, f"addr={addr}")
 
+    def test_redis_outage_returns_503_instead_of_500(self):
+        with patch.dict(
+            os.environ,
+            {
+                "ADMIN_UI_USERNAME": "setup_wizard_admin",
+                "ADMIN_UI_PASSWORD_HASH": self.pw_hash,
+                "ADMIN_UI_2FA_SECRET": self.totp_secret,
+            },
+            clear=False,
+        ), patch("src.admin_ui.auth.get_redis_connection", return_value=self.fake_redis), patch(
+            "src.admin_ui.mfa.get_redis_connection", return_value=self.fake_redis
+        ), patch("src.admin_ui.admin_ui.get_redis_connection", return_value=None):
+            resp = self.client.get("/settings", headers=self._headers())
+            self.assertEqual(resp.status_code, 503)
+            self.assertIn("Redis", resp.json()["detail"])
+
 
 if __name__ == "__main__":
     unittest.main()
