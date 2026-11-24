@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
 from redis.exceptions import RedisError
+from tenacity import RetryError
 
 from src.shared.audit import log_event
 from src.shared.config import CONFIG, get_secret, tenant_key
@@ -649,6 +650,25 @@ app.add_middleware(
     allow_methods=_ALLOWED_METHODS,
     allow_headers=_ALLOWED_HEADERS,
 )
+
+
+@app.exception_handler(RedisError)
+@app.exception_handler(RetryError)
+async def _redis_unavailable_handler(_request: Request, _exc: Exception) -> JSONResponse:
+    return JSONResponse(
+        {"detail": "Backing Redis store unavailable"},
+        status_code=503,
+    )
+
+
+@app.exception_handler(RuntimeError)
+async def _runtime_redis_handler(_request: Request, exc: RuntimeError) -> JSONResponse:
+    if "Redis unavailable" in str(exc):
+        return JSONResponse(
+            {"detail": "Backing Redis store unavailable"},
+            status_code=503,
+        )
+    raise exc
 
 DEFAULT_CSP = "default-src 'self'"
 
