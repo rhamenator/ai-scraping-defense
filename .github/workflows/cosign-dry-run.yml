@@ -1,0 +1,109 @@
+name: Cosign Dry Run
+
+# Exercises image signing with the same cosign-installer pin that release-images.yml uses, without publishing
+# anything: a throwaway image goes to a registry that only exists for this job, is signed with a throwaway key,
+# and the signature is verified by the installed cosign AND by an older cosign line that consumers may still run.
+#
+# Dependabot updates every occurrence of the installer pin in one pull request, so a cosign-installer bump
+# arrives with this job already running against the new version.
+#
+# Not covered: keyless signing (Fulcio certificate + Rekor entry). That needs a GitHub OIDC token, which
+# Dependabot and fork pull requests do not receive. Confirm it with the first real release after a major bump:
+#   cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+#     --certificate-identity-regexp '^https://github.com/<owner>/<repo>/\.github/workflows/release-images\.yml@refs/tags/v' \
+#     <image>@<digest>
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/release-images.yml"
+      - ".github/workflows/cosign-dry-run.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # The oldest cosign line that consumers of our images may still run to verify signatures.
+  OLDEST_CONSUMER_COSIGN: v2.6.5
+
+jobs:
+  sign-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Install Cosign (release pin)
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac
+
+      - name: Install the oldest supported consumer Cosign
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac
+        with:
+          cosign-release: ${{ env.OLDEST_CONSUMER_COSIGN }}
+          install-dir: ${{ runner.temp }}/cosign-consumer
+
+      - name: Report versions
+        run: |
+          set -euo pipefail
+          echo "release cosign:"; "$HOME/.cosign/cosign" version | grep GitVersion
+          echo "consumer cosign:"; "${RUNNER_TEMP}/cosign-consumer/cosign" version | grep GitVersion
+
+      - name: Build and push a throwaway image
+        id: image
+        run: |
+          set -euo pipefail
+          printf 'FROM scratch\nLABEL org.opencontainers.image.title=cosign-dry-run\n' \
+            | docker build -q -t localhost:5000/dryrun:test -
+          docker push -q localhost:5000/dryrun:test
+          digest_ref="$(docker inspect --format '{{index .RepoDigests 0}}' localhost:5000/dryrun:test)"
+          echo "ref=${digest_ref}" >> "$GITHUB_OUTPUT"
+
+      - name: Sign with the release Cosign
+        env:
+          COSIGN_PASSWORD: ""
+          IMAGE_REF: ${{ steps.image.outputs.ref }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          "$HOME/.cosign/cosign" generate-key-pair
+          "$HOME/.cosign/cosign" sign --yes --key cosign.key "$IMAGE_REF"
+
+      - name: Verify with the release Cosign
+        env:
+          IMAGE_REF: ${{ steps.image.outputs.ref }}
+        run: |
+          set -euo pipefail
+          "$HOME/.cosign/cosign" verify --key "$RUNNER_TEMP/cosign.pub" "$IMAGE_REF"
+
+      - name: Verify with the oldest supported consumer Cosign
+        env:
+          IMAGE_REF: ${{ steps.image.outputs.ref }}
+        run: |
+          set -euo pipefail
+          "${RUNNER_TEMP}/cosign-consumer/cosign" verify --key "$RUNNER_TEMP/cosign.pub" "$IMAGE_REF" || {
+            echo "::error::Signatures from the release Cosign cannot be verified by ${OLDEST_CONSUMER_COSIGN}. Consumers on that line would be unable to verify our images; decide whether to accept that and document it before merging."
+            exit 1
+          }
+
+      - name: Adversarial check - a tampered digest must NOT verify
+        env:
+          IMAGE_REF: ${{ steps.image.outputs.ref }}
+        run: |
+          set -euo pipefail
+          printf 'FROM scratch\nLABEL org.opencontainers.image.title=unsigned-impostor\n' \
+            | docker build -q -t localhost:5000/dryrun:impostor -
+          docker push -q localhost:5000/dryrun:impostor
+          impostor="$(docker inspect --format '{{index .RepoDigests 0}}' localhost:5000/dryrun:impostor)"
+          test "$impostor" != "$IMAGE_REF"
+          if "$HOME/.cosign/cosign" verify --key "$RUNNER_TEMP/cosign.pub" "$impostor"; then
+            echo "::error::An unsigned image verified successfully; signature verification is not enforcing anything."
+            exit 1
+          fi
+          echo "unsigned image correctly rejected"
