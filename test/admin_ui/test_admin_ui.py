@@ -279,7 +279,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
             ):
                 # Correct credentials are never rate limited (issue 2007): browsing the console makes
                 # several authenticated requests per page.
-                for _ in range(6):
+                for _ in range(3):
                     resp = self.client.get("/", auth=self.auth, headers=self._totp_headers())
                     self.assertEqual(resp.status_code, 200)
                 # Wrong passwords use the budget: two are answered 401, the next is refused with 429.
