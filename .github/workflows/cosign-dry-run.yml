@@ -41,11 +41,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
+      - name: Guard - the dry run must test the pin the release uses
+        run: |
+          set -euo pipefail
+          pin_re='sigstore/cosign-installer@[0-9a-f]{40}'
+          release_pins="$(grep -ohE "$pin_re" .github/workflows/release-images.yml | sort -u)"
+          dry_pins="$(grep -ohE "$pin_re" .github/workflows/cosign-dry-run.yml | sort -u)"
+          if [ -z "$release_pins" ] || [ "$release_pins" != "$dry_pins" ]; then
+            echo "::error::cosign-dry-run.yml and release-images.yml pin different cosign-installer versions, so this job would not test what a release uses. Release: ${release_pins:-none}; dry run: ${dry_pins:-none}."
+            exit 1
+          fi
+
       - name: Install Cosign (release pin)
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532
 
       - name: Install the oldest supported consumer Cosign
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532
         with:
           cosign-release: ${{ env.OLDEST_CONSUMER_COSIGN }}
           install-dir: ${{ runner.temp }}/cosign-consumer
