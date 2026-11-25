@@ -9,6 +9,12 @@
 
 This project provides a multi-layered, microservice-based defense system against sophisticated AI-powered web scrapers and malicious bots.
 
+## What's New Since v0.0.18
+
+- **Admin UI sign-in rate limit counts failures only (`#2007`, `#2008`):** Successful sign-ins no longer consume the `ADMIN_UI_RATE_LIMIT` budget, so an operator moving between pages is not locked out. Failed attempts are still counted atomically per client, so brute-force protection is unchanged.
+- **Release signing gate (`#1993`, `#2009`):** A new dry-run workflow signs and verifies a throwaway image whenever the release workflow changes, and the release signer moves to the cosign 4 installer.
+- **Dependency refresh:** Updated `requests`, `evaluate`, `opentelemetry-sdk`, `pre-commit`, `rand` and `regex`, and the CI actions for dependency review, Trivy, GitHub Script and Docker login.
+
 ## What's New Since v0.0.16
 
 - **Pre-Boot & Admin Setup Wizard (`#2000`, `#2001`, `#2002`):** Added a pre-boot `--web` setup UI and an authenticated `/setup` wizard with atomic validation, preserved partial settings, and HTTPS-matched session cookie `Secure` flags.
