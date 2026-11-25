@@ -238,6 +238,10 @@ class TestAdminUIComprehensive(unittest.TestCase):
                 self.store[key] = self.store.get(key, 0) + 1
                 return self.store[key]
 
+            def decr(self, key):
+                self.store[key] = self.store.get(key, 0) - 1
+                return self.store[key]
+
             def expire(self, key, ttl):
                 pass
 
@@ -290,6 +294,84 @@ class TestAdminUIComprehensive(unittest.TestCase):
                 # While the address is over budget even the right password waits, so guessing cannot continue.
                 resp = self.client.get("/", auth=self.auth, headers=self._totp_headers())
                 self.assertEqual(resp.status_code, 429)
+
+    def test_auth_reserves_the_failure_slot_before_the_password_check(self):
+        """The slot is taken atomically before bcrypt runs, so concurrent guesses cannot all pass the check."""
+
+        class MockRedis:
+            def __init__(self):
+                self.store = {}
+                self.lists = {}
+
+            def incr(self, key):
+                self.store[key] = self.store.get(key, 0) + 1
+                return self.store[key]
+
+            def decr(self, key):
+                self.store[key] = self.store.get(key, 0) - 1
+                return self.store[key]
+
+            def expire(self, key, ttl):
+                pass
+
+            def set(self, key, value, ex=None):
+                self.store[key] = value
+
+            def get(self, key):
+                return self.store.get(key)
+
+            def delete(self, key):
+                self.store.pop(key, None)
+                self.lists.pop(key, None)
+
+            def lpush(self, key, value):
+                self.lists.setdefault(key, []).insert(0, value)
+                return len(self.lists[key])
+
+            def lrange(self, key, start, end):
+                items = self.lists.get(key, [])
+                if end == -1:
+                    end = len(items) - 1
+                return items[start : end + 1]
+
+            def ltrim(self, key, start, end):
+                items = self.lists.get(key, [])
+                if end == -1:
+                    end = len(items) - 1
+                self.lists[key] = items[start : end + 1]
+
+        mock_redis = MockRedis()
+        seen_during_check = []
+        real_checkpw = auth.bcrypt.checkpw
+
+        def spying_checkpw(password, hashed):
+            seen_during_check.append(
+                max(
+                    (v for k, v in mock_redis.store.items() if k.startswith("admin_ui:auth:")),
+                    default=0,
+                )
+            )
+            return real_checkpw(password, hashed)
+
+        with patch("src.admin_ui.auth.get_redis_connection", return_value=mock_redis):
+            with patch.object(auth.bcrypt, "checkpw", spying_checkpw):
+                with patch.dict(os.environ, {"ADMIN_UI_RATE_LIMIT": "5"}):
+                    self.client.get(
+                        "/", auth=self.auth, headers=self._totp_headers()
+                    )
+                    self.assertEqual(seen_during_check[0], 1)
+                    # a correct password hands the slot back; a wrong one keeps it
+                    self.assertEqual(
+                        max(v for k, v in mock_redis.store.items() if k.startswith("admin_ui:auth:")),
+                        0,
+                    )
+                    self.client.get(
+                        "/", auth=("admin", "wrong"), headers=self._totp_headers()
+                    )
+                    self.assertEqual(
+                        max(v for k, v in mock_redis.store.items() if k.startswith("admin_ui:auth:")),
+                        1,
+                    )
 
     def test_auth_lockout_after_failures(self):
         class MockRedis:

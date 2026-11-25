@@ -132,13 +132,10 @@ def _rate_key(client_ip: str) -> str:
     return f"admin_ui:auth:{client_ip}"
 
 
-def _record_rate_failure(redis_conn, client_ip: str, window: int) -> None:
-    """Count one failed sign-in against this address for the rate-limit window."""
-    if not redis_conn:
-        return
+def _release_rate_slot(redis_conn, client_ip: str) -> None:
+    """Hand back the slot reserved for a sign-in whose password was correct."""
     try:
-        if redis_conn.incr(_rate_key(client_ip)) == 1:
-            redis_conn.expire(_rate_key(client_ip), window)
+        redis_conn.decr(_rate_key(client_ip))
     except RedisError:
         pass
 
@@ -310,6 +307,7 @@ def _require_auth_core(
             headers={"WWW-Authenticate": "Basic"},
         )
 
+    rate_slot = False
     if redis_conn:
         try:
             if redis_conn.get(_lockout_key(credentials.username)):
@@ -328,10 +326,15 @@ def _require_auth_core(
             pass
         # The per-address budget counts FAILED sign-ins only (issue 2007): a correct password is never rate limited,
         # so browsing the console (several authenticated requests per page) cannot lock the operator out, while
-        # password guessing is still stopped after ADMIN_UI_RATE_LIMIT wrong attempts per window.
+        # password guessing is still stopped after ADMIN_UI_RATE_LIMIT wrong attempts per window. A slot is reserved
+        # with one atomic INCR before the (slow) password check, so a burst of concurrent guesses is counted at
+        # once; the slot is handed back when the password turns out to be correct.
         try:
-            failures = int(_decode_redis(redis_conn.get(_rate_key(client_ip))) or 0)
-            if failures >= rate_limit:
+            reserved = redis_conn.incr(_rate_key(client_ip))
+            if reserved == 1:
+                redis_conn.expire(_rate_key(client_ip), rate_window)
+            if reserved > rate_limit:
+                redis_conn.decr(_rate_key(client_ip))
                 log_event(
                     credentials.username,
                     "admin_ui_auth_rate_limited",
@@ -339,9 +342,10 @@ def _require_auth_core(
                 )
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="Too many failed sign-in attempts. Try again in a minute.",
+                    detail="Too many failed sign-ins. Try again in a minute.",
                     headers={"Retry-After": str(rate_window)},
                 )
+            rate_slot = True
         except RedisError:
             pass
 
@@ -359,7 +363,6 @@ def _require_auth_core(
     if not valid:
         LOGIN_ATTEMPTS.labels(result="failure").inc()
         _record_failed_attempt(redis_conn, credentials.username)
-        _record_rate_failure(redis_conn, client_ip, rate_window)
         log_event(
             credentials.username,
             "admin_ui_auth_failed",
@@ -367,6 +370,8 @@ def _require_auth_core(
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
     LOGIN_ATTEMPTS.labels(result="success").inc()
+    if rate_slot:
+        _release_rate_slot(redis_conn, client_ip)
     if request is not None:
         request.state.admin_ui_auth_provider = "basic"
         request.state.admin_ui_roles = {ADMIN_UI_ROLE}
