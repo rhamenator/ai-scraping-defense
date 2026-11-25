@@ -1,8 +1,9 @@
 name: Cosign Dry Run
 
 # Exercises image signing with the same cosign-installer pin that release-images.yml uses, without publishing
-# anything: a throwaway image goes to a registry that only exists for this job, is signed with a throwaway key,
-# and the signature is verified by the installed cosign AND by an older cosign line that consumers may still run.
+# anything: a throwaway image goes to a registry that only exists for this job, is signed with a throwaway key
+# (transparency-log upload disabled, so nothing reaches Rekor), and the signature is verified by the installed
+# cosign AND by an older cosign line that consumers may still run.
 #
 # Dependabot updates every occurrence of the installer pin in one pull request, so a cosign-installer bump
 # arrives with this job already running against the new version.
@@ -65,29 +66,38 @@ jobs:
           digest_ref="$(docker inspect --format '{{index .RepoDigests 0}}' localhost:5000/dryrun:test)"
           echo "ref=${digest_ref}" >> "$GITHUB_OUTPUT"
 
-      - name: Sign with the release Cosign
+      - name: Sign with the release Cosign (no transparency log)
         env:
           COSIGN_PASSWORD: ""
           IMAGE_REF: ${{ steps.image.outputs.ref }}
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          "$HOME/.cosign/cosign" generate-key-pair
-          "$HOME/.cosign/cosign" sign --yes --key cosign.key "$IMAGE_REF"
+          cosign_bin="$HOME/.cosign/cosign"
+          "$cosign_bin" generate-key-pair
+          major="$("$cosign_bin" version | awk '/GitVersion/ {v=$2; sub(/^v/, "", v); split(v, a, "."); print a[1]}')"
+          flags=(--yes --key cosign.key --tlog-upload=false)
+          # cosign 3 refuses --tlog-upload=false while its default signing config (which includes Rekor) is active.
+          if [ "$major" -ge 3 ]; then flags+=(--use-signing-config=false); fi
+          "$cosign_bin" sign "${flags[@]}" "$IMAGE_REF" 2>&1 | tee sign.log
+          if grep -qi 'tlog entry created' sign.log; then
+            echo "::error::The dry run uploaded a signature to a public transparency log; it must publish nothing."
+            exit 1
+          fi
 
       - name: Verify with the release Cosign
         env:
           IMAGE_REF: ${{ steps.image.outputs.ref }}
         run: |
           set -euo pipefail
-          "$HOME/.cosign/cosign" verify --key "$RUNNER_TEMP/cosign.pub" "$IMAGE_REF"
+          "$HOME/.cosign/cosign" verify --key "$RUNNER_TEMP/cosign.pub" --insecure-ignore-tlog=true "$IMAGE_REF"
 
       - name: Verify with the oldest supported consumer Cosign
         env:
           IMAGE_REF: ${{ steps.image.outputs.ref }}
         run: |
           set -euo pipefail
-          "${RUNNER_TEMP}/cosign-consumer/cosign" verify --key "$RUNNER_TEMP/cosign.pub" "$IMAGE_REF" || {
+          "${RUNNER_TEMP}/cosign-consumer/cosign" verify --key "$RUNNER_TEMP/cosign.pub" --insecure-ignore-tlog=true "$IMAGE_REF" || {
             echo "::error::Signatures from the release Cosign cannot be verified by ${OLDEST_CONSUMER_COSIGN}. Consumers on that line would be unable to verify our images; decide whether to accept that and document it before merging."
             exit 1
           }
@@ -102,7 +112,7 @@ jobs:
           docker push -q localhost:5000/dryrun:impostor
           impostor="$(docker inspect --format '{{index .RepoDigests 0}}' localhost:5000/dryrun:impostor)"
           test "$impostor" != "$IMAGE_REF"
-          if "$HOME/.cosign/cosign" verify --key "$RUNNER_TEMP/cosign.pub" "$impostor"; then
+          if "$HOME/.cosign/cosign" verify --key "$RUNNER_TEMP/cosign.pub" --insecure-ignore-tlog=true "$impostor"; then
             echo "::error::An unsigned image verified successfully; signature verification is not enforcing anything."
             exit 1
           fi
