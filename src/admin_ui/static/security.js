@@ -1,3 +1,9 @@
+// Error bodies are either {"error": "text"}, {"detail": "text"} or {"error": {"message": "text"}, "detail": "text"}; never print an object.
+function errorText(payload, fallback) {
+    const pick = (v) => (typeof v === 'string' && v ? v : (v && typeof v.message === 'string' && v.message ? v.message : ''));
+    return pick(payload && payload.detail) || pick(payload && payload.error) || fallback;
+}
+
 // Security page: TOTP QR enrollment, Passkey enrollment, backup codes, and password change.
 const csrfToken = () => {
     const meta = document.querySelector('meta[name="csrf-token"]');
@@ -70,7 +76,7 @@ async function post(path, body) {
     let payload = {};
     try { payload = await response.json(); } catch (_e) { /* non-JSON error body */ }
     if (!response.ok) {
-        throw new Error(payload.detail || payload.error || `Request failed (${response.status}).`);
+        throw new Error(errorText(payload, `Request failed (${response.status}).`));
     }
     return payload;
 }

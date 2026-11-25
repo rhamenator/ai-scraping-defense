@@ -1,4 +1,5 @@
 import hmac
+import logging
 import os
 import secrets
 
@@ -25,6 +26,8 @@ from src.shared.redis_client import get_redis_connection
 from src.shared.request_identity import resolve_request_identity
 
 from . import mfa, passkeys, sso
+
+logger = logging.getLogger(__name__)
 
 security = HTTPBasic(auto_error=False)
 router = APIRouter()
@@ -126,6 +129,22 @@ def _clear_session(redis_conn, session_id: str | None) -> None:
             redis_conn.lrem(index_key, 0, session_id)
     except RedisError:
         return
+
+
+def _rate_key(client_ip: str) -> str:
+    return f"admin_ui:auth:{client_ip}"
+
+
+def _release_rate_slot(redis_conn, client_ip: str) -> None:
+    """Hand back the slot reserved for a sign-in whose password was correct.
+
+    Best effort: if the release fails the only cost is one unused slot until the window expires, and a correct
+    sign-in must never fail because of bookkeeping (the same reason the reservation itself ignores Redis errors).
+    """
+    try:
+        redis_conn.decr(_rate_key(client_ip))
+    except Exception:  # noqa: BLE001 - bookkeeping only; see the docstring
+        logger.debug("Could not release the Admin UI rate-limit slot", exc_info=True)
 
 
 def _record_failed_attempt(redis_conn, username: str) -> None:
@@ -295,6 +314,7 @@ def _require_auth_core(
             headers={"WWW-Authenticate": "Basic"},
         )
 
+    rate_slot = False
     if redis_conn:
         try:
             if redis_conn.get(_lockout_key(credentials.username)):
@@ -311,12 +331,17 @@ def _require_auth_core(
                 )
         except RedisError:
             pass
-        key = f"admin_ui:auth:{client_ip}"
+        # The per-address budget counts FAILED sign-ins only (issue 2007): a correct password is never rate limited,
+        # so browsing the console (several authenticated requests per page) cannot lock the operator out, while
+        # password guessing is still stopped after ADMIN_UI_RATE_LIMIT wrong attempts per window. A slot is reserved
+        # with one atomic INCR before the (slow) password check, so a burst of concurrent guesses is counted at
+        # once; the slot is handed back when the password turns out to be correct.
         try:
-            count = redis_conn.incr(key)
-            if count == 1:
-                redis_conn.expire(key, rate_window)
-            if count > rate_limit:
+            reserved = redis_conn.incr(_rate_key(client_ip))
+            if reserved == 1:
+                redis_conn.expire(_rate_key(client_ip), rate_window)
+            if reserved > rate_limit:
+                redis_conn.decr(_rate_key(client_ip))
                 log_event(
                     credentials.username,
                     "admin_ui_auth_rate_limited",
@@ -324,8 +349,10 @@ def _require_auth_core(
                 )
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="Too many authentication attempts",
+                    detail="Too many failed sign-ins. Try again in a minute.",
+                    headers={"Retry-After": str(rate_window)},
                 )
+            rate_slot = True
         except RedisError:
             pass
 
@@ -350,6 +377,8 @@ def _require_auth_core(
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, headers=headers)
     LOGIN_ATTEMPTS.labels(result="success").inc()
+    if rate_slot:
+        _release_rate_slot(redis_conn, client_ip)
     if request is not None:
         request.state.admin_ui_auth_provider = "basic"
         request.state.admin_ui_roles = {ADMIN_UI_ROLE}
