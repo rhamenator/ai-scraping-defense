@@ -62,7 +62,7 @@ mcp>=2.3.0,<3
 transformers>=4.38,<6.0
 datasets>=5.0.1,<6.0
 fsspec[http]>=2026.6.0,<2027.0
-evaluate>=0.4,<1.0
+evaluate>=0.4.6,<1.0
 
 # Local LLM Libraries
 ollama~=0.6
