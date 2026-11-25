@@ -1,4 +1,5 @@
 import hmac
+import logging
 import os
 import secrets
 
@@ -25,6 +26,8 @@ from src.shared.redis_client import get_redis_connection
 from src.shared.request_identity import resolve_request_identity
 
 from . import mfa, passkeys, sso
+
+logger = logging.getLogger(__name__)
 
 security = HTTPBasic(auto_error=False)
 router = APIRouter()
@@ -133,11 +136,15 @@ def _rate_key(client_ip: str) -> str:
 
 
 def _release_rate_slot(redis_conn, client_ip: str) -> None:
-    """Hand back the slot reserved for a sign-in whose password was correct."""
+    """Hand back the slot reserved for a sign-in whose password was correct.
+
+    Best effort: if the release fails the only cost is one unused slot until the window expires, and a correct
+    sign-in must never fail because of bookkeeping (the same reason the reservation itself ignores Redis errors).
+    """
     try:
         redis_conn.decr(_rate_key(client_ip))
-    except RedisError:
-        pass
+    except Exception:  # noqa: BLE001 - bookkeeping only; see the docstring
+        logger.debug("Could not release the Admin UI rate-limit slot", exc_info=True)
 
 
 def _record_failed_attempt(redis_conn, username: str) -> None:
