@@ -721,11 +721,17 @@ function renderBlocklist() {
     }
 }
 
+// Error bodies are either {"error": "text"}, {"detail": "text"} or {"error": {"message": "text"}, "detail": "text"}; never print an object.
+function errorText(payload, fallback) {
+    const pick = (v) => (typeof v === 'string' && v ? v : (v && typeof v.message === 'string' && v.message ? v.message : ''));
+    return pick(payload && payload.detail) || pick(payload && payload.error) || fallback;
+}
+
 async function fetchBlocklist() {
     try {
         const response = await fetch('/blocklist', { credentials: 'same-origin' });
         const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error || 'The blocklist could not be loaded.');
+        if (!response.ok) throw new Error(errorText(payload, 'The blocklist could not be loaded.'));
         blockedAddresses = payload.map(String).sort();
         renderBlocklist();
     } catch (err) {
@@ -737,7 +743,7 @@ async function readChangeResponse(response) {
     let payload = {};
     try { payload = await response.json(); } catch (e) { /* non-JSON error body */ }
     if (!response.ok) {
-        throw new Error(payload.error || payload.detail || `Request failed (${response.status}).`);
+        throw new Error(errorText(payload, `Request failed (${response.status}).`));
     }
     return payload;
 }

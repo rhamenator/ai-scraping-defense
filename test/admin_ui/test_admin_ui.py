@@ -228,7 +228,7 @@ class TestAdminUIComprehensive(unittest.TestCase):
             response.headers.get("content-security-policy"), "default-src 'self'"
         )
 
-    def test_auth_rate_limit_blocks_excess_requests(self):
+    def test_auth_rate_limit_counts_only_failed_attempts(self):
         class MockRedis:
             def __init__(self):
                 self.store = {}
@@ -268,16 +268,27 @@ class TestAdminUIComprehensive(unittest.TestCase):
                 self.lists[key] = items[start : end + 1]
 
         mock_redis = MockRedis()
-        headers = self._totp_headers()
         with patch("src.admin_ui.auth.get_redis_connection", return_value=mock_redis):
             with patch.dict(
                 os.environ,
                 {"ADMIN_UI_RATE_LIMIT": "2", "ADMIN_UI_RATE_LIMIT_WINDOW": "60"},
             ):
-                for _ in range(2):
-                    resp = self.client.get("/", auth=self.auth, headers=headers)
+                # Correct credentials are never rate limited (issue 2007): browsing the console makes
+                # several authenticated requests per page.
+                for _ in range(6):
+                    resp = self.client.get("/", auth=self.auth, headers=self._totp_headers())
                     self.assertEqual(resp.status_code, 200)
-                resp = self.client.get("/", auth=self.auth, headers=headers)
+                # Wrong passwords use the budget: two are answered 401, the next is refused with 429.
+                for _ in range(2):
+                    resp = self.client.get(
+                        "/", auth=("admin", "wrong"), headers=self._totp_headers()
+                    )
+                    self.assertEqual(resp.status_code, 401)
+                resp = self.client.get("/", auth=("admin", "wrong"), headers=self._totp_headers())
+                self.assertEqual(resp.status_code, 429)
+                self.assertIn("Retry-After", resp.headers)
+                # While the address is over budget even the right password waits, so guessing cannot continue.
+                resp = self.client.get("/", auth=self.auth, headers=self._totp_headers())
                 self.assertEqual(resp.status_code, 429)
 
     def test_auth_lockout_after_failures(self):
